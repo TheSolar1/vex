@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Déconnexion - VEX</title>
+<link rel="icon" href="/static/img/favicon.ico" type="image/svg+xml">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(135deg,#4caf50 0%,#45a049 100%);min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px}
+.card{background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:100%;max-width:380px;padding:48px 40px;text-align:center;animation:fadeIn .4s ease-out}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
+.icon{width:56px;height:56px;margin:0 auto 24px;border-radius:50%;background:#e8f5e9;display:flex;align-items:center;justify-content:center}
+.icon svg{width:28px;height:28px;stroke:#4caf50;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+h1{font-size:20px;font-weight:700;color:#1c1e21;margin-bottom:8px}
+p{font-size:14px;color:#65676b;margin-bottom:32px;line-height:1.5}
+.progress{height:3px;background:#e4e6eb;border-radius:2px;overflow:hidden;margin-bottom:24px}
+.progress-bar{height:100%;background:linear-gradient(90deg,#4caf50,#45a049);border-radius:2px;width:0%;transition:width 2.8s linear}
+.btn{display:inline-block;padding:10px 24px;background:#4caf50;color:white;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;transition:all .2s}
+.btn:hover{background:#45a049;transform:translateY(-1px)}
+</style>
+</head>
+<body>
+<div class="card">
+    <div class="icon">
+        <!-- Icône "verrou ouvert" SVG inline — pas de dépendance externe -->
+        <svg viewBox="0 0 24 24">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+        </svg>
+    </div>
+    <h1>Déconnexion en cours…</h1>
+    <p>Votre session a été fermée.<br>Redirection vers la page de connexion.</p>
+    <div class="progress"><div class="progress-bar" id="bar"></div></div>
+    <a href="/login/login" class="btn">Se reconnecter maintenant</a>
+</div>
+
+<script>
+    // Efface le mdp en clair de la mémoire JS si VEX est chargé
+    if (typeof VEX !== 'undefined' && VEX.clearSession) {
+        VEX.clearSession();
+    }
+
+    // Lance la barre de progression puis redirige
+    requestAnimationFrame(function() {
+        document.getElementById('bar').style.width = '100%';
+    });
+
+    setTimeout(function() {
+        window.location.replace('/login/login');
+    }, 3000);
+</script>
+</body>
+</html>

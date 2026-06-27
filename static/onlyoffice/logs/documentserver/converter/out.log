@@ -1,0 +1,194 @@
+[2026-03-12T16:00:45.616] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-12T16:00:45.620] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-12T16:00:45.629] [WARN] [localhost] [docId] [userId] nodeJS - worker 964 started.
+[2026-03-12T16:00:45.632] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-12T16:00:45.633] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-12T16:01:30.172] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-12T16:01:30.177] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-12T16:01:30.187] [WARN] [localhost] [docId] [userId] nodeJS - worker 1345 started.
+[2026-03-12T16:01:30.188] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-12T16:01:30.189] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-12T20:28:33.432] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-12T20:28:33.437] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-12T20:28:33.449] [WARN] [localhost] [docId] [userId] nodeJS - worker 897 started.
+[2026-03-12T20:28:33.450] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-12T20:28:33.451] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-12T20:29:21.251] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-12T20:29:21.254] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-12T20:29:21.263] [WARN] [localhost] [docId] [userId] nodeJS - worker 1221 started.
+[2026-03-12T20:29:21.265] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-12T20:29:21.266] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-13T09:50:20.147] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-13T09:50:20.153] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-13T09:50:20.165] [WARN] [localhost] [docId] [userId] nodeJS - worker 916 started.
+[2026-03-13T09:50:20.167] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-13T09:50:20.167] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-13T09:51:04.261] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-13T09:51:04.264] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-13T09:51:04.273] [WARN] [localhost] [docId] [userId] nodeJS - worker 1223 started.
+[2026-03-13T09:51:04.274] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-13T09:51:04.275] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-13T17:46:12.757] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-13T17:46:12.761] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-13T17:46:12.771] [WARN] [localhost] [docId] [userId] nodeJS - worker 871 started.
+[2026-03-13T17:46:12.772] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-13T17:46:12.773] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-13T17:47:29.062] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-13T17:47:29.068] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-13T17:47:29.085] [WARN] [localhost] [docId] [userId] nodeJS - worker 1157 started.
+[2026-03-13T17:47:29.087] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-13T17:47:29.087] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-13T18:03:48.683] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-13T18:03:48.688] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-13T18:03:48.698] [WARN] [localhost] [docId] [userId] nodeJS - worker 918 started.
+[2026-03-13T18:03:48.700] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-13T18:03:48.701] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-13T18:04:51.250] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-13T18:04:51.255] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-13T18:04:51.271] [WARN] [localhost] [docId] [userId] nodeJS - worker 1325 started.
+[2026-03-13T18:04:51.272] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-13T18:04:51.273] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T09:38:41.161] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T09:38:41.164] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T09:38:41.173] [WARN] [localhost] [docId] [userId] nodeJS - worker 893 started.
+[2026-03-14T09:38:41.176] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T09:38:41.177] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T09:39:20.948] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T09:39:20.951] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T09:39:20.958] [WARN] [localhost] [docId] [userId] nodeJS - worker 1221 started.
+[2026-03-14T09:39:20.959] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T09:39:20.960] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T10:34:55.112] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T10:34:55.117] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T10:34:55.125] [WARN] [localhost] [docId] [userId] nodeJS - worker 910 started.
+[2026-03-14T10:34:55.127] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T10:34:55.128] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T10:35:36.706] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T10:35:36.709] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T10:35:36.719] [WARN] [localhost] [docId] [userId] nodeJS - worker 1269 started.
+[2026-03-14T10:35:36.721] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T10:35:36.722] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T10:41:56.087] [ERROR] [localhost] [doc_8_0115aea2] [3] nodeJS - error downloadFile:url=http://wamp/edite1/serve-doc.php?id=8;attempt=1;code:undefined;connect:undefined Error: DNS lookup 192.168.1.16(family:4, host:wamp) is not allowed. Because, It is private IP address.
+    at Function.from (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at RedirectableRequest.handleRequestError (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at RedirectableRequest.emit (node:events:536:35)
+    at ClientRequest.<anonymous> (/snapshot/server/Common/node_modules/follow-redirects/index.js:49:24)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at Socket.socketErrorListener (node:_http_client:504:5)
+    at Socket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at Axios.request (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.downloadUrlPromise (/snapshot/server/Common/sources/utils.js)
+[2026-03-14T10:41:57.095] [ERROR] [localhost] [doc_8_0115aea2] [3] nodeJS - error downloadFile:url=http://wamp/edite1/serve-doc.php?id=8;attempt=2;code:undefined;connect:undefined Error: DNS lookup 192.168.1.16(family:4, host:wamp) is not allowed. Because, It is private IP address.
+    at Function.from (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at RedirectableRequest.handleRequestError (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at RedirectableRequest.emit (node:events:536:35)
+    at ClientRequest.<anonymous> (/snapshot/server/Common/node_modules/follow-redirects/index.js:49:24)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at Socket.socketErrorListener (node:_http_client:504:5)
+    at Socket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at Axios.request (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.downloadUrlPromise (/snapshot/server/Common/sources/utils.js)
+[2026-03-14T10:41:58.098] [ERROR] [localhost] [doc_8_0115aea2] [3] nodeJS - error downloadFile:url=http://wamp/edite1/serve-doc.php?id=8;attempt=3;code:undefined;connect:undefined Error: DNS lookup 192.168.1.16(family:4, host:wamp) is not allowed. Because, It is private IP address.
+    at Function.from (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at RedirectableRequest.handleRequestError (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at RedirectableRequest.emit (node:events:536:35)
+    at ClientRequest.<anonymous> (/snapshot/server/Common/node_modules/follow-redirects/index.js:49:24)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at Socket.socketErrorListener (node:_http_client:504:5)
+    at Socket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at Axios.request (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.downloadUrlPromise (/snapshot/server/Common/sources/utils.js)
+[2026-03-14T10:42:13.211] [ERROR] [localhost] [doc_8_0115aea2] [3] nodeJS - error downloadFile:url=http://wamp/edite1/serve-doc.php?id=8;attempt=1;code:undefined;connect:undefined Error: DNS lookup 192.168.1.16(family:4, host:wamp) is not allowed. Because, It is private IP address.
+    at Function.from (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at RedirectableRequest.handleRequestError (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at RedirectableRequest.emit (node:events:536:35)
+    at ClientRequest.<anonymous> (/snapshot/server/Common/node_modules/follow-redirects/index.js:49:24)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at Socket.socketErrorListener (node:_http_client:504:5)
+    at Socket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at Axios.request (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.downloadUrlPromise (/snapshot/server/Common/sources/utils.js)
+[2026-03-14T10:42:14.215] [ERROR] [localhost] [doc_8_0115aea2] [3] nodeJS - error downloadFile:url=http://wamp/edite1/serve-doc.php?id=8;attempt=2;code:undefined;connect:undefined Error: DNS lookup 192.168.1.16(family:4, host:wamp) is not allowed. Because, It is private IP address.
+    at Function.from (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at RedirectableRequest.handleRequestError (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at RedirectableRequest.emit (node:events:536:35)
+    at ClientRequest.<anonymous> (/snapshot/server/Common/node_modules/follow-redirects/index.js:49:24)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at Socket.socketErrorListener (node:_http_client:504:5)
+    at Socket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at Axios.request (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.downloadUrlPromise (/snapshot/server/Common/sources/utils.js)
+[2026-03-14T10:42:15.224] [ERROR] [localhost] [doc_8_0115aea2] [3] nodeJS - error downloadFile:url=http://wamp/edite1/serve-doc.php?id=8;attempt=3;code:undefined;connect:undefined Error: DNS lookup 192.168.1.16(family:4, host:wamp) is not allowed. Because, It is private IP address.
+    at Function.from (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at RedirectableRequest.handleRequestError (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at RedirectableRequest.emit (node:events:536:35)
+    at ClientRequest.<anonymous> (/snapshot/server/Common/node_modules/follow-redirects/index.js:49:24)
+    at ClientRequest.emit (node:events:524:28)
+    at emitErrorEvent (node:_http_client:101:11)
+    at Socket.socketErrorListener (node:_http_client:504:5)
+    at Socket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at Axios.request (/snapshot/server/Common/node_modules/axios/dist/node/axios.cjs)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.downloadUrlPromise (/snapshot/server/Common/sources/utils.js)
+[2026-03-14T11:47:21.657] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T11:47:21.662] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T11:47:21.671] [WARN] [localhost] [docId] [userId] nodeJS - worker 910 started.
+[2026-03-14T11:47:21.673] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T11:47:21.673] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T11:48:04.807] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T11:48:04.810] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T11:48:04.821] [WARN] [localhost] [docId] [userId] nodeJS - worker 1285 started.
+[2026-03-14T11:48:04.822] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T11:48:04.822] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T13:57:52.062] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T13:57:52.066] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T13:57:52.074] [WARN] [localhost] [docId] [userId] nodeJS - worker 939 started.
+[2026-03-14T13:57:52.077] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T13:57:52.077] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T13:58:37.455] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T13:58:37.458] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T13:58:37.466] [WARN] [localhost] [docId] [userId] nodeJS - worker 1243 started.
+[2026-03-14T13:58:37.467] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T13:58:37.468] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T14:42:49.281] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T14:42:49.287] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T14:42:49.297] [WARN] [localhost] [docId] [userId] nodeJS - worker 906 started.
+[2026-03-14T14:42:49.299] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T14:42:49.300] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T14:43:52.943] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T14:43:52.947] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-03-14T14:43:52.958] [WARN] [localhost] [docId] [userId] nodeJS - worker 1336 started.
+[2026-03-14T14:43:52.959] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-03-14T14:43:52.960] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-04-11T11:23:28.395] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-04-11T11:23:28.400] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-04-11T11:23:28.408] [WARN] [localhost] [docId] [userId] nodeJS - worker 951 started.
+[2026-04-11T11:23:28.409] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-04-11T11:23:28.410] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-04-11T11:24:29.176] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-04-11T11:24:29.180] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers
+[2026-04-11T11:24:29.189] [WARN] [localhost] [docId] [userId] nodeJS - worker 1306 started.
+[2026-04-11T11:24:29.191] [WARN] [localhost] [docId] [userId] nodeJS - num of CPUs: 12; availableParallelism: 12
+[2026-04-11T11:24:29.191] [WARN] [localhost] [docId] [userId] nodeJS - update cluster with 1 workers

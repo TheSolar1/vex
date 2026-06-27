@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="__LANG__" data-theme="__THEME__">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Administration - VEX</title>
+<link rel="icon" href="/static/img/favicon.ico" type="image/svg+xml">
+<style>
+:root,[data-theme="light"]{
+    --bg:#f2f4f7;--surface:#fff;--surface2:#f7f9fb;--border:#e2e6ec;
+    --text:#111827;--text-m:#6b7280;--input:#fff;--shadow:0 1px 3px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.04);
+    --accent:#16a34a;--alt:rgba(22,163,74,.1);--aglow:rgba(22,163,74,.22);
+    --red:#dc2626;--orange:#f59e0b;--blue:#3b82f6;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--mono:"Courier New",Courier,monospace;--r:10px;
+    --sb:#f0f2f5;--sb-b:rgba(0,0,0,.07);--sb-t:#6b7280;--sb-text:#111827;
+    --sql-bg:#f8fffe;--sql-border:#c3e6ce;--sql-num:#b0b8c4;
+    --sql-kw:#166534;--sql-fn:#0369a1;--sql-str:#854d0e;--sql-nb:#0891b2;
+    --sql-cmt:#9ca3af;--sql-op:#6b7280;
+    --res-th:#e8f5e9;--res-th-t:#166534;--res-odd:#fff;--res-even:#f7fdf8;--res-hov:#ecfdf5;
+    --res-null:#9ca3af;--res-num:#0369a1;--res-pk-bg:#fef9c3;--res-pk-t:#854d0e;
+    --res-affect-bg:#eff6ff;--res-affect-border:#bfdbfe;--res-affect-t:#1d4ed8;
+}
+[data-theme="dark"]{
+    --bg:#0f1117;--surface:#1a1f2e;--surface2:#1e2435;--border:#2d3347;
+    --text:#e8edf5;--text-m:#8892a4;--input:#1e2435;--shadow:0 1px 3px rgba(0,0,0,.4),0 4px 14px rgba(0,0,0,.3);
+    --accent:#4ade80;--alt:rgba(74,222,128,.1);--aglow:rgba(74,222,128,.2);
+    --sb:#0a0d14;--sb-b:rgba(255,255,255,.05);--sb-t:#6b7280;--sb-text:#fff;
+    --sql-bg:#0b1a10;--sql-border:#1a3a26;--sql-num:#3d4a5c;
+    --sql-kw:#4ade80;--sql-fn:#38bdf8;--sql-str:#fbbf24;--sql-nb:#67e8f9;
+    --sql-cmt:#556070;--sql-op:#8892a4;
+    --res-th:#0d2818;--res-th-t:#4ade80;--res-odd:#1a1f2e;--res-even:#1c2534;--res-hov:#1e3a28;
+    --res-null:#4b5563;--res-num:#38bdf8;--res-pk-bg:#2a1f08;--res-pk-t:#fbbf24;
+    --res-affect-bg:#1e2a3a;--res-affect-border:#1e40af;--res-affect-t:#60a5fa;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100%}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+code{font-family:var(--mono);font-size:.84em;background:var(--surface2);padding:2px 6px;border-radius:4px}
+#nav-breadcrumb-7844{display:none!important}
+body{padding-top:60px}
+.wrap{display:flex;min-height:calc(100vh - 60px)}
+.sb{width:228px;min-width:228px;background:var(--sb);border-right:1px solid var(--sb-b);padding:18px 0;position:sticky;top:60px;height:calc(100vh - 60px);overflow-y:auto;flex-shrink:0}
+.sb-top{padding:0 17px 15px;border-bottom:1px solid var(--sb-b);margin-bottom:10px;display:flex;align-items:center;gap:9px}
+.sb-ico{width:30px;height:30px;background:var(--alt);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.sb-ico img{width:18px;height:18px;filter:invert(40%) sepia(80%) saturate(400%) hue-rotate(100deg)}
+.sb-name{font-size:.84rem;font-weight:700;color:var(--sb-text)}
+.sb-sub{font-size:.67rem;color:var(--sb-t)}
+.sb-sep{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--sb-t);padding:12px 17px 5px}
+.sb-a{display:flex;align-items:center;gap:9px;padding:9px 17px;color:var(--sb-t);font-size:.85rem;font-weight:500;border-left:3px solid transparent;transition:all .13s;cursor:pointer}
+.sb-a:hover{color:var(--sb-text);background:var(--sb-b)}
+.sb-a.on{color:var(--sb-text);background:var(--alt);border-left-color:var(--accent)}
+.sb-a img{width:16px;height:16px;flex-shrink:0;opacity:.6}
+.sb-a.on img{opacity:1;filter:invert(40%) sepia(80%) saturate(400%) hue-rotate(100deg)}
+[data-theme="dark"] .sb-a img{filter:invert(1) opacity(.6)}
+[data-theme="dark"] .sb-a.on img{filter:invert(1) opacity(1) sepia(1) saturate(2) hue-rotate(80deg)}
+.sb-pill{margin-left:auto;background:var(--alt);color:var(--accent);font-size:.63rem;font-weight:700;padding:2px 7px;border-radius:99px}
+.sb-pill.w{background:rgba(220,38,38,.15);color:#f87171}
+.main{flex:1;padding:26px 30px;min-width:0;overflow-x:hidden}
+.sec{display:none}.sec.on{display:block;animation:fu .18s ease}
+@keyframes fu{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.flash{display:flex;align-items:center;gap:9px;padding:11px 15px;border-radius:var(--r);margin-bottom:18px;font-size:.87rem;font-weight:500;background:var(--alt);border:1px solid var(--aglow);color:var(--accent)}
+.flash.err{background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.22);color:var(--red)}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading{display:flex;align-items:center;gap:8px;color:var(--text-m);padding:30px;justify-content:center}
+.ico{width:16px;height:16px;vertical-align:middle;flex-shrink:0}
+.ico-sm{width:13px;height:13px}
+.ico-accent{filter:invert(40%) sepia(80%) saturate(400%) hue-rotate(100deg)}
+.ico-red{filter:invert(20%) sepia(90%) saturate(600%) hue-rotate(330deg)}
+.ico-gray{filter:invert(50%)}
+[data-theme="dark"] .ico-accent{filter:invert(80%) sepia(40%) saturate(400%) hue-rotate(80deg)}
+[data-theme="dark"] .ico-red{filter:invert(70%) sepia(60%) saturate(600%) hue-rotate(320deg)}
+[data-theme="dark"] .ico-gray{filter:invert(60%)}
+.pt{font-size:1.3rem;font-weight:800;margin-bottom:20px;display:flex;align-items:center;gap:9px;letter-spacing:-.02em}
+.pt img{width:22px;height:22px}
+.pt small{font-size:.7rem;font-weight:400;color:var(--text-m);margin-left:2px}
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(162px,1fr));gap:12px;margin-bottom:22px}
+.sc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 17px 14px;box-shadow:var(--shadow);position:relative;overflow:hidden;cursor:pointer;display:block}
+.sc::after{content:'';position:absolute;right:-12px;top:-12px;width:58px;height:58px;border-radius:50%;background:var(--si,var(--accent));opacity:.07}
+.sc-i{margin-bottom:9px}.sc-i img{width:22px;height:22px}
+.sc-v{font-size:1.8rem;font-weight:900;line-height:1;margin-bottom:4px}
+.sc-l{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text-m);font-weight:600}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden}
+.ch{padding:12px 17px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:9px;font-weight:700;font-size:.875rem}
+.ch img{width:15px;height:15px}
+.cb{padding:17px}
+.t{width:100%;border-collapse:collapse;font-size:.845rem}
+.t th{padding:9px 13px;background:var(--surface2);color:var(--text-m);font-weight:700;font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+.t td{padding:9px 13px;border-bottom:1px solid var(--border);vertical-align:middle}
+.t tr:last-child td{border-bottom:none}.t tbody tr:hover td{background:var(--surface2)}
+.t td.m{font-family:var(--mono);font-size:.77rem;color:var(--text-m);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.b{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:99px;font-size:.69rem;font-weight:700}
+.bg{background:var(--alt);color:var(--accent)}.br{background:rgba(220,38,38,.1);color:#dc2626}
+.bo{background:rgba(245,158,11,.1);color:#d97706}.bb{background:rgba(59,130,246,.1);color:#3b82f6}
+.bx{background:rgba(107,114,128,.1);color:var(--text-m)}.bgd{background:rgba(217,119,6,.1);color:#d97706}
+[data-theme="dark"] .br{color:#f87171}[data-theme="dark"] .bo{color:#fbbf24}[data-theme="dark"] .bb{color:#60a5fa}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:none;border-radius:7px;font-size:.82rem;font-weight:600;cursor:pointer;font-family:var(--sans);transition:all .13s;line-height:1;height:34px;white-space:nowrap}
+.btn:hover{filter:brightness(1.08)}.btn img{width:14px;height:14px;flex-shrink:0}
+.ba{background:var(--accent);color:#fff}.br2{background:var(--red);color:#fff}
+.bg2{background:transparent;color:var(--text-m);border:1px solid var(--border)}.bg2:hover{background:var(--surface2);color:var(--text)}
+.f{margin-bottom:12px}
+.f label{display:block;font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-m);margin-bottom:5px}
+.f input,.f select,.f textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--input);color:var(--text);font-size:.875rem;font-family:var(--sans);transition:border-color .13s}
+.f input:focus,.f select:focus{outline:none;border-color:var(--accent)}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.isel{padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--input);color:var(--text);font-size:.82rem;font-family:var(--sans);cursor:pointer;height:34px}
+.isel:focus{outline:none;border-color:var(--accent)}
+.pages-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin-top:4px}
+.page-chk{display:flex;align-items:center;gap:9px;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .13s;font-size:.845rem;font-weight:500}
+.page-chk:hover{border-color:var(--accent);background:var(--alt)}
+.page-chk input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+.page-chk.checked{border-color:var(--accent);background:var(--alt)}
+.pg{background:var(--border);border-radius:99px;height:5px;margin-top:4px}
+.pgb{height:5px;border-radius:99px;background:var(--accent)}.pgb.w{background:var(--orange)}.pgb.d{background:var(--red)}
+.lb{background:#0d1117;color:#7ee787;font-family:var(--mono);font-size:.76rem;padding:16px;border-radius:var(--r);max-height:450px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;border:1px solid rgba(255,255,255,.06)}
+.tgr{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:9px}
+.ttl{display:flex;align-items:center;gap:7px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:.83rem;font-weight:600;color:var(--text);transition:all .13s;cursor:pointer}
+.ttl:hover{border-color:var(--accent);background:var(--alt);color:var(--accent)}.ttl img{width:16px;height:16px}
+.pgr{display:flex;gap:5px;justify-content:center;align-items:center;padding:11px}
+.pgr button{padding:4px 10px;border:1px solid var(--border);border-radius:6px;font-size:.79rem;font-weight:600;color:var(--text-m);background:none;cursor:pointer;font-family:var(--sans);height:30px}
+.pgr button:hover{border-color:var(--accent);color:var(--accent)}.pgr button.cur{background:var(--accent);color:#fff;border-color:var(--accent)}
+.cl{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-m);display:block;margin-bottom:4px;font-family:var(--mono)}
+.cl small{opacity:.5;font-size:.66rem;display:block;font-weight:400;text-transform:none;letter-spacing:0}
+.cgr{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:11px}
+.ci{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--input);color:var(--text);font-family:var(--mono);font-size:.845rem;transition:border-color .13s}
+.ci:focus{outline:none;border-color:var(--accent)}
+.ob{display:flex;align-items:center;gap:11px;padding:13px 17px;border-radius:var(--r);font-weight:600;font-size:.88rem;margin-bottom:16px}
+.ok{background:var(--alt);border:1px solid var(--aglow);color:var(--accent)}
+.nok{background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.22);color:var(--red)}
+.od{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.ok .od{background:var(--accent);animation:pulse 2s infinite}.nok .od{background:var(--red)}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px var(--aglow)}50%{box-shadow:0 0 0 7px transparent}}
+.blk-pages{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.blk-page-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-family:var(--mono);font-size:.72rem;color:var(--text-m)}
+.cell-editable{cursor:pointer;border-bottom:1px dashed var(--aglow)!important}
+.cell-editable:hover{background:var(--alt)!important;color:var(--accent)!important}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center}
+.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:min(480px,95vw);max-height:80vh;overflow-y:auto}
+.vip-sel{padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--input);color:var(--text);font-size:.78rem;font-family:var(--sans);cursor:pointer;height:34px}
+.p2p-tab{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:none;border-bottom:2px solid transparent;background:none;color:var(--text-m);font-size:.82rem;font-weight:600;cursor:pointer;font-family:var(--sans);transition:all .13s;margin-bottom:-1px}
+.p2p-tab:hover{color:var(--text);background:var(--surface2)}
+.p2p-tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.p2p-tab img{width:14px;height:14px;opacity:.6}
+.p2p-tab.on img{opacity:1;filter:invert(40%) sepia(80%) saturate(400%) hue-rotate(100deg)}
+[data-theme="dark"] .p2p-tab.on img{filter:invert(80%) sepia(40%) saturate(400%) hue-rotate(80deg)}
+
+/* ═══ SQL Editor ═══════════════════════════════════════════════ */
+.sqle{background:var(--surface);border:1px solid var(--sql-border);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);margin-bottom:18px}
+.sqle-head{background:var(--surface2);border-bottom:1px solid var(--sql-border);padding:9px 15px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sqle-title{display:flex;align-items:center;gap:7px;font-size:.76rem;font-weight:700;color:var(--text-m);text-transform:uppercase;letter-spacing:.07em}
+.sqle-title img{width:13px;height:13px}
+.sqle-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:5px;font-size:.66rem;font-weight:700;font-family:var(--mono);background:rgba(245,158,11,.12);color:#d97706;border:1px solid rgba(245,158,11,.3)}
+[data-theme="dark"] .sqle-badge{color:#fbbf24;background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.2)}
+.sqle-meta{font-size:.71rem;color:var(--text-m)}
+.sqle-body{display:flex;height:200px;max-height:300px}
+.sqle-nums{background:var(--surface2);border-right:1px solid var(--sql-border);padding:10px 0;min-width:40px;text-align:right;user-select:none;font-family:var(--mono);font-size:.79rem;line-height:1.65;color:var(--sql-num);overflow:hidden;flex-shrink:0}
+.sqle-nums span{display:block;padding:0 10px}
+
+/* ── Highlighter layer ──────────────────────────────────────── */
+.sqle-wrap{position:relative;flex:1;min-height:0;overflow:hidden}
+.sqle-hl{
+    position:absolute;top:0;left:0;right:0;
+    margin:0;padding:10px 14px;
+    font-family:var(--mono);font-size:.84rem;line-height:1.65;
+    white-space:pre-wrap;word-break:break-word;word-spacing:normal;
+    pointer-events:none;overflow:hidden;
+    background:transparent;border:none;outline:none;
+    tab-size:2;
+}
+.sqle-ta{
+    position:absolute;top:0;left:0;right:0;bottom:0;
+    width:100%;height:100%;
+    padding:10px 14px;border:none;outline:none;
+    background:transparent;
+    color:transparent;caret-color:var(--text);
+    font-family:var(--mono);font-size:.84rem;line-height:1.65;
+    resize:none;tab-size:2;z-index:2;
+    white-space:pre-wrap;word-break:break-word;
+    overflow-y:auto;overflow-x:hidden;
+    -webkit-text-fill-color:transparent;
+}
+.sqle-ta::placeholder{-webkit-text-fill-color:var(--text-m);color:var(--text-m);opacity:.45}
+/* tokens */
+.sqle-hl .sk{color:var(--sql-kw);font-weight:700}
+.sqle-hl .sf{color:var(--sql-fn)}
+.sqle-hl .ss{color:var(--sql-str)}
+.sqle-hl .sn{color:var(--sql-nb)}
+.sqle-hl .sc2{color:var(--sql-cmt);font-style:italic}
+.sqle-hl .so{color:var(--sql-op)}
+
+.sqle-foot{background:var(--surface2);border-top:1px solid var(--sql-border);padding:9px 15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sqle-hint{margin-left:auto;font-size:.72rem;color:var(--text-m);display:flex;align-items:center;gap:4px}
+.kbd{display:inline-block;padding:1px 5px;border:1px solid var(--border);border-radius:4px;font-size:.67rem;font-family:var(--mono);background:var(--surface);line-height:1.5}
+
+/* ═══ SQL Results ═══════════════════════════════════════════════ */
+.res-wrap{animation:fu .16s ease}
+.res-head{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--res-th);border:1px solid var(--sql-border);border-radius:8px 8px 0 0;flex-wrap:wrap}
+.res-head img{width:15px;height:15px;filter:invert(40%) sepia(80%) saturate(400%) hue-rotate(100deg)}
+[data-theme="dark"] .res-head img{filter:invert(80%) sepia(40%) saturate(400%) hue-rotate(80deg)}
+.res-stat{font-weight:700;font-size:.79rem;color:var(--res-th-t)}
+.res-time{font-size:.72rem;color:var(--text-m);font-family:var(--mono)}
+.res-scroll{overflow-x:auto;border:1px solid var(--sql-border);border-top:none;border-radius:0 0 8px 8px}
+.rt{width:100%;border-collapse:collapse;font-size:.82rem;font-family:var(--mono)}
+.rt thead th{padding:8px 12px;background:var(--res-th);border-bottom:2px solid var(--sql-border);border-right:1px solid var(--sql-border);color:var(--res-th-t);font-size:.71rem;font-weight:700;text-align:left;white-space:nowrap;position:sticky;top:0}
+.rt thead th:last-child{border-right:none}
+.rt tbody tr:nth-child(odd) td{background:var(--res-odd)}
+.rt tbody tr:nth-child(even) td{background:var(--res-even)}
+.rt tbody tr:hover td{background:var(--res-hov)!important}
+.rt tbody td{padding:5px 12px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);vertical-align:top;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rt tbody td:last-child{border-right:none}
+.rt-n{background:var(--surface2)!important;color:var(--text-m);font-size:.71rem;text-align:right;padding:5px 9px;border-right:2px solid var(--sql-border)!important;user-select:none;min-width:36px}
+.rt tbody tr:hover .rt-n{background:var(--res-hov)!important}
+.cv-null{color:var(--res-null);font-style:italic;font-size:.75rem}
+.cv-num{color:var(--res-num);text-align:right}
+.cv-pk{background:var(--res-pk-bg)!important;color:var(--res-pk-t);font-weight:700}
+.cv-masked{color:var(--text-m);letter-spacing:.14em;font-size:.7rem}
+.res-empty{padding:26px;text-align:center;color:var(--text-m);font-size:.86rem;border:1px solid var(--sql-border);border-top:none;border-radius:0 0 8px 8px}
+.res-err{display:flex;gap:10px;align-items:flex-start;padding:13px 15px;background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.2);border-radius:8px;color:var(--red);font-family:var(--mono);font-size:.82rem}
+.res-warn{display:flex;align-items:center;gap:7px;padding:8px 12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:6px;font-size:.76rem;color:#d97706;margin-top:9px}
+[data-theme="dark"] .res-warn{color:#fbbf24}
+.res-affect{display:flex;align-items:center;gap:12px;padding:16px 18px;background:var(--res-affect-bg);border:1px solid var(--res-affect-border);border-radius:8px;font-size:.88rem;font-weight:600;color:var(--res-affect-t)}
+.res-affect img{width:18px;height:18px;filter:invert(30%) sepia(90%) saturate(400%) hue-rotate(200deg)}
+[data-theme="dark"] .res-affect img{filter:invert(70%) sepia(40%) saturate(400%) hue-rotate(180deg)}
+.res-affect-rows{font-size:1.5rem;font-weight:900;font-family:var(--mono);color:var(--res-affect-t)}
+.res-affect-detail{font-size:.75rem;font-weight:400;color:var(--text-m);margin-top:2px}
+#db-exec-view{display:none}
+#db-exec-view.on{display:block;animation:fu .18s ease}
+
+@media(max-width:860px){
+    .sb{width:50px;min-width:50px}.sb-top,.sb-sep,.sb-a span,.sb-pill{display:none}
+    .sb-a{justify-content:center;padding:11px 0;border-left:none;border-bottom:3px solid transparent}
+    .sb-a.on{border-bottom-color:var(--accent)}
+    .main{padding:16px 12px}.fr{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+__NAV_HTML__
+
+<div class="wrap">
+<nav class="sb">
+    <div class="sb-top">
+        <div class="sb-ico"><img src="/static/img/solid/shield-halved.svg" alt=""></div>
+        <div><div class="sb-name">Admin Panel</div><div class="sb-sub" id="vex-ver">VEX</div></div>
+    </div>
+    <div class="sb-sep">Principal</div>
+    <div class="sb-a on" data-sec="dashboard"><img src="/static/img/solid/chart-pie.svg" alt=""> <span>Dashboard</span></div>
+    <div class="sb-a" data-sec="users"><img src="/static/img/solid/users.svg" alt=""> <span>Utilisateurs</span><span class="sb-pill" id="pill-users">…</span></div>
+    <div class="sb-a" data-sec="blocks"><img src="/static/img/solid/ban.svg" alt=""> <span>Blocages</span><span class="sb-pill" id="pill-blocks">…</span></div>
+    <div class="sb-sep">Système</div>
+    <div class="sb-a" data-sec="db"><img src="/static/img/solid/database.svg" alt=""> <span>Base de données</span></div>
+    <div class="sb-a" data-sec="config"><img src="/static/img/solid/gear.svg" alt=""> <span>Configuration</span></div>
+    <div class="sb-a" data-sec="server"><img src="/static/img/solid/server.svg" alt=""> <span>Serveur</span></div>
+    <div class="sb-a" data-sec="logs"><img src="/static/img/solid/scroll.svg" alt=""> <span>Logs</span></div>
+    <div class="sb-a" data-sec="onlyoffice"><img src="/static/img/solid/file-lines.svg" alt=""> <span>OnlyOffice</span><span class="sb-pill w" id="pill-oo" style="display:none">!</span></div>
+    <div class="sb-a" id="sb-p2p" data-sec="p2p" style="display:none"><img src="/static/img/solid/network-wired.svg" alt=""> <span>P2P / AnonNet</span><span class="sb-pill" id="pill-p2p">0</span></div>
+</nav>
+
+<main class="main">
+    <div id="flash-area"></div>
+
+    <!-- ══ Dashboard ══════════════════════════════════════════════ -->
+    <div class="sec on" id="sec-dashboard">
+        <div class="pt"><img src="/static/img/solid/chart-pie.svg" class="ico-accent" alt=""> Dashboard</div>
+        <div class="sg" id="dash-stats"><div class="loading"><span class="spin"></span> Chargement…</div></div>
+        <div class="card">
+            <div class="ch"><span><img src="/static/img/solid/clock.svg" class="ico ico-accent" alt=""> Derniers inscrits</span></div>
+            <div style="overflow-x:auto"><div id="dash-last-users"><div class="loading"><span class="spin"></span></div></div></div>
+        </div>
+    </div>
+
+    <!-- ══ Utilisateurs ═══════════════════════════════════════════ -->
+    <div class="sec" id="sec-users">
+        <div class="pt"><img src="/static/img/solid/users.svg" class="ico-accent" alt=""> Utilisateurs <small id="users-count">…</small></div>
+        <div class="card">
+            <div class="ch">
+                <span><img src="/static/img/solid/list.svg" class="ico ico-accent" alt=""> Tous les comptes</span>
+                <input type="text" placeholder="Rechercher…" id="user-search"
+                    style="padding:5px 10px;border:1px solid var(--border);border-radius:7px;background:var(--input);color:var(--text);font-size:.81rem;width:190px"
+                    oninput="filterUsers(this.value)">
+            </div>
+            <div style="overflow-x:auto"><div id="users-table"><div class="loading"><span class="spin"></span></div></div></div>
+        </div>
+    </div>
+
+    <!-- ══ Blocages ═══════════════════════════════════════════════ -->
+    <div class="sec" id="sec-blocks">
+        <div class="pt"><img src="/static/img/solid/ban.svg" class="ico-accent" alt=""> Blocages de pages <small>table <code>bloqpage</code></small></div>
+        <div class="card">
+            <div class="ch"><span><img src="/static/img/solid/plus.svg" class="ico ico-accent" alt=""> Ajouter un blocage</span></div>
+            <div class="cb">
+                <div class="fr" style="margin-bottom:12px">
+                    <div class="f"><label>Cible</label><select id="block-uid"><option value="all">— Tous —</option></select></div>
+                    <div class="f"><label>Bloquer si privilege &gt;</label>
+                        <select id="block-priv">
+                            <option value="2">2</option><option value="3">3</option><option value="4">4</option>
+                            <option value="5">5</option><option value="6">6</option><option value="7">7</option>
+                            <option value="8">8</option><option value="9">9</option><option value="10" selected>10</option>
+                            <option value="11">11</option><option value="12">12</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="f"><label>Pages bloquées</label><div class="pages-grid" id="pages-grid"></div></div>
+                <div style="display:flex;gap:10px;margin-top:14px;align-items:center">
+                    <button class="btn ba" onclick="submitAddBlock()"><img src="/static/img/solid/shield-halved.svg" class="ico" style="filter:invert(1)" alt=""> Ajouter le blocage</button>
+                    <button class="btn bg2" onclick="toggleAllPages()"><img src="/static/img/solid/check-double.svg" class="ico ico-accent" alt=""> Tout cocher</button>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="ch"><span><img src="/static/img/solid/list.svg" class="ico ico-accent" alt=""> Blocages actifs (<span id="blocks-count">…</span>)</span></div>
+            <div style="overflow-x:auto"><div id="blocks-table"><div class="loading"><span class="spin"></span></div></div></div>
+        </div>
+    </div>
+
+    <!-- ══ Base de données ════════════════════════════════════════ -->
+    <div class="sec" id="sec-db">
+        <div class="pt"><img src="/static/img/solid/database.svg" class="ico-accent" alt=""> Explorateur DB <small id="db-subtitle">…</small></div>
+
+        <!-- ── Zone SQL superadmin ────────────────────────────────── -->
+        <div id="sql-zone" style="display:none">
+            <div class="sqle">
+                <div class="sqle-head">
+                    <div class="sqle-title">
+                        <img src="/static/img/solid/terminal.svg" class="ico-accent" alt="">
+                        Requête SQL
+                        <span class="sqle-badge">
+                            <img src="/static/img/solid/star.svg" style="width:10px;height:10px;filter:invert(60%) sepia(1) saturate(3) hue-rotate(10deg)" alt="">
+                            Superadmin
+                        </span>
+                    </div>
+                    <span class="sqle-meta">SELECT, INSERT, UPDATE, DELETE, CREATE, DROP… · Colonnes sensibles masquées</span>
+                </div>
+                <div class="sqle-body">
+                    <div class="sqle-nums" id="sql-nums"><span>1</span></div>
+                    <div class="sqle-wrap" id="sql-wrap">
+                        <pre class="sqle-hl" id="sql-hl" aria-hidden="true"></pre>
+                        <textarea id="sql-ta" class="sqle-ta"
+                            placeholder="SELECT * FROM login LIMIT 20&#10;UPDATE login SET vip=1 WHERE id=5&#10;INSERT INTO … / DELETE FROM … / CREATE TABLE …"
+                            spellcheck="false"
+                            oninput="sqlInput()"
+                            onkeydown="sqlKey(event)"
+                            onscroll="sqlScroll()"></textarea>
+                    </div>
+                </div>
+                <div class="sqle-foot">
+                    <button class="btn ba" id="sql-btn" onclick="runSql()">
+                        <img src="/static/img/solid/play.svg" class="ico" style="filter:invert(1)" alt=""> Exécuter
+                    </button>
+                    <button class="btn bg2" onclick="sqlClear()">
+                        <img src="/static/img/solid/xmark.svg" class="ico ico-gray" alt=""> Effacer
+                    </button>
+                    <span class="sqle-hint"><span class="kbd">Ctrl</span>+<span class="kbd">↵</span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mode édition actif -->
+        <div id="db-edit-bar" style="display:none;margin-bottom:12px;padding:10px 14px;background:var(--alt);border:1px solid var(--aglow);border-radius:8px;font-size:.83rem;color:var(--accent)">
+            <img src="/static/img/solid/pen-to-square.svg" class="ico ico-accent" alt=""> <strong>Mode édition actif</strong> — Cliquez sur une cellule pour la modifier.
+        </div>
+
+        <!-- Explorateur normal -->
+        <div id="db-content"><div class="loading"><span class="spin"></span></div></div>
+
+        <!-- Page résultats SQL -->
+        <div id="db-exec-view">
+            <div id="sql-back-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+                <button class="btn bg2" onclick="sqlBack()">
+                    <img src="/static/img/solid/arrow-left.svg" class="ico ico-gray" alt=""> Retour à l'explorateur
+                </button>
+                <code id="sql-exec-label" style="font-size:.76rem;color:var(--text-m);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"></code>
+            </div>
+            <div id="sql-result"></div>
+        </div>
+    </div>
+
+    <!-- ══ Config ═════════════════════════════════════════════════ -->
+    <div class="sec" id="sec-config">
+        <div class="pt"><img src="/static/img/solid/gear.svg" class="ico-accent" alt=""> Configuration <small>config.json</small></div>
+        <div id="config-content"><div class="loading"><span class="spin"></span></div></div>
+    </div>
+
+    <!-- ══ Serveur ════════════════════════════════════════════════ -->
+    <div class="sec" id="sec-server">
+        <div class="pt"><img src="/static/img/solid/server.svg" class="ico-accent" alt=""> Monitoring serveur</div>
+        <div id="server-content"><div class="loading"><span class="spin"></span></div></div>
+    </div>
+
+    <!-- ══ Logs ═══════════════════════════════════════════════════ -->
+    <div class="sec" id="sec-logs">
+        <div class="pt"><img src="/static/img/solid/scroll.svg" class="ico-accent" alt=""> Logs serveur</div>
+        <div class="card">
+            <div class="ch">
+                <span><img src="/static/img/solid/file-lines.svg" class="ico ico-accent" alt=""> /tmp/onlyoffice-callback.log</span>
+                <div style="display:flex;gap:8px">
+                    <button class="btn br2" onclick="clearLogs()"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Vider</button>
+                    <button class="btn bg2" onclick="scrollLogs()"><img src="/static/img/solid/arrow-down.svg" class="ico ico-accent" alt=""> Bas</button>
+                </div>
+            </div>
+            <div style="padding:14px"><div id="log-content"><div class="loading"><span class="spin"></span></div></div></div>
+        </div>
+    </div>
+
+    <!-- ══ OnlyOffice ═════════════════════════════════════════════ -->
+    <div class="sec" id="sec-onlyoffice">
+        <div class="pt"><img src="/static/img/solid/file-lines.svg" class="ico-accent" alt=""> OnlyOffice</div>
+        <div id="oo-content"><div class="loading"><span class="spin"></span></div></div>
+    </div>
+
+    <!-- ══ P2P ════════════════════════════════════════════════════ -->
+    <div class="sec" id="sec-p2p">
+        <div class="pt"><img src="/static/img/solid/network-wired.svg" class="ico-accent" alt=""> P2P / AnonNet <small>superadmin uniquement</small></div>
+
+        <!-- Infos nœud local -->
+        <div id="p2p-node-info" style="display:none;margin-bottom:16px;padding:14px 17px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);font-size:.82rem">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:6px;font-weight:700">
+                    <img src="/static/img/solid/circle-nodes.svg" class="ico ico-accent" alt="">
+                    <span id="p2p-node-id" style="font-family:var(--mono);font-size:.77rem;color:var(--accent)"></span>
+                </div>
+                <span style="color:var(--text-m)">|</span>
+                <span id="p2p-node-url" style="color:var(--text-m);font-family:var(--mono);font-size:.76rem"></span>
+                <span id="p2p-tor-badge" style="display:none" class="b bb">Tor actif</span>
+                <div style="margin-left:auto;display:flex;gap:8px">
+                    <button class="btn bg2" onclick="p2pSyncNow()" id="p2p-sync-btn">
+                        <img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Sync bootstrap
+                    </button>
+                    <button class="btn bg2" onclick="loadP2p()">
+                        <img src="/static/img/solid/arrows-rotate.svg" class="ico ico-gray" alt=""> Rafraîchir
+                    </button>
+                </div>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <span style="color:var(--text-m);font-size:.73rem">Clé publique :</span>
+                <code id="p2p-pub-key" style="font-size:.7rem;word-break:break-all;color:var(--text-m)"></code>
+            </div>
+            <div style="margin-top:6px;display:flex;gap:16px;font-size:.75rem;color:var(--text-m)">
+                <span>Bootstrap : <code id="p2p-bootstrap" style="font-size:.73rem"></code></span>
+                <span>Chunk : <code id="p2p-chunk-size" style="font-size:.73rem"></code></span>
+            </div>
+        </div>
+
+        <!-- Onglets -->
+        <div style="display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:0">
+            <button class="p2p-tab on" data-tab="peers" onclick="p2pTab('peers')">
+                <img src="/static/img/solid/diagram-project.svg" class="ico" alt=""> Nœuds
+                <span class="sb-pill" id="p2p-tab-peers-cnt" style="margin-left:4px">…</span>
+            </button>
+            <button class="p2p-tab" data-tab="users" onclick="p2pTab('users')">
+                <img src="/static/img/solid/users.svg" class="ico" alt=""> Utilisateurs P2P
+                <span class="sb-pill" id="p2p-tab-users-cnt" style="margin-left:4px">…</span>
+            </button>
+            <button class="p2p-tab" data-tab="transfers" onclick="p2pTab('transfers')">
+                <img src="/static/img/solid/arrow-right-arrow-left.svg" class="ico" alt=""> Transferts
+            </button>
+            <button class="p2p-tab" data-tab="annuaire" onclick="p2pTab('annuaire')">
+                <img src="/static/img/solid/file-lines.svg" class="ico" alt=""> Annuaire
+            </button>
+        </div>
+
+        <div class="sg" id="p2p-stats" style="margin-bottom:14px"></div>
+
+        <!-- Contenu onglets -->
+        <div id="p2p-tab-peers">
+            <div class="card">
+                <div class="ch"><span><img src="/static/img/solid/diagram-project.svg" class="ico ico-accent" alt=""> Nœuds connus</span></div>
+                <div style="overflow-x:auto"><div id="p2p-table"><div class="loading"><span class="spin"></span></div></div></div>
+            </div>
+        </div>
+
+        <div id="p2p-tab-users" style="display:none">
+            <div class="card">
+                <div class="ch"><span><img src="/static/img/solid/users.svg" class="ico ico-accent" alt=""> Utilisateurs P2P connus</span></div>
+                <div style="overflow-x:auto"><div id="p2p-users-table"><div class="loading"><span class="spin"></span></div></div></div>
+            </div>
+        </div>
+
+        <div id="p2p-tab-transfers" style="display:none">
+            <div class="card">
+                <div class="ch">
+                    <span><img src="/static/img/solid/arrow-right-arrow-left.svg" class="ico ico-accent" alt=""> Transferts de fichiers</span>
+                    <button class="btn bg2" onclick="loadP2pTransfers()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Rafraîchir</button>
+                </div>
+                <div style="overflow-x:auto"><div id="p2p-transfers-table"><div class="loading"><span class="spin"></span></div></div></div>
+            </div>
+        </div>
+
+        <div id="p2p-tab-annuaire" style="display:none">
+            <div class="card">
+                <div class="ch">
+                    <span><img src="/static/img/solid/file-lines.svg" class="ico ico-accent" alt=""> Annuaire répliqué</span>
+                    <div style="display:flex;gap:8px">
+                        <button class="btn bg2" onclick="loadP2pAnnuaire()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Rafraîchir</button>
+                        <button class="btn bg2" onclick="copyAnnuaire()"><img src="/static/img/solid/copy.svg" class="ico ico-gray" alt=""> Copier</button>
+                    </div>
+                </div>
+                <div style="padding:14px"><div id="p2p-annuaire-content"><div class="loading"><span class="spin"></span></div></div></div>
+            </div>
+        </div>
+    </div>
+</main>
+</div>
+
+<script>
+const PRIVILEGES={1:{nom:'fondateur',c:'fona'},2:{nom:'super admin',c:'#6d0000'},3:{nom:'admin',c:'#d30000'},4:{nom:'vérificateur',c:'#4169e1'},5:{nom:'super-modérateur',c:'#4169e1'},6:{nom:'modérateur',c:'#006400'},7:{nom:'',c:'#32cd32'},8:{nom:'utilisateur certifié',c:'#4b4b4b'},9:{nom:'beta-testeur',c:'#20012a'},10:{nom:'aucun',c:'#000'},11:{nom:'ban',c:'#000'},12:{nom:'ban',c:'#000'}};
+const pNom=p=>PRIVILEGES[p]?.nom||('niveau '+p), pCol=p=>PRIVILEGES[p]?.c||'#888';
+const S={section:'dashboard',users:[],blocks:[],vex_pages:[],dbTable:null,dbPage:1,configData:null,allChecked:false,vipTypes:[]};
+let IS_SUPER=false,DB_COLS=[];
+
+document.querySelectorAll('.sb-a[data-sec]').forEach(a=>a.addEventListener('click',()=>nav(a.dataset.sec)));
+function nav(sec){
+    S.section=sec;
+    document.querySelectorAll('.sb-a[data-sec]').forEach(a=>a.classList.toggle('on',a.dataset.sec===sec));
+    document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
+    document.getElementById('sec-'+sec).classList.add('on');
+    ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,server:loadServer,logs:loadLogs,onlyoffice:loadOO,p2p:loadP2p}[sec]||Function)();
+    history.replaceState(null,'','?section='+sec);
+}
+function flash(msg,err=false){
+    const el=document.getElementById('flash-area');
+    el.innerHTML=`<div class="flash ${err?'err':''}">${err?'<img src="/static/img/solid/circle-xmark.svg" class="ico ico-red" alt="">':'<img src="/static/img/solid/circle-check.svg" class="ico ico-accent" alt="">'} ${esc(msg)}</div>`;
+    setTimeout(()=>el.innerHTML='',4000);
+}
+async function api(p,o={}){try{const r=await fetch('/api/admin'+p,{credentials:'include',headers:{'Content-Type':'application/x-www-form-urlencoded',...(o.headers||{})},...o});return r.json();}catch(e){return{success:false,error:String(e)};}}
+function post(p,d={}){return api(p,{method:'POST',body:Object.entries(d).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(typeof v==='object'?JSON.stringify(v):v)).join('&')});}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+/* ── Dashboard ──────────────────────────────────────────────────── */
+async function loadDash(){
+    const r=await api('/dashboard');if(!r.success){flash(r.error,true);return;}
+    const d=r.data;
+    if(d.is_super)document.getElementById('sb-p2p').style.display='';
+    IS_SUPER=d.is_super||false;
+    document.getElementById('sql-zone').style.display=IS_SUPER?'':'none';
+    const cfgR=await api('/config');
+    if(cfgR.success&&cfgR.data?.plans?.available_plans)S.vipTypes=cfgR.data.plans.available_plans.map(p=>({id:p.id??p.name??p,label:p.label??p.name??p.id??String(p)}));
+    if(!S.vipTypes.length)S.vipTypes=[{id:'vip',label:'VIP'}];
+    const stats=[
+        {ico:'users',val:d.nb_users,label:'Utilisateurs',sec:'users',color:'var(--accent)'},
+        {ico:'folder-open',val:d.nb_fichiers,label:'Fichiers',sec:'db',color:'#3b82f6'},
+        {ico:'cookie',val:d.nb_sessions,label:'Sessions actives',sec:'db',color:'#f59e0b'},
+        {ico:'globe',val:d.nb_pages,label:'Pages Sitec',sec:'db',color:'#8b5cf6'},
+        {ico:'database',val:d.db_size_mb+' MB',label:'Base de données',sec:'db',color:'#ef4444'},
+        {ico:d.onlyoffice.online?'circle-check':'circle-xmark',val:d.onlyoffice.online?'En ligne':'Hors ligne',label:'OnlyOffice '+d.onlyoffice.ms+'ms',sec:'onlyoffice',color:d.onlyoffice.online?'var(--accent)':'#ef4444'},
+    ];
+    document.getElementById('dash-stats').innerHTML=stats.map(s=>`<div class="sc" style="--si:${s.color}" onclick="nav('${s.sec}')"><div class="sc-i"><img src="/static/img/solid/${s.ico}.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="${String(s.val).length>6?'font-size:1.1rem':''}">${esc(String(s.val))}</div><div class="sc-l">${esc(s.label)}</div></div>`).join('');
+    document.getElementById('dash-last-users').innerHTML=`<table class="t"><thead><tr><th>#</th><th>Nom</th><th>Email</th><th>Rôle</th><th>VIP</th></tr></thead><tbody>${d.last_users.map(u=>{
+        const rH=pCol(u.privilege)==='fona'?`<span class="b" style="background:linear-gradient(90deg,#ff6,#f90);color:#000">${esc(pNom(u.privilege))}</span>`:`<span class="b bx" style="color:${pCol(u.privilege)}">${esc(pNom(u.privilege))}</span>`;
+        return`<tr><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${rH}</td><td>${u.vip?`<span class="b bgd"><img src="/static/img/solid/star.svg" class="ico-sm" style="filter:invert(60%) sepia(1) saturate(3) hue-rotate(10deg)" alt=""> ${esc(String(u.vip))}</span>`:'<span class="b bx">Free</span>'}</td></tr>`;
+    }).join('')}</tbody></table>`;
+    document.getElementById('pill-users').textContent=d.nb_users;
+    if(!d.onlyoffice.online)document.getElementById('pill-oo').style.display='';
+}
+
+/* ── Utilisateurs ───────────────────────────────────────────────── */
+async function loadUsers(){
+    document.getElementById('users-table').innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const r=await api('/users');if(!r.success){flash(r.error,true);return;}
+    S.users=r.data;document.getElementById('users-count').textContent=S.users.length+' comptes';document.getElementById('pill-users').textContent=S.users.length;
+    renderUsers(S.users);
+    const sel=document.getElementById('block-uid');sel.innerHTML='<option value="all">— Tous les utilisateurs —</option>'+S.users.map(u=>`<option value="${u.id}">#${u.id} — ${esc(u.nom)}</option>`).join('');
+}
+function vipOpts(v){return[`<option value="0" ${!v?'selected':''}>— Free —</option>`,...S.vipTypes.map(t=>`<option value="${esc(String(t.id))}" ${v==t.id?'selected':''}>${esc(t.label)}</option>`)].join('');}
+function renderUsers(users){
+    document.getElementById('users-table').innerHTML=`<table class="t" id="utbl"><thead><tr><th>#</th><th>Nom</th><th>Email</th><th>Rôle</th><th>VIP</th><th>Actions</th></tr></thead><tbody>${users.map(u=>{
+        const po=[2,3,4,5,6,7,8,9,10,11,12].map(p=>`<option value="${p}" ${u.privilege==p?'selected':''}>${p} — ${pNom(p)}</option>`).join('');
+        return`<tr data-s="${(u.nom+u.email).toLowerCase()}"><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td><select class="isel" onchange="setPriv(${u.id},this.value)">${po}</select></td><td><select class="vip-sel" onchange="setVip(${u.id},this.value)">${vipOpts(u.vip)}</select></td><td><button class="btn br2" onclick="delUser(${u.id},'${esc(u.nom)}')"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Suppr.</button></td></tr>`;
+    }).join('')}</tbody></table>`;
+}
+function filterUsers(q){document.querySelectorAll('#utbl tbody tr').forEach(r=>{r.style.display=r.dataset.s.includes(q.toLowerCase())?'':'none';});}
+async function setPriv(uid,priv){const r=await post('/users/privilege',{uid,privilege:priv});flash(r.success?r.message:r.error,!r.success);}
+async function setVip(uid,vip){const r=await post('/users/vip',{uid,vip});flash(r.success?r.message:r.error,!r.success);}
+async function delUser(uid,nom){if(!confirm(`Supprimer ${nom} ?`))return;const r=await post('/users/delete',{uid});if(r.success){flash(r.message);loadUsers();}else flash(r.error,true);}
+
+/* ── Blocages ───────────────────────────────────────────────────── */
+async function loadBlocks(){
+    document.getElementById('blocks-table').innerHTML='<div class="loading"><span class="spin"></span></div>';
+    if(!S.vex_pages.length){const pr=await api('/pages');if(pr.success){S.vex_pages=pr.data;renderPages();}}
+    const r=await api('/blocks');if(!r.success){flash(r.error,true);return;}
+    S.blocks=r.data;document.getElementById('blocks-count').textContent=S.blocks.length;document.getElementById('pill-blocks').textContent=S.blocks.length;
+    renderBlocks();
+}
+function renderPages(){document.getElementById('pages-grid').innerHTML=S.vex_pages.map(([p,l])=>`<label class="page-chk"><input type="checkbox" value="${esc(p)}"><span><strong>${esc(l)}</strong><br><code style="font-size:.71rem;opacity:.65">${esc(p)}</code></span></label>`).join('');document.querySelectorAll('#pages-grid input[type=checkbox]').forEach(c=>{c.addEventListener('change',function(){this.closest('.page-chk').classList.toggle('checked',this.checked);});});}
+function renderBlocks(){
+    if(!S.blocks.length){document.getElementById('blocks-table').innerHTML='<div style="padding:30px;text-align:center;color:var(--text-m)"><img src="/static/img/solid/circle-check.svg" class="ico ico-accent" alt=""> Aucun blocage actif</div>';return;}
+    const um={all:'— Tous —'};S.users.forEach(u=>um[String(u.id)]=u.nom);
+    document.getElementById('blocks-table').innerHTML=`<table class="t"><thead><tr><th>#</th><th>Cible</th><th>Privilege &gt;</th><th>Posé par</th><th>Pages</th><th>Action</th></tr></thead><tbody>${S.blocks.map(bl=>{
+        const pages=String(bl.pageb).split(',').filter(Boolean);
+        return`<tr><td><span class="b bx">#${bl.id}</span></td><td>${bl.iduserb==='all'?'<span class="b br">Tous</span>':`<strong>${esc(um[String(bl.iduserb)]||'User #'+bl.iduserb)}</strong>`}</td><td><span class="b bx">&gt; ${bl.priviautro}</span></td><td>${esc(um[String(bl.iduserquiab)]||'Admin #'+bl.iduserquiab)}</td><td><div class="blk-pages">${pages.map(p=>`<span class="blk-page-tag">${esc(p)}</span>`).join('')}</div></td><td><button class="btn br2" onclick="delBlock(${bl.id})"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Suppr.</button></td></tr>`;
+    }).join('')}</tbody></table>`;
+}
+async function submitAddBlock(){
+    const uid=document.getElementById('block-uid').value,priv=document.getElementById('block-priv').value;
+    const pages=Array.from(document.querySelectorAll('#pages-grid input:checked')).map(c=>c.value);
+    if(!pages.length){flash('Sélectionne au moins une page',true);return;}
+    const r=await post('/blocks/add',{iduserb:uid,priviautro:priv,pageb:pages.join(',')});
+    if(r.success){flash(r.message);loadBlocks();}else flash(r.error,true);
+}
+async function delBlock(bid){if(!confirm('Supprimer ce blocage ?'))return;const r=await post('/blocks/delete',{bid});if(r.success){flash(r.message);loadBlocks();}else flash(r.error,true);}
+function toggleAllPages(){S.allChecked=!S.allChecked;document.querySelectorAll('#pages-grid input[type=checkbox]').forEach(c=>{c.checked=S.allChecked;c.closest('.page-chk').classList.toggle('checked',S.allChecked);});}
+
+/* ── Explorateur DB ─────────────────────────────────────────────── */
+async function loadDb(table=null,page=1){
+    S.dbTable=table;S.dbPage=page;
+    document.getElementById('db-exec-view').style.display='none';
+    document.getElementById('db-exec-view').classList.remove('on');
+    document.getElementById('db-content').style.display='';
+    document.getElementById('db-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
+    if(!table){
+        const r=await api('/db/tables');if(!r.success){flash(r.error,true);return;}
+        const{tables,sizes}=r.data;
+        document.getElementById('db-subtitle').textContent=`${tables.length} tables`;
+        document.getElementById('db-edit-bar').style.display='none';DB_COLS=[];
+        const mx=Math.max(1,...sizes.map(s=>s.sz));
+        document.getElementById('db-content').innerHTML=`
+            <div class="card"><div class="ch"><span><img src="/static/img/solid/table-list.svg" class="ico ico-accent" alt=""> Tables</span></div>
+                <div class="cb"><div class="tgr">${tables.map(t=>`<div class="ttl" onclick="loadDb('${esc(t)}')"><img src="/static/img/solid/table.svg" class="ico ico-gray" alt=""> ${esc(t)}</div>`).join('')}</div></div>
+            </div>
+            <div class="card"><div class="ch"><span><img src="/static/img/solid/chart-bar.svg" class="ico ico-accent" alt=""> Taille des tables</span></div>
+                <div style="overflow-x:auto"><table class="t"><thead><tr><th>Table</th><th>Lignes</th><th>Taille (KB)</th><th></th></tr></thead>
+                <tbody>${sizes.map(s=>{const pct=Math.min(100,Math.round(s.sz/mx*100)),cl=pct>80?'d':pct>50?'w':'';
+                    return`<tr><td><a href="#" onclick="loadDb('${esc(s.table_name)}');return false">${esc(s.table_name)}</a></td><td>${Number(s.rws).toLocaleString()}</td><td>${s.sz}</td><td><div class="pg"><div class="pgb ${cl}" style="width:${pct}%"></div></div></td></tr>`;
+                }).join('')}</tbody></table></div>
+            </div>`;
+    }else{
+        const r=await api(`/db/table/${encodeURIComponent(table)}?page=${page}`);if(!r.success){flash(r.error,true);return;}
+        const d=r.data;IS_SUPER=d.is_super||false;DB_COLS=d.cols||[];
+        document.getElementById('db-subtitle').textContent=`${d.table} — ${d.total} lignes`;
+        document.getElementById('db-edit-bar').style.display=IS_SUPER?'':'none';
+        let pgr='';
+        if(d.total_pages>1){const pts=[];for(let p=Math.max(1,page-2);p<=Math.min(d.total_pages,page+2);p++)pts.push(`<button class="${p===page?'cur':''}" onclick="loadDb('${esc(table)}',${p})">${p}</button>`);pgr=`<div class="pgr">${page>1?`<button onclick="loadDb('${esc(table)}',${page-1})">&#9664;</button>`:''}${pts.join('')}${page<d.total_pages?`<button onclick="loadDb('${esc(table)}',${page+1})">&#9654;</button>`:''}</div>`;}
+        const addBtn=IS_SUPER?`<button class="btn ba" onclick="showAddRow('${esc(table)}')"><img src="/static/img/solid/plus.svg" class="ico" style="filter:invert(1)" alt=""> Ajouter ligne</button>`:'';
+        const rows=d.rows.length===0?`<div style="padding:28px;text-align:center;color:var(--text-m)">Table vide</div>`:`<div style="overflow-x:auto"><table class="t"><thead><tr>${d.cols.map(c=>`<th>${esc(c)}</th>`).join('')}${IS_SUPER?'<th style="width:70px">Action</th>':''}</tr></thead><tbody>${d.rows.map(row=>`<tr>${d.cols.map(c=>{const val=String(row[c]??''),pk=String(row[d.cols[0]]??'');return IS_SUPER?`<td class="m cell-editable" onclick="editCell('${esc(table)}','${esc(c)}','${esc(val)}','${esc(d.cols[0])}','${esc(pk)}')" title="Cliquer pour modifier">${esc(val)}</td>`:`<td class="m">${esc(val)}</td>`;}).join('')}${IS_SUPER?`<td><button class="btn br2" onclick="delRow('${esc(table)}','${esc(d.cols[0])}','${esc(String(row[d.cols[0]]??''))}')"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Suppr.</button></td>`:''}</tr>`).join('')}</tbody></table></div>${pgr}`;
+        document.getElementById('db-content').innerHTML=`<div style="margin-bottom:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn bg2" onclick="loadDb()"><img src="/static/img/solid/arrow-left.svg" class="ico ico-gray" alt=""> Toutes les tables</button>${addBtn}</div><div class="card"><div class="ch"><span><img src="/static/img/solid/table.svg" class="ico ico-accent" alt=""> <strong>${esc(table)}</strong></span><span style="color:var(--text-m);font-size:.78rem">${d.total.toLocaleString()} lignes — p.${d.page}</span></div>${rows}</div>`;
+    }
+}
+function editCell(t,c,v,pk,pkv){const n=prompt(`Modifier "${c}" (${pk}=${pkv}) :`,v);if(n===null||n===v)return;post('/db/cell/edit',{table:t,col:c,val:n,pk_col:pk,pk_val:pkv}).then(r=>{flash(r.success?r.message:r.error,!r.success);if(r.success)loadDb(t,S.dbPage);});}
+function delRow(t,pk,pkv){if(!confirm(`Supprimer ${pk}=${pkv} dans "${t}" ?`))return;post('/db/row/delete',{table:t,pk_col:pk,pk_val:pkv}).then(r=>{flash(r.success?r.message:r.error,!r.success);if(r.success)loadDb(t,S.dbPage);});}
+async function showAddRow(table){
+    if(!DB_COLS.length){const r=await api(`/db/table/${encodeURIComponent(table)}?page=1`);if(r.success){DB_COLS=r.data.cols||[];IS_SUPER=r.data.is_super||false;}}
+    const cols=DB_COLS.filter(c=>c!=='id');if(!cols.length){flash('Impossible de récupérer la structure.',true);return;}
+    document.getElementById('add-row-modal')?.remove();
+    const m=document.createElement('div');m.id='add-row-modal';m.className='modal-bg';
+    m.innerHTML=`<div class="modal-box"><div style="font-weight:800;font-size:1.1rem;margin-bottom:16px;display:flex;align-items:center;gap:8px"><img src="/static/img/solid/plus.svg" class="ico ico-accent" alt=""> Ajouter dans <code>${esc(table)}</code></div>${cols.map(c=>`<div class="f"><label>${esc(c)}</label><input type="text" data-col="${esc(c)}" placeholder="${esc(c)}"></div>`).join('')}<div style="display:flex;gap:10px;margin-top:16px"><button class="btn ba" id="addRowBtn"><img src="/static/img/solid/check.svg" class="ico" style="filter:invert(1)" alt=""> Ajouter</button><button class="btn bg2" onclick="document.getElementById('add-row-modal').remove()"><img src="/static/img/solid/xmark.svg" class="ico ico-gray" alt=""> Annuler</button></div></div>`;
+    document.body.appendChild(m);document.getElementById('addRowBtn').addEventListener('click',()=>submitAddRow(table));
+}
+async function submitAddRow(table){
+    const cols=DB_COLS.filter(c=>c!=='id'),m=document.getElementById('add-row-modal');if(!m)return;
+    const vals=cols.map(c=>{const el=m.querySelector(`input[data-col="${c.replace(/\\/g,'\\\\').replace(/"/g,'\\"')}"]`);return el?el.value:'';});
+    if(table==='login'){const i=cols.indexOf('privilege');if(i!==-1&&Number(vals[i])<2){flash('Privilège 1 interdit.',true);return;}}
+    const r=await post('/db/row/add',{table,cols:JSON.stringify(cols),vals:JSON.stringify(vals)});
+    flash(r.success?r.message:r.error,!r.success);if(r.success){m.remove();loadDb(table,S.dbPage);}
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SQL Highlighter — tokeniseur léger, zéro dépendance externe
+   ════════════════════════════════════════════════════════════════ */
+const _KW=new Set('SELECT FROM WHERE INSERT INTO VALUES UPDATE SET DELETE CREATE DROP ALTER TABLE INDEX VIEW JOIN LEFT RIGHT INNER OUTER FULL CROSS ON AS AND OR NOT IN IS NULL LIKE BETWEEN ORDER BY GROUP HAVING LIMIT OFFSET DISTINCT UNION ALL EXISTS CASE WHEN THEN ELSE END IF BEGIN COMMIT ROLLBACK TRANSACTION PRIMARY KEY FOREIGN REFERENCES DEFAULT UNIQUE AUTO_INCREMENT CONSTRAINT DATABASE USE SHOW DESCRIBE EXPLAIN TRUNCATE REPLACE CALL PROCEDURE FUNCTION TRIGGER ENGINE CHARSET COLLATE ADD COLUMN MODIFY RENAME TO WITH RETURNING'.split(' '));
+const _FN=new Set('COUNT SUM AVG MAX MIN COALESCE IFNULL NULLIF CAST CONVERT NOW CURDATE CURTIME DATE YEAR MONTH DAY HOUR MINUTE SECOND CONCAT CONCAT_WS SUBSTRING SUBSTR LENGTH UPPER LOWER TRIM LTRIM RTRIM REPLACE ROUND FLOOR CEIL CEILING ABS MOD RAND UUID GROUP_CONCAT JSON_EXTRACT IF ISNULL IFNULL'.split(' '));
+
+function sqlHighlight(src){
+    const E=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    let i=0,out='';
+    while(i<src.length){
+        const c=src[i];
+        /* commentaire -- */
+        if(c==='-'&&src[i+1]==='-'){
+            let j=i;while(j<src.length&&src[j]!=='\n')j++;
+            out+=`<span class="sc2">${E(src.slice(i,j))}</span>`;i=j;continue;
+        }
+        /* commentaire /* */
+        if(c==='/'&&src[i+1]==='*'){
+            const e=src.indexOf('*/',i+2);const j=e===-1?src.length:e+2;
+            out+=`<span class="sc2">${E(src.slice(i,j))}</span>`;i=j;continue;
+        }
+        /* chaîne '…' "…" `…` */
+        if(c==="'"||c==='"'||c==='`'){
+            let j=i+1;
+            while(j<src.length){if(src[j]===c&&src[j-1]!=='\\')break;j++;}
+            out+=`<span class="ss">${E(src.slice(i,j+1))}</span>`;i=j+1;continue;
+        }
+        /* nombre */
+        if(/[0-9]/.test(c)||(c==='-'&&/[0-9]/.test(src[i+1]||'')&&(i===0||/[\s,(=<>!+\-*\/]/.test(src[i-1])))){
+            let j=i+(c==='-'?1:0);
+            while(j<src.length&&/[0-9.]/.test(src[j]))j++;
+            if(j>i+(c==='-'?1:0)){out+=`<span class="sn">${E(src.slice(i,j))}</span>`;i=j;continue;}
+        }
+        /* mot : keyword ou function */
+        if(/[a-zA-Z_]/.test(c)){
+            let j=i;while(j<src.length&&/[a-zA-Z0-9_]/.test(src[j]))j++;
+            const word=src.slice(i,j),upper=word.toUpperCase();
+            const after=src[j]||'';
+            if(_FN.has(upper)&&after==='('){out+=`<span class="sf">${E(word)}</span>`;}
+            else if(_KW.has(upper)){out+=`<span class="sk">${E(word)}</span>`;}
+            else{out+=E(word);}
+            i=j;continue;
+        }
+        /* opérateurs */
+        if('=<>!+*/%,;()[]'.includes(c)){out+=`<span class="so">${E(c)}</span>`;i++;continue;}
+        out+=E(c);i++;
+    }
+    return out;
+}
+
+function sqlInput(){
+    const ta=document.getElementById('sql-ta');
+    const hl=document.getElementById('sql-hl');
+    const nmEl=document.getElementById('sql-nums');
+    const code=ta.value;
+    const lines=code.split('\n');
+    let nm='';for(let k=1;k<=Math.max(lines.length,1);k++)nm+=`<span>${k}</span>`;
+    nmEl.innerHTML=nm;
+    hl.innerHTML=sqlHighlight(code)+'\n';
+    hl.style.minHeight=ta.scrollHeight+'px';
+    hl.scrollTop=ta.scrollTop;
+    nmEl.scrollTop=ta.scrollTop;
+}
+
+function sqlScroll(){
+    const ta=document.getElementById('sql-ta');
+    document.getElementById('sql-hl').scrollTop=ta.scrollTop;
+    document.getElementById('sql-nums').scrollTop=ta.scrollTop;
+}
+
+function sqlKey(e){
+    if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();runSql();return;}
+    if(e.key==='Tab'){
+        e.preventDefault();
+        const ta=e.target,s=ta.selectionStart;
+        ta.value=ta.value.substring(0,s)+'  '+ta.value.substring(ta.selectionEnd);
+        ta.selectionStart=ta.selectionEnd=s+2;
+        sqlInput();
+    }
+}
+
+function sqlClear(){
+    const ta=document.getElementById('sql-ta');
+    ta.value='';
+    document.getElementById('sql-hl').innerHTML='';
+    document.getElementById('sql-nums').innerHTML='<span>1</span>';
+    sqlBack();
+}
+
+function sqlBack(){
+    document.getElementById('db-exec-view').classList.remove('on');
+    document.getElementById('db-exec-view').style.display='none';
+    document.getElementById('db-content').style.display='';
+}
+
+/* ── Helpers résultats SQL ──────────────────────────────────────── */
+function cellClass(val,col){
+    if(val===null||val===undefined)return'cv-null';
+    if(val==='***')return'cv-masked';
+    const s=String(val),cl=col.toLowerCase();
+    if(cl==='id'||cl.endsWith('_id')||cl.endsWith('id'))return'cv-pk';
+    if(s.trim()!==''&&!isNaN(s))return'cv-num';
+    return'';
+}
+function cellDisp(val){
+    if(val===null||val===undefined)return'<em>NULL</em>';
+    if(val==='***')return'• • •';
+    return esc(String(val));
+}
+function isSqlSelect(sql){return sql.trim().toUpperCase().startsWith('SELECT');}
+
+async function runSql(){
+    const sql=document.getElementById('sql-ta').value.trim();
+    if(!sql){flash('Requête vide',true);return;}
+    const btn=document.getElementById('sql-btn');
+    btn.disabled=true;
+    btn.innerHTML='<span class="spin"></span> Exécution…';
+    const t0=Date.now();
+    const r=await post('/db/sql',{sql});
+    const ms=Date.now()-t0;
+    btn.disabled=false;
+    btn.innerHTML='<img src="/static/img/solid/play.svg" class="ico" style="filter:invert(1)" alt=""> Exécuter';
+    document.getElementById('db-content').style.display='none';
+    const ev=document.getElementById('db-exec-view');
+    ev.style.display='block';ev.classList.add('on');
+    document.getElementById('sql-exec-label').textContent=sql.replace(/\s+/g,' ').substring(0,110)+(sql.length>110?'…':'');
+    const res=document.getElementById('sql-result');
+    if(!r.success){
+        res.innerHTML=`<div class="res-err"><img src="/static/img/solid/circle-xmark.svg" class="ico ico-red" style="flex-shrink:0;margin-top:1px" alt=""><div><strong>Erreur SQL</strong><br>${esc(r.error)}</div></div>`;
+        ev.scrollIntoView({behavior:'smooth',block:'start'});return;
+    }
+    const d=r.data;
+    if(!isSqlSelect(sql)){
+        const affected=d.affected_rows??0;
+        res.innerHTML=`<div class="res-affect"><img src="/static/img/solid/circle-check.svg" alt=""><div><div style="display:flex;align-items:baseline;gap:10px"><span class="res-affect-rows">${affected}</span><span>ligne${affected!==1?'s':''} affectée${affected!==1?'s':''}</span></div><div class="res-affect-detail">${ms} ms &nbsp;·&nbsp; ${esc(sql.trim().split(/\s+/)[0].toUpperCase())}</div></div></div>`;
+        ev.scrollIntoView({behavior:'smooth',block:'start'});return;
+    }
+    if(!d.cols||!d.cols.length){
+        res.innerHTML=`<div class="res-head"><img src="/static/img/solid/circle-check.svg" alt=""><span class="res-stat">Aucun résultat</span><span class="res-time">${ms} ms</span></div><div class="res-empty">La requête n'a retourné aucune ligne.</div>`;
+        ev.scrollIntoView({behavior:'smooth',block:'start'});return;
+    }
+    const th=`<thead><tr><th class="rt-n">#</th>${d.cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead>`;
+    const tb=`<tbody>${d.rows.map((row,i)=>`<tr><td class="rt-n">${i+1}</td>${d.cols.map(c=>{const v=row[c],cl=cellClass(v,c);return`<td class="${cl}" title="${v===null?'NULL':esc(String(v??''))}">${cellDisp(v)}</td>`;}).join('')}</tr>`).join('')}</tbody>`;
+    res.innerHTML=`<div class="res-wrap"><div class="res-head"><img src="/static/img/solid/circle-check.svg" alt=""><span class="res-stat">${d.count} ligne${d.count>1?'s':''} retournée${d.count>1?'s':''}</span><span class="res-time">${ms} ms &nbsp;·&nbsp; ${d.cols.length} colonne${d.cols.length>1?'s':''}</span>${d.count>=200?'<span class="b bo" style="margin-left:auto">Limite 200 atteinte</span>':''}</div><div class="res-scroll"><table class="rt">${th}${tb}</table></div>${d.count>=200?'<div class="res-warn"><img src="/static/img/solid/triangle-exclamation.svg" class="ico" style="filter:invert(60%) sepia(1) saturate(2) hue-rotate(10deg)" alt=""> Limite de 200 lignes atteinte — des résultats peuvent être tronqués.</div>':''}</div>`;
+    ev.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+/* ── Config ─────────────────────────────────────────────────────── */
+const P2P_DEFAULTS={
+    bootstrap_url:'https://vex.hopto.org/neut',
+    use_tor:false,
+    tor_addr:'',
+    port:7700,
+    chunk_size_bytes:1048576,
+    sync_interval_secs:1800,
+    chunks_dir:'/tmp/vex_chunks',
+    output_dir:'/tmp/vex_received',
+};
+const CFG_DEFS=[
+    {icon:'cube',title:'Application',sec:'app',fields:[['name','Nom','text'],['version','Version','text'],['default_language','Langue','text'],['maintenance_mode','Maintenance','bool'],['debug_mode','Debug','bool']]},
+    {icon:'users',title:'Utilisateurs',sec:'users',fields:[['max_users','Nb max','number'],['registration_mode','Inscription','select',['open','invitation','closed']],['activation_key','Clé activation','text'],['session_expiration_minutes','Session (min)','number'],['activation_key_required','Clé requise','bool']]},
+    {icon:'lock',title:'Sécurité',sec:'security',fields:[['password_min_length','Longueur min MDP','number'],['max_login_attempts','Tentatives max','number'],['lockout_duration_minutes','Verrouillage (min)','number'],['password_require_uppercase','Majuscule','bool'],['password_require_number','Chiffre','bool']]},
+    {icon:'hard-drive',title:'Stockage',sec:'storage',fields:[['max_file_size_mb','Taille max (MB)','number'],['file_retention_days','Rétention (j)','number']]},
+    {icon:'network-wired',title:'P2P',sec:'p2p',fields:[
+        ['bootstrap_url','Bootstrap URL','text'],
+        ['use_tor','Utiliser Tor','bool'],
+        ['tor_addr','Adresse .onion','text'],
+        ['port','Port P2P','number'],
+        ['chunk_size_bytes','Chunk (bytes)','number'],
+        ['sync_interval_secs','Sync interval (s)','number'],
+        ['chunks_dir','Dossier chunks','text'],
+        ['output_dir','Dossier sortie','text'],
+    ]},
+];
+async function loadCfg(){
+    document.getElementById('config-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const r=await api('/config');if(!r.success){flash(r.error,true);return;}
+    S.configData=r.data;if(r.data?.plans?.available_plans)S.vipTypes=r.data.plans.available_plans.map(p=>({id:p.id??p.name??p,label:p.label??p.name??p.id??String(p)}));
+    // Inject defaults for P2P so les champs ne restent pas vides si absents dans config.json
+    if(!S.configData.p2p) S.configData.p2p={};
+    Object.entries(P2P_DEFAULTS).forEach(([k,v])=>{
+        if(S.configData.p2p[k]===undefined || S.configData.p2p[k]===''){ S.configData.p2p[k]=v; }
+    });
+    // Auto-active Tor si tor_addr est présent mais use_tor absent
+    if((S.configData.p2p.use_tor===undefined || S.configData.p2p.use_tor===null) &&
+       S.configData.p2p.tor_addr && String(S.configData.p2p.tor_addr).trim()!==''){
+        S.configData.p2p.use_tor = true;
+    }
+    renderCfg();
+}
+function renderCfg(){
+    const cfg=S.configData;let html='';
+    CFG_DEFS.forEach(({icon,title,sec,fields})=>{const d=cfg[sec]||{};
+        html+=`<div class="card" style="margin-bottom:14px"><div class="ch"><span><img src="/static/img/solid/${icon}.svg" class="ico ico-accent" alt=""> ${title}</span></div><div class="cb"><div class="cgr">${fields.map(([k,l,t,o])=>{const v=d[k]??'';let inp;
+            if(t==='bool')inp=`<select class="ci" data-sec="${sec}" data-key="${k}"><option value="true" ${v===true||v==='true'?'selected':''}>true — Activé</option><option value="false" ${!v||v==='false'?'selected':''}>false — Désactivé</option></select>`;
+            else if(t==='select')inp=`<select class="ci" data-sec="${sec}" data-key="${k}">${(o||[]).map(x=>`<option value="${x}" ${v===x?'selected':''}>${x}</option>`).join('')}</select>`;
+            else inp=`<input type="${t==='number'?'number':'text'}" class="ci" data-sec="${sec}" data-key="${k}" value="${esc(String(v))}">`;
+            return`<div><label class="cl">${l}<small>${sec}.${k}</small></label>${inp}</div>`;}).join('')}</div></div></div>`;});
+    html+=`<button class="btn ba" style="padding:10px 26px;font-size:.9rem" onclick="saveCfg()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> Sauvegarder</button>`;
+    document.getElementById('config-content').innerHTML=html;
+}
+async function saveCfg(){
+    const nc=JSON.parse(JSON.stringify(S.configData));
+    document.querySelectorAll('.ci[data-sec]').forEach(el=>{const s=el.dataset.sec,k=el.dataset.key;let v=el.value;if(v==='true')v=true;else if(v==='false')v=false;else if(el.type==='number'&&v!=='')v=Number(v);if(!nc[s])nc[s]={};nc[s][k]=v;});
+    const r=await post('/config',{config:JSON.stringify(nc)});flash(r.success?r.message:r.error,!r.success);
+}
+
+/* ── Serveur ────────────────────────────────────────────────────── */
+async function loadServer(){
+    document.getElementById('server-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const r=await api('/server');if(!r.success){flash(r.error,true);return;}
+    const d=r.data,dk=d.disk,pct=dk.used_pct||0,cl=pct>80?'d':pct>60?'w':'';
+    document.getElementById('server-content').innerHTML=`<div class="sg">
+        <div class="sc" style="--si:#3b82f6"><div class="sc-i"><img src="/static/img/solid/code.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1rem">${esc(d.vex_version)}</div><div class="sc-l">Version VEX</div></div>
+        <div class="sc" style="--si:#f59e0b"><div class="sc-i"><img src="/static/img/solid/laptop.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:.9rem">${esc(d.os)} / ${esc(d.arch)}</div><div class="sc-l">OS / Arch</div></div>
+        <div class="sc" style="--si:${pct>80?'#ef4444':pct>60?'#f59e0b':'var(--accent)'}"><div class="sc-i"><img src="/static/img/solid/hard-drive.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1.1rem">${esc(String(dk.used_gb))} <span style="font-size:.6em;font-weight:400">/ ${esc(String(dk.total_gb))} GB</span></div><div class="sc-l">Disque (${pct}%)</div><div class="pg"><div class="pgb ${cl}" style="width:${pct}%"></div></div></div>
+        <div class="sc" style="--si:#8b5cf6"><div class="sc-i"><img src="/static/img/solid/clock.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1.1rem">${esc(d.uptime_sec)}s</div><div class="sc-l">Uptime</div></div>
+    </div>`;
+}
+
+/* ── Logs ───────────────────────────────────────────────────────── */
+async function loadLogs(){
+    document.getElementById('log-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const r=await api('/logs');if(!r.success){flash(r.error,true);return;}
+    document.getElementById('log-content').innerHTML=r.data.empty?'<div style="padding:24px;text-align:center;color:var(--text-m)">Log vide</div>':`<div class="lb" id="lb">${esc(r.data.content)}</div>`;
+    scrollLogs();
+}
+function scrollLogs(){const lb=document.getElementById('lb');if(lb)lb.scrollTop=lb.scrollHeight;}
+async function clearLogs(){if(!confirm('Vider le log ?'))return;const r=await post('/logs/clear');if(r.success){flash(r.message);loadLogs();}else flash(r.error,true);}
+
+/* ── OnlyOffice ─────────────────────────────────────────────────── */
+async function loadOO(){
+    document.getElementById('oo-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const r=await api('/onlyoffice');if(!r.success){flash(r.error,true);return;}
+    const d=r.data,pm=d.params||{};
+    document.getElementById('oo-content').innerHTML=`<div class="ob ${d.online?'ok':'nok'}"><div class="od"></div><strong>${d.online?'Serveur en ligne':'Serveur hors ligne'}</strong> — ${esc(d.url)} — <strong>${d.ms}ms</strong><button class="btn bg2" style="margin-left:auto" onclick="loadOO()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Re-tester</button></div>
+    <div class="card"><div class="ch"><span><img src="/static/img/solid/circle-info.svg" class="ico ico-accent" alt=""> Paramètres</span></div><div style="overflow-x:auto"><table class="t"><thead><tr><th>Paramètre</th><th>Valeur</th></tr></thead><tbody>
+        <tr><td class="m">Activé</td><td class="m">${d.enabled}</td></tr><tr><td class="m">Version</td><td class="m">${esc(String(d.version))}</td></tr>
+        <tr><td class="m">URL</td><td class="m">${esc(d.url)}</td></tr><tr><td class="m">Format par défaut</td><td class="m">${esc(String(pm.default_format||'docx'))}</td></tr>
+        <tr><td class="m">Taille max (MB)</td><td class="m">${esc(String(pm.max_file_size_mb||'?'))}</td></tr><tr><td class="m">Auto-save</td><td class="m">${pm.auto_save}</td></tr>
+    </tbody></table></div></div>`;
+}
+
+/* ── P2P ─────────────────────────────────────────────────────────── */
+let P2P_TAB='peers';
+function p2pTab(t){
+    P2P_TAB=t;
+    document.querySelectorAll('.p2p-tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+    ['peers','users','transfers','annuaire'].forEach(n=>{
+        document.getElementById('p2p-tab-'+n).style.display=n===t?'':'none';
+    });
+    if(t==='transfers')loadP2pTransfers();
+    if(t==='annuaire')loadP2pAnnuaire();
+}
+
+async function loadP2p(){
+    // Info nœud local
+    const ri=await api('/p2p');
+    if(ri.success){
+        const d=ri.data;
+        document.getElementById('p2p-node-info').style.display='';
+        document.getElementById('p2p-node-id').textContent=d.node_id||'';
+        document.getElementById('p2p-node-url').textContent=d.vex_url||'';
+        document.getElementById('p2p-pub-key').textContent=d.pub_key||'';
+        document.getElementById('p2p-bootstrap').textContent=d.bootstrap||'';
+        document.getElementById('p2p-chunk-size').textContent=d.chunk_size_bytes?(Math.round(d.chunk_size_bytes/1024)+' KB'):'';
+        if(d.tor_addr)document.getElementById('p2p-tor-badge').style.display='';
+    }
+    // Peers
+    const r=await api('/p2p/peers');
+    if(!r.success){flash(r.error,true);return;}
+    const d=r.data;
+    document.getElementById('pill-p2p').textContent=d.online||0;
+    document.getElementById('p2p-tab-peers-cnt').textContent=d.total||0;
+    document.getElementById('p2p-stats').innerHTML=`
+        <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/diagram-project.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${d.total}</div><div class="sc-l">Nœuds total</div></div>
+        <div class="sc" style="--si:#4ade80"><div class="sc-i"><img src="/static/img/solid/circle-check.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${d.online}</div><div class="sc-l">En ligne</div></div>
+        <div class="sc" style="--si:#ef4444"><div class="sc-i"><img src="/static/img/solid/circle-xmark.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${(d.total||0)-(d.online||0)}</div><div class="sc-l">Hors ligne</div></div>`;
+    if(!d.peers||!d.peers.length){
+        document.getElementById('p2p-table').innerHTML='<div style="padding:30px;text-align:center;color:var(--text-m)">Aucun nœud enregistré</div>';
+    } else {
+        document.getElementById('p2p-table').innerHTML=`<table class="t"><thead><tr>
+            <th>Node ID</th><th>URL VEX</th><th>Tor / Anonyme</th><th>Clé pub.</th><th>Statut</th><th>Vu le</th><th>Ver.</th><th>Action</th>
+        </tr></thead><tbody>${d.peers.map(p=>{
+            const tor=p.tor_addr||'ANONYME';
+            const pubShort=p.pub_key?p.pub_key.slice(0,18)+'…':'';
+            return`<tr>
+                <td class="m" style="font-size:.7rem">${esc(p.node_id||'')}</td>
+                <td class="m"><a href="${esc(p.vex_url||'')}" target="_blank">${esc(p.vex_url||'')}</a></td>
+                <td class="m">${esc(tor)}</td>
+                <td class="m" title="${esc(p.pub_key||'')}">${esc(pubShort)}</td>
+                <td><span class="b ${p.status==='online'?'bg':'br'}">${esc(p.status||'')}</span></td>
+                <td class="m">${esc(p.last_seen||'')}</td>
+                <td class="m">${esc(p.version||'?')}</td>
+                <td><button class="btn br2" onclick="kickPeer(${p.id})"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Kick</button></td>
+            </tr>`;
+        }).join('')}</tbody></table>`;
+    }
+    // Users P2P
+    const ru=await api('/p2p/users');
+    if(ru.success){
+        document.getElementById('p2p-tab-users-cnt').textContent=ru.data.total||0;
+        if(!ru.data.users||!ru.data.users.length){
+            document.getElementById('p2p-users-table').innerHTML='<div style="padding:30px;text-align:center;color:var(--text-m)">Aucun utilisateur P2P connu</div>';
+        } else {
+            document.getElementById('p2p-users-table').innerHTML=`<table class="t"><thead><tr>
+                <th>ID@Nœud</th><th>Nom</th><th>Clé publique</th><th>Mis à jour</th>
+            </tr></thead><tbody>${ru.data.users.map(u=>{
+                const pubShort=u.pub_key?u.pub_key.slice(0,22)+'…':'';
+                return`<tr>
+                    <td class="m">${esc(u.user_id)}@<span style="font-size:.7rem">${esc((u.node_id||'').slice(0,12))}…</span></td>
+                    <td><strong>${esc(u.nom||'')}</strong></td>
+                    <td class="m" title="${esc(u.pub_key||'')}">${esc(pubShort)}</td>
+                    <td class="m">${esc(u.updated_at||'')}</td>
+                </tr>`;
+            }).join('')}</tbody></table>`;
+        }
+    }
+}
+
+async function loadP2pTransfers(){
+    document.getElementById('p2p-transfers-table').innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const r=await api('/p2p/transfers');
+    if(!r.success){flash(r.error,true);return;}
+    const transfers=r.data.transfers||[];
+    if(!transfers.length){
+        document.getElementById('p2p-transfers-table').innerHTML='<div style="padding:30px;text-align:center;color:var(--text-m)">Aucun transfert</div>';
+        return;
+    }
+    const statusCls={pending:'bx',in_progress:'bo',complete:'bg',error:'br'};
+    document.getElementById('p2p-transfers-table').innerHTML=`<table class="t"><thead><tr>
+        <th>ID</th><th>Fichier</th><th>De → Vers</th><th>Taille</th><th>Chunks</th><th>Statut</th><th>Date</th>
+    </tr></thead><tbody>${transfers.map(t=>{
+        const pct=t.chunks_total?Math.round((t.chunks_ok/t.chunks_total)*100):0;
+        const sz=t.fichier_size>1048576?(Math.round(t.fichier_size/1048576*10)/10)+' MB':Math.round(t.fichier_size/1024)+' KB';
+        const cls=statusCls[t.status]||'bx';
+        return`<tr>
+            <td class="m" style="font-size:.7rem">${esc((t.transfer_id||'').slice(0,8))}…</td>
+            <td><strong>${esc(t.fichier_nom||'')}</strong></td>
+            <td class="m" style="font-size:.72rem">${esc((t.from_node||'').slice(0,8))}… → ${esc((t.to_node||'').slice(0,8))}…</td>
+            <td class="m">${sz}</td>
+            <td><span class="b bx">${t.chunks_ok||0}/${t.chunks_total||1}</span>
+                <div class="pg" style="margin-top:4px;width:60px"><div class="pgb" style="width:${pct}%"></div></div></td>
+            <td><span class="b ${cls}">${esc(t.status||'')}</span></td>
+            <td class="m">${esc(t.created_at||'')}</td>
+        </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+async function loadP2pAnnuaire(){
+    document.getElementById('p2p-annuaire-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const r=await api('/p2p/annuaire');
+    if(!r.success){flash(r.error,true);return;}
+    document.getElementById('p2p-annuaire-content').innerHTML=
+        `<div class="lb" id="p2p-annuaire-txt" style="max-height:500px">${esc(r.data.annuaire||'')}</div>`;
+}
+
+function copyAnnuaire(){
+    const el=document.getElementById('p2p-annuaire-txt');
+    if(el){navigator.clipboard.writeText(el.textContent).then(()=>flash('Annuaire copié.'));}
+}
+
+async function p2pSyncNow(){
+    const btn=document.getElementById('p2p-sync-btn');
+    btn.disabled=true;btn.innerHTML='<span class="spin"></span> Sync…';
+    const r=await post('/p2p/sync_now');
+    btn.disabled=false;btn.innerHTML='<img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Sync bootstrap';
+    flash(r.success?r.message:r.error,!r.success);
+    if(r.success)loadP2p();
+}
+
+async function kickPeer(id){
+    if(!confirm('Supprimer ce nœud ?'))return;
+    const r=await post('/p2p/kick',{peer_id:id});
+    flash(r.success?r.message:r.error,!r.success);
+    if(r.success)loadP2p();
+}
+
+/* ── Init ───────────────────────────────────────────────────────── */
+(async function(){
+    const t=localStorage.getItem('vex-theme');
+    if(t==='dark'||t==='1')document.documentElement.setAttribute('data-theme','dark');
+    else if(t==='light'||t==='0')document.documentElement.setAttribute('data-theme','light');
+    const sec=new URLSearchParams(location.search).get('section')||'dashboard';
+    await loadDash();
+    if(sec!=='dashboard')nav(sec);
+    sqlInput();
+})();
+</script>
+</body>
+</html>

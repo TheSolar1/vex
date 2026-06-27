@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — VEX</title>
+    <link rel="icon" href="/static/img/favicon.ico" type="image/svg+xml">
+    <script src="/static/fa-local.js" defer></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --green-primary: #4caf50;
+            --green-dark: #45a049;
+            --bg-light: #f0f2f5;
+            --text-dark: #1c1e21;
+            --text-secondary: #65676b;
+            --border-color: #e4e6eb;
+            --white: #ffffff;
+            --success-bg: #e8f5e9;
+            --hover-bg: #f0f2f5;
+        }
+
+        [data-theme="dark"] {
+            --green-primary: #4caf50;
+            --green-dark: #2d5f2e;
+            --bg-light: #18191a;
+            --text-dark: #e4e6eb;
+            --text-secondary: #b0b3b8;
+            --border-color: #3a3b3c;
+            --white: #242526;
+            --hover-bg: #3a3b3c;
+            --success-bg: #2d5f2e;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-light);
+            color: var(--text-dark);
+            min-height: 100vh;
+        }
+
+        /* ── Correction 1 : push sidebar — transition sur content-area uniquement ── */
+        .content-area {
+            padding: 30px;
+            transition: margin-left .3s;
+        }
+
+        .welcome-section {
+            background: linear-gradient(135deg, var(--green-primary) 0%, var(--green-dark) 100%);
+            border-radius: 12px; padding: 40px; margin-bottom: 30px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); color: white;
+        }
+        .welcome-title { font-size: 32px; font-weight: 300; margin-bottom: 10px; }
+        .welcome-name  { font-size: 42px; font-weight: 700; }
+        .welcome-name.fona {
+            color: transparent; -webkit-background-clip: text; background-clip: text;
+            background-image: url("/static/img/image2.png"), url("/static/img/image3.png");
+            background-size: 100% 200%; background-position: 100% 100%, 100% 200%;
+            background-repeat: no-repeat, no-repeat;
+            animation: slideImages 6s linear infinite;
+        }
+        @keyframes slideImages {
+            0%,100% { background-position: 100% 100%, 100% 200%; }
+            50%      { background-position: 100% 0%,   100% 100%; }
+        }
+
+        .content-grid {
+            display: flex; gap: 20px; flex-wrap: wrap; align-items: stretch;
+        }
+
+        .card {
+            background: var(--white); border: 1px solid var(--border-color);
+            border-radius: 12px; padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: box-shadow 0.3s;
+            width: calc(50% - 10px);
+        }
+        .card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+
+        .card-header {
+            display: flex; align-items: center; gap: 15px; margin-bottom: 20px;
+            padding-bottom: 15px; border-bottom: 2px solid var(--border-color);
+        }
+        .card-icon {
+            width: 48px; height: 48px; border-radius: 12px;
+            background: var(--success-bg);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--green-primary); font-size: 24px; flex-shrink: 0;
+        }
+        .card-header-text { flex: 1; }
+        .card-title    { font-size: 20px; font-weight: 600; color: var(--text-dark); margin-bottom: 4px; }
+        .card-subtitle { font-size: 14px; color: var(--text-secondary); }
+        .card-content  { display: flex; flex-direction: column; gap: 12px; }
+
+        .log-item, .file-item, .mail-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; background: var(--bg-light); border-radius: 8px;
+            transition: all 0.2s; cursor: pointer;
+            border-left: 3px solid transparent;
+        }
+        .log-item:hover, .file-item:hover, .mail-item:hover {
+            background: var(--hover-bg);
+            border-left-color: var(--green-primary);
+            transform: translateX(5px);
+        }
+
+        .item-left  { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+        .item-icon  { font-size: 18px; color: var(--green-primary); flex-shrink: 0; width: 18px; height: 18px; }
+        .item-info  { flex: 1; min-width: 0; }
+        .item-title {
+            font-size: 14px; font-weight: 600; color: var(--text-dark);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;
+        }
+        .item-subtitle {
+            font-size: 12px; color: var(--text-secondary); margin-top: 2px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;
+        }
+        .item-right  { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .item-badge  { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .badge-success { background: #e8f5e9; color: #2e7d32; }
+        .badge-info    { background: #e3f2fd; color: #1565c0; }
+        .item-time   { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+
+        .btn-action {
+            padding: 6px 12px; background: var(--green-primary); color: white;
+            border: none; border-radius: 6px; font-size: 12px; font-weight: 600;
+            cursor: pointer; transition: background 0.2s; text-decoration: none;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-action:hover { background: var(--green-dark); }
+
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
+        .empty-state p { font-size: 18px; margin-top: 12px; }
+
+        .show-more { text-align: center; padding-top: 15px; }
+        .show-more a {
+            color: var(--green-primary); text-decoration: none;
+            font-weight: 600; font-size: 14px;
+        }
+        .show-more a:hover { color: var(--green-dark); }
+
+        @media (max-width: 768px) {
+            .welcome-title { font-size: 24px; }
+            .welcome-name  { font-size: 32px; }
+            .card          { width: 100%; }
+            .content-area  { padding: 16px; }
+        }
+    </style>
+</head>
+<body data-theme="{{THEME}}">
+
+__NAV_HTML__
+
+<!-- Correction 1 : classe nav-sidebar-content-push-7844 pour le push sidebar -->
+<div class="content-area nav-sidebar-content-push-7844">
+    <div class="welcome-section">
+        <div class="welcome-title">Bienvenue,</div>
+        {{WELCOME_NAME_BLOCK}}
+    </div>
+
+    <div class="content-grid">
+
+        {{ADMIN_CARD}}
+
+        <!-- Exodrive -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon"><i class="fas fa-hard-drive"></i></div>
+                <div class="card-header-text">
+                    <div class="card-title">Exodrive</div>
+                    <div class="card-subtitle">{{EXODRIVE_STATS}}</div>
+                </div>
+                <a href="/tel/" class="btn-action"><i class="fas fa-folder-open"></i> Ouvrir</a>
+            </div>
+            <div class="card-content">{{EXODRIVE_FILES}}</div>
+        </div>
+
+        <!-- VexMail -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon"><i class="fas fa-envelope"></i></div>
+                <div class="card-header-text">
+                    <div class="card-title">VexMail</div>
+                    <div class="card-subtitle">{{MAIL_UNREAD}} non lu(s)</div>
+                </div>
+                <a href="/mess/vexmail" class="btn-action"><i class="fas fa-inbox"></i> Ouvrir</a>
+            </div>
+            <div class="card-content">{{MAIL_MESSAGES}}</div>
+        </div>
+
+        <!-- Sitec -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon"><i class="fas fa-globe"></i></div>
+                <div class="card-header-text">
+                    <div class="card-title">Sitec</div>
+                    <div class="card-subtitle">{{SITEC_STATS}}</div>
+                </div>
+                <a href="/sitec/" class="btn-action"><i class="fas fa-plus"></i> Créer</a>
+            </div>
+            <div class="card-content">{{SITEC_SITES}}</div>
+        </div>
+
+        <!-- Éditeur -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon"><i class="fas fa-folder-open"></i></div>
+                <div class="card-header-text">
+                    <div class="card-title">Éditeur de fichiers</div>
+                    <div class="card-subtitle">Modifiez vos documents en ligne</div>
+                </div>
+                <a href="/edite1/" class="btn-action"><i class="fas fa-edit"></i> Ouvrir</a>
+            </div>
+            <div class="card-content">
+                <div class="empty-state"><i class="fas fa-edit"></i><p>Prêt à éditer vos fichiers</p></div>
+            </div>
+        </div>
+
+        <!-- Vidéos -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon"><i class="fas fa-video"></i></div>
+                <div class="card-header-text">
+                    <div class="card-title">Vidéos</div>
+                    <div class="card-subtitle">Bientôt disponible</div>
+                </div>
+                <a href="#" class="btn-action" style="opacity:.5;cursor:not-allowed;"><i class="fas fa-lock"></i> Bientôt</a>
+            </div>
+            <div class="card-content">
+                <div class="empty-state"><i class="fas fa-video"></i><p>Cette fonctionnalité arrive bientôt</p></div>
+            </div>
+        </div>
+
+    </div><!-- .content-grid -->
+</div><!-- .content-area -->
+
+</body>
+</html>

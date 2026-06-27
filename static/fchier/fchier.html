@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestionnaire — Exodrive</title>
+  <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
+  <style>
+:root {
+  --exo-primary:      #4CAF50;
+  --exo-primary-dark: #45a049;
+  --exo-bg:           #f0f2f5;
+  --exo-card-bg:      #ffffff;
+  --exo-text:         #1c1e21;
+  --exo-text-muted:   #65676b;
+  --exo-border:       #e4e6eb;
+  --exo-hover:        #f0f2f5;
+  --exo-sidebar-bg:   #ffffff;
+  --exo-input-bg:     #ffffff;
+}
+[data-theme="dark"] {
+  --exo-bg:         #121212;
+  --exo-card-bg:    #1e1e1e;
+  --exo-text:       #e0e0e0;
+  --exo-text-muted: #b0b0b0;
+  --exo-border:     #2a2a2a;
+  --exo-hover:      #2a2a2a;
+  --exo-sidebar-bg: #1a1a1a;
+  --exo-input-bg:   #2a2a2a;
+}
+.ico { display:inline-block; width:16px; height:16px; vertical-align:middle; flex-shrink:0; }
+.ico-lg { width:48px; height:48px; }
+.ico-md { width:24px; height:24px; }
+.ico-sm { width:14px; height:14px; }
+.ico-18 { width:18px; height:18px; }
+.ico-20 { width:20px; height:20px; }
+.ico-32 { width:32px; height:32px; }
+.ico-64 { width:64px; height:64px; }
+.ico-primary { filter: invert(48%) sepia(79%) saturate(476%) hue-rotate(86deg) brightness(95%) contrast(89%); }
+.ico-orange  { filter: invert(69%) sepia(61%) saturate(748%) hue-rotate(1deg) brightness(101%) contrast(92%); }
+.ico-blue    { filter: invert(53%) sepia(98%) saturate(400%) hue-rotate(185deg) brightness(100%) contrast(89%); }
+.ico-muted   { filter: invert(44%) sepia(9%) saturate(322%) hue-rotate(182deg) brightness(92%) contrast(89%); }
+.ico-white   { filter: brightness(0) invert(1); }
+.ico-red     { filter: invert(27%) sepia(88%) saturate(1200%) hue-rotate(335deg) brightness(92%) contrast(95%); }
+[data-theme="dark"] .ico-muted { filter: invert(72%) sepia(5%) saturate(400%) hue-rotate(180deg) brightness(85%); }
+
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--exo-bg); color: var(--exo-text);
+  -webkit-font-smoothing: antialiased;
+}
+.main-container { display:flex; height:100vh; }
+.sidebar {
+  width:260px; background:var(--exo-sidebar-bg);
+  border-right:1px solid var(--exo-border);
+  padding:20px 10px; overflow-y:auto; flex-shrink:0;
+}
+.create-btn-wrap { position:relative; margin-bottom:24px; }
+.create-btn {
+  width:100%; padding:12px 20px; background:var(--exo-primary);
+  color:#fff; border:none; border-radius:5px; font-size:14px; font-weight:600;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  gap:10px; transition:background .3s;
+}
+.create-btn:hover { background:var(--exo-primary-dark); }
+.create-dropdown {
+  display:none; position:absolute; top:calc(100% + 6px); left:0; width:100%;
+  background:var(--exo-card-bg); border:1px solid var(--exo-border);
+  border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,.12); z-index:500;
+  overflow:hidden; animation:dd-in .15s ease;
+}
+.create-dropdown.open { display:block; }
+@keyframes dd-in { from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);} }
+.dd-item {
+  display:flex; align-items:center; gap:12px;
+  padding:12px 16px; cursor:pointer; font-size:14px; font-weight:500;
+  color:var(--exo-text); transition:background .15s; border:none; background:none; width:100%;
+}
+.dd-item:hover { background:var(--exo-hover); }
+.dd-item + .dd-item { border-top:1px solid var(--exo-border); }
+.nav-item {
+  display:flex; align-items:center; gap:12px; padding:12px 16px;
+  color:var(--exo-text); text-decoration:none; border-radius:8px;
+  margin:4px 0; transition:all .2s; font-size:14px; font-weight:500;
+  cursor:pointer; border:none; background:none; width:100%;
+}
+.nav-item:hover  { background:var(--exo-hover); }
+.nav-item.active { background:var(--exo-primary); color:#fff; font-weight:600; }
+.nav-item.active .ico { filter: brightness(0) invert(1); }
+.content { flex:1; overflow-y:auto; padding:24px 32px; background:var(--exo-bg); }
+.content-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+.breadcrumb { display:flex; align-items:center; gap:8px; margin-bottom:10px; font-size:13px; color:var(--exo-text-muted); }
+.breadcrumb a, .breadcrumb span.bc-link { color:var(--exo-primary); text-decoration:none; cursor:pointer; }
+.breadcrumb a:hover, .breadcrumb span.bc-link:hover { text-decoration:underline; }
+.content-title { font-size:28px; font-weight:600; color:var(--exo-text); }
+.view-toggle { display:flex; background:var(--exo-card-bg); border-radius:5px; border:1px solid var(--exo-border); overflow:hidden; }
+.view-btn { padding:8px 14px; background:transparent; border:none; border-right:1px solid var(--exo-border); color:var(--exo-text-muted); cursor:pointer; transition:all .2s; display:flex; align-items:center; }
+.view-btn:last-child { border-right:none; }
+.view-btn:hover  { background:var(--exo-hover); }
+.view-btn.active { background:var(--exo-primary); color:#fff; }
+.view-btn.active .ico { filter: brightness(0) invert(1); }
+.files-grid {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+  gap:16px; margin-bottom:40px;
+}
+.files-grid.hidden { display:none; }
+.file-card, .folder-card, .page-card {
+  background:var(--exo-card-bg); border:1px solid var(--exo-border); border-radius:8px;
+  padding:20px 16px; text-align:center; cursor:pointer; transition:all .2s;
+  text-decoration:none; color:inherit; display:block; position:relative;
+}
+.file-card:hover, .folder-card:hover, .page-card:hover {
+  border-color:var(--exo-primary); box-shadow:0 2px 8px rgba(76,175,80,.2); transform:translateY(-2px);
+}
+.item-menu {
+  position:absolute; top:10px; right:10px; cursor:pointer;
+  padding:5px 8px; border-radius:3px; z-index:10; color:var(--exo-text-muted); display:flex; align-items:center;
+}
+.item-menu:hover { background:var(--exo-hover); }
+.file-icon, .folder-icon, .page-icon {
+  font-size:48px; margin-bottom:12px; display:flex; align-items:center; justify-content:center; min-height:48px;
+}
+.file-name, .folder-name, .page-name {
+  font-weight:500; margin-bottom:6px; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap; color:var(--exo-text); font-size:13px;
+}
+.file-date { font-size:11px; color:var(--exo-text-muted); }
+.files-list { background:var(--exo-card-bg); border:1px solid var(--exo-border); border-radius:8px; overflow:hidden; display:none; }
+.files-list.active { display:block; }
+.list-header { display:grid; grid-template-columns:2fr 1fr 1fr 60px; gap:20px; padding:12px 20px; background:var(--exo-hover); border-bottom:1px solid var(--exo-border); font-weight:600; font-size:11px; color:var(--exo-text-muted); text-transform:uppercase; }
+.list-item { display:grid; grid-template-columns:2fr 1fr 1fr 60px; gap:20px; padding:14px 20px; border-bottom:1px solid var(--exo-border); transition:background .2s; cursor:pointer; text-decoration:none; color:inherit; position:relative; align-items:center; }
+.list-item:hover { background:var(--exo-hover); }
+.list-item-name { display:flex; align-items:center; gap:12px; font-weight:500; font-size:14px; color:var(--exo-text); overflow:hidden; }
+.list-item-name span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.empty-state { text-align:center; padding:60px 20px; background:var(--exo-card-bg); border-radius:8px; border:1px solid var(--exo-border); grid-column:1/-1; }
+.empty-state h3 { color:var(--exo-text); margin-bottom:8px; margin-top:16px; }
+.empty-state p  { color:var(--exo-text-muted); }
+.filter-select, .search-box {
+  padding:8px 12px; border:1px solid var(--exo-border); border-radius:5px;
+  font-size:14px; background:var(--exo-card-bg); color:var(--exo-text);
+}
+.filter-select:focus, .search-box:focus { outline:none; border-color:var(--exo-primary); }
+.context-menu {
+  display:none; position:fixed; background:var(--exo-card-bg);
+  border:1px solid var(--exo-border); border-radius:8px;
+  box-shadow:0 4px 12px rgba(0,0,0,.15); z-index:1000; min-width:200px; padding:8px 0;
+}
+.context-menu.show { display:block; }
+.context-menu-item {
+  padding:10px 16px; cursor:pointer; transition:background .2s;
+  display:flex; align-items:center; gap:10px; font-size:14px; color:var(--exo-text);
+}
+.context-menu-item:hover { background:var(--exo-hover); }
+.context-menu-item.delete { color:#f44336; }
+.modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.5); z-index:2000; align-items:center; justify-content:center; }
+.modal.active { display:flex; }
+.modal-content { background:var(--exo-card-bg); border-radius:12px; padding:28px; width:90%; max-width:460px; box-shadow:0 8px 32px rgba(0,0,0,.3); }
+.modal-header { font-size:20px; font-weight:600; margin-bottom:20px; color:var(--exo-text); display:flex; align-items:center; gap:10px; }
+.modal-body   { margin-bottom:20px; color:var(--exo-text); }
+.modal-footer { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+.form-group { margin-bottom:18px; }
+.form-group label { display:block; margin-bottom:6px; font-weight:500; color:var(--exo-text); font-size:13px; }
+.form-group input, .form-group select { width:100%; padding:10px 12px; border:1px solid var(--exo-border); border-radius:6px; font-size:14px; background:var(--exo-input-bg); color:var(--exo-text); transition:border-color .2s; }
+.form-group input:focus, .form-group select:focus { outline:none; border-color:var(--exo-primary); }
+.btn { padding:10px 20px; border:none; border-radius:5px; font-size:14px; font-weight:600; cursor:pointer; transition:all .3s; display:inline-flex; align-items:center; gap:8px; font-family:inherit; }
+.btn-primary   { background:var(--exo-primary); color:#fff; }
+.btn-primary:hover   { background:var(--exo-primary-dark); }
+.btn-secondary { background:transparent; color:var(--exo-text-muted); border:1px solid var(--exo-border); }
+.btn-secondary:hover { background:var(--exo-hover); }
+.file-input-label {
+  border:2px dashed var(--exo-primary); padding:20px; text-align:center;
+  cursor:pointer; border-radius:8px; background:var(--exo-hover); transition:all .3s; display:block;
+}
+.file-input-label:hover, .file-input-label.dragover { background:var(--exo-border); border-color:var(--exo-primary-dark); }
+.selected-files-list {
+  max-height:160px; overflow-y:auto; border:1px solid var(--exo-border);
+  border-radius:6px; margin-top:10px;
+}
+.selected-file-item {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:7px 12px; font-size:13px; border-bottom:1px solid var(--exo-border);
+}
+.selected-file-item:last-child { border-bottom:none; }
+.selected-file-item .file-item-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; margin-right:8px; }
+.selected-file-item .file-item-size { color:var(--exo-text-muted); font-size:11px; white-space:nowrap; }
+.selected-file-item .file-item-remove { cursor:pointer; color:#f44336; margin-left:8px; font-size:16px; line-height:1; flex-shrink:0; }
+.upload-progress-wrap { margin-top:12px; display:none; }
+.upload-progress-wrap .progress-bar { height:6px; background:var(--exo-hover); border-radius:3px; overflow:hidden; }
+.upload-progress-wrap .progress-fill { height:100%; background:var(--exo-primary); border-radius:3px; transition:width .3s; width:0; }
+.upload-progress-wrap .progress-label { font-size:12px; color:var(--exo-text-muted); margin-top:4px; }
+.badge-share {
+  position:absolute; top:10px; left:10px; background:rgba(33,150,243,.9);
+  color:white; padding:4px 8px; border-radius:4px; font-size:11px;
+  display:flex; align-items:center; gap:4px;
+}
+/* Arbre de prévisualisation dossier */
+.folder-tree {
+  background:var(--exo-hover); border:1px solid var(--exo-border);
+  border-radius:6px; margin-top:10px; padding:10px 12px;
+  font-size:12px; max-height:140px; overflow-y:auto;
+  font-family: 'Courier New', monospace; color:var(--exo-text-muted);
+  line-height:1.7;
+}
+.folder-tree .tree-dir  { color:var(--exo-primary); font-weight:600; }
+.folder-tree .tree-file { color:var(--exo-text-muted); }
+@media(max-width:768px) {
+  .sidebar { width:70px; }
+  .create-btn span, .nav-item span { display:none; }
+}
+  </style>
+</head>
+<body>
+
+__NAV_HTML__
+
+<div class="main-container">
+  <aside class="sidebar">
+    <div class="create-btn-wrap" id="createBtnWrap">
+      <button class="create-btn" id="createBtn" onclick="toggleCreateDropdown(event)">
+        <img class="ico ico-sm ico-white" src="/static/img/solid/plus.svg">
+        <span>Nouveau</span>
+      </button>
+      <div class="create-dropdown" id="createDropdown">
+        <button class="dd-item" onclick="openFolderModalFromDD()">
+          <img class="ico ico-18 ico-primary" src="/static/img/solid/folder-plus.svg">
+          <span>Nouveau dossier</span>
+        </button>
+        <button class="dd-item" onclick="openUploadModalFromDD()">
+          <img class="ico ico-18 ico-primary" src="/static/img/solid/arrow-up-from-bracket.svg">
+          <span>Importer des fichiers</span>
+        </button>
+        <button class="dd-item" onclick="openUploadFolderFromDD()">
+          <img class="ico ico-18 ico-primary" src="/static/img/solid/folder-open.svg">
+          <span>Importer un dossier</span>
+        </button>
+      </div>
+    </div>
+    <nav>
+      <button class="nav-item active" id="nav-mes" onclick="switchTab(0)">
+        <img class="ico ico-18 ico-muted" src="/static/img/solid/folder.svg">
+        <span>Mes fichiers</span>
+      </button>
+      <button class="nav-item" id="nav-partage" onclick="switchTab(1)">
+        <img class="ico ico-18 ico-muted" src="/static/img/solid/share-nodes.svg">
+        <span>Partagé avec moi</span>
+      </button>
+    </nav>
+  </aside>
+
+  <main class="content">
+    <div class="content-header">
+      <div>
+        <div class="breadcrumb" id="breadcrumb">
+          <span class="bc-link" onclick="navTo(0)">
+            <img class="ico ico-sm ico-primary" src="/static/img/solid/house.svg"> Accueil
+          </span>
+        </div>
+        <h1 class="content-title" id="content-title">Mes fichiers</h1>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <select id="filterType" class="filter-select" onchange="filterItems()">
+          <option value="all">Tous les types</option>
+          <option value="folder">Dossiers</option>
+          <option value="page">Pages web</option>
+          <option value="file">Fichiers</option>
+          <option value="image">Images</option>
+          <option value="video">Vidéos</option>
+          <option value="document">Documents</option>
+          <option value="code">Code</option>
+        </select>
+        <input type="text" id="searchBox" class="search-box" placeholder="Rechercher…" oninput="searchItems()">
+        <div class="view-toggle">
+          <button class="view-btn active" id="btn-grid" onclick="setView('grid')" title="Grille">
+            <img class="ico ico-sm" src="/static/img/solid/table-cells.svg">
+          </button>
+          <button class="view-btn" id="btn-list" onclick="setView('list')" title="Liste">
+            <img class="ico ico-sm" src="/static/img/solid/list.svg">
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="files-grid" id="grid-view">
+      <div class="empty-state">
+        <div class="spinner" style="margin:0 auto;width:30px;height:30px;border:3px solid var(--exo-border);border-top-color:var(--exo-primary);border-radius:50%;animation:spin .7s linear infinite;"></div>
+      </div>
+    </div>
+
+    <div class="files-list" id="list-view">
+      <div class="list-header">
+        <span>Nom</span><span>Type</span><span>Date</span><span></span>
+      </div>
+      <div id="list-body"></div>
+    </div>
+  </main>
+</div>
+
+<!-- Context menu -->
+<div class="context-menu" id="contextMenu">
+  <div class="context-menu-item" id="ctx-open" onclick="handleAction('open')">
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/folder-open.svg"> Ouvrir
+  </div>
+  <div class="context-menu-item" id="ctx-download" onclick="handleAction('download')">
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/download.svg"> Télécharger
+  </div>
+  <div class="context-menu-item" onclick="handleAction('rename')">
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/pen-to-square.svg"> Renommer
+  </div>
+  <div class="context-menu-item" id="ctx-visibility" onclick="handleAction('visibility')">
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/eye.svg"> Visibilité
+  </div>
+  <div class="context-menu-item" id="ctx-move" onclick="handleAction('move')">
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/arrows-up-down-left-right.svg"> Déplacer
+  </div>
+  <div class="context-menu-item" id="ctx-share" onclick="handleAction('share')">
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/share-nodes.svg"> Partager
+  </div>
+  <div class="context-menu-item" id="ctx-sendp2p" onclick="handleAction('send_p2p')">
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/paper-plane.svg"> Envoyer P2P
+  </div>
+  <div class="context-menu-item delete" onclick="handleAction('delete')">
+    <img class="ico ico-18 ico-red" src="/static/img/solid/trash.svg"> Supprimer
+  </div>
+</div>
+
+<!-- Upload fichiers (multi) -->
+<div class="modal" id="uploadModal">
+  <div class="modal-content" style="max-width:500px;">
+    <div class="modal-header">
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/arrow-up-from-bracket.svg">
+      <span id="upload-modal-title">Importer des fichiers</span>
+    </div>
+    <div class="form-group">
+      <label id="upload-drop-label">Sélectionner des fichiers</label>
+      <input type="file" id="fileInput" multiple style="display:none;" onchange="handleFileSelect(event)">
+      <input type="file" id="folderInput" multiple webkitdirectory style="display:none;" onchange="handleFolderSelect(event)">
+      <label for="fileInput" id="uploadDropZone" class="file-input-label">
+        <img src="/static/img/solid/cloud-arrow-up.svg" style="width:40px;height:40px;display:block;margin:0 auto 8px;opacity:.6;">
+        <span id="fileUploadText">Cliquez ou glissez des fichiers ici</span>
+      </label>
+      <div class="selected-files-list" id="selectedFilesList" style="display:none;"></div>
+      <!-- Prévisualisation arbre dossier -->
+      <div class="folder-tree" id="folderTree" style="display:none;"></div>
+    </div>
+    <div class="form-group">
+      <label>Visibilité</label>
+      <select id="upload-visble">
+        <option value="1">Privé</option>
+        <option value="0">Public</option>
+      </select>
+    </div>
+    <div class="upload-progress-wrap" id="upload-progress">
+      <div class="progress-bar"><div class="progress-fill" id="upload-fill"></div></div>
+      <div class="progress-label" id="upload-progress-label">Préparation…</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('uploadModal')">Annuler</button>
+      <button class="btn btn-primary" id="btn-do-upload" onclick="doUpload()" disabled>
+        <img class="ico ico-sm ico-white" src="/static/img/solid/arrow-up-from-bracket.svg">
+        <span id="btn-upload-label">Uploader</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Nouveau dossier -->
+<div class="modal" id="folderModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/folder-plus.svg"> Nouveau dossier
+    </div>
+    <div class="form-group">
+      <label>Nom du dossier</label>
+      <input type="text" id="folder-name" placeholder="Mon dossier" maxlength="100"
+             onkeydown="if(event.key==='Enter') doCreateFolder()">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('folderModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="doCreateFolder()">
+        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> Créer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Renommer -->
+<div class="modal" id="renameModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/pen-to-square.svg"> Renommer
+    </div>
+    <div class="form-group">
+      <label>Nouveau nom</label>
+      <input type="text" id="rename-input" maxlength="255" onkeydown="if(event.key==='Enter') doRename()">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('renameModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="doRename()">
+        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> Renommer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Visibilité -->
+<div class="modal" id="visibilityModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/eye.svg"> Visibilité
+    </div>
+    <div class="form-group">
+      <label>Visibilité</label>
+      <select id="visibility-value">
+        <option value="1">Privé</option>
+        <option value="0">Public</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('visibilityModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="doChangeVisibility()">
+        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> Appliquer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Envoi P2P -->
+<div class="modal" id="p2pModal">
+  <div class="modal-content" style="max-width:420px;">
+    <div class="modal-header">
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/paper-plane.svg"> Envoyer via P2P
+    </div>
+    <div class="form-group">
+      <label>ID utilisateur destinataire (to_user)</label>
+      <input type="number" id="p2p-to-user" placeholder="ex: 42" min="1" onkeydown="if(event.key==='Enter') doSendP2p()">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('p2pModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="doSendP2p()">
+        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> Envoyer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Déplacer -->
+<div class="modal" id="moveModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/arrows-up-down-left-right.svg"> Déplacer vers…
+    </div>
+    <div class="form-group">
+      <label>Dossier de destination</label>
+      <select id="move-target"><option value="0">Racine</option></select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('moveModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="doMove()">
+        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> Déplacer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Supprimer -->
+<div class="modal" id="deleteModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <img class="ico ico-20 ico-red" src="/static/img/solid/trash.svg"> Confirmer la suppression
+    </div>
+    <div class="modal-body">
+      <p>Êtes-vous sûr de vouloir supprimer <strong id="delete-name"></strong> ?</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('deleteModal')">Annuler</button>
+      <button class="btn btn-primary" style="background:#f44336;" onclick="doDelete()">
+        <img class="ico ico-sm ico-white" src="/static/img/solid/trash.svg"> Supprimer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Partager -->
+<div class="modal" id="shareModal">
+  <div class="modal-content" style="max-width:480px;">
+    <div class="modal-header">
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/share-nodes.svg"> Partager
+    </div>
+    <div class="form-group">
+      <label>IDs des utilisateurs (séparés par des virgules)</label>
+      <input type="text" id="share-ids" placeholder="12, 45, 78">
+      <div style="font-size:11px;color:var(--exo-text-muted);margin-top:6px;">
+        Laisser vide pour révoquer tous les partages.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('shareModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="doShare()">
+        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> Enregistrer
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-area" style="position:fixed;bottom:24px;right:24px;z-index:5000;display:flex;flex-direction:column;gap:10px;pointer-events:none;"></div>
+
+<style>
+.spinner { width:20px;height:20px;border:2px solid var(--exo-border);border-top-color:var(--exo-primary);border-radius:50%;animation:spin .7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.toast { background:var(--exo-card-bg);border:1px solid var(--exo-border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);padding:12px 18px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;animation:toast-in .25s ease;pointer-events:all;max-width:340px; }
+@keyframes toast-in { from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);} }
+.toast.ok    { border-left:4px solid var(--exo-primary); }
+.toast.error { border-left:4px solid #f44336; }
+.toast.info  { border-left:4px solid #2196f3; }
+</style>
+
+<script src="/static/crypto.js"></script>
+<script>
+'use strict';
+const ICO = '/static/img/solid/';
+
+const state = {
+  dossier:     0,
+  shared:      0,
+  view:        localStorage.getItem('fchier_view') || 'grid',
+  data:        null,
+  ctx:         null,
+  uploadFiles: [],
+  uploadMode:  'files',
+  cryptoReady:  false,
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  // ── Initialisation session VEX depuis sessionStorage ─────────
+  // Le mdp en clair est stocké en sessionStorage par login.html
+  // après un login réussi. sessionStorage est effacé à la fermeture
+  // de l'onglet — le mdp ne persiste jamais sur disque.
+  if (!initCryptoSession()) return;
+
+  setView(state.view, false);
+  loadData();
+  initDropZone();
+});
+
+function redirectLogin() {
+  window.location.href = '/login/login';
+}
+
+function initCryptoSession() {
+  try {
+    if (!window.VEX) throw new Error('module crypto absent');
+    const mdp   = sessionStorage.getItem('vex_mdp');
+    const hash  = sessionStorage.getItem('vex_hash');
+    const email = sessionStorage.getItem('vex_email');
+    if (!mdp || !hash || !email) throw new Error('session crypto incomplète');
+    VEX.setSession(mdp, hash, email);
+    if (!VEX.isConnected()) throw new Error('session crypto invalide');
+    state.cryptoReady = true;
+    return true;
+  } catch(e) {
+    console.warn('VEX : session crypto invalide :', e);
+    try {
+      sessionStorage.removeItem('vex_mdp');
+      sessionStorage.removeItem('vex_hash');
+      sessionStorage.removeItem('vex_email');
+      if (window.VEX) VEX.clearSession();
+    } catch (_) {}
+    redirectLogin();
+    return false;
+  }
+}
+
+function requireCryptoSession() {
+  if (state.cryptoReady && window.VEX && VEX.isConnected()) return true;
+  redirectLogin();
+  return false;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DROPDOWN "NOUVEAU"
+// ══════════════════════════════════════════════════════════════════
+function toggleCreateDropdown(e) {
+  e.stopPropagation();
+  document.getElementById('createDropdown').classList.toggle('open');
+}
+function closeCreateDropdown() {
+  document.getElementById('createDropdown').classList.remove('open');
+}
+document.addEventListener('click', () => closeCreateDropdown());
+
+function openFolderModalFromDD() {
+  closeCreateDropdown();
+  openModal('folderModal');
+  setTimeout(() => document.getElementById('folder-name').focus(), 50);
+}
+function openUploadModalFromDD() {
+  closeCreateDropdown();
+  state.uploadMode = 'files';
+  document.getElementById('upload-modal-title').textContent = 'Importer des fichiers';
+  document.getElementById('upload-drop-label').textContent  = 'Sélectionner des fichiers';
+  document.getElementById('fileUploadText').textContent     = 'Cliquez ou glissez des fichiers ici';
+  document.getElementById('uploadDropZone').setAttribute('for', 'fileInput');
+  document.getElementById('folderTree').style.display = 'none';
+  resetUpload();
+  openModal('uploadModal');
+}
+function openUploadFolderFromDD() {
+  closeCreateDropdown();
+  state.uploadMode = 'folder';
+  document.getElementById('upload-modal-title').textContent = 'Importer un dossier';
+  document.getElementById('upload-drop-label').textContent  = 'Sélectionner un dossier';
+  document.getElementById('fileUploadText').textContent     = 'Cliquez pour choisir un dossier';
+  document.getElementById('uploadDropZone').setAttribute('for', 'folderInput');
+  document.getElementById('folderTree').style.display = 'none';
+  resetUpload();
+  openModal('uploadModal');
+}
+
+function initDropZone() {
+  const zone = document.getElementById('uploadDropZone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('dragover');
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length) addFilesToUpload(files);
+  });
+}
+
+function handleFileSelect(e) {
+  const files = Array.from(e.target.files);
+  if (files.length) addFilesToUpload(files);
+  e.target.value = '';
+}
+
+function handleFolderSelect(e) {
+  const files = Array.from(e.target.files);
+  if (files.length) {
+    state.uploadFiles = files; // remplace (un seul dossier à la fois)
+    renderFolderTree(files);
+    document.getElementById('selectedFilesList').style.display = 'none';
+    document.getElementById('btn-do-upload').disabled = false;
+    const total = files.length;
+    document.getElementById('fileUploadText').textContent =
+      `${total} fichier${total > 1 ? 's' : ''} dans le dossier`;
+  }
+  e.target.value = '';
+}
+
+function addFilesToUpload(files) {
+  state.uploadFiles = state.uploadFiles.concat(files);
+  document.getElementById('folderTree').style.display = 'none';
+  renderSelectedFiles();
+  document.getElementById('btn-do-upload').disabled = false;
+  const total = state.uploadFiles.length;
+  document.getElementById('fileUploadText').textContent =
+    total === 1 ? '1 fichier sélectionné' : `${total} fichiers sélectionnés`;
+}
+
+function renderSelectedFiles() {
+  const list = document.getElementById('selectedFilesList');
+  if (!state.uploadFiles.length) { list.style.display = 'none'; list.innerHTML = ''; return; }
+  list.style.display = '';
+  list.innerHTML = state.uploadFiles.map((f, i) => `
+    <div class="selected-file-item">
+      <span class="file-item-name" title="${escHtml(f.name)}">${escHtml(f.name)}</span>
+      <span class="file-item-size">${formatSize(f.size)}</span>
+      <span class="file-item-remove" onclick="removeUploadFile(${i})" title="Retirer">×</span>
+    </div>`).join('');
+}
+
+// ── Prévisualisation arbre dossier
+function renderFolderTree(files) {
+  const tree = document.getElementById('folderTree');
+  // Construire l'arborescence
+  const dirs = new Set();
+  files.forEach(f => {
+    const parts = (f.webkitRelativePath || f.name).split('/');
+    for (let i = 1; i < parts.length; i++) {
+      dirs.add(parts.slice(0, i).join('/'));
+    }
+  });
+  const sorted = Array.from(dirs).sort();
+  let html = '';
+  sorted.forEach(d => {
+    const depth = d.split('/').length - 1;
+    const name  = d.split('/').pop();
+    html += `<div class="tree-dir" style="padding-left:${depth * 14}px"><img class="ico ico-sm ico-orange" src="${ICO}folder.svg" style="vertical-align:middle;margin-right:4px;"> ${escHtml(name)}/</div>`;
+  });
+  files.forEach(f => {
+    const parts = (f.webkitRelativePath || f.name).split('/');
+    const depth = parts.length - 1;
+    const fname = parts[parts.length - 1];
+    html += `<div class="tree-file" style="padding-left:${depth * 14}px"><img class="ico ico-sm ico-muted" src="${ICO}${fileIconSrc(fname,'').replace(ICO,'')}" style="vertical-align:middle;margin-right:4px;"> ${escHtml(fname)}</div>`;
+  });
+  tree.innerHTML = html;
+  tree.style.display = '';
+}
+
+function removeUploadFile(idx) {
+  state.uploadFiles.splice(idx, 1);
+  renderSelectedFiles();
+  if (!state.uploadFiles.length) {
+    document.getElementById('btn-do-upload').disabled = true;
+    document.getElementById('fileUploadText').textContent =
+      state.uploadMode === 'folder' ? 'Cliquez pour choisir un dossier' : 'Cliquez ou glissez des fichiers ici';
+  } else {
+    const total = state.uploadFiles.length;
+    document.getElementById('fileUploadText').textContent =
+      total === 1 ? '1 fichier sélectionné' : `${total} fichiers sélectionnés`;
+  }
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024)       return bytes + ' o';
+  if (bytes < 1048576)    return (bytes / 1024).toFixed(1) + ' Ko';
+  if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' Mo';
+  return (bytes / 1073741824).toFixed(2) + ' Go';
+}
+
+// ══════════════════════════════════════════════════════════════════
+// UPLOAD
+// ══════════════════════════════════════════════════════════════════
+async function doUpload() {
+  if (!state.uploadFiles.length) return;
+
+  if (state.uploadMode === 'folder') {
+    await doUploadFolder();
+  } else {
+    await doUploadFiles();
+  }
+}
+
+// ── Upload fichiers simples (séquentiels) avec chiffrement AES-256-GCM
+async function doUploadFiles() {
+  if (!requireCryptoSession()) return;
+  const btn      = document.getElementById('btn-do-upload');
+  const progWrap = document.getElementById('upload-progress');
+  const fill     = document.getElementById('upload-fill');
+  const label    = document.getElementById('upload-progress-label');
+  const visble   = document.getElementById('upload-visble').value;
+  const files    = [...state.uploadFiles];
+  const total    = files.length;
+  btn.disabled = true;
+  document.getElementById('btn-upload-label').textContent = 'Upload…';
+  progWrap.style.display = '';
+
+  let done = 0, errors = 0;
+  for (const file of files) {
+    label.textContent = `${done + 1} / ${total} — ${escHtml(file.name)}`;
+    fill.style.width  = Math.round((done / total) * 100) + '%';
+    try {
+      label.textContent = `Chiffrement — ${escHtml(file.name)}`;
+      const { blob } = await VEX.chiffrerFichier(file);
+      const fileBytes = new Uint8Array(await blob.arrayBuffer());
+      const b64 = arrayBufferToBase64(fileBytes.buffer);
+      const r   = await vexFetch('/api/fchier/upload', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          file_name: file.name, file_b64: b64,
+          mime_type: file.type || 'application/octet-stream',
+          taille: fileBytes.length, visble,
+          current_folder: state.dossier,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.success) throw new Error(d.error || 'Upload échoué');
+      done++;
+    } catch(e) { errors++; toast(`Erreur : ${file.name} — ${e.message}`, 'error'); }
+  }
+
+  fill.style.width = '100%';
+  label.textContent = errors ? `Terminé (${errors} erreur(s))` : 'Terminé !';
+  setTimeout(() => {
+    closeModal('uploadModal'); resetUpload();
+    toast(errors ? `${done} uploadé(s), ${errors} erreur(s)` : `${done} fichier(s) uploadé(s)`,
+          errors ? 'error' : 'ok');
+    loadData();
+  }, 700);
+}
+
+// ── Upload dossier avec reconstruction de l'arborescence
+async function doUploadFolder() {
+  if (!requireCryptoSession()) return;
+  const btn      = document.getElementById('btn-do-upload');
+  const progWrap = document.getElementById('upload-progress');
+  const fill     = document.getElementById('upload-fill');
+  const label    = document.getElementById('upload-progress-label');
+  const visble   = document.getElementById('upload-visble').value;
+  const files    = [...state.uploadFiles];
+  const total    = files.length;
+
+  btn.disabled = true;
+  document.getElementById('btn-upload-label').textContent = 'Upload…';
+  progWrap.style.display = '';
+  label.textContent = 'Analyse de l\'arborescence…';
+  fill.style.width = '5%';
+
+  // ── 1. Construire l'arbre des dossiers à créer
+  // Chaque fichier a un webkitRelativePath du style "MonDossier/sousDos/fichier.txt"
+  // On extrait tous les chemins de dossiers uniques (sans le fichier)
+  const folderPaths = new Set(); // ex: "MonDossier", "MonDossier/sous"
+  files.forEach(f => {
+    const parts = (f.webkitRelativePath || f.name).split('/');
+    // parts[0] = nom du dossier racine, parts[last] = nom du fichier
+    for (let i = 1; i < parts.length; i++) {
+      folderPaths.add(parts.slice(0, i).join('/'));
+    }
+  });
+
+  // Trier par profondeur croissante pour créer les parents avant les enfants
+  const sortedPaths = Array.from(folderPaths).sort((a, b) => {
+    const da = a.split('/').length, db = b.split('/').length;
+    return da !== db ? da - db : a.localeCompare(b);
+  });
+
+  // ── 2. Créer chaque dossier et mémoriser path → id
+  // pathToId[""] = dossier courant de la page
+  const pathToId = { '': state.dossier };
+  let step = 0;
+
+  for (const path of sortedPaths) {
+    step++;
+    label.textContent = `Création dossiers… ${step}/${sortedPaths.length}`;
+    fill.style.width  = Math.round((step / (sortedPaths.length + total)) * 100) + '%';
+
+    const parts    = path.split('/');
+    const name     = parts[parts.length - 1];
+    const parentPath = parts.slice(0, -1).join('/');
+    const parentId   = pathToId[parentPath] ?? state.dossier;
+
+    try {
+      const r = await vexFetch('/api/fchier/create_folder', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder_name: name, parent_id: parentId }),
+      });
+      const d = await r.json();
+      if (d.success && d.id) {
+        pathToId[path] = d.id;
+      } else {
+        toast(`Impossible de créer le dossier : ${name}`, 'error');
+        pathToId[path] = parentId; // fallback
+      }
+    } catch(e) {
+      toast(`Erreur dossier : ${name}`, 'error');
+      pathToId[path] = parentId;
+    }
+  }
+
+  // ── 3. Uploader chaque fichier dans son dossier correct (avec chiffrement)
+  let done = 0, errors = 0;
+  for (const file of files) {
+    step++;
+    const parts      = (file.webkitRelativePath || file.name).split('/');
+    const folderPath = parts.slice(0, -1).join('/');
+    const folderId   = pathToId[folderPath] ?? state.dossier;
+    const fileName   = parts[parts.length - 1];
+
+    label.textContent = `Fichiers ${done + 1}/${total} — ${escHtml(fileName)}`;
+    fill.style.width  = Math.round((step / (sortedPaths.length + total)) * 100) + '%';
+
+    try {
+      label.textContent = `Chiffrement — ${escHtml(fileName)}`;
+      const { blob } = await VEX.chiffrerFichier(file);
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      const b64 = arrayBufferToBase64(bytes.buffer);
+      const r = await vexFetch('/api/fchier/upload', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          file_name: fileName,
+          file_b64: b64,
+          mime_type: file.type || 'application/octet-stream',
+          taille: bytes.length, visble,
+          current_folder: folderId,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.success) throw new Error(d.error || 'Upload échoué');
+      done++;
+    } catch(e) { errors++; toast(`Erreur : ${file.name} — ${e.message}`, 'error'); }
+  }
+
+  fill.style.width = '100%';
+  label.textContent = errors ? `Terminé (${errors} erreur(s))` : 'Terminé !';
+  setTimeout(() => {
+    closeModal('uploadModal'); resetUpload();
+    toast(
+      errors
+        ? `${done} fichier(s) uploadé(s), ${errors} erreur(s)`
+        : `Dossier importé : ${done} fichier(s)`,
+      errors ? 'error' : 'ok'
+    );
+    loadData();
+  }, 700);
+}
+
+function resetUpload() {
+  state.uploadFiles = [];
+  document.getElementById('fileUploadText').textContent =
+    state.uploadMode === 'folder' ? 'Cliquez pour choisir un dossier' : 'Cliquez ou glissez des fichiers ici';
+  document.getElementById('btn-do-upload').disabled = true;
+  document.getElementById('btn-upload-label').textContent = 'Uploader';
+  document.getElementById('upload-progress').style.display = 'none';
+  document.getElementById('upload-fill').style.width = '0%';
+  document.getElementById('upload-progress-label').textContent = '';
+  document.getElementById('selectedFilesList').style.display = 'none';
+  document.getElementById('selectedFilesList').innerHTML = '';
+  document.getElementById('folderTree').style.display = 'none';
+  document.getElementById('folderTree').innerHTML = '';
+  document.getElementById('fileInput').value   = '';
+  document.getElementById('folderInput').value = '';
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CHARGEMENT
+// ══════════════════════════════════════════════════════════════════
+async function loadData() {
+  if (!requireCryptoSession()) return;
+  showLoading();
+  try {
+    const r = await vexFetch(`/api/fchier/data?dossier=${state.dossier}&shared=${state.shared}`, { credentials:'include' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    state.data = await r.json();
+    renderAll();
+    populateMoveSelect(state.data.all_folders || []);
+  } catch(e) {
+    showError(e.message);
+    toast('Erreur : ' + e.message, 'error');
+  }
+}
+function showLoading() {
+  document.getElementById('grid-view').innerHTML = '<div class="empty-state"><div class="spinner" style="margin:0 auto;"></div></div>';
+  document.getElementById('list-body').innerHTML = '';
+}
+function showError(msg) {
+  document.getElementById('grid-view').innerHTML = `<div class="empty-state"><p style="color:#f44336;">Erreur : ${escHtml(msg)}</p></div>`;
+}
+function renderAll() {
+  const d = state.data;
+  renderBreadcrumb(d.chemin || []);
+  renderGrid(d.dossiers || [], d.fichiers || [], d.pages || []);
+  renderList(d.dossiers || [], d.fichiers || [], d.pages || []);
+  const chemin = d.chemin || [];
+  const last   = chemin[chemin.length - 1];
+  document.getElementById('content-title').textContent = last ? last.nom : 'Mes fichiers';
+}
+
+function renderGrid(dossiers, fichiers, pages) {
+  const grid = document.getElementById('grid-view');
+  grid.innerHTML = '';
+  if (!dossiers.length && !fichiers.length && !pages.length) {
+    grid.innerHTML = `<div class="empty-state">
+      <img class="ico ico-64 ico-muted" src="${ICO}folder-open.svg" style="display:block;margin:0 auto;">
+      <h3>Aucun fichier</h3><p>Créez votre premier document</p></div>`;
+    return;
+  }
+  dossiers.forEach(f => grid.appendChild(makeFolderCard(f)));
+  pages.forEach(p   => grid.appendChild(makePageCard(p)));
+  fichiers.forEach(f => grid.appendChild(makeFileCard(f)));
+}
+
+function makeFolderCard(f) {
+  const div = document.createElement('div');
+  div.className = 'folder-card'; div.dataset.type = 'folder'; div.dataset.name = f.nom || '';
+  div.innerHTML = `
+    ${(f.partage && f.partage.trim()) ? `<div class="badge-share"><img class="ico ico-sm ico-white" src="${ICO}share-nodes.svg"></div>` : ''}
+    <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'folder',${f.id},${JSON.stringify(f).replace(/"/g,'&quot;')})">
+      <img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg">
+    </div>
+    <div class="folder-icon"><img class="ico ico-lg ico-orange" src="${ICO}folder.svg"></div>
+    <div class="folder-name">${escHtml(f.nom || '')}</div>
+    <div class="file-date">Dossier</div>`;
+  div.addEventListener('dblclick', () => { state.dossier = f.id; loadData(); });
+  div.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'folder', f.id, f); });
+  return div;
+}
+
+function makePageCard(p) {
+  const div = document.createElement('div');
+  div.className = 'page-card'; div.dataset.type = 'page'; div.dataset.name = p.nom || '';
+  div.innerHTML = `
+    <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'page',${p.id},${JSON.stringify(p).replace(/"/g,'&quot;')})">
+      <img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg">
+    </div>
+    <div class="page-icon"><img class="ico ico-lg ico-blue" src="${ICO}globe.svg"></div>
+    <div class="page-name">${escHtml(p.nom || '')}</div>
+    <div class="file-date">Page web</div>`;
+  div.addEventListener('dblclick', () => { if (p.urlpage) window.open('/sitec/pages/' + p.urlpage + '.php', '_blank'); });
+  div.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'page', p.id, p); });
+  return div;
+}
+
+function makeFileCard(f) {
+  const div = document.createElement('div');
+  div.className = 'file-card';
+  div.dataset.type = fileCategory(f.nom || '', f.type_fichier || '');
+  div.dataset.name = f.nom || '';
+  const src = fileIconSrc(f.nom || '', f.type_fichier || '');
+  div.innerHTML = `
+    ${(f.partage && f.partage.trim()) ? `<div class="badge-share"><img class="ico ico-sm ico-white" src="${ICO}share-nodes.svg"></div>` : ''}
+    <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'file',${f.id},${JSON.stringify(f).replace(/"/g,'&quot;')})">
+      <img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg">
+    </div>
+    <div class="file-icon"><img class="ico ico-lg ico-muted" src="${src}"></div>
+    <div class="file-name">${escHtml(f.nom || '')}</div>
+    <div class="file-date">${formatDate(f.date || '')}</div>`;
+  div.addEventListener('dblclick', () => downloadFile(f));
+  div.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'file', f.id, f); });
+  return div;
+}
+
+function renderList(dossiers, fichiers, pages) {
+  const body = document.getElementById('list-body');
+  body.innerHTML = '';
+  dossiers.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'list-item'; row.dataset.type = 'folder'; row.dataset.name = f.nom || '';
+    row.innerHTML = `<div class="list-item-name"><img class="ico ico-18 ico-orange" src="${ICO}folder.svg"><span>${escHtml(f.nom||'')}</span></div><div>Dossier</div><div>—</div>
+      <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'folder',${f.id},${JSON.stringify(f).replace(/"/g,'&quot;')})"><img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg"></div>`;
+    row.addEventListener('dblclick', () => { state.dossier = f.id; loadData(); });
+    row.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'folder', f.id, f); });
+    body.appendChild(row);
+  });
+  pages.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'list-item'; row.dataset.type = 'page'; row.dataset.name = p.nom || '';
+    row.innerHTML = `<div class="list-item-name"><img class="ico ico-18 ico-blue" src="${ICO}globe.svg"><span>${escHtml(p.nom||'')}</span></div><div>Page web</div><div>—</div>
+      <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'page',${p.id},${JSON.stringify(p).replace(/"/g,'&quot;')})"><img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg"></div>`;
+    row.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'page', p.id, p); });
+    body.appendChild(row);
+  });
+  fichiers.forEach(f => {
+    const src = fileIconSrc(f.nom || '', f.type_fichier || '');
+    const row = document.createElement('div');
+    row.className = 'list-item';
+    row.dataset.type = fileCategory(f.nom||'', f.type_fichier||''); row.dataset.name = f.nom || '';
+    row.innerHTML = `<div class="list-item-name"><img class="ico ico-18 ico-muted" src="${src}"><span>${escHtml(f.nom||'')}</span></div>
+      <div>${(f.nom||'').split('.').pop().toUpperCase()}</div><div>${formatDate(f.date||'')}</div>
+      <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'file',${f.id},${JSON.stringify(f).replace(/"/g,'&quot;')})"><img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg"></div>`;
+    row.addEventListener('dblclick', () => downloadFile(f));
+    row.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'file', f.id, f); });
+    body.appendChild(row);
+  });
+}
+
+function renderBreadcrumb(chemin) {
+  const bc = document.getElementById('breadcrumb');
+  bc.innerHTML = '';
+  chemin.forEach((seg, i) => {
+    if (i > 0) { const sep = document.createElement('span'); sep.textContent = '/'; bc.appendChild(sep); }
+    const span = document.createElement('span');
+    span.className = 'bc-link';
+    if (i === 0) span.innerHTML = `<img class="ico ico-sm ico-primary" src="${ICO}house.svg"> ${escHtml(seg.nom||'Accueil')}`;
+    else         span.textContent = seg.nom || '';
+    span.onclick = () => navTo(seg.id || 0);
+    bc.appendChild(span);
+  });
+}
+
+function navTo(id) { state.dossier = id; loadData(); }
+
+function switchTab(idx) {
+  state.shared = idx; state.dossier = 0;
+  document.getElementById('nav-mes').classList.toggle('active', idx === 0);
+  document.getElementById('nav-partage').classList.toggle('active', idx === 1);
+  loadData();
+}
+
+function setView(v, reload = true) {
+  state.view = v;
+  localStorage.setItem('fchier_view', v);
+  document.getElementById('btn-grid').classList.toggle('active', v === 'grid');
+  document.getElementById('btn-list').classList.toggle('active', v === 'list');
+  document.getElementById('grid-view').classList.toggle('hidden', v === 'list');
+  document.getElementById('list-view').classList.toggle('active', v === 'list');
+  if (reload && state.data) renderAll();
+}
+
+function filterItems() {
+  const ft = document.getElementById('filterType').value;
+  document.querySelectorAll('.folder-card,.page-card,.file-card,.list-item').forEach(el => {
+    el.style.display = (ft === 'all' || ft === el.dataset.type) ? '' : 'none';
+  });
+}
+function searchItems() {
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  document.querySelectorAll('.folder-card,.page-card,.file-card,.list-item').forEach(el => {
+    el.style.display = (el.dataset.name || '').toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function populateMoveSelect(folders) {
+  const sel = document.getElementById('move-target');
+  sel.innerHTML = '<option value="0">Racine</option>';
+  folders.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f.id; opt.textContent = f.nom || '';
+    sel.appendChild(opt);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DOWNLOAD
+// ══════════════════════════════════════════════════════════════════
+async function downloadFile(item) {
+  if (!requireCryptoSession()) return;
+  toast(`Téléchargement de ${item.nom}…`, 'info');
+  try {
+    const r = await vexFetch(`/api/fchier/download?id=${item.id}`, { credentials:'include' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    if (!data.success) throw new Error(data.error || 'Erreur');
+
+    let blob;
+    const bytes = VEX.fromBase64(data.contenu);
+    if (VEX.isConnected()) {
+      try {
+        const blobChiffre = new Blob([bytes]);
+        blob = await VEX.dechiffrerFichier(blobChiffre, data.mime);
+      } catch (e) {
+        if (!e.message || !e.message.includes('non chiffré')) throw e;
+        blob = new Blob([bytes], { type: data.mime || 'application/octet-stream' });
+      }
+    } else {
+      throw new Error('Session expirée — reconnectez-vous pour télécharger ce fichier chiffré');
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href = url; a.download = data.nom;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+    toast(`${data.nom} téléchargé`, 'ok');
+  } catch(e) { toast('Erreur téléchargement : ' + e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CRUD
+// ══════════════════════════════════════════════════════════════════
+async function doCreateFolder() {
+  const name = document.getElementById('folder-name').value.trim();
+  if (!name) return;
+  try {
+    const r = await apiFetch('/api/fchier/create_folder', { folder_name: name, parent_id: state.dossier });
+    if (!r.success) throw new Error(r.error);
+    closeModal('folderModal');
+    document.getElementById('folder-name').value = '';
+    toast(`Dossier "${name}" créé`, 'ok'); loadData();
+  } catch(e) { toast('Erreur : ' + e.message, 'error'); }
+}
+
+async function doRename() {
+  if (!state.ctx) return;
+  const newName = document.getElementById('rename-input').value.trim();
+  if (!newName) return;
+  try {
+    const r = await apiFetch('/api/fchier/rename', { item_id: state.ctx.id, item_type: state.ctx.type, new_name: newName });
+    if (!r.success) throw new Error(r.error);
+    closeModal('renameModal'); toast('Renommé', 'ok'); loadData();
+  } catch(e) { toast('Erreur : ' + e.message, 'error'); }
+}
+
+async function doShare() {
+  if (!state.ctx) return;
+  const ids = document.getElementById('share-ids').value.trim();
+  try {
+    const r = await apiFetch('/api/fchier/share', { item_id: state.ctx.id, item_type: state.ctx.type, share_data: ids });
+    if (!r.success) throw new Error(r.error);
+    closeModal('shareModal'); toast('Partage mis à jour', 'ok'); loadData();
+  } catch(e) { toast('Erreur : ' + e.message, 'error'); }
+}
+
+async function doChangeVisibility() {
+  if (!state.ctx) return;
+  const vis = document.getElementById('visibility-value').value;
+  try {
+    const r = await apiFetch('/api/fchier/change_visibility', { page_id: state.ctx.id, item_type: state.ctx.type, new_visibility: vis });
+    if (!r.success) throw new Error(r.error);
+    closeModal('visibilityModal'); toast('Visibilité mise à jour', 'ok'); loadData();
+  } catch(e) { toast('Erreur : ' + e.message, 'error'); }
+}
+
+async function doSendP2p() {
+  if (!state.ctx || state.ctx.type !== 'file') return;
+  const toUser = Number(document.getElementById('p2p-to-user').value || 0);
+  if (!toUser) { toast('ID destinataire requis', 'error'); return; }
+  try {
+    const r = await apiFetch('/api/fchier/send_p2p', { file_id: state.ctx.id, to_user: toUser });
+    if (!r.success) throw new Error(r.error || 'Envoi échoué');
+    closeModal('p2pModal');
+    toast(`Envoi P2P lancé (transfer_id: ${r.transfer_id||'…'})`, 'ok');
+  } catch(e) { toast('Erreur envoi P2P : ' + e.message, 'error'); }
+}
+
+async function doMove() {
+  if (!state.ctx) return;
+  const target = parseInt(document.getElementById('move-target').value, 10);
+  try {
+    const r = await apiFetch('/api/fchier/move', { item_id: state.ctx.id, item_type: state.ctx.type, target_folder: target });
+    if (!r.success) throw new Error(r.error);
+    closeModal('moveModal'); toast('Déplacé', 'ok'); loadData();
+  } catch(e) { toast('Erreur : ' + e.message, 'error'); }
+}
+
+async function doDelete() {
+  if (!state.ctx) return;
+  try {
+    const r = await apiFetch('/api/fchier/delete', { item_id: state.ctx.id, item_type: state.ctx.type });
+    if (!r.success) throw new Error(r.error);
+    closeModal('deleteModal'); toast('Supprimé', 'ok'); loadData();
+  } catch(e) { toast('Erreur : ' + e.message, 'error'); }
+}
+
+// ── Context menu
+function openCtx(e, type, id, item) {
+  item = item || {};
+  state.ctx = { id, type, item };
+  document.getElementById('ctx-open').style.display       = type === 'folder' ? 'flex' : 'none';
+  document.getElementById('ctx-download').style.display   = type === 'file'   ? 'flex' : 'none';
+  document.getElementById('ctx-visibility').style.display = (type === 'page' || type === 'file') ? 'flex' : 'none';
+  document.getElementById('ctx-move').style.display       = type !== 'file'   ? 'flex' : 'none';
+  document.getElementById('ctx-share').style.display      = type !== 'page'   ? 'flex' : 'none';
+  document.getElementById('ctx-sendp2p').style.display    = type === 'file'   ? 'flex' : 'none';
+  const menu = document.getElementById('contextMenu');
+  menu.classList.add('show');
+  let x = e.clientX, y = e.clientY;
+  if (x + 210 > window.innerWidth)  x = window.innerWidth  - 220;
+  if (y + 280 > window.innerHeight) y = window.innerHeight - 290;
+  menu.style.left = x + 'px'; menu.style.top = y + 'px';
+}
+// Alias pour compatibilité inline HTML
+const showCtxMenu = openCtx;
+
+function handleAction(action) {
+  document.getElementById('contextMenu').classList.remove('show');
+  if (!state.ctx) return;
+  const { id, type } = state.ctx;
+  const item = state.ctx.item || {};
+  if (!item.id) item.id = id;
+  const name = item.nom || '';
+  if      (action === 'open'       && type === 'folder') { state.dossier = id; loadData(); }
+  else if (action === 'download'   && type === 'file')   { downloadFile(item); }
+  else if (action === 'rename')     { document.getElementById('rename-input').value = name; openModal('renameModal'); }
+  else if (action === 'share')      { document.getElementById('share-ids').value = item.partage || ''; openModal('shareModal'); }
+  else if (action === 'send_p2p')   { document.getElementById('p2p-to-user').value=''; openModal('p2pModal'); }
+  else if (action === 'visibility') { document.getElementById('visibility-value').value = item.visble || item.prob || '1'; openModal('visibilityModal'); }
+  else if (action === 'move')       { openModal('moveModal'); }
+  else if (action === 'delete')     { document.getElementById('delete-name').textContent = name || 'cet élément'; openModal('deleteModal'); }
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.item-menu') && !e.target.closest('#contextMenu'))
+    document.getElementById('contextMenu').classList.remove('show');
+});
+
+function openModal(id)  { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+document.querySelectorAll('.modal').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('active'); });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal.active').forEach(m => m.classList.remove('active'));
+    document.getElementById('contextMenu').classList.remove('show');
+    closeCreateDropdown();
+  }
+});
+
+function toast(msg, type = 'info', dur = 3500) {
+  const area = document.getElementById('toast-area');
+  const el   = document.createElement('div');
+  el.className = `toast ${type}`;
+  const icons = { ok: ICO+'circle-check.svg', error: ICO+'circle-xmark.svg', info: ICO+'circle-info.svg' };
+  el.innerHTML = `<img class="ico ico-sm" src="${icons[type]||icons.info}"><span>${escHtml(msg)}</span>`;
+  area.appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transition='.3s'; setTimeout(() => area.removeChild(el), 300); }, dur);
+}
+
+async function apiFetch(url, body) {
+  const r = await vexFetch(url, { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+async function vexFetch(url, options = {}) {
+  if (!requireCryptoSession()) throw new Error('Session crypto invalide');
+  const r = await fetch(url, { credentials:'include', ...options });
+  if (r.status === 401) {
+    redirectLogin();
+    throw new Error('Session expirée');
+  }
+  return r;
+}
+
+function fileIconSrc(nom, mime) {
+  const ext = nom.split('.').pop().toLowerCase();
+  const imgExts = ['jpg','jpeg','png','gif','svg','webp','tiff','tif','psd'];
+  const vidExts = ['mp4','webm','avi','mov','mkv'];
+  if (imgExts.includes(ext) || mime.startsWith('image/'))    return ICO+'image.svg';
+  if (vidExts.includes(ext) || mime.startsWith('video/'))    return ICO+'film.svg';
+  if (mime.startsWith('audio/'))                             return ICO+'music.svg';
+  if (ext==='pdf'||mime.includes('pdf'))                     return ICO+'file-pdf.svg';
+  if (['doc','docx'].includes(ext))                          return ICO+'file-word.svg';
+  if (['xls','xlsx'].includes(ext))                          return ICO+'file-excel.svg';
+  if (['ppt','pptx'].includes(ext))                          return ICO+'file-powerpoint.svg';
+  if (['zip','gz','rar','7z'].includes(ext))                 return ICO+'file-zipper.svg';
+  if (['txt','csv'].includes(ext)||mime.startsWith('text/')) return ICO+'file-lines.svg';
+  if (['php','html','css','js','json','xml','sql'].includes(ext)) return ICO+'file-code.svg';
+  if (['obj','stl','fbx'].includes(ext))                     return ICO+'cube.svg';
+  return ICO+'file.svg';
+}
+
+function fileCategory(nom, mime) {
+  const ext = nom.split('.').pop().toLowerCase();
+  const imgExts = ['jpg','jpeg','png','gif','svg','webp','tiff','tif','psd'];
+  const vidExts = ['mp4','webm','avi','mov','mkv'];
+  if (imgExts.includes(ext) || mime.startsWith('image/'))  return 'image';
+  if (vidExts.includes(ext) || mime.startsWith('video/'))  return 'video';
+  if (['pdf','doc','docx','xls','xlsx','ppt','pptx','txt','csv'].includes(ext)) return 'document';
+  if (['php','html','css','js','json','xml','sql'].includes(ext)) return 'code';
+  return 'file';
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  const diff = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
+  if (diff < 86400)  return "Aujourd'hui";
+  if (diff < 172800) return "Hier";
+  if (diff < 604800) return Math.ceil(diff/86400) + " jours";
+  return new Date(d).toLocaleDateString('fr-FR');
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function arrayBufferToBase64(buf) {
+  let bin=''; const bytes=new Uint8Array(buf);
+  for(const b of bytes) bin+=String.fromCharCode(b);
+  return btoa(bin);
+}
+function base64ToUint8Array(b64) {
+  const bin=atob(b64); const arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  return arr;
+}
+</script>
+</body>
+</html>

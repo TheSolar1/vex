@@ -1,0 +1,34 @@
+[package]
+name = "vex"
+version = "0.3.0"
+edition = "2021"
+
+[[bin]]
+name = "vex"
+path = "src/main.rs"
+
+[dependencies]
+tiny_http  = "0.12"
+mysql      = "25"
+
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+chrono     = { version = "0.4", features = ["serde"] }
+
+sha2       = "0.10"
+md5        = "0.7"
+hex        = "0.4"
+base64     = "0.22"
+
+ureq       = { version = "2", features = ["json"] }
+
+getrandom  = { version = "0.2", features = ["std"] }
+bcrypt     = "0.15"
+
+rand       = "0.8"
+
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+x25519-dalek  = { version = "2", features = ["static_secrets"] }
+
+uuid       = { version = "1", features = ["v4"] }
