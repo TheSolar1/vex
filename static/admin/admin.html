@@ -5,32 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Administration - VEX</title>
 <link rel="icon" href="/static/img/favicon.ico" type="image/svg+xml">
+<link rel="stylesheet" href="/static/css/theme.css">
 <style>
-:root,[data-theme="light"]{
-    --bg:#f2f4f7;--surface:#fff;--surface2:#f7f9fb;--border:#e2e6ec;
-    --text:#111827;--text-m:#6b7280;--input:#fff;--shadow:0 1px 3px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.04);
-    --accent:#16a34a;--alt:rgba(22,163,74,.1);--aglow:rgba(22,163,74,.22);
-    --red:#dc2626;--orange:#f59e0b;--blue:#3b82f6;
-    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--mono:"Courier New",Courier,monospace;--r:10px;
-    --sb:#f0f2f5;--sb-b:rgba(0,0,0,.07);--sb-t:#6b7280;--sb-text:#111827;
-    --sql-bg:#f8fffe;--sql-border:#c3e6ce;--sql-num:#b0b8c4;
-    --sql-kw:#166534;--sql-fn:#0369a1;--sql-str:#854d0e;--sql-nb:#0891b2;
-    --sql-cmt:#9ca3af;--sql-op:#6b7280;
-    --res-th:#e8f5e9;--res-th-t:#166534;--res-odd:#fff;--res-even:#f7fdf8;--res-hov:#ecfdf5;
-    --res-null:#9ca3af;--res-num:#0369a1;--res-pk-bg:#fef9c3;--res-pk-t:#854d0e;
-    --res-affect-bg:#eff6ff;--res-affect-border:#bfdbfe;--res-affect-t:#1d4ed8;
-}
-[data-theme="dark"]{
-    --bg:#0f1117;--surface:#1a1f2e;--surface2:#1e2435;--border:#2d3347;
-    --text:#e8edf5;--text-m:#8892a4;--input:#1e2435;--shadow:0 1px 3px rgba(0,0,0,.4),0 4px 14px rgba(0,0,0,.3);
-    --accent:#4ade80;--alt:rgba(74,222,128,.1);--aglow:rgba(74,222,128,.2);
-    --sb:#0a0d14;--sb-b:rgba(255,255,255,.05);--sb-t:#6b7280;--sb-text:#fff;
-    --sql-bg:#0b1a10;--sql-border:#1a3a26;--sql-num:#3d4a5c;
-    --sql-kw:#4ade80;--sql-fn:#38bdf8;--sql-str:#fbbf24;--sql-nb:#67e8f9;
-    --sql-cmt:#556070;--sql-op:#8892a4;
-    --res-th:#0d2818;--res-th-t:#4ade80;--res-odd:#1a1f2e;--res-even:#1c2534;--res-hov:#1e3a28;
-    --res-null:#4b5563;--res-num:#38bdf8;--res-pk-bg:#2a1f08;--res-pk-t:#fbbf24;
-    --res-affect-bg:#1e2a3a;--res-affect-border:#1e40af;--res-affect-t:#60a5fa;
+:root,[data-theme="light"]{--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--mono:"Courier New",Courier,monospace;--r:10px;--sb:#f0f2f5;--sb-b:rgba(0,0,0,.07);--sb-t:#6b7280;--sb-text:#111827;--sql-bg:#f8fffe;--sql-border:#c3e6ce;--sql-num:#b0b8c4;--sql-kw:#166534;--sql-fn:#0369a1;--sql-str:#854d0e;--sql-nb:#0891b2;--sql-cmt:#9ca3af;--sql-op:#6b7280;--res-th:#e8f5e9;--res-th-t:#166534;--res-odd:var(--surface);--res-even:#f7fdf8;--res-hov:#ecfdf5;--res-null:#9ca3af;--res-num:#0369a1;--res-pk-bg:#fef9c3;--res-pk-t:#854d0e;--res-affect-bg:#eff6ff;--res-affect-border:#bfdbfe;--res-affect-t:#1d4ed8;}
+[data-theme="dark"]{--sb:#0a0d14;--sb-b:rgba(255,255,255,.05);--sb-t:#6b7280;--sb-text:var(--surface);--sql-bg:#0b1a10;--sql-border:#1a3a26;--sql-num:#3d4a5c;--sql-kw:#4ade80;--sql-fn:#38bdf8;--sql-str:color-mix(in srgb, var(--orange) 70%, white);--sql-nb:#67e8f9;--sql-cmt:#556070;--sql-op:#8892a4;--res-th:#0d2818;--res-th-t:#4ade80;--res-odd:#1a1f2e;--res-even:#1c2534;--res-hov:#1e3a28;--res-null:#4b5563;--res-num:#38bdf8;--res-pk-bg:#2a1f08;--res-pk-t:color-mix(in srgb, var(--orange) 70%, white);--res-affect-bg:#1e2a3a;--res-affect-border:#1e40af;--res-affect-t:color-mix(in srgb, var(--blue) 70%, white);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100%}
@@ -54,12 +32,12 @@ body{padding-top:60px}
 [data-theme="dark"] .sb-a img{filter:invert(1) opacity(.6)}
 [data-theme="dark"] .sb-a.on img{filter:invert(1) opacity(1) sepia(1) saturate(2) hue-rotate(80deg)}
 .sb-pill{margin-left:auto;background:var(--alt);color:var(--accent);font-size:.63rem;font-weight:700;padding:2px 7px;border-radius:99px}
-.sb-pill.w{background:rgba(220,38,38,.15);color:#f87171}
+.sb-pill.w{background:color-mix(in srgb, var(--danger) 15%, transparent);color:color-mix(in srgb, var(--danger) 70%, white)}
 .main{flex:1;padding:26px 30px;min-width:0;overflow-x:hidden}
 .sec{display:none}.sec.on{display:block;animation:fu .18s ease}
 @keyframes fu{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 .flash{display:flex;align-items:center;gap:9px;padding:11px 15px;border-radius:var(--r);margin-bottom:18px;font-size:.87rem;font-weight:500;background:var(--alt);border:1px solid var(--aglow);color:var(--accent)}
-.flash.err{background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.22);color:var(--red)}
+.flash.err{background:color-mix(in srgb, var(--danger) 8%, transparent);border-color:color-mix(in srgb, var(--danger) 22%, transparent);color:var(--danger)}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading{display:flex;align-items:center;gap:8px;color:var(--text-m);padding:30px;justify-content:center}
@@ -75,13 +53,15 @@ body{padding-top:60px}
 .pt img{width:22px;height:22px}
 .pt small{font-size:.7rem;font-weight:400;color:var(--text-m);margin-left:2px}
 .sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(162px,1fr));gap:12px;margin-bottom:22px}
-.sc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 17px 14px;box-shadow:var(--shadow);position:relative;overflow:hidden;cursor:pointer;display:block}
-.sc::after{content:'';position:absolute;right:-12px;top:-12px;width:58px;height:58px;border-radius:50%;background:var(--si,var(--accent));opacity:.07}
+.sc{background:linear-gradient(155deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--border);border-radius:var(--r);padding:18px 17px 14px;box-shadow:var(--shadow);position:relative;overflow:hidden;cursor:pointer;display:block;transition:transform .15s,box-shadow .15s}
+.sc:hover{transform:translateY(-2px);box-shadow:0 6px 18px color-mix(in srgb, var(--text) 10%, transparent)}
+.sc::after{content:'';position:absolute;right:-12px;top:-12px;width:58px;height:58px;border-radius:50%;background:var(--si,var(--accent));opacity:.09;filter:blur(1px)}
+.sc::before{content:'';position:absolute;left:0;top:0;right:0;height:3px;background:linear-gradient(90deg,var(--si,var(--accent)) 0%,transparent 100%);opacity:.75}
 .sc-i{margin-bottom:9px}.sc-i img{width:22px;height:22px}
 .sc-v{font-size:1.8rem;font-weight:900;line-height:1;margin-bottom:4px}
 .sc-l{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text-m);font-weight:600}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden}
-.ch{padding:12px 17px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:9px;font-weight:700;font-size:.875rem}
+.ch{padding:12px 17px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:9px;font-weight:700;font-size:.875rem;background:linear-gradient(180deg,var(--surface2) 0%,var(--surface) 100%)}
 .ch img{width:15px;height:15px}
 .cb{padding:17px}
 .t{width:100%;border-collapse:collapse;font-size:.845rem}
@@ -90,13 +70,15 @@ body{padding-top:60px}
 .t tr:last-child td{border-bottom:none}.t tbody tr:hover td{background:var(--surface2)}
 .t td.m{font-family:var(--mono);font-size:.77rem;color:var(--text-m);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .b{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:99px;font-size:.69rem;font-weight:700}
-.bg{background:var(--alt);color:var(--accent)}.br{background:rgba(220,38,38,.1);color:#dc2626}
-.bo{background:rgba(245,158,11,.1);color:#d97706}.bb{background:rgba(59,130,246,.1);color:#3b82f6}
-.bx{background:rgba(107,114,128,.1);color:var(--text-m)}.bgd{background:rgba(217,119,6,.1);color:#d97706}
-[data-theme="dark"] .br{color:#f87171}[data-theme="dark"] .bo{color:#fbbf24}[data-theme="dark"] .bb{color:#60a5fa}
+.bg{background:var(--alt);color:var(--accent)}.br{background:color-mix(in srgb, var(--danger) 10%, transparent);color:var(--danger)}
+.bo{background:color-mix(in srgb, var(--orange) 10%, transparent);color:color-mix(in srgb, var(--orange) 80%, black)}.bb{background:color-mix(in srgb, var(--blue) 10%, transparent);color:var(--blue)}
+.bx{background:color-mix(in srgb, var(--text-m) 10%, transparent);color:var(--text-m)}.bgd{background:color-mix(in srgb, var(--orange) 12%, transparent);color:color-mix(in srgb, var(--orange) 80%, black)}
+[data-theme="dark"] .br{color:color-mix(in srgb, var(--danger) 70%, white)}[data-theme="dark"] .bo{color:color-mix(in srgb, var(--orange) 70%, white)}[data-theme="dark"] .bb{color:color-mix(in srgb, var(--blue) 70%, white)}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:none;border-radius:7px;font-size:.82rem;font-weight:600;cursor:pointer;font-family:var(--sans);transition:all .13s;line-height:1;height:34px;white-space:nowrap}
 .btn:hover{filter:brightness(1.08)}.btn img{width:14px;height:14px;flex-shrink:0}
-.ba{background:var(--accent);color:#fff}.br2{background:var(--red);color:#fff}
+.ba{background:linear-gradient(135deg,var(--accent) 0%,color-mix(in srgb, var(--accent) 75%, black) 100%);color:var(--surface)}
+[data-theme="dark"] .ba{background:linear-gradient(135deg,var(--accent) 0%,color-mix(in srgb, var(--accent) 80%, white) 100%);color:color-mix(in srgb, var(--accent) 90%, black)}
+.br2{background:linear-gradient(135deg,var(--danger) 0%,color-mix(in srgb, var(--danger) 80%, black) 100%);color:var(--surface)}
 .bg2{background:transparent;color:var(--text-m);border:1px solid var(--border)}.bg2:hover{background:var(--surface2);color:var(--text)}
 .f{margin-bottom:12px}
 .f label{display:block;font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-m);margin-bottom:5px}
@@ -111,14 +93,14 @@ body{padding-top:60px}
 .page-chk input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
 .page-chk.checked{border-color:var(--accent);background:var(--alt)}
 .pg{background:var(--border);border-radius:99px;height:5px;margin-top:4px}
-.pgb{height:5px;border-radius:99px;background:var(--accent)}.pgb.w{background:var(--orange)}.pgb.d{background:var(--red)}
-.lb{background:#0d1117;color:#7ee787;font-family:var(--mono);font-size:.76rem;padding:16px;border-radius:var(--r);max-height:450px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;border:1px solid rgba(255,255,255,.06)}
+.pgb{height:5px;border-radius:99px;background:linear-gradient(90deg,var(--accent) 0%,color-mix(in srgb, var(--accent) 75%, black) 100%)}.pgb.w{background:linear-gradient(90deg,var(--orange) 0%,color-mix(in srgb, var(--orange) 90%, black) 100%)}.pgb.d{background:linear-gradient(90deg,var(--danger) 0%,color-mix(in srgb, var(--danger) 80%, black) 100%)}
+.lb{background:color-mix(in srgb, var(--text) 92%, black);color:color-mix(in srgb, var(--accent) 70%, white);font-family:var(--mono);font-size:.76rem;padding:16px;border-radius:var(--r);max-height:450px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;border:1px solid color-mix(in srgb, var(--surface) 6%, transparent)}
 .tgr{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:9px}
 .ttl{display:flex;align-items:center;gap:7px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:.83rem;font-weight:600;color:var(--text);transition:all .13s;cursor:pointer}
 .ttl:hover{border-color:var(--accent);background:var(--alt);color:var(--accent)}.ttl img{width:16px;height:16px}
 .pgr{display:flex;gap:5px;justify-content:center;align-items:center;padding:11px}
 .pgr button{padding:4px 10px;border:1px solid var(--border);border-radius:6px;font-size:.79rem;font-weight:600;color:var(--text-m);background:none;cursor:pointer;font-family:var(--sans);height:30px}
-.pgr button:hover{border-color:var(--accent);color:var(--accent)}.pgr button.cur{background:var(--accent);color:#fff;border-color:var(--accent)}
+.pgr button:hover{border-color:var(--accent);color:var(--accent)}.pgr button.cur{background:linear-gradient(135deg,var(--accent) 0%,color-mix(in srgb, var(--accent) 75%, black) 100%);color:var(--surface);border-color:var(--accent)}
 .cl{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-m);display:block;margin-bottom:4px;font-family:var(--mono)}
 .cl small{opacity:.5;font-size:.66rem;display:block;font-weight:400;text-transform:none;letter-spacing:0}
 .cgr{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:11px}
@@ -126,16 +108,39 @@ body{padding-top:60px}
 .ci:focus{outline:none;border-color:var(--accent)}
 .ob{display:flex;align-items:center;gap:11px;padding:13px 17px;border-radius:var(--r);font-weight:600;font-size:.88rem;margin-bottom:16px}
 .ok{background:var(--alt);border:1px solid var(--aglow);color:var(--accent)}
-.nok{background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.22);color:var(--red)}
+.nok{background:color-mix(in srgb, var(--danger) 8%, transparent);border:1px solid color-mix(in srgb, var(--danger) 22%, transparent);color:var(--danger)}
 .od{width:9px;height:9px;border-radius:50%;flex-shrink:0}
-.ok .od{background:var(--accent);animation:pulse 2s infinite}.nok .od{background:var(--red)}
+.ok .od{background:var(--accent);animation:pulse 2s infinite}.nok .od{background:var(--danger)}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 3px var(--aglow)}50%{box-shadow:0 0 0 7px transparent}}
 .blk-pages{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
 .blk-page-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-family:var(--mono);font-size:.72rem;color:var(--text-m)}
 .cell-editable{cursor:pointer;border-bottom:1px dashed var(--aglow)!important}
 .cell-editable:hover{background:var(--alt)!important;color:var(--accent)!important}
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center}
+.modal-bg{position:fixed;inset:0;background:color-mix(in srgb, var(--text) 55%, transparent);z-index:9999;display:flex;align-items:center;justify-content:center}
 .modal-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:min(480px,95vw);max-height:80vh;overflow-y:auto}
+.fpick{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fpick input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0)}
+.fpick-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border-radius:7px;font-size:.82rem;font-weight:600;cursor:pointer;line-height:1;height:36px;background:var(--surface2);color:var(--text);border:1px solid var(--border);transition:all .13s;white-space:nowrap}
+.fpick-btn:hover{border-color:var(--accent);background:var(--alt);color:var(--accent)}
+.fpick-btn img{width:15px;height:15px}
+.fpick input[type=file]:focus-visible + .fpick-btn{border-color:var(--accent);box-shadow:0 0 0 3px var(--aglow)}
+.fpick-name{font-size:.79rem;color:var(--text-m);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.fpick-name.ok{color:var(--accent);font-weight:600}
+.fpick-name.ko{color:var(--danger)}
+.mk-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mk-search{flex:1;min-width:220px;position:relative}
+.mk-search input{width:100%;padding:9px 12px 9px 34px;border:1px solid var(--border);border-radius:9px;background:var(--input);color:var(--text);font-size:.86rem;font-family:var(--sans)}
+.mk-search input:focus{outline:none;border-color:var(--accent)}
+.mk-search img{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:14px;height:14px;opacity:.5;pointer-events:none}
+.mk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:10px;margin-top:14px}
+.mk-card{border:1px solid var(--border);border-radius:10px;padding:13px 15px;background:var(--surface);display:flex;flex-direction:column;gap:7px}
+.mk-card:hover{border-color:var(--accent)}
+.mk-nom{font-weight:700;font-size:.9rem;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.mk-meta{font-size:.73rem;color:var(--text-m);font-family:var(--mono)}
+.mk-act{display:flex;gap:7px;margin-top:auto;padding-top:6px;flex-wrap:wrap}
+.mk-vide{padding:24px;text-align:center;color:var(--text-m);font-size:.85rem;background:var(--surface2);border:1px dashed var(--border);border-radius:10px;margin-top:12px}
+.permrow{display:grid;grid-template-columns:1.4fr .8fr 1.2fr auto;gap:8px;align-items:end;margin-bottom:8px}
+@media(max-width:620px){.permrow{grid-template-columns:1fr}}
 .vip-sel{padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--input);color:var(--text);font-size:.78rem;font-family:var(--sans);cursor:pointer;height:34px}
 .p2p-tab{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:none;border-bottom:2px solid transparent;background:none;color:var(--text-m);font-size:.82rem;font-weight:600;cursor:pointer;font-family:var(--sans);transition:all .13s;margin-bottom:-1px}
 .p2p-tab:hover{color:var(--text);background:var(--surface2)}
@@ -144,87 +149,50 @@ body{padding-top:60px}
 .p2p-tab.on img{opacity:1;filter:invert(40%) sepia(80%) saturate(400%) hue-rotate(100deg)}
 [data-theme="dark"] .p2p-tab.on img{filter:invert(80%) sepia(40%) saturate(400%) hue-rotate(80deg)}
 
-/* ═══ SQL Editor ═══════════════════════════════════════════════ */
+/* SQL Editor */
 .sqle{background:var(--surface);border:1px solid var(--sql-border);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);margin-bottom:18px}
 .sqle-head{background:var(--surface2);border-bottom:1px solid var(--sql-border);padding:9px 15px;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .sqle-title{display:flex;align-items:center;gap:7px;font-size:.76rem;font-weight:700;color:var(--text-m);text-transform:uppercase;letter-spacing:.07em}
 .sqle-title img{width:13px;height:13px}
-.sqle-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:5px;font-size:.66rem;font-weight:700;font-family:var(--mono);background:rgba(245,158,11,.12);color:#d97706;border:1px solid rgba(245,158,11,.3)}
-[data-theme="dark"] .sqle-badge{color:#fbbf24;background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.2)}
+.sqle-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:5px;font-size:.66rem;font-weight:700;font-family:var(--mono);background:color-mix(in srgb, var(--orange) 12%, transparent);color:color-mix(in srgb, var(--orange) 80%, black);border:1px solid color-mix(in srgb, var(--orange) 30%, transparent)}
+[data-theme="dark"] .sqle-badge{color:color-mix(in srgb, var(--orange) 70%, white);background:color-mix(in srgb, var(--orange) 10%, transparent);border-color:color-mix(in srgb, var(--orange) 20%, transparent)}
 .sqle-meta{font-size:.71rem;color:var(--text-m)}
 .sqle-body{display:flex;height:200px;max-height:300px}
 .sqle-nums{background:var(--surface2);border-right:1px solid var(--sql-border);padding:10px 0;min-width:40px;text-align:right;user-select:none;font-family:var(--mono);font-size:.79rem;line-height:1.65;color:var(--sql-num);overflow:hidden;flex-shrink:0}
 .sqle-nums span{display:block;padding:0 10px}
-
-/* ── Highlighter layer ──────────────────────────────────────── */
 .sqle-wrap{position:relative;flex:1;min-height:0;overflow:hidden}
-.sqle-hl{
-    position:absolute;top:0;left:0;right:0;
-    margin:0;padding:10px 14px;
-    font-family:var(--mono);font-size:.84rem;line-height:1.65;
-    white-space:pre-wrap;word-break:break-word;word-spacing:normal;
-    pointer-events:none;overflow:hidden;
-    background:transparent;border:none;outline:none;
-    tab-size:2;
-}
-.sqle-ta{
-    position:absolute;top:0;left:0;right:0;bottom:0;
-    width:100%;height:100%;
-    padding:10px 14px;border:none;outline:none;
-    background:transparent;
-    color:transparent;caret-color:var(--text);
-    font-family:var(--mono);font-size:.84rem;line-height:1.65;
-    resize:none;tab-size:2;z-index:2;
-    white-space:pre-wrap;word-break:break-word;
-    overflow-y:auto;overflow-x:hidden;
-    -webkit-text-fill-color:transparent;
-}
+.sqle-hl{position:absolute;top:0;left:0;right:0;margin:0;padding:10px 14px;font-family:var(--mono);font-size:.84rem;line-height:1.65;white-space:pre-wrap;word-break:break-word;pointer-events:none;overflow:hidden;background:transparent;border:none;outline:none;tab-size:2}
+.sqle-ta{position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;padding:10px 14px;border:none;outline:none;background:transparent;color:transparent;caret-color:var(--text);font-family:var(--mono);font-size:.84rem;line-height:1.65;resize:none;tab-size:2;z-index:2;white-space:pre-wrap;word-break:break-word;overflow-y:auto;overflow-x:hidden;-webkit-text-fill-color:transparent}
 .sqle-ta::placeholder{-webkit-text-fill-color:var(--text-m);color:var(--text-m);opacity:.45}
-/* tokens */
-.sqle-hl .sk{color:var(--sql-kw);font-weight:700}
-.sqle-hl .sf{color:var(--sql-fn)}
-.sqle-hl .ss{color:var(--sql-str)}
-.sqle-hl .sn{color:var(--sql-nb)}
-.sqle-hl .sc2{color:var(--sql-cmt);font-style:italic}
-.sqle-hl .so{color:var(--sql-op)}
-
+.sqle-hl .sk{color:var(--sql-kw);font-weight:700}.sqle-hl .sf{color:var(--sql-fn)}.sqle-hl .ss{color:var(--sql-str)}.sqle-hl .sn{color:var(--sql-nb)}.sqle-hl .sc2{color:var(--sql-cmt);font-style:italic}.sqle-hl .so{color:var(--sql-op)}
 .sqle-foot{background:var(--surface2);border-top:1px solid var(--sql-border);padding:9px 15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .sqle-hint{margin-left:auto;font-size:.72rem;color:var(--text-m);display:flex;align-items:center;gap:4px}
 .kbd{display:inline-block;padding:1px 5px;border:1px solid var(--border);border-radius:4px;font-size:.67rem;font-family:var(--mono);background:var(--surface);line-height:1.5}
-
-/* ═══ SQL Results ═══════════════════════════════════════════════ */
+/* SQL Results */
 .res-wrap{animation:fu .16s ease}
 .res-head{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--res-th);border:1px solid var(--sql-border);border-radius:8px 8px 0 0;flex-wrap:wrap}
 .res-head img{width:15px;height:15px;filter:invert(40%) sepia(80%) saturate(400%) hue-rotate(100deg)}
 [data-theme="dark"] .res-head img{filter:invert(80%) sepia(40%) saturate(400%) hue-rotate(80deg)}
-.res-stat{font-weight:700;font-size:.79rem;color:var(--res-th-t)}
-.res-time{font-size:.72rem;color:var(--text-m);font-family:var(--mono)}
+.res-stat{font-weight:700;font-size:.79rem;color:var(--res-th-t)}.res-time{font-size:.72rem;color:var(--text-m);font-family:var(--mono)}
 .res-scroll{overflow-x:auto;border:1px solid var(--sql-border);border-top:none;border-radius:0 0 8px 8px}
 .rt{width:100%;border-collapse:collapse;font-size:.82rem;font-family:var(--mono)}
 .rt thead th{padding:8px 12px;background:var(--res-th);border-bottom:2px solid var(--sql-border);border-right:1px solid var(--sql-border);color:var(--res-th-t);font-size:.71rem;font-weight:700;text-align:left;white-space:nowrap;position:sticky;top:0}
 .rt thead th:last-child{border-right:none}
-.rt tbody tr:nth-child(odd) td{background:var(--res-odd)}
-.rt tbody tr:nth-child(even) td{background:var(--res-even)}
-.rt tbody tr:hover td{background:var(--res-hov)!important}
+.rt tbody tr:nth-child(odd) td{background:var(--res-odd)}.rt tbody tr:nth-child(even) td{background:var(--res-even)}.rt tbody tr:hover td{background:var(--res-hov)!important}
 .rt tbody td{padding:5px 12px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);vertical-align:top;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rt tbody td:last-child{border-right:none}
 .rt-n{background:var(--surface2)!important;color:var(--text-m);font-size:.71rem;text-align:right;padding:5px 9px;border-right:2px solid var(--sql-border)!important;user-select:none;min-width:36px}
 .rt tbody tr:hover .rt-n{background:var(--res-hov)!important}
-.cv-null{color:var(--res-null);font-style:italic;font-size:.75rem}
-.cv-num{color:var(--res-num);text-align:right}
-.cv-pk{background:var(--res-pk-bg)!important;color:var(--res-pk-t);font-weight:700}
-.cv-masked{color:var(--text-m);letter-spacing:.14em;font-size:.7rem}
+.cv-null{color:var(--res-null);font-style:italic;font-size:.75rem}.cv-num{color:var(--res-num);text-align:right}.cv-pk{background:var(--res-pk-bg)!important;color:var(--res-pk-t);font-weight:700}.cv-masked{color:var(--text-m);letter-spacing:.14em;font-size:.7rem}
 .res-empty{padding:26px;text-align:center;color:var(--text-m);font-size:.86rem;border:1px solid var(--sql-border);border-top:none;border-radius:0 0 8px 8px}
-.res-err{display:flex;gap:10px;align-items:flex-start;padding:13px 15px;background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.2);border-radius:8px;color:var(--red);font-family:var(--mono);font-size:.82rem}
-.res-warn{display:flex;align-items:center;gap:7px;padding:8px 12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:6px;font-size:.76rem;color:#d97706;margin-top:9px}
-[data-theme="dark"] .res-warn{color:#fbbf24}
+.res-err{display:flex;gap:10px;align-items:flex-start;padding:13px 15px;background:color-mix(in srgb, var(--danger) 7%, transparent);border:1px solid color-mix(in srgb, var(--danger) 20%, transparent);border-radius:8px;color:var(--danger);font-family:var(--mono);font-size:.82rem}
+.res-warn{display:flex;align-items:center;gap:7px;padding:8px 12px;background:color-mix(in srgb, var(--orange) 8%, transparent);border:1px solid color-mix(in srgb, var(--orange) 25%, transparent);border-radius:6px;font-size:.76rem;color:color-mix(in srgb, var(--orange) 80%, black);margin-top:9px}
+[data-theme="dark"] .res-warn{color:color-mix(in srgb, var(--orange) 70%, white)}
 .res-affect{display:flex;align-items:center;gap:12px;padding:16px 18px;background:var(--res-affect-bg);border:1px solid var(--res-affect-border);border-radius:8px;font-size:.88rem;font-weight:600;color:var(--res-affect-t)}
 .res-affect img{width:18px;height:18px;filter:invert(30%) sepia(90%) saturate(400%) hue-rotate(200deg)}
 [data-theme="dark"] .res-affect img{filter:invert(70%) sepia(40%) saturate(400%) hue-rotate(180deg)}
-.res-affect-rows{font-size:1.5rem;font-weight:900;font-family:var(--mono);color:var(--res-affect-t)}
-.res-affect-detail{font-size:.75rem;font-weight:400;color:var(--text-m);margin-top:2px}
-#db-exec-view{display:none}
-#db-exec-view.on{display:block;animation:fu .18s ease}
+.res-affect-rows{font-size:1.5rem;font-weight:900;font-family:var(--mono);color:var(--res-affect-t)}.res-affect-detail{font-size:.75rem;font-weight:400;color:var(--text-m);margin-top:2px}
+#db-exec-view{display:none}#db-exec-view.on{display:block;animation:fu .18s ease}
 
 @media(max-width:860px){
     .sb{width:50px;min-width:50px}.sb-top,.sb-sep,.sb-a span,.sb-pill{display:none}
@@ -251,16 +219,18 @@ __NAV_HTML__
     <div class="sb-sep">Système</div>
     <div class="sb-a" data-sec="db"><img src="/static/img/solid/database.svg" alt=""> <span>Base de données</span></div>
     <div class="sb-a" data-sec="config"><img src="/static/img/solid/gear.svg" alt=""> <span>Configuration</span></div>
+    <div class="sb-a" data-sec="extensions"><img src="/static/img/solid/puzzle-piece.svg" alt=""> <span>Extensions</span></div>
+    <div class="sb-a" data-sec="roles"><img src="/static/img/solid/id-badge.svg" alt=""> <span>Rôles &amp; Plans</span></div>
     <div class="sb-a" data-sec="server"><img src="/static/img/solid/server.svg" alt=""> <span>Serveur</span></div>
     <div class="sb-a" data-sec="logs"><img src="/static/img/solid/scroll.svg" alt=""> <span>Logs</span></div>
-    <div class="sb-a" data-sec="onlyoffice"><img src="/static/img/solid/file-lines.svg" alt=""> <span>OnlyOffice</span><span class="sb-pill w" id="pill-oo" style="display:none">!</span></div>
+    <div class="sb-a" data-sec="onlyoffice"><img src="/static/img/solid/file-lines.svg" alt=""> <span>Éditeur en ligne</span><span class="sb-pill w" id="pill-oo" style="display:none">!</span></div>
     <div class="sb-a" id="sb-p2p" data-sec="p2p" style="display:none"><img src="/static/img/solid/network-wired.svg" alt=""> <span>P2P / AnonNet</span><span class="sb-pill" id="pill-p2p">0</span></div>
 </nav>
 
 <main class="main">
     <div id="flash-area"></div>
 
-    <!-- ══ Dashboard ══════════════════════════════════════════════ -->
+    <!-- Dashboard -->
     <div class="sec on" id="sec-dashboard">
         <div class="pt"><img src="/static/img/solid/chart-pie.svg" class="ico-accent" alt=""> Dashboard</div>
         <div class="sg" id="dash-stats"><div class="loading"><span class="spin"></span> Chargement…</div></div>
@@ -270,7 +240,7 @@ __NAV_HTML__
         </div>
     </div>
 
-    <!-- ══ Utilisateurs ═══════════════════════════════════════════ -->
+    <!-- Utilisateurs -->
     <div class="sec" id="sec-users">
         <div class="pt"><img src="/static/img/solid/users.svg" class="ico-accent" alt=""> Utilisateurs <small id="users-count">…</small></div>
         <div class="card">
@@ -284,7 +254,7 @@ __NAV_HTML__
         </div>
     </div>
 
-    <!-- ══ Blocages ═══════════════════════════════════════════════ -->
+    <!-- Blocages -->
     <div class="sec" id="sec-blocks">
         <div class="pt"><img src="/static/img/solid/ban.svg" class="ico-accent" alt=""> Blocages de pages <small>table <code>bloqpage</code></small></div>
         <div class="card">
@@ -314,86 +284,96 @@ __NAV_HTML__
         </div>
     </div>
 
-    <!-- ══ Base de données ════════════════════════════════════════ -->
+    <!-- Base de données -->
     <div class="sec" id="sec-db">
         <div class="pt"><img src="/static/img/solid/database.svg" class="ico-accent" alt=""> Explorateur DB <small id="db-subtitle">…</small></div>
-
-        <!-- ── Zone SQL superadmin ────────────────────────────────── -->
         <div id="sql-zone" style="display:none">
             <div class="sqle">
                 <div class="sqle-head">
-                    <div class="sqle-title">
-                        <img src="/static/img/solid/terminal.svg" class="ico-accent" alt="">
-                        Requête SQL
-                        <span class="sqle-badge">
-                            <img src="/static/img/solid/star.svg" style="width:10px;height:10px;filter:invert(60%) sepia(1) saturate(3) hue-rotate(10deg)" alt="">
-                            Superadmin
-                        </span>
-                    </div>
+                    <div class="sqle-title"><img src="/static/img/solid/terminal.svg" class="ico-accent" alt="">Requête SQL<span class="sqle-badge"><img src="/static/img/solid/star.svg" style="width:10px;height:10px;filter:invert(60%) sepia(1) saturate(3) hue-rotate(10deg)" alt="">Superadmin</span></div>
                     <span class="sqle-meta">SELECT, INSERT, UPDATE, DELETE, CREATE, DROP… · Colonnes sensibles masquées</span>
                 </div>
                 <div class="sqle-body">
                     <div class="sqle-nums" id="sql-nums"><span>1</span></div>
                     <div class="sqle-wrap" id="sql-wrap">
                         <pre class="sqle-hl" id="sql-hl" aria-hidden="true"></pre>
-                        <textarea id="sql-ta" class="sqle-ta"
-                            placeholder="SELECT * FROM login LIMIT 20&#10;UPDATE login SET vip=1 WHERE id=5&#10;INSERT INTO … / DELETE FROM … / CREATE TABLE …"
-                            spellcheck="false"
-                            oninput="sqlInput()"
-                            onkeydown="sqlKey(event)"
-                            onscroll="sqlScroll()"></textarea>
+                        <textarea id="sql-ta" class="sqle-ta" placeholder="SELECT * FROM login LIMIT 20" spellcheck="false" oninput="sqlInput()" onkeydown="sqlKey(event)" onscroll="sqlScroll()"></textarea>
                     </div>
                 </div>
                 <div class="sqle-foot">
-                    <button class="btn ba" id="sql-btn" onclick="runSql()">
-                        <img src="/static/img/solid/play.svg" class="ico" style="filter:invert(1)" alt=""> Exécuter
-                    </button>
-                    <button class="btn bg2" onclick="sqlClear()">
-                        <img src="/static/img/solid/xmark.svg" class="ico ico-gray" alt=""> Effacer
-                    </button>
+                    <button class="btn ba" id="sql-btn" onclick="runSql()"><img src="/static/img/solid/play.svg" class="ico" style="filter:invert(1)" alt=""> Exécuter</button>
+                    <button class="btn bg2" onclick="sqlClear()"><img src="/static/img/solid/xmark.svg" class="ico ico-gray" alt=""> Effacer</button>
                     <span class="sqle-hint"><span class="kbd">Ctrl</span>+<span class="kbd">↵</span></span>
                 </div>
             </div>
         </div>
-
-        <!-- Mode édition actif -->
         <div id="db-edit-bar" style="display:none;margin-bottom:12px;padding:10px 14px;background:var(--alt);border:1px solid var(--aglow);border-radius:8px;font-size:.83rem;color:var(--accent)">
             <img src="/static/img/solid/pen-to-square.svg" class="ico ico-accent" alt=""> <strong>Mode édition actif</strong> — Cliquez sur une cellule pour la modifier.
         </div>
-
-        <!-- Explorateur normal -->
         <div id="db-content"><div class="loading"><span class="spin"></span></div></div>
-
-        <!-- Page résultats SQL -->
         <div id="db-exec-view">
             <div id="sql-back-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
-                <button class="btn bg2" onclick="sqlBack()">
-                    <img src="/static/img/solid/arrow-left.svg" class="ico ico-gray" alt=""> Retour à l'explorateur
-                </button>
+                <button class="btn bg2" onclick="sqlBack()"><img src="/static/img/solid/arrow-left.svg" class="ico ico-gray" alt=""> Retour à l'explorateur</button>
                 <code id="sql-exec-label" style="font-size:.76rem;color:var(--text-m);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"></code>
             </div>
             <div id="sql-result"></div>
         </div>
     </div>
 
-    <!-- ══ Config ═════════════════════════════════════════════════ -->
+    <!-- Config -->
     <div class="sec" id="sec-config">
         <div class="pt"><img src="/static/img/solid/gear.svg" class="ico-accent" alt=""> Configuration <small>config.json</small></div>
         <div id="config-content"><div class="loading"><span class="spin"></span></div></div>
     </div>
 
-    <!-- ══ Serveur ════════════════════════════════════════════════ -->
+    <!-- Extensions -->
+    <div class="sec" id="sec-extensions">
+        <div class="pt"><img src="/static/img/solid/puzzle-piece.svg" class="ico-accent" alt=""> Extensions &amp; Applications</div>
+        <div style="padding:13px 17px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:18px;font-size:.82rem;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+            <div style="flex:1;min-width:220px">
+                <div style="font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:7px"><img src="/static/img/solid/folder-open.svg" class="ico ico-accent" alt=""> Structure attendue</div>
+                <code style="display:block;font-size:.75rem;line-height:1.9;background:var(--surface2);padding:10px 13px;border-radius:7px;border:1px solid var(--border)">src/extensions/mon_ext/<br>&nbsp;&nbsp;mod.rs &nbsp;<span style="opacity:.6">← le fichier uploade</span><br>static/extensions/mon_ext/<br>&nbsp;&nbsp;index.html / *.js / *.css</code>
+            </div>
+            <div style="flex:1;min-width:200px;color:var(--text-m);font-size:.78rem;line-height:1.7;padding-top:4px">
+                <strong style="color:var(--text)">Convention</strong> : l'ID = nom du dossier dans src/extensions/ et static/extensions/. Les dossiers sont crees automatiquement a l'upload.<br><br>
+                <span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:5px;background:var(--alt);color:var(--accent);font-size:.72rem;font-weight:700">APP DE BASE</span> integree au binaire, non suppressible.<br><br>
+                <span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:5px;background:rgba(59,130,246,.1);color:#3b82f6;font-size:.72rem;font-weight:700">EXTENSION</span> ajoutee manuellement, configurable.
+            </div>
+        </div>
+        <div id="ext-content"><div class="loading"><span class="spin"></span></div></div>
+    </div>
+
+    <!-- Roles & Plans -->
+    <div class="sec" id="sec-roles">
+        <div class="pt"><img src="/static/img/solid/id-badge.svg" class="ico-accent" alt=""> Rôles &amp; Plans</div>
+        <div class="card" style="margin-bottom:16px">
+            <div class="ch"><span><img src="/static/img/solid/tags.svg" class="ico ico-accent" alt=""> Noms des rôles</span></div>
+            <div class="cb">
+                <div class="cgr" id="roles-labels-grid"></div>
+                <button class="btn ba" style="margin-top:14px" onclick="saveRoleLabels()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> Sauvegarder les noms</button>
+            </div>
+        </div>
+        <div class="card">
+            <div class="ch">
+                <span><img src="/static/img/solid/credit-card.svg" class="ico ico-accent" alt=""> Plans tarifaires</span>
+                <button class="btn ba" onclick="addPlan()"><img src="/static/img/solid/plus.svg" class="ico" style="filter:invert(1)" alt=""> Nouveau plan</button>
+            </div>
+            <div class="cb" id="plans-content"></div>
+        </div>
+    </div>
+
+    <!-- Serveur -->
     <div class="sec" id="sec-server">
         <div class="pt"><img src="/static/img/solid/server.svg" class="ico-accent" alt=""> Monitoring serveur</div>
         <div id="server-content"><div class="loading"><span class="spin"></span></div></div>
     </div>
 
-    <!-- ══ Logs ═══════════════════════════════════════════════════ -->
+    <!-- Logs -->
     <div class="sec" id="sec-logs">
         <div class="pt"><img src="/static/img/solid/scroll.svg" class="ico-accent" alt=""> Logs serveur</div>
         <div class="card">
             <div class="ch">
-                <span><img src="/static/img/solid/file-lines.svg" class="ico ico-accent" alt=""> /tmp/onlyoffice-callback.log</span>
+                <span><img src="/static/img/solid/file-lines.svg" class="ico ico-accent" alt=""> Logs VEX </span>
                 <div style="display:flex;gap:8px">
                     <button class="btn br2" onclick="clearLogs()"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Vider</button>
                     <button class="btn bg2" onclick="scrollLogs()"><img src="/static/img/solid/arrow-down.svg" class="ico ico-accent" alt=""> Bas</button>
@@ -403,33 +383,24 @@ __NAV_HTML__
         </div>
     </div>
 
-    <!-- ══ OnlyOffice ═════════════════════════════════════════════ -->
+    <!-- OnlyOffice -->
     <div class="sec" id="sec-onlyoffice">
-        <div class="pt"><img src="/static/img/solid/file-lines.svg" class="ico-accent" alt=""> OnlyOffice</div>
+        <div class="pt"><img src="/static/img/solid/file-lines.svg" class="ico-accent" alt=""> Éditeur en ligne <small>choix de la suite bureautique</small></div>
         <div id="oo-content"><div class="loading"><span class="spin"></span></div></div>
     </div>
 
-    <!-- ══ P2P ════════════════════════════════════════════════════ -->
+    <!-- P2P -->
     <div class="sec" id="sec-p2p">
         <div class="pt"><img src="/static/img/solid/network-wired.svg" class="ico-accent" alt=""> P2P / AnonNet <small>superadmin uniquement</small></div>
-
-        <!-- Infos nœud local -->
         <div id="p2p-node-info" style="display:none;margin-bottom:16px;padding:14px 17px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);font-size:.82rem">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                <div style="display:flex;align-items:center;gap:6px;font-weight:700">
-                    <img src="/static/img/solid/circle-nodes.svg" class="ico ico-accent" alt="">
-                    <span id="p2p-node-id" style="font-family:var(--mono);font-size:.77rem;color:var(--accent)"></span>
-                </div>
+                <div style="display:flex;align-items:center;gap:6px;font-weight:700"><img src="/static/img/solid/circle-nodes.svg" class="ico ico-accent" alt=""><span id="p2p-node-id" style="font-family:var(--mono);font-size:.77rem;color:var(--accent)"></span></div>
                 <span style="color:var(--text-m)">|</span>
                 <span id="p2p-node-url" style="color:var(--text-m);font-family:var(--mono);font-size:.76rem"></span>
                 <span id="p2p-tor-badge" style="display:none" class="b bb">Tor actif</span>
                 <div style="margin-left:auto;display:flex;gap:8px">
-                    <button class="btn bg2" onclick="p2pSyncNow()" id="p2p-sync-btn">
-                        <img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Sync bootstrap
-                    </button>
-                    <button class="btn bg2" onclick="loadP2p()">
-                        <img src="/static/img/solid/arrows-rotate.svg" class="ico ico-gray" alt=""> Rafraîchir
-                    </button>
+                    <button class="btn bg2" onclick="p2pSyncNow()" id="p2p-sync-btn"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Sync bootstrap</button>
+                    <button class="btn bg2" onclick="loadP2p()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-gray" alt=""> Rafraîchir</button>
                 </div>
             </div>
             <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -441,71 +412,26 @@ __NAV_HTML__
                 <span>Chunk : <code id="p2p-chunk-size" style="font-size:.73rem"></code></span>
             </div>
         </div>
-
-        <!-- Onglets -->
         <div style="display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:0">
-            <button class="p2p-tab on" data-tab="peers" onclick="p2pTab('peers')">
-                <img src="/static/img/solid/diagram-project.svg" class="ico" alt=""> Nœuds
-                <span class="sb-pill" id="p2p-tab-peers-cnt" style="margin-left:4px">…</span>
-            </button>
-            <button class="p2p-tab" data-tab="users" onclick="p2pTab('users')">
-                <img src="/static/img/solid/users.svg" class="ico" alt=""> Utilisateurs P2P
-                <span class="sb-pill" id="p2p-tab-users-cnt" style="margin-left:4px">…</span>
-            </button>
-            <button class="p2p-tab" data-tab="transfers" onclick="p2pTab('transfers')">
-                <img src="/static/img/solid/arrow-right-arrow-left.svg" class="ico" alt=""> Transferts
-            </button>
-            <button class="p2p-tab" data-tab="annuaire" onclick="p2pTab('annuaire')">
-                <img src="/static/img/solid/file-lines.svg" class="ico" alt=""> Annuaire
-            </button>
+            <button class="p2p-tab on" data-tab="peers" onclick="p2pTab('peers')"><img src="/static/img/solid/diagram-project.svg" class="ico" alt=""> Noeuds <span class="sb-pill" id="p2p-tab-peers-cnt" style="margin-left:4px">…</span></button>
+            <button class="p2p-tab" data-tab="users" onclick="p2pTab('users')"><img src="/static/img/solid/users.svg" class="ico" alt=""> Utilisateurs P2P <span class="sb-pill" id="p2p-tab-users-cnt" style="margin-left:4px">…</span></button>
+            <button class="p2p-tab" data-tab="transfers" onclick="p2pTab('transfers')"><img src="/static/img/solid/arrow-right-arrow-left.svg" class="ico" alt=""> Transferts</button>
+            <button class="p2p-tab" data-tab="annuaire" onclick="p2pTab('annuaire')"><img src="/static/img/solid/file-lines.svg" class="ico" alt=""> Annuaire</button>
         </div>
-
         <div class="sg" id="p2p-stats" style="margin-bottom:14px"></div>
-
-        <!-- Contenu onglets -->
-        <div id="p2p-tab-peers">
-            <div class="card">
-                <div class="ch"><span><img src="/static/img/solid/diagram-project.svg" class="ico ico-accent" alt=""> Nœuds connus</span></div>
-                <div style="overflow-x:auto"><div id="p2p-table"><div class="loading"><span class="spin"></span></div></div></div>
-            </div>
-        </div>
-
-        <div id="p2p-tab-users" style="display:none">
-            <div class="card">
-                <div class="ch"><span><img src="/static/img/solid/users.svg" class="ico ico-accent" alt=""> Utilisateurs P2P connus</span></div>
-                <div style="overflow-x:auto"><div id="p2p-users-table"><div class="loading"><span class="spin"></span></div></div></div>
-            </div>
-        </div>
-
-        <div id="p2p-tab-transfers" style="display:none">
-            <div class="card">
-                <div class="ch">
-                    <span><img src="/static/img/solid/arrow-right-arrow-left.svg" class="ico ico-accent" alt=""> Transferts de fichiers</span>
-                    <button class="btn bg2" onclick="loadP2pTransfers()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Rafraîchir</button>
-                </div>
-                <div style="overflow-x:auto"><div id="p2p-transfers-table"><div class="loading"><span class="spin"></span></div></div></div>
-            </div>
-        </div>
-
-        <div id="p2p-tab-annuaire" style="display:none">
-            <div class="card">
-                <div class="ch">
-                    <span><img src="/static/img/solid/file-lines.svg" class="ico ico-accent" alt=""> Annuaire répliqué</span>
-                    <div style="display:flex;gap:8px">
-                        <button class="btn bg2" onclick="loadP2pAnnuaire()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Rafraîchir</button>
-                        <button class="btn bg2" onclick="copyAnnuaire()"><img src="/static/img/solid/copy.svg" class="ico ico-gray" alt=""> Copier</button>
-                    </div>
-                </div>
-                <div style="padding:14px"><div id="p2p-annuaire-content"><div class="loading"><span class="spin"></span></div></div></div>
-            </div>
-        </div>
+        <div id="p2p-tab-peers"><div class="card"><div class="ch"><span><img src="/static/img/solid/diagram-project.svg" class="ico ico-accent" alt=""> Noeuds connus</span></div><div style="overflow-x:auto"><div id="p2p-table"><div class="loading"><span class="spin"></span></div></div></div></div></div>
+        <div id="p2p-tab-users" style="display:none"><div class="card"><div class="ch"><span><img src="/static/img/solid/users.svg" class="ico ico-accent" alt=""> Utilisateurs P2P connus</span></div><div style="overflow-x:auto"><div id="p2p-users-table"><div class="loading"><span class="spin"></span></div></div></div></div></div>
+        <div id="p2p-tab-transfers" style="display:none"><div class="card"><div class="ch"><span><img src="/static/img/solid/arrow-right-arrow-left.svg" class="ico ico-accent" alt=""> Transferts</span><button class="btn bg2" onclick="loadP2pTransfers()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Rafraichir</button></div><div style="overflow-x:auto"><div id="p2p-transfers-table"><div class="loading"><span class="spin"></span></div></div></div></div></div>
+        <div id="p2p-tab-annuaire" style="display:none"><div class="card"><div class="ch"><span><img src="/static/img/solid/file-lines.svg" class="ico ico-accent" alt=""> Annuaire</span><div style="display:flex;gap:8px"><button class="btn bg2" onclick="loadP2pAnnuaire()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Rafraichir</button><button class="btn bg2" onclick="copyAnnuaire()"><img src="/static/img/solid/copy.svg" class="ico ico-gray" alt=""> Copier</button></div></div><div style="padding:14px"><div id="p2p-annuaire-content"><div class="loading"><span class="spin"></span></div></div></div></div></div>
     </div>
 </main>
 </div>
 
 <script>
-const PRIVILEGES={1:{nom:'fondateur',c:'fona'},2:{nom:'super admin',c:'#6d0000'},3:{nom:'admin',c:'#d30000'},4:{nom:'vérificateur',c:'#4169e1'},5:{nom:'super-modérateur',c:'#4169e1'},6:{nom:'modérateur',c:'#006400'},7:{nom:'',c:'#32cd32'},8:{nom:'utilisateur certifié',c:'#4b4b4b'},9:{nom:'beta-testeur',c:'#20012a'},10:{nom:'aucun',c:'#000'},11:{nom:'ban',c:'#000'},12:{nom:'ban',c:'#000'}};
-const pNom=p=>PRIVILEGES[p]?.nom||('niveau '+p), pCol=p=>PRIVILEGES[p]?.c||'#888';
+/* ── Constantes ── */
+const PRIVILEGES={1:{nom:'fondateur',c:'fona'},2:{nom:'super admin',c:'#6d0000'},3:{nom:'admin',c:'#d30000'},4:{nom:'verificateur',c:'#4169e1'},5:{nom:'super-moderateur',c:'#4169e1'},6:{nom:'moderateur',c:'#006400'},7:{nom:'',c:'#32cd32'},8:{nom:'utilisateur certifie',c:'#4b4b4b'},9:{nom:'beta-testeur',c:'#20012a'},10:{nom:'aucun',c:'#000'},11:{nom:'ban',c:'#000'},12:{nom:'ban',c:'#000'}};
+const pNom=p=>(S.configData?.privilege_labels?.[String(p)])||PRIVILEGES[p]?.nom||('niveau '+p);
+const pCol=p=>PRIVILEGES[p]?.c||'#888';
 const S={section:'dashboard',users:[],blocks:[],vex_pages:[],dbTable:null,dbPage:1,configData:null,allChecked:false,vipTypes:[]};
 let IS_SUPER=false,DB_COLS=[];
 
@@ -515,7 +441,7 @@ function nav(sec){
     document.querySelectorAll('.sb-a[data-sec]').forEach(a=>a.classList.toggle('on',a.dataset.sec===sec));
     document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
     document.getElementById('sec-'+sec).classList.add('on');
-    ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,server:loadServer,logs:loadLogs,onlyoffice:loadOO,p2p:loadP2p}[sec]||Function)();
+    ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,server:loadServer,logs:loadLogs,onlyoffice:loadEditor,p2p:loadP2p,extensions:loadExt,roles:loadRoles}[sec]||Function)();
     history.replaceState(null,'','?section='+sec);
 }
 function flash(msg,err=false){
@@ -527,7 +453,7 @@ async function api(p,o={}){try{const r=await fetch('/api/admin'+p,{credentials:'
 function post(p,d={}){return api(p,{method:'POST',body:Object.entries(d).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(typeof v==='object'?JSON.stringify(v):v)).join('&')});}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
-/* ── Dashboard ──────────────────────────────────────────────────── */
+/* ── Dashboard ── */
 async function loadDash(){
     const r=await api('/dashboard');if(!r.success){flash(r.error,true);return;}
     const d=r.data;
@@ -535,38 +461,46 @@ async function loadDash(){
     IS_SUPER=d.is_super||false;
     document.getElementById('sql-zone').style.display=IS_SUPER?'':'none';
     const cfgR=await api('/config');
-    if(cfgR.success&&cfgR.data?.plans?.available_plans)S.vipTypes=cfgR.data.plans.available_plans.map(p=>({id:p.id??p.name??p,label:p.label??p.name??p.id??String(p)}));
+    if(cfgR.success){
+        S.configData=cfgR.data;
+        if(cfgR.data?.plans?.available_plans)S.vipTypes=cfgR.data.plans.available_plans.map(p=>({id:p.id??p.name??p,label:p.label??p.name??p.id??String(p)}));
+    }
     if(!S.vipTypes.length)S.vipTypes=[{id:'vip',label:'VIP'}];
     const stats=[
         {ico:'users',val:d.nb_users,label:'Utilisateurs',sec:'users',color:'var(--accent)'},
         {ico:'folder-open',val:d.nb_fichiers,label:'Fichiers',sec:'db',color:'#3b82f6'},
         {ico:'cookie',val:d.nb_sessions,label:'Sessions actives',sec:'db',color:'#f59e0b'},
         {ico:'globe',val:d.nb_pages,label:'Pages Sitec',sec:'db',color:'#8b5cf6'},
-        {ico:'database',val:d.db_size_mb+' MB',label:'Base de données',sec:'db',color:'#ef4444'},
-        {ico:d.onlyoffice.online?'circle-check':'circle-xmark',val:d.onlyoffice.online?'En ligne':'Hors ligne',label:'OnlyOffice '+d.onlyoffice.ms+'ms',sec:'onlyoffice',color:d.onlyoffice.online?'var(--accent)':'#ef4444'},
+        {ico:'database',val:d.db_size_mb+' MB',label:'Base de donnees',sec:'db',color:'#ef4444'},
+        {ico:(d.editor||d.onlyoffice).online?'circle-check':'circle-xmark',val:(d.editor||d.onlyoffice).online?'En ligne':'Hors ligne',label:((d.editor&&d.editor.name)||'Editeur')+' '+(d.editor||d.onlyoffice).ms+'ms',sec:'onlyoffice',color:(d.editor||d.onlyoffice).online?'var(--accent)':'#ef4444'},
     ];
     document.getElementById('dash-stats').innerHTML=stats.map(s=>`<div class="sc" style="--si:${s.color}" onclick="nav('${s.sec}')"><div class="sc-i"><img src="/static/img/solid/${s.ico}.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="${String(s.val).length>6?'font-size:1.1rem':''}">${esc(String(s.val))}</div><div class="sc-l">${esc(s.label)}</div></div>`).join('');
-    document.getElementById('dash-last-users').innerHTML=`<table class="t"><thead><tr><th>#</th><th>Nom</th><th>Email</th><th>Rôle</th><th>VIP</th></tr></thead><tbody>${d.last_users.map(u=>{
-        const rH=pCol(u.privilege)==='fona'?`<span class="b" style="background:linear-gradient(90deg,#ff6,#f90);color:#000">${esc(pNom(u.privilege))}</span>`:`<span class="b bx" style="color:${pCol(u.privilege)}">${esc(pNom(u.privilege))}</span>`;
+    document.getElementById('dash-last-users').innerHTML=`<table class="t"><thead><tr><th>#</th><th>Nom</th><th>Email</th><th>Role</th><th>VIP</th></tr></thead><tbody>${d.last_users.map(u=>{
+        const rH=`<span class="b bx" style="color:${pCol(u.privilege)}">${esc(pNom(u.privilege))}</span>`;
         return`<tr><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${rH}</td><td>${u.vip?`<span class="b bgd"><img src="/static/img/solid/star.svg" class="ico-sm" style="filter:invert(60%) sepia(1) saturate(3) hue-rotate(10deg)" alt=""> ${esc(String(u.vip))}</span>`:'<span class="b bx">Free</span>'}</td></tr>`;
     }).join('')}</tbody></table>`;
     document.getElementById('pill-users').textContent=d.nb_users;
-    if(!d.onlyoffice.online)document.getElementById('pill-oo').style.display='';
+    if(!(d.editor||d.onlyoffice).online)document.getElementById('pill-oo').style.display='';
 }
 
-/* ── Utilisateurs ───────────────────────────────────────────────── */
+/* ── Utilisateurs ── */
 async function loadUsers(){
     document.getElementById('users-table').innerHTML='<div class="loading"><span class="spin"></span></div>';
     const r=await api('/users');if(!r.success){flash(r.error,true);return;}
-    S.users=r.data;document.getElementById('users-count').textContent=S.users.length+' comptes';document.getElementById('pill-users').textContent=S.users.length;
+    S.users=r.data.filter(u=>u.privilege!==1);
+    document.getElementById('users-count').textContent=S.users.length+' comptes';
+    document.getElementById('pill-users').textContent=S.users.length;
     renderUsers(S.users);
-    const sel=document.getElementById('block-uid');sel.innerHTML='<option value="all">— Tous les utilisateurs —</option>'+S.users.map(u=>`<option value="${u.id}">#${u.id} — ${esc(u.nom)}</option>`).join('');
+    const sel=document.getElementById('block-uid');
+    sel.innerHTML='<option value="all">— Tous les utilisateurs —</option>'+S.users.map(u=>`<option value="${u.id}">#${u.id} — ${esc(u.nom)}</option>`).join('');
 }
 function vipOpts(v){return[`<option value="0" ${!v?'selected':''}>— Free —</option>`,...S.vipTypes.map(t=>`<option value="${esc(String(t.id))}" ${v==t.id?'selected':''}>${esc(t.label)}</option>`)].join('');}
 function renderUsers(users){
-    document.getElementById('users-table').innerHTML=`<table class="t" id="utbl"><thead><tr><th>#</th><th>Nom</th><th>Email</th><th>Rôle</th><th>VIP</th><th>Actions</th></tr></thead><tbody>${users.map(u=>{
+    users=users.filter(u=>u.privilege!==1);
+    document.getElementById('users-table').innerHTML=`<table class="t" id="utbl"><thead><tr><th>#</th><th>Nom</th><th>Email</th><th>Rôle actuel</th><th>Changer rôle</th><th>VIP</th><th>Actions</th></tr></thead><tbody>${users.map(u=>{
         const po=[2,3,4,5,6,7,8,9,10,11,12].map(p=>`<option value="${p}" ${u.privilege==p?'selected':''}>${p} — ${pNom(p)}</option>`).join('');
-        return`<tr data-s="${(u.nom+u.email).toLowerCase()}"><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td><select class="isel" onchange="setPriv(${u.id},this.value)">${po}</select></td><td><select class="vip-sel" onchange="setVip(${u.id},this.value)">${vipOpts(u.vip)}</select></td><td><button class="btn br2" onclick="delUser(${u.id},'${esc(u.nom)}')"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Suppr.</button></td></tr>`;
+        const badge=`<span class="b bx" style="color:${pCol(u.privilege)};border:1px solid ${pCol(u.privilege)}44">${u.privilege} — ${esc(pNom(u.privilege))}</span>`;
+        return`<tr data-s="${(u.nom+u.email).toLowerCase()}"><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${badge}</td><td><select class="isel" style="color:${pCol(u.privilege)};font-weight:600" onchange="setPriv(${u.id},this.value)">${po}</select></td><td><select class="vip-sel" onchange="setVip(${u.id},this.value)">${vipOpts(u.vip)}</select></td><td><button class="btn br2" onclick="delUser(${u.id},'${esc(u.nom)}')"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Suppr.</button></td></tr>`;
     }).join('')}</tbody></table>`;
 }
 function filterUsers(q){document.querySelectorAll('#utbl tbody tr').forEach(r=>{r.style.display=r.dataset.s.includes(q.toLowerCase())?'':'none';});}
@@ -574,7 +508,7 @@ async function setPriv(uid,priv){const r=await post('/users/privilege',{uid,priv
 async function setVip(uid,vip){const r=await post('/users/vip',{uid,vip});flash(r.success?r.message:r.error,!r.success);}
 async function delUser(uid,nom){if(!confirm(`Supprimer ${nom} ?`))return;const r=await post('/users/delete',{uid});if(r.success){flash(r.message);loadUsers();}else flash(r.error,true);}
 
-/* ── Blocages ───────────────────────────────────────────────────── */
+/* ── Blocages ── */
 async function loadBlocks(){
     document.getElementById('blocks-table').innerHTML='<div class="loading"><span class="spin"></span></div>';
     if(!S.vex_pages.length){const pr=await api('/pages');if(pr.success){S.vex_pages=pr.data;renderPages();}}
@@ -586,7 +520,7 @@ function renderPages(){document.getElementById('pages-grid').innerHTML=S.vex_pag
 function renderBlocks(){
     if(!S.blocks.length){document.getElementById('blocks-table').innerHTML='<div style="padding:30px;text-align:center;color:var(--text-m)"><img src="/static/img/solid/circle-check.svg" class="ico ico-accent" alt=""> Aucun blocage actif</div>';return;}
     const um={all:'— Tous —'};S.users.forEach(u=>um[String(u.id)]=u.nom);
-    document.getElementById('blocks-table').innerHTML=`<table class="t"><thead><tr><th>#</th><th>Cible</th><th>Privilege &gt;</th><th>Posé par</th><th>Pages</th><th>Action</th></tr></thead><tbody>${S.blocks.map(bl=>{
+    document.getElementById('blocks-table').innerHTML=`<table class="t"><thead><tr><th>#</th><th>Cible</th><th>Privilege &gt;</th><th>Pose par</th><th>Pages</th><th>Action</th></tr></thead><tbody>${S.blocks.map(bl=>{
         const pages=String(bl.pageb).split(',').filter(Boolean);
         return`<tr><td><span class="b bx">#${bl.id}</span></td><td>${bl.iduserb==='all'?'<span class="b br">Tous</span>':`<strong>${esc(um[String(bl.iduserb)]||'User #'+bl.iduserb)}</strong>`}</td><td><span class="b bx">&gt; ${bl.priviautro}</span></td><td>${esc(um[String(bl.iduserquiab)]||'Admin #'+bl.iduserquiab)}</td><td><div class="blk-pages">${pages.map(p=>`<span class="blk-page-tag">${esc(p)}</span>`).join('')}</div></td><td><button class="btn br2" onclick="delBlock(${bl.id})"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Suppr.</button></td></tr>`;
     }).join('')}</tbody></table>`;
@@ -594,14 +528,14 @@ function renderBlocks(){
 async function submitAddBlock(){
     const uid=document.getElementById('block-uid').value,priv=document.getElementById('block-priv').value;
     const pages=Array.from(document.querySelectorAll('#pages-grid input:checked')).map(c=>c.value);
-    if(!pages.length){flash('Sélectionne au moins une page',true);return;}
+    if(!pages.length){flash('Selectionne au moins une page',true);return;}
     const r=await post('/blocks/add',{iduserb:uid,priviautro:priv,pageb:pages.join(',')});
     if(r.success){flash(r.message);loadBlocks();}else flash(r.error,true);
 }
 async function delBlock(bid){if(!confirm('Supprimer ce blocage ?'))return;const r=await post('/blocks/delete',{bid});if(r.success){flash(r.message);loadBlocks();}else flash(r.error,true);}
 function toggleAllPages(){S.allChecked=!S.allChecked;document.querySelectorAll('#pages-grid input[type=checkbox]').forEach(c=>{c.checked=S.allChecked;c.closest('.page-chk').classList.toggle('checked',S.allChecked);});}
 
-/* ── Explorateur DB ─────────────────────────────────────────────── */
+/* ── Explorateur DB ── */
 async function loadDb(table=null,page=1){
     S.dbTable=table;S.dbPage=page;
     document.getElementById('db-exec-view').style.display='none';
@@ -614,16 +548,7 @@ async function loadDb(table=null,page=1){
         document.getElementById('db-subtitle').textContent=`${tables.length} tables`;
         document.getElementById('db-edit-bar').style.display='none';DB_COLS=[];
         const mx=Math.max(1,...sizes.map(s=>s.sz));
-        document.getElementById('db-content').innerHTML=`
-            <div class="card"><div class="ch"><span><img src="/static/img/solid/table-list.svg" class="ico ico-accent" alt=""> Tables</span></div>
-                <div class="cb"><div class="tgr">${tables.map(t=>`<div class="ttl" onclick="loadDb('${esc(t)}')"><img src="/static/img/solid/table.svg" class="ico ico-gray" alt=""> ${esc(t)}</div>`).join('')}</div></div>
-            </div>
-            <div class="card"><div class="ch"><span><img src="/static/img/solid/chart-bar.svg" class="ico ico-accent" alt=""> Taille des tables</span></div>
-                <div style="overflow-x:auto"><table class="t"><thead><tr><th>Table</th><th>Lignes</th><th>Taille (KB)</th><th></th></tr></thead>
-                <tbody>${sizes.map(s=>{const pct=Math.min(100,Math.round(s.sz/mx*100)),cl=pct>80?'d':pct>50?'w':'';
-                    return`<tr><td><a href="#" onclick="loadDb('${esc(s.table_name)}');return false">${esc(s.table_name)}</a></td><td>${Number(s.rws).toLocaleString()}</td><td>${s.sz}</td><td><div class="pg"><div class="pgb ${cl}" style="width:${pct}%"></div></div></td></tr>`;
-                }).join('')}</tbody></table></div>
-            </div>`;
+        document.getElementById('db-content').innerHTML=`<div class="card"><div class="ch"><span><img src="/static/img/solid/table-list.svg" class="ico ico-accent" alt=""> Tables</span></div><div class="cb"><div class="tgr">${tables.map(t=>`<div class="ttl" onclick="loadDb('${esc(t)}')"><img src="/static/img/solid/table.svg" class="ico ico-gray" alt=""> ${esc(t)}</div>`).join('')}</div></div></div><div class="card"><div class="ch"><span><img src="/static/img/solid/chart-bar.svg" class="ico ico-accent" alt=""> Taille des tables</span></div><div style="overflow-x:auto"><table class="t"><thead><tr><th>Table</th><th>Lignes</th><th>Taille (KB)</th><th></th></tr></thead><tbody>${sizes.map(s=>{const pct=Math.min(100,Math.round(s.sz/mx*100)),cl=pct>80?'d':pct>50?'w':'';return`<tr><td><a href="#" onclick="loadDb('${esc(s.table_name)}');return false">${esc(s.table_name)}</a></td><td>${Number(s.rws).toLocaleString()}</td><td>${s.sz}</td><td><div class="pg"><div class="pgb ${cl}" style="width:${pct}%"></div></div></td></tr>`;}).join('')}</tbody></table></div></div>`;
     }else{
         const r=await api(`/db/table/${encodeURIComponent(table)}?page=${page}`);if(!r.success){flash(r.error,true);return;}
         const d=r.data;IS_SUPER=d.is_super||false;DB_COLS=d.cols||[];
@@ -640,7 +565,7 @@ function editCell(t,c,v,pk,pkv){const n=prompt(`Modifier "${c}" (${pk}=${pkv}) :
 function delRow(t,pk,pkv){if(!confirm(`Supprimer ${pk}=${pkv} dans "${t}" ?`))return;post('/db/row/delete',{table:t,pk_col:pk,pk_val:pkv}).then(r=>{flash(r.success?r.message:r.error,!r.success);if(r.success)loadDb(t,S.dbPage);});}
 async function showAddRow(table){
     if(!DB_COLS.length){const r=await api(`/db/table/${encodeURIComponent(table)}?page=1`);if(r.success){DB_COLS=r.data.cols||[];IS_SUPER=r.data.is_super||false;}}
-    const cols=DB_COLS.filter(c=>c!=='id');if(!cols.length){flash('Impossible de récupérer la structure.',true);return;}
+    const cols=DB_COLS.filter(c=>c!=='id');if(!cols.length){flash('Impossible de recuperer la structure.',true);return;}
     document.getElementById('add-row-modal')?.remove();
     const m=document.createElement('div');m.id='add-row-modal';m.className='modal-bg';
     m.innerHTML=`<div class="modal-box"><div style="font-weight:800;font-size:1.1rem;margin-bottom:16px;display:flex;align-items:center;gap:8px"><img src="/static/img/solid/plus.svg" class="ico ico-accent" alt=""> Ajouter dans <code>${esc(table)}</code></div>${cols.map(c=>`<div class="f"><label>${esc(c)}</label><input type="text" data-col="${esc(c)}" placeholder="${esc(c)}"></div>`).join('')}<div style="display:flex;gap:10px;margin-top:16px"><button class="btn ba" id="addRowBtn"><img src="/static/img/solid/check.svg" class="ico" style="filter:invert(1)" alt=""> Ajouter</button><button class="btn bg2" onclick="document.getElementById('add-row-modal').remove()"><img src="/static/img/solid/xmark.svg" class="ico ico-gray" alt=""> Annuler</button></div></div>`;
@@ -649,206 +574,81 @@ async function showAddRow(table){
 async function submitAddRow(table){
     const cols=DB_COLS.filter(c=>c!=='id'),m=document.getElementById('add-row-modal');if(!m)return;
     const vals=cols.map(c=>{const el=m.querySelector(`input[data-col="${c.replace(/\\/g,'\\\\').replace(/"/g,'\\"')}"]`);return el?el.value:'';});
-    if(table==='login'){const i=cols.indexOf('privilege');if(i!==-1&&Number(vals[i])<2){flash('Privilège 1 interdit.',true);return;}}
+    if(table==='login'){const i=cols.indexOf('privilege');if(i!==-1&&Number(vals[i])<2){flash('Privilege 1 interdit.',true);return;}}
     const r=await post('/db/row/add',{table,cols:JSON.stringify(cols),vals:JSON.stringify(vals)});
     flash(r.success?r.message:r.error,!r.success);if(r.success){m.remove();loadDb(table,S.dbPage);}
 }
 
-/* ════════════════════════════════════════════════════════════════
-   SQL Highlighter — tokeniseur léger, zéro dépendance externe
-   ════════════════════════════════════════════════════════════════ */
+/* ── SQL Highlighter ── */
 const _KW=new Set('SELECT FROM WHERE INSERT INTO VALUES UPDATE SET DELETE CREATE DROP ALTER TABLE INDEX VIEW JOIN LEFT RIGHT INNER OUTER FULL CROSS ON AS AND OR NOT IN IS NULL LIKE BETWEEN ORDER BY GROUP HAVING LIMIT OFFSET DISTINCT UNION ALL EXISTS CASE WHEN THEN ELSE END IF BEGIN COMMIT ROLLBACK TRANSACTION PRIMARY KEY FOREIGN REFERENCES DEFAULT UNIQUE AUTO_INCREMENT CONSTRAINT DATABASE USE SHOW DESCRIBE EXPLAIN TRUNCATE REPLACE CALL PROCEDURE FUNCTION TRIGGER ENGINE CHARSET COLLATE ADD COLUMN MODIFY RENAME TO WITH RETURNING'.split(' '));
 const _FN=new Set('COUNT SUM AVG MAX MIN COALESCE IFNULL NULLIF CAST CONVERT NOW CURDATE CURTIME DATE YEAR MONTH DAY HOUR MINUTE SECOND CONCAT CONCAT_WS SUBSTRING SUBSTR LENGTH UPPER LOWER TRIM LTRIM RTRIM REPLACE ROUND FLOOR CEIL CEILING ABS MOD RAND UUID GROUP_CONCAT JSON_EXTRACT IF ISNULL IFNULL'.split(' '));
-
 function sqlHighlight(src){
     const E=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     let i=0,out='';
     while(i<src.length){
         const c=src[i];
-        /* commentaire -- */
-        if(c==='-'&&src[i+1]==='-'){
-            let j=i;while(j<src.length&&src[j]!=='\n')j++;
-            out+=`<span class="sc2">${E(src.slice(i,j))}</span>`;i=j;continue;
-        }
-        /* commentaire /* */
-        if(c==='/'&&src[i+1]==='*'){
-            const e=src.indexOf('*/',i+2);const j=e===-1?src.length:e+2;
-            out+=`<span class="sc2">${E(src.slice(i,j))}</span>`;i=j;continue;
-        }
-        /* chaîne '…' "…" `…` */
-        if(c==="'"||c==='"'||c==='`'){
-            let j=i+1;
-            while(j<src.length){if(src[j]===c&&src[j-1]!=='\\')break;j++;}
-            out+=`<span class="ss">${E(src.slice(i,j+1))}</span>`;i=j+1;continue;
-        }
-        /* nombre */
-        if(/[0-9]/.test(c)||(c==='-'&&/[0-9]/.test(src[i+1]||'')&&(i===0||/[\s,(=<>!+\-*\/]/.test(src[i-1])))){
-            let j=i+(c==='-'?1:0);
-            while(j<src.length&&/[0-9.]/.test(src[j]))j++;
-            if(j>i+(c==='-'?1:0)){out+=`<span class="sn">${E(src.slice(i,j))}</span>`;i=j;continue;}
-        }
-        /* mot : keyword ou function */
-        if(/[a-zA-Z_]/.test(c)){
-            let j=i;while(j<src.length&&/[a-zA-Z0-9_]/.test(src[j]))j++;
-            const word=src.slice(i,j),upper=word.toUpperCase();
-            const after=src[j]||'';
-            if(_FN.has(upper)&&after==='('){out+=`<span class="sf">${E(word)}</span>`;}
-            else if(_KW.has(upper)){out+=`<span class="sk">${E(word)}</span>`;}
-            else{out+=E(word);}
-            i=j;continue;
-        }
-        /* opérateurs */
+        if(c==='-'&&src[i+1]==='-'){let j=i;while(j<src.length&&src[j]!=='\n')j++;out+=`<span class="sc2">${E(src.slice(i,j))}</span>`;i=j;continue;}
+        if(c==='/'&&src[i+1]==='*'){const e=src.indexOf('*/',i+2);const j=e===-1?src.length:e+2;out+=`<span class="sc2">${E(src.slice(i,j))}</span>`;i=j;continue;}
+        if(c==="'"||c==='"'||c==='`'){let j=i+1;while(j<src.length){if(src[j]===c&&src[j-1]!=='\\')break;j++;}out+=`<span class="ss">${E(src.slice(i,j+1))}</span>`;i=j+1;continue;}
+        if(/[0-9]/.test(c)||(c==='-'&&/[0-9]/.test(src[i+1]||'')&&(i===0||/[\s,(=<>!+\-*\/]/.test(src[i-1])))){let j=i+(c==='-'?1:0);while(j<src.length&&/[0-9.]/.test(src[j]))j++;if(j>i+(c==='-'?1:0)){out+=`<span class="sn">${E(src.slice(i,j))}</span>`;i=j;continue;}}
+        if(/[a-zA-Z_]/.test(c)){let j=i;while(j<src.length&&/[a-zA-Z0-9_]/.test(src[j]))j++;const word=src.slice(i,j),upper=word.toUpperCase();const after=src[j]||'';if(_FN.has(upper)&&after==='('){out+=`<span class="sf">${E(word)}</span>`;}else if(_KW.has(upper)){out+=`<span class="sk">${E(word)}</span>`;}else{out+=E(word);}i=j;continue;}
         if('=<>!+*/%,;()[]'.includes(c)){out+=`<span class="so">${E(c)}</span>`;i++;continue;}
         out+=E(c);i++;
     }
     return out;
 }
-
-function sqlInput(){
-    const ta=document.getElementById('sql-ta');
-    const hl=document.getElementById('sql-hl');
-    const nmEl=document.getElementById('sql-nums');
-    const code=ta.value;
-    const lines=code.split('\n');
-    let nm='';for(let k=1;k<=Math.max(lines.length,1);k++)nm+=`<span>${k}</span>`;
-    nmEl.innerHTML=nm;
-    hl.innerHTML=sqlHighlight(code)+'\n';
-    hl.style.minHeight=ta.scrollHeight+'px';
-    hl.scrollTop=ta.scrollTop;
-    nmEl.scrollTop=ta.scrollTop;
-}
-
-function sqlScroll(){
-    const ta=document.getElementById('sql-ta');
-    document.getElementById('sql-hl').scrollTop=ta.scrollTop;
-    document.getElementById('sql-nums').scrollTop=ta.scrollTop;
-}
-
-function sqlKey(e){
-    if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();runSql();return;}
-    if(e.key==='Tab'){
-        e.preventDefault();
-        const ta=e.target,s=ta.selectionStart;
-        ta.value=ta.value.substring(0,s)+'  '+ta.value.substring(ta.selectionEnd);
-        ta.selectionStart=ta.selectionEnd=s+2;
-        sqlInput();
-    }
-}
-
-function sqlClear(){
-    const ta=document.getElementById('sql-ta');
-    ta.value='';
-    document.getElementById('sql-hl').innerHTML='';
-    document.getElementById('sql-nums').innerHTML='<span>1</span>';
-    sqlBack();
-}
-
-function sqlBack(){
-    document.getElementById('db-exec-view').classList.remove('on');
-    document.getElementById('db-exec-view').style.display='none';
-    document.getElementById('db-content').style.display='';
-}
-
-/* ── Helpers résultats SQL ──────────────────────────────────────── */
-function cellClass(val,col){
-    if(val===null||val===undefined)return'cv-null';
-    if(val==='***')return'cv-masked';
-    const s=String(val),cl=col.toLowerCase();
-    if(cl==='id'||cl.endsWith('_id')||cl.endsWith('id'))return'cv-pk';
-    if(s.trim()!==''&&!isNaN(s))return'cv-num';
-    return'';
-}
-function cellDisp(val){
-    if(val===null||val===undefined)return'<em>NULL</em>';
-    if(val==='***')return'• • •';
-    return esc(String(val));
-}
+function sqlInput(){const ta=document.getElementById('sql-ta');const hl=document.getElementById('sql-hl');const nmEl=document.getElementById('sql-nums');const code=ta.value;const lines=code.split('\n');let nm='';for(let k=1;k<=Math.max(lines.length,1);k++)nm+=`<span>${k}</span>`;nmEl.innerHTML=nm;hl.innerHTML=sqlHighlight(code)+'\n';hl.style.minHeight=ta.scrollHeight+'px';hl.scrollTop=ta.scrollTop;nmEl.scrollTop=ta.scrollTop;}
+function sqlScroll(){const ta=document.getElementById('sql-ta');document.getElementById('sql-hl').scrollTop=ta.scrollTop;document.getElementById('sql-nums').scrollTop=ta.scrollTop;}
+function sqlKey(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();runSql();return;}if(e.key==='Tab'){e.preventDefault();const ta=e.target,s=ta.selectionStart;ta.value=ta.value.substring(0,s)+'  '+ta.value.substring(ta.selectionEnd);ta.selectionStart=ta.selectionEnd=s+2;sqlInput();}}
+function sqlClear(){const ta=document.getElementById('sql-ta');ta.value='';document.getElementById('sql-hl').innerHTML='';document.getElementById('sql-nums').innerHTML='<span>1</span>';sqlBack();}
+function sqlBack(){document.getElementById('db-exec-view').classList.remove('on');document.getElementById('db-exec-view').style.display='none';document.getElementById('db-content').style.display='';}
+function cellClass(val,col){if(val===null||val===undefined)return'cv-null';if(val==='***')return'cv-masked';const s=String(val),cl=col.toLowerCase();if(cl==='id'||cl.endsWith('_id')||cl.endsWith('id'))return'cv-pk';if(s.trim()!==''&&!isNaN(s))return'cv-num';return'';}
+function cellDisp(val){if(val===null||val===undefined)return'<em>NULL</em>';if(val==='***')return'&bull; &bull; &bull;';return esc(String(val));}
 function isSqlSelect(sql){return sql.trim().toUpperCase().startsWith('SELECT');}
-
 async function runSql(){
-    const sql=document.getElementById('sql-ta').value.trim();
-    if(!sql){flash('Requête vide',true);return;}
-    const btn=document.getElementById('sql-btn');
-    btn.disabled=true;
-    btn.innerHTML='<span class="spin"></span> Exécution…';
-    const t0=Date.now();
-    const r=await post('/db/sql',{sql});
-    const ms=Date.now()-t0;
-    btn.disabled=false;
-    btn.innerHTML='<img src="/static/img/solid/play.svg" class="ico" style="filter:invert(1)" alt=""> Exécuter';
+    const sql=document.getElementById('sql-ta').value.trim();if(!sql){flash('Requete vide',true);return;}
+    const btn=document.getElementById('sql-btn');btn.disabled=true;btn.innerHTML='<span class="spin"></span> Execution…';
+    const t0=Date.now();const r=await post('/db/sql',{sql});const ms=Date.now()-t0;
+    btn.disabled=false;btn.innerHTML='<img src="/static/img/solid/play.svg" class="ico" style="filter:invert(1)" alt=""> Executer';
     document.getElementById('db-content').style.display='none';
-    const ev=document.getElementById('db-exec-view');
-    ev.style.display='block';ev.classList.add('on');
+    const ev=document.getElementById('db-exec-view');ev.style.display='block';ev.classList.add('on');
     document.getElementById('sql-exec-label').textContent=sql.replace(/\s+/g,' ').substring(0,110)+(sql.length>110?'…':'');
     const res=document.getElementById('sql-result');
-    if(!r.success){
-        res.innerHTML=`<div class="res-err"><img src="/static/img/solid/circle-xmark.svg" class="ico ico-red" style="flex-shrink:0;margin-top:1px" alt=""><div><strong>Erreur SQL</strong><br>${esc(r.error)}</div></div>`;
-        ev.scrollIntoView({behavior:'smooth',block:'start'});return;
-    }
+    if(!r.success){res.innerHTML=`<div class="res-err"><img src="/static/img/solid/circle-xmark.svg" class="ico ico-red" style="flex-shrink:0;margin-top:1px" alt=""><div><strong>Erreur SQL</strong><br>${esc(r.error)}</div></div>`;ev.scrollIntoView({behavior:'smooth',block:'start'});return;}
     const d=r.data;
-    if(!isSqlSelect(sql)){
-        const affected=d.affected_rows??0;
-        res.innerHTML=`<div class="res-affect"><img src="/static/img/solid/circle-check.svg" alt=""><div><div style="display:flex;align-items:baseline;gap:10px"><span class="res-affect-rows">${affected}</span><span>ligne${affected!==1?'s':''} affectée${affected!==1?'s':''}</span></div><div class="res-affect-detail">${ms} ms &nbsp;·&nbsp; ${esc(sql.trim().split(/\s+/)[0].toUpperCase())}</div></div></div>`;
-        ev.scrollIntoView({behavior:'smooth',block:'start'});return;
-    }
-    if(!d.cols||!d.cols.length){
-        res.innerHTML=`<div class="res-head"><img src="/static/img/solid/circle-check.svg" alt=""><span class="res-stat">Aucun résultat</span><span class="res-time">${ms} ms</span></div><div class="res-empty">La requête n'a retourné aucune ligne.</div>`;
-        ev.scrollIntoView({behavior:'smooth',block:'start'});return;
-    }
+    if(!isSqlSelect(sql)){const affected=d.affected_rows??0;res.innerHTML=`<div class="res-affect"><img src="/static/img/solid/circle-check.svg" alt=""><div><div style="display:flex;align-items:baseline;gap:10px"><span class="res-affect-rows">${affected}</span><span>ligne${affected!==1?'s':''} affectee${affected!==1?'s':''}</span></div><div class="res-affect-detail">${ms} ms &nbsp;&middot;&nbsp; ${esc(sql.trim().split(/\s+/)[0].toUpperCase())}</div></div></div>`;ev.scrollIntoView({behavior:'smooth',block:'start'});return;}
+    if(!d.cols||!d.cols.length){res.innerHTML=`<div class="res-head"><img src="/static/img/solid/circle-check.svg" alt=""><span class="res-stat">Aucun resultat</span><span class="res-time">${ms} ms</span></div><div class="res-empty">La requete n'a retourne aucune ligne.</div>`;ev.scrollIntoView({behavior:'smooth',block:'start'});return;}
     const th=`<thead><tr><th class="rt-n">#</th>${d.cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead>`;
     const tb=`<tbody>${d.rows.map((row,i)=>`<tr><td class="rt-n">${i+1}</td>${d.cols.map(c=>{const v=row[c],cl=cellClass(v,c);return`<td class="${cl}" title="${v===null?'NULL':esc(String(v??''))}">${cellDisp(v)}</td>`;}).join('')}</tr>`).join('')}</tbody>`;
-    res.innerHTML=`<div class="res-wrap"><div class="res-head"><img src="/static/img/solid/circle-check.svg" alt=""><span class="res-stat">${d.count} ligne${d.count>1?'s':''} retournée${d.count>1?'s':''}</span><span class="res-time">${ms} ms &nbsp;·&nbsp; ${d.cols.length} colonne${d.cols.length>1?'s':''}</span>${d.count>=200?'<span class="b bo" style="margin-left:auto">Limite 200 atteinte</span>':''}</div><div class="res-scroll"><table class="rt">${th}${tb}</table></div>${d.count>=200?'<div class="res-warn"><img src="/static/img/solid/triangle-exclamation.svg" class="ico" style="filter:invert(60%) sepia(1) saturate(2) hue-rotate(10deg)" alt=""> Limite de 200 lignes atteinte — des résultats peuvent être tronqués.</div>':''}</div>`;
+    res.innerHTML=`<div class="res-wrap"><div class="res-head"><img src="/static/img/solid/circle-check.svg" alt=""><span class="res-stat">${d.count} ligne${d.count>1?'s':''} retournee${d.count>1?'s':''}</span><span class="res-time">${ms} ms &nbsp;&middot;&nbsp; ${d.cols.length} colonne${d.cols.length>1?'s':''}</span>${d.count>=200?'<span class="b bo" style="margin-left:auto">Limite 200 atteinte</span>':''}</div><div class="res-scroll"><table class="rt">${th}${tb}</table></div>${d.count>=200?'<div class="res-warn"><img src="/static/img/solid/triangle-exclamation.svg" class="ico" style="filter:invert(60%) sepia(1) saturate(2) hue-rotate(10deg)" alt=""> Limite de 200 lignes atteinte.</div>':''}</div>`;
     ev.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-/* ── Config ─────────────────────────────────────────────────────── */
-const P2P_DEFAULTS={
-    bootstrap_url:'https://vex.hopto.org/neut',
-    use_tor:false,
-    tor_addr:'',
-    port:7700,
-    chunk_size_bytes:1048576,
-    sync_interval_secs:1800,
-    chunks_dir:'/tmp/vex_chunks',
-    output_dir:'/tmp/vex_received',
-};
+/* ── Config ── */
+const P2P_DEFAULTS={bootstrap_url:'https://vex.hopto.org/neut',use_tor:false,tor_addr:'',port:7700,chunk_size_bytes:1048576,sync_interval_secs:1800,chunks_dir:'/tmp/vex_chunks',output_dir:'/tmp/vex_received'};
 const CFG_DEFS=[
-    {icon:'cube',title:'Application',sec:'app',fields:[['name','Nom','text'],['version','Version','text'],['default_language','Langue','text'],['maintenance_mode','Maintenance','bool'],['debug_mode','Debug','bool']]},
-    {icon:'users',title:'Utilisateurs',sec:'users',fields:[['max_users','Nb max','number'],['registration_mode','Inscription','select',['open','invitation','closed']],['activation_key','Clé activation','text'],['session_expiration_minutes','Session (min)','number'],['activation_key_required','Clé requise','bool']]},
-    {icon:'lock',title:'Sécurité',sec:'security',fields:[['password_min_length','Longueur min MDP','number'],['max_login_attempts','Tentatives max','number'],['lockout_duration_minutes','Verrouillage (min)','number'],['password_require_uppercase','Majuscule','bool'],['password_require_number','Chiffre','bool']]},
-    {icon:'hard-drive',title:'Stockage',sec:'storage',fields:[['max_file_size_mb','Taille max (MB)','number'],['file_retention_days','Rétention (j)','number']]},
-    {icon:'network-wired',title:'P2P',sec:'p2p',fields:[
-        ['bootstrap_url','Bootstrap URL','text'],
-        ['use_tor','Utiliser Tor','bool'],
-        ['tor_addr','Adresse .onion','text'],
-        ['port','Port P2P','number'],
-        ['chunk_size_bytes','Chunk (bytes)','number'],
-        ['sync_interval_secs','Sync interval (s)','number'],
-        ['chunks_dir','Dossier chunks','text'],
-        ['output_dir','Dossier sortie','text'],
-    ]},
+    {icon:'cube',title:'Application',sec:'app',fields:[['name','Nom','text'],['version','Version','text'],['default_language','Langue par defaut','select',['fr','en','es','de']],['maintenance_mode','Maintenance','bool'],['debug_mode','Debug','bool']]},
+    {icon:'users',title:'Utilisateurs',sec:'users',fields:[['max_users','Nb max','number'],['registration_mode','Inscription','select',['open','invitation','closed']],['activation_key','Cle activation','text'],['session_expiration_minutes','Duree session (min)','number'],['activation_key_required','Cle requise','bool']]},
+    {icon:'lock',title:'Securite',sec:'security',fields:[['password_min_length','Longueur min MDP','number'],['max_login_attempts','Tentatives max','number'],['lockout_duration_minutes','Verrouillage (min)','number'],['password_require_uppercase','Majuscule','bool'],['password_require_number','Chiffre','bool']]},
+    {icon:'hard-drive',title:'Stockage',sec:'storage',fields:[['max_file_size_mb','Taille max (MB)','number'],['file_retention_days','Retention (j)','number']]},
+    {icon:'file-pen',title:'Editeur de documents',sec:'editor',fields:[['provider','Service edition','select',['onlyoffice','collabora','none']],['collaborative_editing','Edition collaborative','bool'],['online_editing_enabled','Edition en ligne activee','bool'],['supported_formats','Formats supportes (virgule)','text']]},
+    {icon:'network-wired',title:'P2P',sec:'p2p',fields:[['bootstrap_url','Bootstrap URL','text'],['use_tor','Utiliser Tor','bool'],['tor_addr','Adresse .onion','text'],['port','Port P2P','number'],['chunk_size_bytes','Chunk (bytes)','number'],['sync_interval_secs','Sync interval (s)','number'],['chunks_dir','Dossier chunks','text'],['output_dir','Dossier sortie','text']]},
 ];
 async function loadCfg(){
     document.getElementById('config-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
     const r=await api('/config');if(!r.success){flash(r.error,true);return;}
-    S.configData=r.data;if(r.data?.plans?.available_plans)S.vipTypes=r.data.plans.available_plans.map(p=>({id:p.id??p.name??p,label:p.label??p.name??p.id??String(p)}));
-    // Inject defaults for P2P so les champs ne restent pas vides si absents dans config.json
-    if(!S.configData.p2p) S.configData.p2p={};
-    Object.entries(P2P_DEFAULTS).forEach(([k,v])=>{
-        if(S.configData.p2p[k]===undefined || S.configData.p2p[k]===''){ S.configData.p2p[k]=v; }
-    });
-    // Auto-active Tor si tor_addr est présent mais use_tor absent
-    if((S.configData.p2p.use_tor===undefined || S.configData.p2p.use_tor===null) &&
-       S.configData.p2p.tor_addr && String(S.configData.p2p.tor_addr).trim()!==''){
-        S.configData.p2p.use_tor = true;
-    }
+    S.configData=r.data;
+    if(r.data?.plans?.available_plans)S.vipTypes=r.data.plans.available_plans.map(p=>({id:p.id??p.name??p,label:p.label??p.name??p.id??String(p)}));
+    if(!S.configData.p2p)S.configData.p2p={};
+    Object.entries(P2P_DEFAULTS).forEach(([k,v])=>{if(S.configData.p2p[k]===undefined||S.configData.p2p[k]==='')S.configData.p2p[k]=v;});
+    if(Array.isArray(S.configData?.editor?.supported_formats)){S.configData.editor._supported_formats_arr=S.configData.editor.supported_formats;S.configData.editor.supported_formats=S.configData.editor.supported_formats.join(', ');}
     renderCfg();
 }
 function renderCfg(){
     const cfg=S.configData;let html='';
     CFG_DEFS.forEach(({icon,title,sec,fields})=>{const d=cfg[sec]||{};
         html+=`<div class="card" style="margin-bottom:14px"><div class="ch"><span><img src="/static/img/solid/${icon}.svg" class="ico ico-accent" alt=""> ${title}</span></div><div class="cb"><div class="cgr">${fields.map(([k,l,t,o])=>{const v=d[k]??'';let inp;
-            if(t==='bool')inp=`<select class="ci" data-sec="${sec}" data-key="${k}"><option value="true" ${v===true||v==='true'?'selected':''}>true — Activé</option><option value="false" ${!v||v==='false'?'selected':''}>false — Désactivé</option></select>`;
+            if(t==='bool')inp=`<select class="ci" data-sec="${sec}" data-key="${k}"><option value="true" ${v===true||v==='true'?'selected':''}>true — Active</option><option value="false" ${!v||v==='false'?'selected':''}>false — Desactive</option></select>`;
             else if(t==='select')inp=`<select class="ci" data-sec="${sec}" data-key="${k}">${(o||[]).map(x=>`<option value="${x}" ${v===x?'selected':''}>${x}</option>`).join('')}</select>`;
             else inp=`<input type="${t==='number'?'number':'text'}" class="ci" data-sec="${sec}" data-key="${k}" value="${esc(String(v))}">`;
             return`<div><label class="cl">${l}<small>${sec}.${k}</small></label>${inp}</div>`;}).join('')}</div></div></div>`;});
@@ -857,11 +657,478 @@ function renderCfg(){
 }
 async function saveCfg(){
     const nc=JSON.parse(JSON.stringify(S.configData));
-    document.querySelectorAll('.ci[data-sec]').forEach(el=>{const s=el.dataset.sec,k=el.dataset.key;let v=el.value;if(v==='true')v=true;else if(v==='false')v=false;else if(el.type==='number'&&v!=='')v=Number(v);if(!nc[s])nc[s]={};nc[s][k]=v;});
+    document.querySelectorAll('.ci[data-sec]').forEach(el=>{
+        const s=el.dataset.sec,k=el.dataset.key;let v=el.value;
+        if(v==='true')v=true;else if(v==='false')v=false;
+        else if(el.type==='number'&&v!=='')v=Number(v);
+        else if(s==='editor'&&k==='supported_formats')v=v.split(',').map(x=>x.trim()).filter(Boolean);
+        if(!nc[s])nc[s]={};nc[s][k]=v;
+    });
     const r=await post('/config',{config:JSON.stringify(nc)});flash(r.success?r.message:r.error,!r.success);
 }
 
-/* ── Serveur ────────────────────────────────────────────────────── */
+/* ── Extensions ── */
+const BASE_APPS = new Set(['meet','onlyoffice','sitec','vexmail','mess','p2p','viso']);
+let EXT_DATA={extensions:[],orphelins:[],build_cmd:'',build_status:{}};
+let EXT_FILE={name:'',b64:'',size:0};
+let BUILD_TIMER=null;
+
+function extCard(e){
+    const isBase=e.base_app, id=e.id;
+    const badge = isBase
+        ? `<span style="padding:2px 8px;border-radius:5px;background:var(--alt);color:var(--accent);font-size:.68rem;font-weight:700">APP DE BASE</span>`
+        : `<span style="padding:2px 8px;border-radius:5px;background:rgba(59,130,243,.1);color:#3b82f6;font-size:.68rem;font-weight:700">EXTENSION</span>`;
+    const d=e.disque||{};
+    let etat='';
+    if(!isBase){
+        if(e.compiled) etat=`<span class="b bg" title="Compilee dans le binaire en cours d'execution">compilee</span>`;
+        else if(d.src_existe) etat=`<span class="b bo" title="Compilation en attente — l'extension repond deja via son dossier statique">statique (compilation en attente)</span>`;
+        else etat=`<span class="b br" title="Aucun fichier src/extensions/${esc(id)}/mod.rs">source absente</span>`;
+    }
+    const delBtn = isBase ? '' : `<button class="btn br2" onclick="deleteExt('${esc(id)}')" style="height:28px;font-size:.75rem"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Supprimer</button>`;
+    const upBtn = isBase ? '' : `<button class="btn bg2" onclick="showUploadExt('${esc(id)}')" style="height:28px;font-size:.75rem"><img src="/static/img/solid/arrow-up.svg" class="ico ico-accent" alt=""> Remplacer le .rs</button>`;
+    const chemin = d.src_existe
+        ? `<div style="font-size:.72rem;color:var(--text-m);margin-top:8px;font-family:var(--mono)">${esc(d.src_path||'')} — ${Math.round((d.src_taille||0)/102.4)/10} Ko${d.static_existe?' · statique OK':''}</div>`
+        : '';
+    return `<div class="card" style="margin-bottom:10px;border-left:3px solid ${isBase?'var(--accent)':'#3b82f6'}">
+        <div class="ch">
+            <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <img src="/static/img/solid/${isBase?'cube':'puzzle-piece'}.svg" class="ico ${isBase?'ico-accent':''}" style="${isBase?'':'filter:invert(30%) sepia(90%) saturate(400%) hue-rotate(200deg)'}" alt="">
+                <strong>${esc(id)}</strong>
+                <small style="color:var(--text-m)">v${esc(e.version||'?')}</small>
+                ${badge} ${etat}
+                ${isBase?'':`<a href="/ext/${esc(id)}" target="_blank" style="font-size:.72rem;font-family:var(--mono)">/ext/${esc(id)}</a>`}
+            </span>
+            <div style="display:flex;align-items:center;gap:8px">
+                ${upBtn}${delBtn}
+                <select class="isel" onchange="toggleExt('${esc(id)}',this.value)">
+                    <option value="true" ${e.enabled?'selected':''}>Active</option>
+                    <option value="false" ${!e.enabled?'selected':''}>Desactive</option>
+                </select>
+            </div>
+        </div>
+        <div class="cb">
+            <div class="cgr">
+                <div><label class="cl">Version</label><input type="text" class="ci" data-ext-ver="${esc(id)}" value="${esc(e.version||'0.1')}"></div>
+                <div><label class="cl">Privilege min requis<small>1 = fondateur, 12 = tout le monde</small></label><input type="number" class="ci" data-ext-priv="${esc(id)}" value="${e.privilege_min??10}" min="1" max="12"></div>
+                <div><label class="cl">Plans autorises (virgule)<small>vide ou * = tous</small></label><input type="text" class="ci" data-ext-plans="${esc(id)}" value="${esc((e.plans_autorises||[]).join(', '))}"></div>
+            </div>
+            <div style="margin-top:14px">
+                <label class="cl" style="display:flex;align-items:center;justify-content:space-between">
+                    <span>Autorisations internes a l'extension<small>action par action, verifiees par l'extension elle-meme</small></span>
+                    <button class="btn bg2" style="height:26px;font-size:.72rem" onclick="addPermRow('${esc(id)}')"><img src="/static/img/solid/plus.svg" class="ico ico-accent" alt=""> Action</button>
+                </label>
+                <div data-ext-perms="${esc(id)}">${permRows(id,e.permissions||{})}</div>
+            </div>
+            <div class="cgr" style="margin-top:14px">
+                <div><label class="cl">App du menu (JSON)<small>{"icone":"comments","label":"Chat","url":"/ext/id"}</small></label>
+                    <textarea class="ci" data-ext-navapp="${esc(id)}" rows="2" style="font-family:var(--mono);font-size:.72rem">${e.nav_app?esc(JSON.stringify(e.nav_app)):''}</textarea></div>
+                <div><label class="cl">Tuile dashboard (JSON)<small>{"titre":"Chat","icone":"comments","couleur":"#3b82f6","lignes":[]}</small></label>
+                    <textarea class="ci" data-ext-tile="${esc(id)}" rows="2" style="font-family:var(--mono);font-size:.72rem">${e.dashboard_tile?esc(JSON.stringify(e.dashboard_tile)):''}</textarea></div>
+                <div><label class="cl">Infos tuile Admin (JSON)<small>[{"label":"Salons","valeur":"3","niveau":"info"}]</small></label>
+                    <textarea class="ci" data-ext-infos="${esc(id)}" rows="2" style="font-family:var(--mono);font-size:.72rem">${e.admin_infos?esc(JSON.stringify(e.admin_infos)):''}</textarea></div>
+            </div>
+            <div style="margin-top:10px"><label class="cl">Parametres (JSON)</label>
+                <textarea class="ci" data-ext-params="${esc(id)}" rows="3" style="font-family:var(--mono);font-size:.75rem">${esc(JSON.stringify(e.params||{},null,1))}</textarea></div>
+            <button class="btn bg2" style="margin-top:12px" onclick="saveExtMeta('${esc(id)}')"><img src="/static/img/solid/floppy-disk.svg" class="ico ico-accent" alt=""> Sauver les permissions</button>
+            ${chemin}
+        </div>
+    </div>`;
+}
+
+/* Autorisations internes : une ligne = une action de l'extension */
+function permRow(id,action,regle){
+    regle=regle||{};
+    return `<div class="permrow">
+        <div><label class="cl">Action</label><input type="text" class="ci" data-pa value="${esc(action||'')}" placeholder="ex: moderer"></div>
+        <div><label class="cl">Privilege max</label><input type="number" class="ci" data-pp value="${regle.privilege_min??10}" min="1" max="12"></div>
+        <div><label class="cl">Plans (virgule)</label><input type="text" class="ci" data-pl value="${esc((regle.plans_autorises||[]).join(', '))}" placeholder="vide = tous"></div>
+        <button class="btn br2" style="height:34px" onclick="this.closest('.permrow').remove()"><img src="/static/img/solid/xmark.svg" class="ico" style="filter:invert(1)" alt=""></button>
+    </div>`;
+}
+function permRows(id,perms){
+    const cles=Object.keys(perms||{});
+    if(!cles.length)return `<div style="font-size:.76rem;color:var(--text-m);padding:4px 0">Aucune action declaree — l'extension n'applique que le privilege et le plan globaux ci-dessus.</div>`;
+    return cles.map(a=>permRow(id,a,perms[a])).join('');
+}
+function addPermRow(id){
+    const box=document.querySelector(`[data-ext-perms="${id}"]`);
+    if(!box)return;
+    if(!box.querySelector('.permrow'))box.innerHTML='';
+    box.insertAdjacentHTML('beforeend',permRow(id,'',{privilege_min:10,plans_autorises:[]}));
+}
+function lirePerms(id){
+    const box=document.querySelector(`[data-ext-perms="${id}"]`);
+    const out={};
+    if(!box)return out;
+    box.querySelectorAll('.permrow').forEach(r=>{
+        const a=r.querySelector('[data-pa]').value.trim();
+        if(!a)return;
+        out[a]={
+            privilege_min:Number(r.querySelector('[data-pp]').value)||10,
+            plans_autorises:r.querySelector('[data-pl]').value.split(',').map(x=>x.trim()).filter(Boolean),
+        };
+    });
+    return out;
+}
+
+function buildBanner(){
+    const bs=EXT_DATA.build_status||{};
+    if(bs.running){
+        return `<div class="ob" style="background:rgba(245,158,11,.08);border-color:#f59e0b"><span class="spin"></span>
+            <strong>Compilation en cours…</strong> <code style="font-size:.73rem">${esc(bs.cmd||'')}</code>
+            <span style="margin-left:auto;color:var(--text-m);font-size:.76rem">demarree a ${esc(bs.started_at||'')}</span></div>`;
+    }
+    if(bs.jamais_lance) return '';
+    const ok=bs.success;
+    return `<div class="ob ${ok?'ok':'nok'}"><div class="od"></div>
+        <strong>Derniere compilation : ${ok?'reussie':'echouee'}</strong>
+        <span style="color:var(--text-m)">${esc(bs.finished_at||'')}</span>
+        <button class="btn bg2" style="margin-left:auto" onclick="toggleBuildLog()"><img src="/static/img/solid/scroll.svg" class="ico ico-accent" alt=""> Sortie</button></div>
+        <div id="build-log" style="display:none"><div class="lb" style="max-height:320px">${esc(bs.output||'(aucune sortie)')}</div></div>`;
+}
+function toggleBuildLog(){const el=document.getElementById('build-log');if(el)el.style.display=el.style.display==='none'?'':'none';}
+
+async function loadExt(){
+    document.getElementById('ext-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const r=await api('/extensions');if(!r.success){flash(r.error,true);return;}
+    EXT_DATA=r.data;
+    const exts=EXT_DATA.extensions||[];
+    const base=exts.filter(e=>e.base_app), autres=exts.filter(e=>!e.base_app);
+
+    let html=buildBanner();
+
+    html+=`<div class="card" style="margin-bottom:18px;border-left:3px solid var(--accent)"><div class="ch">
+        <span><img src="/static/img/solid/store.svg" class="ico ico-accent" alt=""> Catalogue d'extensions</span>
+        <a href="#" id="mk-source" target="_blank" style="font-size:.73rem;font-family:var(--mono)"></a>
+        </div>
+        <div class="cb">
+            <div class="mk-bar">
+                <div class="mk-search">
+                    <img src="/static/img/solid/magnifying-glass.svg" alt="">
+                    <input type="text" id="mk-q" placeholder="Rechercher une extension a installer…" autocomplete="off">
+                </div>
+                <button class="btn bg2" onclick="loadMarket(true)"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Actualiser</button>
+            </div>
+            <div id="mk-res"><div class="mk-vide">Chargement du catalogue…</div></div>
+            <div class="mk-bar" style="margin-top:12px">
+                <div class="mk-search" style="min-width:260px">
+                    <img src="/static/img/solid/link.svg" alt="">
+                    <input type="text" id="mk-src" placeholder="https://github.com/&lt;compte&gt;/&lt;depot&gt;/releases/tag/&lt;tag&gt;">
+                </div>
+                <button class="btn bg2" onclick="mkSource()"><img src="/static/img/solid/floppy-disk.svg" class="ico ico-accent" alt=""> Changer de catalogue</button>
+            </div>
+        </div></div>`;
+
+    html+=`<div class="card" style="margin-bottom:18px;border-left:3px solid #3b82f6"><div class="ch">
+        <span><img src="/static/img/solid/arrow-up.svg" class="ico" style="filter:invert(30%) sepia(90%) saturate(400%) hue-rotate(200deg)" alt=""> Installer une extension depuis un fichier .rs</span>
+        <div style="display:flex;gap:8px">
+            <button class="btn bg2" onclick="dlTemplate()" style="height:28px;font-size:.75rem"><img src="/static/img/solid/download.svg" class="ico ico-accent" alt=""> Modele .rs</button>
+            <button class="btn ba" onclick="showUploadExt()" style="height:28px;font-size:.75rem"><img src="/static/img/solid/plus.svg" class="ico" style="filter:invert(1)" alt=""> Uploader</button>
+        </div></div>
+        <div class="cb" style="font-size:.8rem;color:var(--text-m);line-height:1.7">
+            Le fichier est ecrit dans <code>${esc(EXT_DATA.src_root)}/&lt;id&gt;/mod.rs</code>, enregistre dans config.json avec ses permissions,
+            et ajoute au registre compilable. <strong style="color:var(--text)">Utilisable immediatement</strong> via son dossier statique ; la compilation du code Rust est lancee automatiquement en arriere-plan et prend le relais au redemarrage.
+            <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <button class="btn ba" onclick="rebuildExt()" ${EXT_DATA.is_super?'':'disabled title="Superadmin uniquement"'}><img src="/static/img/solid/hammer.svg" class="ico" style="filter:invert(1)" alt=""> Recompiler VEX</button>
+                <code style="font-size:.73rem">${esc(EXT_DATA.build_cmd||'')}</code>
+            </div>
+        </div></div>`;
+
+    if((EXT_DATA.orphelins||[]).length){
+        html+=`<div class="ob nok" style="margin-bottom:14px"><div class="od"></div><strong>Sources non enregistrees :</strong>
+            ${EXT_DATA.orphelins.map(o=>`<code style="margin-left:6px">${esc(o)}</code>`).join('')}
+            <span style="color:var(--text-m);margin-left:8px;font-size:.78rem">— re-uploadez le fichier pour leur donner des permissions.</span></div>`;
+    }
+
+    html+=`<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-m);margin-bottom:10px;display:flex;align-items:center;gap:8px"><img src="/static/img/solid/cube.svg" class="ico ico-accent" alt=""> Applications de base (${base.length})</div>`;
+    html+=base.length?base.map(extCard).join(''):'<div style="color:var(--text-m);font-size:.82rem;padding:12px">Aucune app de base configuree.</div>';
+
+    html+=`<div style="height:1px;background:var(--border);margin:20px 0"></div>`;
+    html+=`<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-m);margin-bottom:10px;display:flex;align-items:center;gap:8px"><img src="/static/img/solid/puzzle-piece.svg" style="width:14px;height:14px;filter:invert(30%) sepia(90%) saturate(400%) hue-rotate(200deg)" alt=""> Extensions installees (${autres.length})</div>`;
+    html+=autres.length?autres.map(extCard).join(''):`<div style="padding:20px;text-align:center;color:var(--text-m);background:var(--surface2);border:1px dashed var(--border);border-radius:var(--r);font-size:.84rem">Aucune extension. Cliquez sur <strong>Uploader</strong> pour en installer une.</div>`;
+
+    document.getElementById('ext-content').innerHTML=html;
+    loadMarket(false);
+    if((EXT_DATA.build_status||{}).running)planifierStatutBuild();
+}
+
+/* ── Place de marche GitHub ── */
+let MK={items:[],charge:false};
+
+function mkTaille(o){
+    if(!o)return '';
+    return o>1048576?(Math.round(o/104857.6)/10)+' Mo':Math.round(o/1024)+' Ko';
+}
+function mkCarte(x){
+    let etat='';
+    if(x.compilee)      etat='<span class="b bg">installee</span>';
+    else if(x.installee)etat='<span class="b bo">a compiler</span>';
+    const type={manifeste:'extension complete',archive:'archive',fichier:'fichier .rs'}[x.forme]||'fichier';
+    return `<div class="mk-card">
+        <div class="mk-nom"><img src="/static/img/solid/puzzle-piece.svg" style="width:15px;height:15px;filter:invert(30%) sepia(90%) saturate(400%) hue-rotate(200deg)" alt="">
+            ${esc(x.id)} ${etat}</div>
+        <div class="mk-meta">${esc(x.nom)}</div>
+        <div class="mk-meta">${type} · ${mkTaille(x.taille)}${x.telechargements?' · '+x.telechargements+' tel.':''}</div>
+        <div class="mk-act">
+            <button class="btn ba" style="height:30px;font-size:.76rem"
+                onclick="mkInstall('${esc(x.nom)}','${esc(x.id)}',false)">
+                <img src="/static/img/solid/download.svg" class="ico" style="filter:invert(1)" alt="">
+                ${x.installee?'Reinstaller':'Installer'}</button>
+        </div></div>`;
+}
+function mkRendre(){
+    const q=(document.getElementById('mk-q')?.value||'').trim().toLowerCase();
+    const liste=MK.items.filter(x=>!q||x.id.includes(q)||x.nom.toLowerCase().includes(q));
+    const box=document.getElementById('mk-res');
+    if(!box)return;
+    box.innerHTML=liste.length
+        ? `<div class="mk-grid">${liste.map(mkCarte).join('')}</div>`
+        : `<div class="mk-vide">${MK.items.length?'Aucune extension ne correspond a « '+esc(q)+' ».':'Aucune extension publiee dans cette release.'}</div>`;
+}
+async function loadMarket(forcer){
+    const box=document.getElementById('mk-res');
+    if(box)box.innerHTML='<div class="loading"><span class="spin"></span> Interrogation de GitHub…</div>';
+    const r=await api('/marketplace'+(forcer?'?refresh=1':''));
+    if(!r.success){
+        if(box)box.innerHTML=`<div class="mk-vide">${esc(r.error||'Catalogue indisponible.')}</div>`;
+        return;
+    }
+    MK.items=r.data.items||[];MK.charge=true;
+    const src=document.getElementById('mk-source');
+    if(src&&r.data.page){src.href=r.data.page;src.textContent=r.data.tag||r.data.release||'release';}
+    const champ=document.getElementById('mk-src');
+    if(champ&&!champ.dataset.rempli){champ.value=r.data.source||'';champ.dataset.rempli='1';}
+    mkRendre();
+    const q=document.getElementById('mk-q');
+    if(q&&!q.dataset.lie){q.dataset.lie='1';q.addEventListener('input',mkRendre);}
+}
+async function mkSource(){
+    const url=document.getElementById('mk-src')?.value.trim()||'';
+    const r=await post('/marketplace/source',{url});
+    if(!r.success){flash(r.error,true);return;}
+    flash(r.message);
+    const champ=document.getElementById('mk-src');
+    if(champ)delete champ.dataset.rempli;
+    loadMarket(true);
+}
+async function mkInstall(nom,id,confirme){
+    const x=MK.items.find(i=>i.nom===nom);
+    if(!x){flash('Element introuvable dans le catalogue.',true);return;}
+    if(!confirme&&!confirm(`Installer « ${id} » depuis GitHub ?\n\nDu code distant sera pose dans src/extensions/${id}/ puis compile.\nN'installez que des extensions dont vous connaissez la provenance.`))return;
+    flash('Telechargement de '+id+'…');
+    const r=await post('/marketplace/install',{url:x.url,nom:x.nom,id:x.id,confirm_risques:confirme?'1':'0'});
+    if(r.success){flash(r.message);loadExt();return;}
+    if(r.need_confirm){
+        const detail=(r.risques||[]).slice(0,12)
+            .map(v=>`l.${v.ligne} — ${v.motif}\n   ${v.extrait}`).join('\n');
+        if(confirm(`${r.error}\n\n${detail}\n\nInstaller quand meme ?`))mkInstall(nom,id,true);
+        return;
+    }
+    flash(r.error||'Installation impossible.',true);
+}
+
+function dlTemplate(){
+    api('/extensions/template').then(r=>{
+        if(!r.success){flash(r.error,true);return;}
+        const b=new Blob([r.data.code],{type:'text/plain'});
+        const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='mod.rs';a.click();
+        setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+    });
+}
+
+function showUploadExt(idExistant){
+    document.getElementById('add-ext-modal')?.remove();
+    EXT_FILE={name:'',b64:'',size:0};
+    const e=(EXT_DATA.extensions||[]).find(x=>x.id===idExistant)||{};
+    const m=document.createElement('div');m.id='add-ext-modal';m.className='modal-bg';
+    m.innerHTML=`<div class="modal-box">
+        <div style="font-weight:800;font-size:1.05rem;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+            <img src="/static/img/solid/puzzle-piece.svg" class="ico" style="filter:invert(30%) sepia(90%) saturate(400%) hue-rotate(200deg)" alt="">
+            ${idExistant?'Remplacer le code de « '+esc(idExistant)+' »':'Installer une extension (.rs)'}
+        </div>
+        <div style="padding:10px 13px;background:var(--surface2);border-radius:7px;border:1px solid var(--border);font-size:.78rem;color:var(--text-m);margin-bottom:14px;line-height:1.6">
+            Le fichier doit exposer <code>pub fn handle(pool, session, req)</code>.
+            Servi sur <code>/ext/&lt;id&gt;</code> des l'installation ; la compilation part toute seule.
+        </div>
+        <div class="f"><label>Fichier source Rust</label>
+            <div class="fpick">
+                <input type="file" id="new-ext-file" accept=".rs,text/plain" onchange="lireFichierExt(this)">
+                <label class="fpick-btn" for="new-ext-file"><img src="/static/img/solid/folder-open.svg" class="ico ico-accent" alt=""> Parcourir…</label>
+                <span class="fpick-name" id="new-ext-fileinfo">Aucun fichier selectionne</span>
+            </div></div>
+        <div class="f"><label>ID de l'extension (= nom du dossier)</label>
+            <input type="text" id="new-ext-id" class="ci" placeholder="ex: monchat" value="${esc(idExistant||'')}" ${idExistant?'readonly':''}></div>
+        <div class="f"><label>Version</label><input type="text" id="new-ext-ver" class="ci" value="${esc(e.version||'0.1')}"></div>
+        <div class="f"><label>Privilege min requis (1 = fondateur, 12 = tout le monde)</label>
+            <input type="number" id="new-ext-priv" class="ci" value="${e.privilege_min??10}" min="1" max="12"></div>
+        <div class="f"><label>Plans autorises (virgule, vide = tous)</label>
+            <input type="text" id="new-ext-plans" class="ci" value="${esc((e.plans_autorises||['free','vip']).join(', '))}"></div>
+        <div class="f"><label><input type="checkbox" id="new-ext-enabled" checked style="width:auto;margin-right:6px">Activer immediatement</label></div>
+        <div id="new-ext-risques"></div>
+        <div style="display:flex;gap:10px;margin-top:16px">
+            <button class="btn ba" onclick="submitUploadExt(false)" id="btn-up-ext"><img src="/static/img/solid/check.svg" class="ico" style="filter:invert(1)" alt=""> Installer</button>
+            <button class="btn bg2" onclick="document.getElementById('add-ext-modal').remove()"><img src="/static/img/solid/xmark.svg" class="ico ico-gray" alt=""> Annuler</button>
+        </div>
+    </div>`;
+    document.body.appendChild(m);
+}
+
+function lireFichierExt(input){
+    const f=input.files&&input.files[0];const info=document.getElementById('new-ext-fileinfo');
+    const setInfo=(txt,cls)=>{info.textContent=txt;info.className='fpick-name'+(cls?' '+cls:'');};
+    if(!f){EXT_FILE={name:'',b64:'',size:0};setInfo('Aucun fichier selectionne');return;}
+    if(!f.name.toLowerCase().endsWith('.rs')){setInfo('Le fichier doit avoir l\'extension .rs','ko');input.value='';return;}
+    if(f.size>(EXT_DATA.max_bytes||524288)){setInfo(`Fichier trop gros (${Math.round(f.size/1024)} Ko, max ${Math.round((EXT_DATA.max_bytes||524288)/1024)} Ko)`,'ko');input.value='';return;}
+    const fr=new FileReader();
+    fr.onload=()=>{
+        EXT_FILE={name:f.name,b64:fr.result.split(',')[1]||'',size:f.size};
+        setInfo(`${f.name} — ${Math.round(f.size/102.4)/10} Ko`,'ok');
+        const idIn=document.getElementById('new-ext-id');
+        if(idIn&&!idIn.value&&!idIn.readOnly){
+            const base=f.name.replace(/\.rs$/i,'').toLowerCase().replace(/[^a-z0-9_]/g,'');
+            if(base&&base!=='mod')idIn.value=base;
+        }
+    };
+    fr.readAsDataURL(f);
+}
+
+async function submitUploadExt(confirme){
+    if(!EXT_FILE.b64){flash('Choisissez un fichier .rs.',true);return;}
+    const id=document.getElementById('new-ext-id').value.trim().toLowerCase();
+    if(!id){flash('ID requis.',true);return;}
+    const btn=document.getElementById('btn-up-ext');if(btn)btn.disabled=true;
+    const r=await post('/extensions/upload',{
+        id, filename:EXT_FILE.name, code_b64:EXT_FILE.b64,
+        version:document.getElementById('new-ext-ver').value.trim()||'0.1',
+        privilege_min:document.getElementById('new-ext-priv').value,
+        plans_autorises:document.getElementById('new-ext-plans').value,
+        enabled:document.getElementById('new-ext-enabled').checked?'1':'0',
+        confirm_risques:confirme?'1':'0',
+    });
+    if(btn)btn.disabled=false;
+    if(r.success){
+        document.getElementById('add-ext-modal')?.remove();
+        flash(r.message);
+        if((r.data?.risques||[]).length)flash(`Installee avec ${r.data.risques.length} motif(s) sensible(s) — relisez le code.`,true);
+        loadExt();
+        return;
+    }
+    if(r.need_confirm){
+        document.getElementById('new-ext-risques').innerHTML=
+            `<div style="margin-top:14px;padding:11px 13px;border:1px solid #f59e0b;background:rgba(245,158,11,.08);border-radius:7px;font-size:.78rem">
+                <div style="font-weight:700;margin-bottom:8px;color:#f59e0b">${esc(r.error)}</div>
+                <div style="max-height:180px;overflow:auto;font-family:var(--mono);font-size:.72rem;line-height:1.6">
+                ${r.risques.map(x=>`<div>l.${x.ligne} — <strong>${esc(x.motif)}</strong><br><span style="color:var(--text-m)">${esc(x.extrait)}</span></div>`).join('')}
+                </div>
+                <button class="btn br2" style="margin-top:10px" onclick="submitUploadExt(true)"><img src="/static/img/solid/triangle-exclamation.svg" class="ico" style="filter:invert(1)" alt=""> Installer quand meme</button>
+            </div>`;
+        return;
+    }
+    flash(r.error,true);
+}
+
+async function deleteExt(id){
+    if(BASE_APPS.has(id)){flash('Impossible de supprimer une app de base.',true);return;}
+    if(!confirm(`Retirer l'extension "${id}" de la configuration ?`))return;
+    const purge=confirm(`Supprimer aussi les fichiers src/extensions/${id}/ et static/extensions/${id}/ ?\n\nOK = supprimer les fichiers, Annuler = les conserver.`);
+    const r=await post('/extensions/delete',{id,purge:purge?'1':'0'});
+    if(r.success){flash(r.message);loadExt();}else flash(r.error,true);
+}
+
+async function toggleExt(id,val){
+    const r=await post('/extensions/permissions',{id,enabled:val});
+    if(r.success){flash('Extension '+(val==='true'?'activee':'desactivee')+'.');loadExt();}else flash(r.error,true);
+}
+
+async function saveExtMeta(id){
+    const q=s=>document.querySelector(`[data-ext-${s}="${id}"]`);
+    let params=q('params')?.value||'{}';
+    try{JSON.parse(params);}catch(e){flash('Parametres JSON invalides : '+e.message,true);return;}
+    for(const[c,lib]of[['navapp','App du menu'],['tile','Tuile dashboard'],['infos','Infos tuile Admin']]){
+        const t=q(c)?.value.trim();
+        if(t){try{JSON.parse(t);}catch(e){flash(lib+' : JSON invalide — '+e.message,true);return;}}
+    }
+    const r=await post('/extensions/permissions',{
+        id, version:q('ver')?.value||'', privilege_min:q('priv')?.value,
+        plans_autorises:q('plans')?.value||'', params,
+        permissions:JSON.stringify(lirePerms(id)),
+        nav_app:q('navapp')?.value.trim()||'',
+        dashboard_tile:q('tile')?.value.trim()||'',
+        admin_infos:q('infos')?.value.trim()||'',
+    });
+    if(r.success){flash(r.message);loadExt();}else flash(r.error,true);
+}
+
+async function rebuildExt(){
+    if(!confirm(`Relancer « ${EXT_DATA.build_cmd} » ?\n\nLa compilation part deja seule a chaque upload. VEX doit etre redemarre une fois terminee pour charger le code natif.`))return;
+    const r=await post('/extensions/rebuild');
+    if(!r.success){flash(r.error,true);return;}
+    flash(r.message);planifierStatutBuild();loadExt();
+}
+function planifierStatutBuild(){
+    clearTimeout(BUILD_TIMER);
+    BUILD_TIMER=setTimeout(async()=>{
+        const r=await api('/extensions/rebuild/status');
+        if(r.success){
+            EXT_DATA.build_status=r.data;
+            if(S.section==='extensions')loadExt();
+            else if(r.data.running)planifierStatutBuild();
+        }
+    },5000);
+}
+
+/* ── Roles & Plans ── */
+async function loadRoles(){
+    const r=await api('/config');if(!r.success){flash(r.error,true);return;}
+    S.configData=r.data;
+    if(!S.configData.privilege_labels)S.configData.privilege_labels={};
+    const grid=document.getElementById('roles-labels-grid');
+    grid.innerHTML=[2,3,4,5,6,7,8,9,10,11,12].map(p=>{
+        const v=S.configData.privilege_labels[String(p)]??'';
+        return `<div><label class="cl">Privilege ${p}<small>${PRIVILEGES[p]?.nom||''}</small></label><input type="text" class="ci" data-role-label="${p}" value="${esc(v)}" placeholder="Nom du role ${p}"></div>`;
+    }).join('');
+    renderPlans();
+}
+async function saveRoleLabels(){
+    const nc=JSON.parse(JSON.stringify(S.configData));
+    if(!nc.privilege_labels)nc.privilege_labels={};
+    document.querySelectorAll('[data-role-label]').forEach(el=>{nc.privilege_labels[el.dataset.roleLabel]=el.value;});
+    const r=await post('/config',{config:JSON.stringify(nc)});
+    if(r.success){S.configData=nc;flash('Noms de roles sauvegardes.');loadUsers();}else flash(r.error,true);
+}
+function renderPlans(){
+    const plans=S.configData.plans?.available_plans||[];
+    document.getElementById('plans-content').innerHTML=plans.map((p,i)=>`
+        <div class="card" style="margin-bottom:10px"><div class="cb">
+            <div class="cgr">
+                <div><label class="cl">ID</label><input type="text" class="ci" data-plan-i="${i}" data-plan-k="id" value="${esc(p.id)}"></div>
+                <div><label class="cl">Nom affiche</label><input type="text" class="ci" data-plan-i="${i}" data-plan-k="name" value="${esc(p.name)}"></div>
+                <div><label class="cl">Prix euros/mois</label><input type="number" class="ci" data-plan-i="${i}" data-plan-k="price_eur_month" value="${p.price_eur_month}"></div>
+                <div><label class="cl">Stockage</label><input type="text" class="ci" data-plan-i="${i}" data-plan-k="features.storage" value="${esc(p.features?.storage||'')}"></div>
+            </div>
+            <button class="btn br2" style="margin-top:10px" onclick="removePlan(${i})"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Supprimer ce plan</button>
+        </div></div>`).join('')+`<button class="btn ba" onclick="savePlans()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> Sauvegarder les plans</button>`;
+}
+function addPlan(){
+    if(!S.configData.plans)S.configData.plans={available_plans:[],enforce_plan_restrictions:true};
+    S.configData.plans.available_plans.push({id:'nouveau',name:'Nouveau plan',price_eur_month:0,features:{storage:'1GB',max_files:50,file_sharing:true,online_editing:false,api_access:false,email_sending:false,extensions:[]}});
+    renderPlans();
+}
+function removePlan(i){S.configData.plans.available_plans.splice(i,1);renderPlans();}
+async function savePlans(){
+    const nc=JSON.parse(JSON.stringify(S.configData));
+    document.querySelectorAll('[data-plan-i]').forEach(el=>{
+        const i=Number(el.dataset.planI),k=el.dataset.planK;let v=el.value;
+        if(k==='price_eur_month')v=Number(v);
+        if(k==='features.storage'){nc.plans.available_plans[i].features=nc.plans.available_plans[i].features||{};nc.plans.available_plans[i].features.storage=v;}
+        else nc.plans.available_plans[i][k]=v;
+    });
+    const r=await post('/config',{config:JSON.stringify(nc)});
+    if(r.success){S.configData=nc;flash('Plans sauvegardes.');}else flash(r.error,true);
+}
+
+/* ── Serveur ── */
 async function loadServer(){
     document.getElementById('server-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
     const r=await api('/server');if(!r.success){flash(r.error,true);return;}
@@ -874,169 +1141,217 @@ async function loadServer(){
     </div>`;
 }
 
-/* ── Logs ───────────────────────────────────────────────────────── */
-async function loadLogs(){
-    document.getElementById('log-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
-    const r=await api('/logs');if(!r.success){flash(r.error,true);return;}
-    document.getElementById('log-content').innerHTML=r.data.empty?'<div style="padding:24px;text-align:center;color:var(--text-m)">Log vide</div>':`<div class="lb" id="lb">${esc(r.data.content)}</div>`;
-    scrollLogs();
-}
+/* ── Logs ── */
+async function loadLogs(){document.getElementById('log-content').innerHTML='<div class="loading"><span class="spin"></span></div>';const r=await api('/logs');if(!r.success){flash(r.error,true);return;}const files=r.data.files||[];const filesHtml=files.length?`<div style="margin-bottom:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:.78rem;color:var(--text-m)"><div style="font-weight:700;color:var(--text);margin-bottom:6px">Fichiers de logs</div><div style="display:flex;flex-wrap:wrap;gap:6px">${files.map(f=>`<span style="padding:4px 8px;border-radius:999px;background:var(--alt);color:var(--accent);font-family:monospace">${esc(f)}</span>`).join('')}</div></div>`:'';document.getElementById('log-content').innerHTML=r.data.empty?'<div style="padding:24px;text-align:center;color:var(--text-m)">Aucun log disponible</div>':`<div>${filesHtml}<div class="lb" id="lb">${esc(r.data.content)}</div></div>`;scrollLogs();}
 function scrollLogs(){const lb=document.getElementById('lb');if(lb)lb.scrollTop=lb.scrollHeight;}
 async function clearLogs(){if(!confirm('Vider le log ?'))return;const r=await post('/logs/clear');if(r.success){flash(r.message);loadLogs();}else flash(r.error,true);}
 
-/* ── OnlyOffice ─────────────────────────────────────────────────── */
-async function loadOO(){
+/* ── Editeur en ligne (multi-provider) ── */
+let ED={active:'',providers:{},presets:[],status:{}};
+
+const ED_CHAMPS=[
+    ['name','Nom affiche','text'],
+    ['server_url','URL du serveur','text'],
+    ['healthcheck_path','Chemin de healthcheck','text'],
+    ['healthcheck_expect','Texte attendu dans la reponse (vide = code 2xx suffit)','text'],
+    ['editor_api_js','Chemin du script API editeur','text'],
+    ['wopi_discovery_path','Chemin WOPI discovery','text'],
+    ['callback_path','Chemin de callback VEX','text'],
+    ['start_cmd','Commande de demarrage','text'],
+    ['stop_cmd','Commande d\'arret','text'],
+    ['wait_boot_ms','Attente apres demarrage (ms)','number'],
+    ['default_format','Format par defaut','text'],
+    ['supported_formats','Formats supportes (virgule)','list'],
+    ['max_file_size_mb','Taille max (Mo)','number'],
+    ['jwt_secret','Secret JWT','text'],
+];
+
+async function loadEditor(){
     document.getElementById('oo-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
-    const r=await api('/onlyoffice');if(!r.success){flash(r.error,true);return;}
-    const d=r.data,pm=d.params||{};
-    document.getElementById('oo-content').innerHTML=`<div class="ob ${d.online?'ok':'nok'}"><div class="od"></div><strong>${d.online?'Serveur en ligne':'Serveur hors ligne'}</strong> — ${esc(d.url)} — <strong>${d.ms}ms</strong><button class="btn bg2" style="margin-left:auto" onclick="loadOO()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Re-tester</button></div>
-    <div class="card"><div class="ch"><span><img src="/static/img/solid/circle-info.svg" class="ico ico-accent" alt=""> Paramètres</span></div><div style="overflow-x:auto"><table class="t"><thead><tr><th>Paramètre</th><th>Valeur</th></tr></thead><tbody>
-        <tr><td class="m">Activé</td><td class="m">${d.enabled}</td></tr><tr><td class="m">Version</td><td class="m">${esc(String(d.version))}</td></tr>
-        <tr><td class="m">URL</td><td class="m">${esc(d.url)}</td></tr><tr><td class="m">Format par défaut</td><td class="m">${esc(String(pm.default_format||'docx'))}</td></tr>
-        <tr><td class="m">Taille max (MB)</td><td class="m">${esc(String(pm.max_file_size_mb||'?'))}</td></tr><tr><td class="m">Auto-save</td><td class="m">${pm.auto_save}</td></tr>
-    </tbody></table></div></div>`;
+    const r=await api('/editor');if(!r.success){flash(r.error,true);return;}
+    ED=r.data;renderEditor();
 }
 
-/* ── P2P ─────────────────────────────────────────────────────────── */
-let P2P_TAB='peers';
-function p2pTab(t){
-    P2P_TAB=t;
-    document.querySelectorAll('.p2p-tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
-    ['peers','users','transfers','annuaire'].forEach(n=>{
-        document.getElementById('p2p-tab-'+n).style.display=n===t?'':'none';
+function renderEditor(){
+    const ids=Object.keys(ED.providers||{});
+    const act=ED.active, p=ED.providers[act]||{}, st=ED.status||{};
+
+    const cartes=ids.map(id=>{
+        const pr=ED.providers[id]||{}, on=id===act;
+        return `<div onclick="selectEditor('${esc(id)}')" style="cursor:pointer;flex:1;min-width:190px;padding:12px 14px;border-radius:var(--r);border:2px solid ${on?'var(--accent)':'var(--border)'};background:${on?'var(--alt)':'var(--surface)'}">
+            <div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:.85rem">
+                <img src="/static/img/solid/${on?'circle-check':'circle'}.svg" class="ico ${on?'ico-accent':'ico-gray'}" alt="">
+                ${esc(pr.name||id)}</div>
+            <div style="font-size:.73rem;color:var(--text-m);margin-top:5px;font-family:var(--mono)">${esc(pr.server_url||'')}</div>
+            <div style="font-size:.71rem;color:var(--text-m);margin-top:3px">id : ${esc(id)} · ${esc(pr.kind||'')}${pr.enabled===false?' · <span style="color:#ef4444">desactive</span>':''}</div>
+        </div>`;
+    }).join('');
+
+    const champs=ED_CHAMPS.map(([k,label,type])=>{
+        let v=p[k];
+        if(type==='list')v=Array.isArray(v)?v.join(', '):(v||'');
+        const large=(k==='start_cmd'||k==='stop_cmd'||k==='supported_formats');
+        return `<div ${large?'style="grid-column:1/-1"':''}><label class="cl">${esc(label)}</label>
+            <input type="${type==='number'?'number':'text'}" class="ci" data-ed="${k}" data-ed-type="${type}" value="${esc(v==null?'':String(v))}"></div>`;
+    }).join('');
+
+    document.getElementById('oo-content').innerHTML=`
+    <div class="ob ${st.online?'ok':'nok'}"><div class="od"></div>
+        <strong>${esc(p.name||act)} — ${st.online?'en ligne':'hors ligne'}</strong>
+        — <code>${esc(p.server_url||'')}</code> — <strong>${st.ms||0}ms</strong>
+        <button class="btn bg2" style="margin-left:auto" onclick="loadEditor()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Re-tester</button></div>
+    ${st.detail?`<div style="font-family:var(--mono);font-size:.72rem;color:var(--text-m);margin:-6px 0 14px 4px">${esc(st.detail)}</div>`:''}
+
+    <div class="card" style="margin-bottom:16px"><div class="ch"><span><img src="/static/img/solid/list-check.svg" class="ico ico-accent" alt=""> Systeme d'edition actif</span>
+        <div style="display:flex;gap:8px">
+            <button class="btn bg2" onclick="showAddProvider()" style="height:28px;font-size:.75rem"><img src="/static/img/solid/plus.svg" class="ico ico-accent" alt=""> Ajouter un systeme</button>
+            ${Object.keys(ED.providers).length>1?`<button class="btn br2" onclick="deleteProvider('${esc(act)}')" style="height:28px;font-size:.75rem"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Supprimer</button>`:''}
+        </div></div>
+        <div class="cb"><div style="display:flex;gap:10px;flex-wrap:wrap">${cartes}</div>
+        <label class="cl" style="margin-top:14px;display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="ed-online-enabled" style="width:auto" ${ED.online_editing_enabled?'checked':''} onchange="selectEditor('${esc(act)}')">
+            Edition en ligne activee pour les utilisateurs</label>
+        </div></div>
+
+    <div class="card"><div class="ch"><span><img src="/static/img/solid/gear.svg" class="ico ico-accent" alt=""> Parametres de « ${esc(p.name||act)} »</span>
+        <select class="isel" data-ed="enabled" onchange="null">
+            <option value="true" ${p.enabled!==false?'selected':''}>Active</option>
+            <option value="false" ${p.enabled===false?'selected':''}>Desactive</option>
+        </select></div>
+        <div class="cb">
+            <div class="cgr">${champs}</div>
+            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px">
+                <label class="cl" style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" data-ed="jwt_enabled" style="width:auto" ${p.jwt_enabled?'checked':''}> JWT active</label>
+                <label class="cl" style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" data-ed="auto_save" style="width:auto" ${p.auto_save?'checked':''}> Sauvegarde auto</label>
+                <label class="cl" style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" data-ed="collaborative_editing" style="width:auto" ${p.collaborative_editing?'checked':''}> Edition collaborative</label>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+                <button class="btn ba" onclick="saveProvider()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> Sauvegarder</button>
+                <button class="btn bg2" onclick="testProvider()"><img src="/static/img/solid/plug.svg" class="ico ico-accent" alt=""> Tester la connexion</button>
+                ${ED.is_super?`<button class="btn bg2" onclick="edCmd('start')"><img src="/static/img/solid/play.svg" class="ico ico-accent" alt=""> Demarrer</button>
+                <button class="btn br2" onclick="edCmd('stop')"><img src="/static/img/solid/stop.svg" class="ico" style="filter:invert(1)" alt=""> Arreter</button>`:''}
+            </div>
+            <div id="ed-test-result" style="margin-top:12px"></div>
+        </div></div>`;
+}
+
+function lireFormProvider(){
+    const o={};
+    document.querySelectorAll('#oo-content [data-ed]').forEach(el=>{
+        const k=el.dataset.ed;
+        if(el.type==='checkbox')o[k]=el.checked;
+        else if(el.tagName==='SELECT')o[k]=el.value==='true';
+        else if(el.dataset.edType==='number')o[k]=Number(el.value)||0;
+        else if(el.dataset.edType==='list')o[k]=el.value.split(',').map(s=>s.trim()).filter(Boolean);
+        else o[k]=el.value;
     });
-    if(t==='transfers')loadP2pTransfers();
-    if(t==='annuaire')loadP2pAnnuaire();
+    return o;
 }
 
-async function loadP2p(){
-    // Info nœud local
-    const ri=await api('/p2p');
-    if(ri.success){
-        const d=ri.data;
-        document.getElementById('p2p-node-info').style.display='';
-        document.getElementById('p2p-node-id').textContent=d.node_id||'';
-        document.getElementById('p2p-node-url').textContent=d.vex_url||'';
-        document.getElementById('p2p-pub-key').textContent=d.pub_key||'';
-        document.getElementById('p2p-bootstrap').textContent=d.bootstrap||'';
-        document.getElementById('p2p-chunk-size').textContent=d.chunk_size_bytes?(Math.round(d.chunk_size_bytes/1024)+' KB'):'';
-        if(d.tor_addr)document.getElementById('p2p-tor-badge').style.display='';
-    }
-    // Peers
-    const r=await api('/p2p/peers');
-    if(!r.success){flash(r.error,true);return;}
+async function selectEditor(id){
+    const r=await post('/editor/select',{id,online_editing_enabled:document.getElementById('ed-online-enabled')?.checked?'1':'0'});
+    if(r.success){flash(r.message);loadEditor();}else flash(r.error,true);
+}
+
+async function saveProvider(){
+    const r=await post('/editor/save',{id:ED.active,provider:JSON.stringify(lireFormProvider())});
+    if(r.success){flash(r.message);loadEditor();}else flash(r.error,true);
+}
+
+async function testProvider(){
+    const p=lireFormProvider();
+    const el=document.getElementById('ed-test-result');
+    el.innerHTML='<div class="loading"><span class="spin"></span> Test en cours…</div>';
+    const r=await post('/editor/test',{server_url:p.server_url,healthcheck_path:p.healthcheck_path,healthcheck_expect:p.healthcheck_expect||''});
+    if(!r.success){el.innerHTML='';flash(r.error,true);return;}
     const d=r.data;
-    document.getElementById('pill-p2p').textContent=d.online||0;
-    document.getElementById('p2p-tab-peers-cnt').textContent=d.total||0;
-    document.getElementById('p2p-stats').innerHTML=`
-        <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/diagram-project.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${d.total}</div><div class="sc-l">Nœuds total</div></div>
-        <div class="sc" style="--si:#4ade80"><div class="sc-i"><img src="/static/img/solid/circle-check.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${d.online}</div><div class="sc-l">En ligne</div></div>
-        <div class="sc" style="--si:#ef4444"><div class="sc-i"><img src="/static/img/solid/circle-xmark.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${(d.total||0)-(d.online||0)}</div><div class="sc-l">Hors ligne</div></div>`;
-    if(!d.peers||!d.peers.length){
-        document.getElementById('p2p-table').innerHTML='<div style="padding:30px;text-align:center;color:var(--text-m)">Aucun nœud enregistré</div>';
-    } else {
-        document.getElementById('p2p-table').innerHTML=`<table class="t"><thead><tr>
-            <th>Node ID</th><th>URL VEX</th><th>Tor / Anonyme</th><th>Clé pub.</th><th>Statut</th><th>Vu le</th><th>Ver.</th><th>Action</th>
-        </tr></thead><tbody>${d.peers.map(p=>{
-            const tor=p.tor_addr||'ANONYME';
-            const pubShort=p.pub_key?p.pub_key.slice(0,18)+'…':'';
-            return`<tr>
-                <td class="m" style="font-size:.7rem">${esc(p.node_id||'')}</td>
-                <td class="m"><a href="${esc(p.vex_url||'')}" target="_blank">${esc(p.vex_url||'')}</a></td>
-                <td class="m">${esc(tor)}</td>
-                <td class="m" title="${esc(p.pub_key||'')}">${esc(pubShort)}</td>
-                <td><span class="b ${p.status==='online'?'bg':'br'}">${esc(p.status||'')}</span></td>
-                <td class="m">${esc(p.last_seen||'')}</td>
-                <td class="m">${esc(p.version||'?')}</td>
-                <td><button class="btn br2" onclick="kickPeer(${p.id})"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Kick</button></td>
-            </tr>`;
-        }).join('')}</tbody></table>`;
+    el.innerHTML=`<div class="ob ${d.online?'ok':'nok'}" style="margin:0"><div class="od"></div>
+        <strong>${d.online?'Connexion OK':'Echec'}</strong> — ${d.ms}ms
+        <span style="color:var(--text-m);font-family:var(--mono);font-size:.73rem;margin-left:8px">${esc(d.detail||'')}</span></div>`;
+}
+
+async function edCmd(action){
+    const r=await post('/editor/'+action,{id:ED.active});
+    flash(r.success?(action==='start'?'Serveur demarre.':'Serveur arrete.'):(r.error||r.output||'Echec.'),!r.success);
+    if(r.output)document.getElementById('ed-test-result').innerHTML=`<div class="lb" style="max-height:220px">${esc(r.output)}</div>`;
+    if(action==='start')loadEditor();
+}
+
+function showAddProvider(){
+    document.getElementById('add-ed-modal')?.remove();
+    const m=document.createElement('div');m.id='add-ed-modal';m.className='modal-bg';
+    m.innerHTML=`<div class="modal-box">
+        <div style="font-weight:800;font-size:1.05rem;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+            <img src="/static/img/solid/file-lines.svg" class="ico ico-accent" alt=""> Ajouter un systeme d'edition</div>
+        <div class="f"><label>Suite bureautique</label>
+            <select id="new-ed-kind" class="ci" onchange="majPresetProvider()">
+                ${(ED.presets||[]).map(p=>`<option value="${esc(p.kind)}">${esc(p.name)}</option>`).join('')}
+            </select>
+            <div id="new-ed-desc" style="font-size:.76rem;color:var(--text-m);margin-top:7px;line-height:1.6"></div></div>
+        <div class="f"><label>Identifiant interne</label><input type="text" id="new-ed-id" class="ci" placeholder="ex: collabora"></div>
+        <div class="f"><label>Nom affiche</label><input type="text" id="new-ed-name" class="ci"></div>
+        <div class="f"><label>URL du serveur</label><input type="text" id="new-ed-url" class="ci"></div>
+        <div style="display:flex;gap:10px;margin-top:16px">
+            <button class="btn ba" onclick="submitAddProvider()"><img src="/static/img/solid/check.svg" class="ico" style="filter:invert(1)" alt=""> Ajouter</button>
+            <button class="btn bg2" onclick="document.getElementById('add-ed-modal').remove()"><img src="/static/img/solid/xmark.svg" class="ico ico-gray" alt=""> Annuler</button>
+        </div></div>`;
+    document.body.appendChild(m);
+    majPresetProvider();
+}
+
+function majPresetProvider(){
+    const kind=document.getElementById('new-ed-kind').value;
+    const pr=(ED.presets||[]).find(p=>p.kind===kind);if(!pr)return;
+    document.getElementById('new-ed-desc').textContent=pr.desc||'';
+    const idIn=document.getElementById('new-ed-id');
+    if(!idIn.dataset.touched){
+        let base=kind,n=1;while(ED.providers[base]){base=kind+(++n);}
+        idIn.value=base;
     }
-    // Users P2P
+    idIn.oninput=()=>{idIn.dataset.touched='1';};
+    document.getElementById('new-ed-name').value=pr.defaults?.name||pr.name;
+    document.getElementById('new-ed-url').value=pr.defaults?.server_url||'';
+}
+
+async function submitAddProvider(){
+    const r=await post('/editor/add',{
+        id:document.getElementById('new-ed-id').value.trim().toLowerCase(),
+        kind:document.getElementById('new-ed-kind').value,
+        name:document.getElementById('new-ed-name').value,
+        server_url:document.getElementById('new-ed-url').value,
+    });
+    if(r.success){document.getElementById('add-ed-modal')?.remove();flash(r.message);loadEditor();}
+    else flash(r.error,true);
+}
+
+async function deleteProvider(id){
+    if(!confirm(`Supprimer le systeme d'edition "${id}" ?`))return;
+    const r=await post('/editor/delete',{id});
+    if(r.success){flash(r.message);loadEditor();}else flash(r.error,true);
+}
+
+/* ── P2P ── */
+let P2P_TAB='peers';
+function p2pTab(t){P2P_TAB=t;document.querySelectorAll('.p2p-tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));['peers','users','transfers','annuaire'].forEach(n=>{document.getElementById('p2p-tab-'+n).style.display=n===t?'':'none';});if(t==='transfers')loadP2pTransfers();if(t==='annuaire')loadP2pAnnuaire();}
+async function loadP2p(){
+    const ri=await api('/p2p');
+    if(ri.success){const d=ri.data;document.getElementById('p2p-node-info').style.display='';document.getElementById('p2p-node-id').textContent=d.node_id||'';document.getElementById('p2p-node-url').textContent=d.vex_url||'';document.getElementById('p2p-pub-key').textContent=d.pub_key||'';document.getElementById('p2p-bootstrap').textContent=d.bootstrap||'';document.getElementById('p2p-chunk-size').textContent=d.chunk_size_bytes?(Math.round(d.chunk_size_bytes/1024)+' KB'):'';if(d.tor_addr)document.getElementById('p2p-tor-badge').style.display='';}
+    const r=await api('/p2p/peers');if(!r.success){flash(r.error,true);return;}
+    const d=r.data;document.getElementById('pill-p2p').textContent=d.online||0;document.getElementById('p2p-tab-peers-cnt').textContent=d.total||0;
+    document.getElementById('p2p-stats').innerHTML=`<div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/diagram-project.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${d.total}</div><div class="sc-l">Noeuds total</div></div><div class="sc" style="--si:#4ade80"><div class="sc-i"><img src="/static/img/solid/circle-check.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${d.online}</div><div class="sc-l">En ligne</div></div><div class="sc" style="--si:#ef4444"><div class="sc-i"><img src="/static/img/solid/circle-xmark.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${(d.total||0)-(d.online||0)}</div><div class="sc-l">Hors ligne</div></div>`;
+    if(!d.peers||!d.peers.length){document.getElementById('p2p-table').innerHTML='<div style="padding:30px;text-align:center;color:var(--text-m)">Aucun noeud enregistre</div>';}
+    else{document.getElementById('p2p-table').innerHTML=`<table class="t"><thead><tr><th>Node ID</th><th>URL VEX</th><th>Tor</th><th>Cle pub.</th><th>Statut</th><th>Vu le</th><th>Ver.</th><th>Action</th></tr></thead><tbody>${d.peers.map(p=>`<tr><td class="m" style="font-size:.7rem">${esc(p.node_id||'')}</td><td class="m"><a href="${esc(p.vex_url||'')}" target="_blank">${esc(p.vex_url||'')}</a></td><td class="m">${esc(p.tor_addr||'')}</td><td class="m" title="${esc(p.pub_key||'')}">${esc(p.pub_key?p.pub_key.slice(0,18)+'…':'')}</td><td><span class="b ${p.status==='online'?'bg':'br'}">${esc(p.status||'')}</span></td><td class="m">${esc(p.last_seen||'')}</td><td class="m">${esc(p.version||'?')}</td><td><button class="btn br2" onclick="kickPeer(${p.id})"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Kick</button></td></tr>`).join('')}</tbody></table>`;}
     const ru=await api('/p2p/users');
-    if(ru.success){
-        document.getElementById('p2p-tab-users-cnt').textContent=ru.data.total||0;
-        if(!ru.data.users||!ru.data.users.length){
-            document.getElementById('p2p-users-table').innerHTML='<div style="padding:30px;text-align:center;color:var(--text-m)">Aucun utilisateur P2P connu</div>';
-        } else {
-            document.getElementById('p2p-users-table').innerHTML=`<table class="t"><thead><tr>
-                <th>ID@Nœud</th><th>Nom</th><th>Clé publique</th><th>Mis à jour</th>
-            </tr></thead><tbody>${ru.data.users.map(u=>{
-                const pubShort=u.pub_key?u.pub_key.slice(0,22)+'…':'';
-                return`<tr>
-                    <td class="m">${esc(u.user_id)}@<span style="font-size:.7rem">${esc((u.node_id||'').slice(0,12))}…</span></td>
-                    <td><strong>${esc(u.nom||'')}</strong></td>
-                    <td class="m" title="${esc(u.pub_key||'')}">${esc(pubShort)}</td>
-                    <td class="m">${esc(u.updated_at||'')}</td>
-                </tr>`;
-            }).join('')}</tbody></table>`;
-        }
-    }
+    if(ru.success){document.getElementById('p2p-tab-users-cnt').textContent=ru.data.total||0;if(!ru.data.users||!ru.data.users.length){document.getElementById('p2p-users-table').innerHTML='<div style="padding:30px;text-align:center;color:var(--text-m)">Aucun utilisateur P2P connu</div>';}else{document.getElementById('p2p-users-table').innerHTML=`<table class="t"><thead><tr><th>ID@Noeud</th><th>Nom</th><th>Cle publique</th><th>Mis a jour</th></tr></thead><tbody>${ru.data.users.map(u=>`<tr><td class="m">${esc(u.user_id)}@<span style="font-size:.7rem">${esc((u.node_id||'').slice(0,12))}…</span></td><td><strong>${esc(u.nom||'')}</strong></td><td class="m" title="${esc(u.pub_key||'')}">${esc(u.pub_key?u.pub_key.slice(0,22)+'…':'')}</td><td class="m">${esc(u.updated_at||'')}</td></tr>`).join('')}</tbody></table>`;}}
 }
+async function loadP2pTransfers(){document.getElementById('p2p-transfers-table').innerHTML='<div class="loading"><span class="spin"></span></div>';const r=await api('/p2p/transfers');if(!r.success){flash(r.error,true);return;}const transfers=r.data.transfers||[];if(!transfers.length){document.getElementById('p2p-transfers-table').innerHTML='<div style="padding:30px;text-align:center;color:var(--text-m)">Aucun transfert</div>';return;}const sc={pending:'bx',in_progress:'bo',complete:'bg',error:'br'};document.getElementById('p2p-transfers-table').innerHTML=`<table class="t"><thead><tr><th>ID</th><th>Fichier</th><th>De -> Vers</th><th>Taille</th><th>Chunks</th><th>Statut</th><th>Date</th></tr></thead><tbody>${transfers.map(t=>{const pct=t.chunks_total?Math.round((t.chunks_ok/t.chunks_total)*100):0;const sz=t.fichier_size>1048576?(Math.round(t.fichier_size/1048576*10)/10)+' MB':Math.round(t.fichier_size/1024)+' KB';return`<tr><td class="m" style="font-size:.7rem">${esc((t.transfer_id||'').slice(0,8))}…</td><td><strong>${esc(t.fichier_nom||'')}</strong></td><td class="m" style="font-size:.72rem">${esc((t.from_node||'').slice(0,8))}… -> ${esc((t.to_node||'').slice(0,8))}…</td><td class="m">${sz}</td><td><span class="b bx">${t.chunks_ok||0}/${t.chunks_total||1}</span><div class="pg" style="margin-top:4px;width:60px"><div class="pgb" style="width:${pct}%"></div></div></td><td><span class="b ${sc[t.status]||'bx'}">${esc(t.status||'')}</span></td><td class="m">${esc(t.created_at||'')}</td></tr>`;}).join('')}</tbody></table>`;}
+async function loadP2pAnnuaire(){document.getElementById('p2p-annuaire-content').innerHTML='<div class="loading"><span class="spin"></span></div>';const r=await api('/p2p/annuaire');if(!r.success){flash(r.error,true);return;}document.getElementById('p2p-annuaire-content').innerHTML=`<div class="lb" id="p2p-annuaire-txt" style="max-height:500px">${esc(r.data.annuaire||'')}</div>`;}
+function copyAnnuaire(){const el=document.getElementById('p2p-annuaire-txt');if(el){navigator.clipboard.writeText(el.textContent).then(()=>flash('Annuaire copie.'));}}
+async function p2pSyncNow(){const btn=document.getElementById('p2p-sync-btn');btn.disabled=true;btn.innerHTML='<span class="spin"></span> Sync…';const r=await post('/p2p/sync_now');btn.disabled=false;btn.innerHTML='<img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Sync bootstrap';flash(r.success?r.message:r.error,!r.success);if(r.success)loadP2p();}
+async function kickPeer(id){if(!confirm('Supprimer ce noeud ?'))return;const r=await post('/p2p/kick',{peer_id:id});flash(r.success?r.message:r.error,!r.success);if(r.success)loadP2p();}
 
-async function loadP2pTransfers(){
-    document.getElementById('p2p-transfers-table').innerHTML='<div class="loading"><span class="spin"></span></div>';
-    const r=await api('/p2p/transfers');
-    if(!r.success){flash(r.error,true);return;}
-    const transfers=r.data.transfers||[];
-    if(!transfers.length){
-        document.getElementById('p2p-transfers-table').innerHTML='<div style="padding:30px;text-align:center;color:var(--text-m)">Aucun transfert</div>';
-        return;
-    }
-    const statusCls={pending:'bx',in_progress:'bo',complete:'bg',error:'br'};
-    document.getElementById('p2p-transfers-table').innerHTML=`<table class="t"><thead><tr>
-        <th>ID</th><th>Fichier</th><th>De → Vers</th><th>Taille</th><th>Chunks</th><th>Statut</th><th>Date</th>
-    </tr></thead><tbody>${transfers.map(t=>{
-        const pct=t.chunks_total?Math.round((t.chunks_ok/t.chunks_total)*100):0;
-        const sz=t.fichier_size>1048576?(Math.round(t.fichier_size/1048576*10)/10)+' MB':Math.round(t.fichier_size/1024)+' KB';
-        const cls=statusCls[t.status]||'bx';
-        return`<tr>
-            <td class="m" style="font-size:.7rem">${esc((t.transfer_id||'').slice(0,8))}…</td>
-            <td><strong>${esc(t.fichier_nom||'')}</strong></td>
-            <td class="m" style="font-size:.72rem">${esc((t.from_node||'').slice(0,8))}… → ${esc((t.to_node||'').slice(0,8))}…</td>
-            <td class="m">${sz}</td>
-            <td><span class="b bx">${t.chunks_ok||0}/${t.chunks_total||1}</span>
-                <div class="pg" style="margin-top:4px;width:60px"><div class="pgb" style="width:${pct}%"></div></div></td>
-            <td><span class="b ${cls}">${esc(t.status||'')}</span></td>
-            <td class="m">${esc(t.created_at||'')}</td>
-        </tr>`;
-    }).join('')}</tbody></table>`;
-}
-
-async function loadP2pAnnuaire(){
-    document.getElementById('p2p-annuaire-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
-    const r=await api('/p2p/annuaire');
-    if(!r.success){flash(r.error,true);return;}
-    document.getElementById('p2p-annuaire-content').innerHTML=
-        `<div class="lb" id="p2p-annuaire-txt" style="max-height:500px">${esc(r.data.annuaire||'')}</div>`;
-}
-
-function copyAnnuaire(){
-    const el=document.getElementById('p2p-annuaire-txt');
-    if(el){navigator.clipboard.writeText(el.textContent).then(()=>flash('Annuaire copié.'));}
-}
-
-async function p2pSyncNow(){
-    const btn=document.getElementById('p2p-sync-btn');
-    btn.disabled=true;btn.innerHTML='<span class="spin"></span> Sync…';
-    const r=await post('/p2p/sync_now');
-    btn.disabled=false;btn.innerHTML='<img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Sync bootstrap';
-    flash(r.success?r.message:r.error,!r.success);
-    if(r.success)loadP2p();
-}
-
-async function kickPeer(id){
-    if(!confirm('Supprimer ce nœud ?'))return;
-    const r=await post('/p2p/kick',{peer_id:id});
-    flash(r.success?r.message:r.error,!r.success);
-    if(r.success)loadP2p();
-}
-
-/* ── Init ───────────────────────────────────────────────────────── */
+/* ── Init ── */
 (async function(){
-    const t=localStorage.getItem('vex-theme');
-    if(t==='dark'||t==='1')document.documentElement.setAttribute('data-theme','dark');
-    else if(t==='light'||t==='0')document.documentElement.setAttribute('data-theme','light');
     const sec=new URLSearchParams(location.search).get('section')||'dashboard';
     await loadDash();
     if(sec!=='dashboard')nav(sec);

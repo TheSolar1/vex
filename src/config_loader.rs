@@ -345,26 +345,188 @@ pub struct ExtensionsConfig {
 // ══════════════════════════════════════════════════════════════════
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DbConfig {
+    #[serde(default = "default_host")]
     pub host: String,
+    #[serde(default)]
     pub user: String,
+    #[serde(default)]
     pub password: String,
+    /// Nom de la base. `database` est accepte comme alias.
+    #[serde(default, alias = "database")]
     pub dbname: String,
     #[serde(default = "default_port")]
     pub port: u16,
 }
+
 impl Default for DbConfig {
     fn default() -> Self {
         Self {
-            host: "localhost".into(),
-            user: "orsql".into(),
-            password: "iDq]25F0u8v*z[1d".into(),
-            dbname: "user".into(),
-            port: 3306,
+            // 127.0.0.1 et non "localhost" : sous Debian / Raspberry Pi OS,
+            // MariaDB n'ecoute qu'en IPv4, alors que "localhost" se resout
+            // souvent en ::1 d'abord — la connexion echoue alors sans raison
+            // apparente. L'adresse litterale evite ce piege.
+            host: default_host(),
+            user: String::new(),
+            password: String::new(),
+            dbname: String::new(),
+            port: default_port(),
         }
     }
 }
+
+fn default_host() -> String {
+    "127.0.0.1".into()
+}
 fn default_port() -> u16 {
     3306
+}
+
+/// Fichier de configuration dedie a la base, hors de config.json :
+/// il contient un mot de passe et n'a pas vocation a etre versionne.
+pub const DB_CONFIG_PATH: &str = "db.json";
+
+/// Variable d'environnement pour pointer ailleurs que sur ./db.json.
+pub const DB_CONFIG_ENV: &str = "VEX_DB_CONFIG";
+
+/// Exemple montre a l'utilisateur quand rien n'est configure.
+pub fn db_config_exemple() -> String {
+    serde_json::to_string_pretty(&serde_json::json!({
+        "host": "127.0.0.1",
+        "port": 3306,
+        "user": "vex",
+        "password": "<mot de passe>",
+        "database": "vex"
+    }))
+    .unwrap_or_default()
+}
+
+/// Chemin effectif du fichier de configuration base.
+pub fn db_config_path() -> String {
+    std::env::var(DB_CONFIG_ENV).unwrap_or_else(|_| DB_CONFIG_PATH.to_string())
+}
+
+/// Charge la configuration de la base, par ordre de priorite :
+///   1. variables d'environnement VEX_DB_HOST / _PORT / _USER /
+///      _PASSWORD / _NAME (pratique en conteneur ou en service systemd) ;
+///   2. le fichier dedie (db.json, ou VEX_DB_CONFIG) ;
+///   3. la section "db" de config.json, pour les installations anciennes.
+///
+/// Si aucune source ne fournit d'identifiants, on renvoie une erreur
+/// explicite plutot que de tenter une connexion avec des valeurs par
+/// defaut : un echec silencieux ici se traduit sinon par des erreurs
+/// MySQL incomprehensibles bien plus loin dans le demarrage.
+pub fn load_db_config(path: &str) -> Result<DbConfig, String> {
+    let mut cfg = DbConfig::default();
+    let mut source = String::new();
+
+    // ── 3. config.json (le moins prioritaire) ────────────────────
+    if let Some(db) = std::fs::read_to_string(path)
+        .ok()
+        .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+        .and_then(|v| v.get("db").cloned())
+    {
+        if let Ok(c) = serde_json::from_value::<DbConfig>(db) {
+            if !c.user.is_empty() {
+                cfg = c;
+                source = format!("section \"db\" de {}", path);
+            }
+        }
+    }
+
+    // ── 2. fichier dedie ─────────────────────────────────────────
+    let chemin = db_config_path();
+    match std::fs::read_to_string(&chemin) {
+        Ok(brut) => match serde_json::from_str::<DbConfig>(&brut) {
+            Ok(c) => {
+                if c.user.is_empty() {
+                    return Err(format!(
+                        "{} ne renseigne pas \"user\".\n\nExemple attendu :\n{}",
+                        chemin,
+                        db_config_exemple()
+                    ));
+                }
+                cfg = c;
+                source = chemin.clone();
+            }
+            Err(e) => {
+                return Err(format!(
+                    "{} est illisible : {}\n\nFormat attendu :\n{}",
+                    chemin,
+                    e,
+                    db_config_exemple()
+                ));
+            }
+        },
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+            return Err(format!("{} n'a pas pu etre lu : {}", chemin, e));
+        }
+        Err(_) => { /* absent : on continue, une autre source suffit peut-etre */ }
+    }
+
+    // ── 1. variables d'environnement ─────────────────────────────
+    let mut par_env = false;
+    if let Ok(v) = std::env::var("VEX_DB_HOST") {
+        cfg.host = v;
+        par_env = true;
+    }
+    if let Ok(v) = std::env::var("VEX_DB_PORT") {
+        cfg.port = v.parse().unwrap_or(cfg.port);
+        par_env = true;
+    }
+    if let Ok(v) = std::env::var("VEX_DB_USER") {
+        cfg.user = v;
+        par_env = true;
+    }
+    if let Ok(v) = std::env::var("VEX_DB_PASSWORD") {
+        cfg.password = v;
+        par_env = true;
+    }
+    if let Ok(v) = std::env::var("VEX_DB_NAME") {
+        cfg.dbname = v;
+        par_env = true;
+    }
+    if par_env {
+        source = if source.is_empty() {
+            "variables d'environnement VEX_DB_*".to_string()
+        } else {
+            format!("{} + variables d'environnement VEX_DB_*", source)
+        };
+    }
+
+    // ── Rien de configure : on s'arrete net ──────────────────────
+    if cfg.user.is_empty() || cfg.dbname.is_empty() {
+        return Err(format!(
+            "Configuration de la base de donnees introuvable.\n\n\
+             Aucune des sources suivantes ne fournit d'identifiants :\n\
+             \u{20} 1. variables VEX_DB_HOST / VEX_DB_PORT / VEX_DB_USER / \
+             VEX_DB_PASSWORD / VEX_DB_NAME\n\
+             \u{20} 2. fichier {} (chemin modifiable via {})\n\
+             \u{20} 3. section \"db\" de {}\n\n\
+             Creez {} avec ce contenu, puis relancez :\n\n{}\n\n\
+             Pensez a l'exclure du depot : il contient un mot de passe.",
+            chemin,
+            DB_CONFIG_ENV,
+            path,
+            chemin,
+            db_config_exemple()
+        ));
+    }
+
+    // "localhost" se resout souvent en ::1 avant 127.0.0.1 sous Debian /
+    // Raspberry Pi OS, ou MariaDB n'ecoute qu'en IPv4 : on bascule en clair.
+    if cfg.host.trim().eq_ignore_ascii_case("localhost") {
+        eprintln!(
+            "[config_loader] host=\"localhost\" remplace par \"127.0.0.1\" \
+             (MariaDB n'ecoute souvent qu'en IPv4)."
+        );
+        cfg.host = default_host();
+    }
+
+    eprintln!(
+        "[config_loader] Base : {}@{}:{}/{} (source : {})",
+        cfg.user, cfg.host, cfg.port, cfg.dbname, source
+    );
+    Ok(cfg)
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -386,22 +548,6 @@ pub fn load_config(path: &str) -> VexConfig {
             eprintln!("[config_loader] Impossible de lire {} : {}", path, e);
             VexConfig::default()
         }
-    }
-}
-
-/// Charge la config DB depuis config.json (section "db" si présente,
-/// sinon les valeurs hardcodées en Default).
-pub fn load_db_config(path: &str) -> DbConfig {
-    match std::fs::read_to_string(path) {
-        Ok(raw) => {
-            let v: serde_json::Value = serde_json::from_str(&raw).unwrap_or_default();
-            if let Some(db) = v.get("db") {
-                serde_json::from_value(db.clone()).unwrap_or_default()
-            } else {
-                DbConfig::default()
-            }
-        }
-        Err(_) => DbConfig::default(),
     }
 }
 
@@ -439,13 +585,13 @@ fn merge_json(base: serde_json::Value, new: serde_json::Value) -> serde_json::Va
     }
 }
 
-/// Ajoute la section "db" dans config.json si elle n'existe pas encore.
-/// Utile pour le premier lancement.
-pub fn ensure_db_section(path: &str, db: &DbConfig) {
-    let raw = std::fs::read_to_string(path).unwrap_or_else(|_| "{}".into());
-    let mut v: serde_json::Value = serde_json::from_str(&raw).unwrap_or(serde_json::json!({}));
-    if v.get("db").is_none() {
-        v["db"] = serde_json::to_value(db).unwrap_or_default();
-        let _ = std::fs::write(path, serde_json::to_string_pretty(&v).unwrap_or_default());
+/// Ecrit un db.json d'exemple si aucun n'existe. Rend true s'il a ete cree.
+/// Le fichier est volontairement incomplet (mot de passe a remplir) :
+/// il sert d'amorce, pas de configuration utilisable telle quelle.
+pub fn ecrire_db_config_exemple() -> bool {
+    let chemin = db_config_path();
+    if std::path::Path::new(&chemin).exists() {
+        return false;
     }
+    std::fs::write(&chemin, db_config_exemple() + "\n").is_ok()
 }

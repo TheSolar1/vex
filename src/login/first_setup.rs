@@ -24,7 +24,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, _
 
     if request.method().to_string() == "POST" {
         let body = read_body(&mut request);
-        let resp = handle_post(pool, config.security.password_min_length as usize, &body);
+        let resp = handle_post(pool, &body);
         let _ = request.respond(
             Response::from_string(resp).with_header(
                 tiny_http::Header::from_bytes("Content-Type", "application/json; charset=utf-8")
@@ -50,7 +50,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, _
     ));
 }
 
-fn handle_post(pool: &DbPool, pass_min: usize, body: &HashMap<String, String>) -> String {
+fn handle_post(pool: &DbPool, body: &HashMap<String, String>) -> String {
     if body.get("setup").is_none() {
         return jerr("Requête invalide.");
     }
@@ -67,20 +67,24 @@ fn handle_post(pool: &DbPool, pass_min: usize, body: &HashMap<String, String>) -
         .unwrap_or_default()
         .trim()
         .to_string();
-    let mdp = body.get("motdepass").cloned().unwrap_or_default();
-    let mdp2 = body.get("motdepass2").cloned().unwrap_or_default();
+    let salt_hex = body.get("srp_salt").cloned().unwrap_or_default();
+    let verifier_hex = body.get("srp_verifier").cloned().unwrap_or_default();
 
-    if nom.is_empty() || email.is_empty() || mdp.is_empty() {
+    if nom.is_empty() || email.is_empty() {
         return jerr("Tous les champs sont obligatoires.");
     }
     if !email.contains('@') || !email.contains('.') {
         return jerr("Adresse email invalide.");
     }
-    if mdp.len() < pass_min {
-        return jerr(&format!("Mot de passe : {} caractères minimum.", pass_min));
+    // Validation de forme : salt = 16 octets hex (32 car.), verifier = 256 octets hex (512 car. max)
+    if salt_hex.len() != 32 || !salt_hex.chars().all(|c| c.is_ascii_hexdigit()) {
+        return jerr("Format de salt invalide.");
     }
-    if mdp != mdp2 {
-        return jerr("Les mots de passe ne correspondent pas.");
+    if verifier_hex.is_empty()
+        || verifier_hex.len() > 512
+        || !verifier_hex.chars().all(|c| c.is_ascii_hexdigit())
+    {
+        return jerr("Format de verifier invalide.");
     }
     if compter_lignes(pool, "login", &[]) > 0 {
         return jerr("Un compte existe déjà.");
@@ -92,8 +96,9 @@ fn handle_post(pool: &DbPool, pass_min: usize, body: &HashMap<String, String>) -
         &[
             ("nom", mysql::Value::from(html_escape(&nom).as_str())),
             ("email", mysql::Value::from(html_escape(&email).as_str())),
-            ("motdepass", mysql::Value::from(hash_pw(&mdp).as_str())),
-            ("privilege", mysql::Value::from(2i64)),
+            ("srp_salt", mysql::Value::from(salt_hex.as_str())),
+            ("srp_verifier", mysql::Value::from(verifier_hex.as_str())),
+            ("privilege", mysql::Value::from(1i64)),
             ("vip", mysql::Value::from(1i64)),
         ],
         &[],
@@ -125,13 +130,6 @@ fn jerr(msg: &str) -> String {
         r#"{{"success":false,"error":"{}"}}"#,
         msg.replace('"', "\\\"")
     )
-}
-
-fn hash_pw(pw: &str) -> String {
-    use sha2::{Digest, Sha256};
-    let mut h = Sha256::new();
-    h.update(pw.as_bytes());
-    format!("{:x}", h.finalize())
 }
 
 fn read_body(req: &mut Request) -> HashMap<String, String> {

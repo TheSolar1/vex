@@ -5,32 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard — VEX</title>
     <link rel="icon" href="/static/img/favicon.ico" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css">
     <script src="/static/fa-local.js" defer></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        /* FIX (couleur bande à gauche) : ces variables locales dupliquaient
+           et désaccordaient les couleurs du reste du site. On les fait
+           maintenant pointer directement sur les tokens de theme.css
+           (--accent, --text, --border, --surface, --bg, --alt), déjà
+           utilisés par function.rs / admin.html / account.html. Résultat :
+           la bande de survol des lignes prend exactement le même vert que
+           partout ailleurs sur VEX, en clair comme en sombre. */
         :root {
-            --green-primary: #4caf50;
-            --green-dark: #45a049;
-            --bg-light: #f0f2f5;
-            --text-dark: #1c1e21;
-            --text-secondary: #65676b;
-            --border-color: #e4e6eb;
-            --white: #ffffff;
-            --success-bg: #e8f5e9;
-            --hover-bg: #f0f2f5;
-        }
-
-        [data-theme="dark"] {
-            --green-primary: #4caf50;
-            --green-dark: #2d5f2e;
-            --bg-light: #18191a;
-            --text-dark: #e4e6eb;
-            --text-secondary: #b0b3b8;
-            --border-color: #3a3b3c;
-            --white: #242526;
-            --hover-bg: #3a3b3c;
-            --success-bg: #2d5f2e;
+            --green-primary: var(--accent);
+            --green-dark: var(--vex-green-2);
+            --bg-light: var(--bg);
+            --text-dark: var(--text);
+            --text-secondary: var(--text-dim);
+            --border-color: var(--panel-border);
+            --white: var(--surface);
+            --success-bg: var(--alt);
+            --hover-bg: var(--surface2);
         }
 
         body {
@@ -47,13 +43,13 @@
         }
 
         .welcome-section {
-            background: linear-gradient(135deg, var(--green-primary) 0%, var(--green-dark) 100%);
+            background: linear-gradient(135deg, var(--vex-green-1) 0%, var(--vex-green-2) 100%);
             border-radius: 12px; padding: 40px; margin-bottom: 30px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1); color: white;
         }
         .welcome-title { font-size: 32px; font-weight: 300; margin-bottom: 10px; }
         .welcome-name  { font-size: 42px; font-weight: 700; }
-        .welcome-name.fona {
+        .welcome-name.fona, .item-title.fona {
             color: transparent; -webkit-background-clip: text; background-clip: text;
             background-image: url("/static/img/image2.png"), url("/static/img/image3.png");
             background-size: 100% 200%; background-position: 100% 100%, 100% 200%;
@@ -118,8 +114,17 @@
         }
         .item-right  { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
         .item-badge  { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
-        .badge-success { background: #e8f5e9; color: #2e7d32; }
-        .badge-info    { background: #e3f2fd; color: #1565c0; }
+        /* FIX : badges aussi alignés sur les tokens du thème (au lieu de
+           couleurs vertes/bleues fixes qui juraient en mode sombre) */
+        .badge-success { background: var(--alt); color: var(--accent); }
+        .badge-info    { background: rgba(59,130,246,0.12); color: var(--blue); }
+        /* Memes proportions et meme discretion que .badge-success ("Actif"),
+           seule la teinte change selon le niveau. */
+        .badge-warn    { background: rgba(245,158,11,0.14); color: #b45309; }
+        .badge-danger  { background: rgba(220,38,38,0.12);  color: #dc2626; }
+        .badge-neutral { background: rgba(120,130,145,0.14); color: var(--text-secondary); }
+        [data-theme="dark"] .badge-warn { color: #fbbf24; }
+        [data-theme="dark"] .badge-danger { color: #ff6b6b; }
         .item-time   { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
 
         .btn-action {
@@ -128,7 +133,7 @@
             cursor: pointer; transition: background 0.2s; text-decoration: none;
             display: inline-flex; align-items: center; gap: 6px;
         }
-        .btn-action:hover { background: var(--green-dark); }
+        .btn-action:hover { filter: brightness(0.92); }
 
         .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
         .empty-state p { font-size: 18px; margin-top: 12px; }
@@ -138,7 +143,16 @@
             color: var(--green-primary); text-decoration: none;
             font-weight: 600; font-size: 14px;
         }
-        .show-more a:hover { color: var(--green-dark); }
+        .show-more a:hover { filter: brightness(0.92); }
+
+        /* ── Correction 2 (déconnexion auto) : petit bandeau discret qui
+           s'affiche si la session expire pendant que le dashboard est
+           ouvert, avant la redirection vers /login. ── */
+        #session-expired-banner {
+            display: none; position: fixed; top: 0; left: 0; right: 0;
+            background: var(--danger); color: #fff; text-align: center;
+            padding: 10px 16px; font-size: 14px; font-weight: 600; z-index: 5000;
+        }
 
         @media (max-width: 768px) {
             .welcome-title { font-size: 24px; }
@@ -149,6 +163,8 @@
     </style>
 </head>
 <body data-theme="{{THEME}}">
+
+<div id="session-expired-banner">Votre session a expiré — redirection vers la connexion…</div>
 
 __NAV_HTML__
 
@@ -161,23 +177,24 @@ __NAV_HTML__
 
     <div class="content-grid">
 
+        {{TUILES_STYLE}}
         {{ADMIN_CARD}}
 
-        <!-- Exodrive -->
-        <div class="card">
+        <!-- Fichiers -->
+        <div class="card" data-tuile="fichiers">
             <div class="card-header">
                 <div class="card-icon"><i class="fas fa-hard-drive"></i></div>
                 <div class="card-header-text">
-                    <div class="card-title">Exodrive</div>
-                    <div class="card-subtitle">{{EXODRIVE_STATS}}</div>
+                    <div class="card-title">Fichiers</div>
+                    <div class="card-subtitle">{{Fichiers_STATS}}</div>
                 </div>
-                <a href="/tel/" class="btn-action"><i class="fas fa-folder-open"></i> Ouvrir</a>
+                <a href="/fchier/" class="btn-action"><i class="fas fa-folder-open"></i> Ouvrir</a>
             </div>
-            <div class="card-content">{{EXODRIVE_FILES}}</div>
+            <div class="card-content">{{Fichiers_FILES}}</div>
         </div>
 
         <!-- VexMail -->
-        <div class="card">
+        <div class="card" data-tuile="vexmail">
             <div class="card-header">
                 <div class="card-icon"><i class="fas fa-envelope"></i></div>
                 <div class="card-header-text">
@@ -190,7 +207,7 @@ __NAV_HTML__
         </div>
 
         <!-- Sitec -->
-        <div class="card">
+        <div class="card" data-tuile="sitec">
             <div class="card-header">
                 <div class="card-icon"><i class="fas fa-globe"></i></div>
                 <div class="card-header-text">
@@ -202,8 +219,10 @@ __NAV_HTML__
             <div class="card-content">{{SITEC_SITES}}</div>
         </div>
 
+        {{EXT_TILES}}
+
         <!-- Éditeur -->
-        <div class="card">
+        <div class="card" data-tuile="editeur">
             <div class="card-header">
                 <div class="card-icon"><i class="fas fa-folder-open"></i></div>
                 <div class="card-header-text">
@@ -218,7 +237,7 @@ __NAV_HTML__
         </div>
 
         <!-- Vidéos -->
-        <div class="card">
+        <div class="card" data-tuile="videos">
             <div class="card-header">
                 <div class="card-icon"><i class="fas fa-video"></i></div>
                 <div class="card-header-text">
@@ -235,5 +254,96 @@ __NAV_HTML__
     </div><!-- .content-grid -->
 </div><!-- .content-area -->
 
+<script>
+(function () {
+    "use strict";
+    // ══════════════════════════════════════════════════════════════
+    // FIX (déconnexion auto) : tant que le dashboard reste ouvert,
+    // rien ne détectait l'expiration de session côté client — la page
+    // restait affichée indéfiniment même après expiration du cookie.
+    // On vérifie périodiquement (toutes les 60s) que la session est
+    // toujours active en interrogeant une route déjà authentifiée
+    // (/api/account/data). Si elle répond 401 ou "Non connecté", on
+    // affiche un court bandeau puis on redirige vers /login.
+    // ══════════════════════════════════════════════════════════════
+    const CHECK_INTERVAL_MS = 60_000;
+
+    async function checkSessionAlive() {
+        try {
+            const r = await fetch('/api/account/data', { credentials: 'include' });
+            if (r.status === 401) {
+                handleExpired();
+                return;
+            }
+            const data = await r.json().catch(() => null);
+            if (data && data.success === false) {
+                const err = (data.error || '').toLowerCase();
+                if (err.includes('non connect')) {
+                    handleExpired();
+                }
+            }
+        } catch (e) {
+            // Erreur réseau ponctuelle : on ne déconnecte pas sur un simple
+            // problème de connectivité, on retentera au prochain intervalle.
+        }
+    }
+
+    let expiredHandled = false;
+    function handleExpired() {
+        if (expiredHandled) return;
+        expiredHandled = true;
+        const banner = document.getElementById('session-expired-banner');
+        if (banner) banner.style.display = 'block';
+        setTimeout(() => { window.location.href = '/login'; }, 1500);
+    }
+
+    setInterval(checkSessionAlive, CHECK_INTERVAL_MS);
+})();
+</script>
+
 </body>
+
+<script>
+/* ── Tuiles vivantes ──────────────────────────────────────────────
+   Les horodatages sont recalcules toutes les 10 s a partir de
+   data-ts, et la tuile Administration est reconstruite toutes les
+   30 s (et des que l'onglet redevient visible). */
+(function(){
+  function depuis(ts){
+    const d=Math.floor(Date.now()/1000)-ts;
+    if(!ts||ts<=0)return 'date inconnue';
+    if(d<60)return "a l'instant";
+    if(d<3600)return 'il y a '+Math.floor(d/60)+' min';
+    if(d<86400)return 'il y a '+Math.floor(d/3600)+' h';
+    return 'il y a '+Math.floor(d/86400)+' j';
+  }
+  function majTemps(racine){
+    (racine||document).querySelectorAll('[data-ts]').forEach(el=>{
+      const ts=Number(el.dataset.ts)||0;
+      const prefixe=el.textContent.startsWith('Mis a jour')?'Mis a jour ':'';
+      el.textContent=prefixe+depuis(ts);
+    });
+  }
+  let enCours=false;
+  async function majAdmin(){
+    const carte=document.getElementById('carte-admin');
+    if(!carte||enCours||document.hidden)return;
+    enCours=true;
+    try{
+      const r=await (await fetch('/api/dashboard/admin',{credentials:'include'})).json();
+      if(r.success&&r.html){
+        const tmp=document.createElement('div');
+        tmp.innerHTML=r.html;
+        const neuve=tmp.firstElementChild;
+        if(neuve){carte.replaceWith(neuve);majTemps(neuve);}
+      }
+    }catch(e){/* hors ligne : on garde l'affichage courant */}
+    enCours=false;
+  }
+  majTemps();
+  setInterval(majTemps,10000);
+  setInterval(majAdmin,30000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)majAdmin();});
+})();
+</script>
 </html>

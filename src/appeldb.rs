@@ -436,10 +436,13 @@ pub fn get_tailles_tables(pool: &DbPool) -> Vec<HashMap<String, Value>> {
             let mut map = HashMap::new();
             map.insert(
                 "table_name".into(),
-                json!(row.get::<String, _>("table_name").unwrap_or_default()),
+                // Acces par position : information_schema renvoie
+                // TABLE_NAME en majuscules selon la version de MySQL,
+                // et row.get(nom) est sensible a la casse.
+                json!(row.get::<Option<String>, _>(0).flatten().unwrap_or_default()),
             );
-            map.insert("sz".into(), json!(row.get::<f64, _>("sz").unwrap_or(0.0)));
-            map.insert("rws".into(), json!(row.get::<u64, _>("rws").unwrap_or(0)));
+            map.insert("sz".into(), json!(row.get::<Option<f64>, _>(1).flatten().unwrap_or(0.0)));
+            map.insert("rws".into(), json!(row.get::<Option<u64>, _>(2).flatten().unwrap_or(0)));
             map
         })
         .collect()

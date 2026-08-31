@@ -1,153 +1,152 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="light">
+<html lang="fr" data-theme="{{THEME}}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Page de Réglages - VEX</title>
   <link rel="icon" type="image/png" href="/static/img/favicon.ico">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/static/css/theme.css">
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
       font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-      background:#ffffff;
       min-height:100vh;
       padding-top:60px;
       overflow-x:hidden;
-      color:#1c1e21;
+      /* FIX (thème) : plus de background/color codés en dur ici — tout
+         vient de theme.css via les variables --bg/--text, pilotées par
+         data-theme sur <html>, injecté par le serveur (account.rs). */
     }
-    body.dark-mode { background:#000; color:#e4e6eb; }
 
     .container-main{max-width:1400px;margin:20px auto;padding:0 20px;}
     .message{padding:15px;border-radius:8px;margin-bottom:20px;animation:slideIn .3s ease;}
-    .message.success{background:rgba(76,175,80,0.2);color:#2e7d32;border-left:4px solid #4caf50;}
-    .message.error{background:rgba(255,59,48,0.2);color:#c62828;border-left:4px solid #ff3b30;}
+    .message.success{background:var(--alt);color:var(--accent);border-left:4px solid var(--accent);}
+    .message.error{background:rgba(220,38,38,0.12);color:var(--danger);border-left:4px solid var(--danger);}
     @keyframes slideIn{from{transform:translateY(-20px);opacity:0;}to{transform:translateY(0);opacity:1;}}
 
     .main-layout{display:flex;gap:20px;margin-top:20px;}
+
+    /* FIX (problème à gauche) : la sidebar était en position:sticky
+       avec un top fixe de 80px, sans lien avec la hauteur réelle de la
+       nav (60px). Ça la décale ou la colle mal selon le zoom/écran.
+       On calcule le top depuis une variable partagée avec la nav
+       (60px de hauteur + 20px de marge, comme .container-main). */
     .sidebar{
-      width:260px;background:rgba(255,255,255,0.95);border-radius:16px;padding:20px 10px;
-      box-shadow:0 8px 32px rgba(0,0,0,0.1);backdrop-filter:blur(10px);
-      height:fit-content;position:sticky;top:80px;
+      width:260px;
+      background:var(--sidebar-bg);
+      border:1px solid var(--panel-border);
+      border-radius:16px;padding:20px 10px;
+      box-shadow:var(--shadow);backdrop-filter:blur(10px);
+      height:fit-content;
+      position:sticky;
+      top:calc(60px + 20px);
+      align-self:flex-start;
     }
     .sidebar-link{
-      display:flex;align-items:center;gap:12px;padding:12px 16px;color:#333;text-decoration:none;
+      display:flex;align-items:center;gap:12px;padding:12px 16px;color:var(--text);text-decoration:none;
       border-radius:8px;margin-bottom:8px;transition:all .3s ease;font-weight:500;
     }
-    .sidebar-link:hover{background:rgba(76,175,80,0.1);color:#4caf50;}
-    .sidebar-link.active{background:#4caf50;color:#fff;}
+    .sidebar-link:hover{background:var(--sidebar-hover);color:var(--accent);}
+    .sidebar-link.active{background:var(--sidebar-active);color:#fff;}
     .sidebar-link i{font-size:18px;width:20px;text-align:center;}
 
     .content-area{flex:1;min-width:0;}
     .card{
-      background:rgba(255,255,255,0.95);border-radius:16px;padding:30px;margin-bottom:20px;
-      box-shadow:0 8px 32px rgba(0,0,0,0.1);backdrop-filter:blur(10px);
+      background:var(--surface);border:1px solid var(--panel-border);border-radius:16px;padding:30px;margin-bottom:20px;
+      box-shadow:var(--shadow);backdrop-filter:blur(10px);
       transition:transform .3s ease, box-shadow .3s ease;
     }
     .card:hover{transform:translateY(-5px);box-shadow:0 12px 48px rgba(0,0,0,0.15);}
-    .card h2{color:#4caf50;margin-bottom:20px;font-size:24px;display:flex;align-items:center;gap:10px;}
+    .card h2{color:var(--accent);margin-bottom:20px;font-size:24px;display:flex;align-items:center;gap:10px;}
     .card h2 i{font-size:28px;}
-    .card h3{color:#45a049;margin:20px 0 10px;font-size:18px;}
-    .card p{color:#666;margin-bottom:20px;line-height:1.6;}
+    .card h3{color:var(--accent);margin:20px 0 10px;font-size:18px;}
+    .card p{color:var(--text-dim);margin-bottom:20px;line-height:1.6;}
 
     .form-group{margin-bottom:20px;}
-    .form-group label{display:block;margin-bottom:8px;color:#333;font-weight:600;}
+    .form-group label{display:block;margin-bottom:8px;color:var(--text);font-weight:600;}
     .form-group input[type="password"]{
-      width:100%;padding:12px 16px;border:2px solid #e0e0e0;border-radius:8px;font-size:16px;
-      transition:border-color .3s ease;background:#fff;color:#1c1e21;
+      width:100%;padding:12px 16px;border:2px solid var(--panel-border);border-radius:8px;font-size:16px;
+      transition:border-color .3s ease;background:var(--input);color:var(--text);
     }
-    .form-group input:focus{outline:none;border-color:#4caf50;}
+    .form-group input:focus{outline:none;border-color:var(--accent);}
 
     .btn{
       padding:12px 24px;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;
       transition:all .3s ease;display:inline-flex;align-items:center;gap:8px;text-decoration:none;
     }
-    .btn-primary{background:#4caf50;color:#fff;box-shadow:0 4px 12px rgba(76,175,80,0.3);}
-    .btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(76,175,80,0.4);background:#45a049;}
-    .btn-secondary{background:#fff;color:#4caf50;border:2px solid #4caf50;}
-    .btn-secondary:hover{background:rgba(76,175,80,0.1);transform:translateY(-2px);}
-    .btn-danger{background:#ff3b30;color:#fff;box-shadow:0 4px 12px rgba(255,59,48,0.3);}
-    .btn-danger:hover{background:#e53935;transform:translateY(-2px);}
+    .btn-primary{background:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(76,175,80,0.3);}
+    .btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(76,175,80,0.4);filter:brightness(1.05);}
+    .btn-secondary{background:transparent;color:var(--accent);border:2px solid var(--accent);}
+    .btn-secondary:hover{background:var(--alt);transform:translateY(-2px);}
+    .btn-danger{background:var(--danger);color:#fff;box-shadow:0 4px 12px rgba(220,38,38,0.3);}
+    .btn-danger:hover{filter:brightness(1.08);transform:translateY(-2px);}
 
     .theme-toggle{display:flex;gap:15px;margin-top:15px;}
     .theme-option{
-      flex:1;padding:20px;border:3px solid #e0e0e0;border-radius:12px;cursor:pointer;
-      transition:all .3s ease;text-align:center;
+      flex:1;padding:20px;border:3px solid var(--panel-border);border-radius:12px;cursor:pointer;
+      transition:all .3s ease;text-align:center;color:var(--text);
     }
-    .theme-option:hover{border-color:#4caf50;transform:translateY(-3px);}
-    .theme-option.selected{border-color:#4caf50;background:rgba(76,175,80,0.1);}
+    .theme-option:hover{border-color:var(--accent);transform:translateY(-3px);}
+    .theme-option.selected{border-color:var(--accent);background:var(--alt);}
     .theme-option input{display:none;}
+    .theme-option p{color:var(--text-dim)!important;font-size:12px;}
     .theme-preview{width:100%;height:80px;border-radius:8px;margin-bottom:10px;}
     .theme-preview.light{background:linear-gradient(to bottom,#ffffff,#f0f0f0);}
     .theme-preview.dark{background:linear-gradient(to bottom,#1a1a1a,#0f0f0f);}
 
     .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:30px;}
     .stat-box{padding:20px;border-radius:12px;}
-    .stat-box.blue{background:linear-gradient(135deg,rgba(33,150,243,0.1),rgba(25,118,210,0.05));border-left:4px solid #2196f3;}
-    .stat-box.purple{background:linear-gradient(135deg,rgba(156,39,176,0.1),rgba(123,31,162,0.05));border-left:4px solid #9c27b0;}
-    .stat-label{font-size:14px;color:#666;margin-bottom:8px;}
-    .stat-value{font-size:24px;font-weight:700;color:inherit;}
+    .stat-box.blue{background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(59,130,246,0.04));border-left:4px solid var(--blue);}
+    .stat-box.purple{background:linear-gradient(135deg,rgba(156,39,176,0.12),rgba(156,39,176,0.04));border-left:4px solid #9c27b0;}
+    .stat-label{font-size:14px;color:var(--text-dim);margin-bottom:8px;}
+    .stat-value{font-size:24px;font-weight:700;color:var(--text);}
 
-    .info-row{display:flex;align-items:center;gap:12px;padding:14px 18px;background:#f9f9f9;border-radius:10px;border:1px solid #ececec;}
-    .info-row-between{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;background:#f9f9f9;border-radius:10px;border:1px solid #ececec;}
+    .info-row{display:flex;align-items:center;gap:12px;padding:14px 18px;background:var(--surface2);border-radius:10px;border:1px solid var(--panel-border);}
+    .info-row-between{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;background:var(--surface2);border-radius:10px;border:1px solid var(--panel-border);}
     .info-row-inner{display:flex;align-items:center;gap:12px;}
-    .info-label{font-size:12px;color:#999;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
-    .info-value{font-size:15px;color:#333;font-weight:500;}
+    .info-label{font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
+    .info-value{font-size:15px;color:var(--text);font-weight:500;}
 
-    .autologin-box{background:rgba(76,175,80,0.07);border:2px dashed #4caf50;border-radius:12px;padding:24px;margin-top:10px;}
-    .autologin-box-empty{text-align:center;}
-    .autologin-box-empty .al-icon{font-size:48px;color:#4caf50;margin-bottom:14px;}
+    .autologin-box{background:var(--alt);border:2px dashed var(--accent);border-radius:12px;padding:24px;margin-top:10px;}
+    .autologin-box-empty{text-align:center;color:var(--text);}
+    .autologin-box-empty .al-icon{font-size:48px;color:var(--accent);margin-bottom:14px;}
     .autologin-token-row{
       display:flex;align-items:center;justify-content:space-between;gap:12px;
-      background:#f9f9f9;border:1px solid #e0e0e0;border-radius:10px;padding:14px 18px;margin-bottom:12px;
+      background:var(--surface2);border:1px solid var(--panel-border);border-radius:10px;padding:14px 18px;margin-bottom:12px;
     }
-  .autologin-token-url{font-family:monospace;font-size:13px;color:#444;word-break:break-all;flex:1;}
-  .autologin-token-actions{display:flex;gap:8px;flex-shrink:0;}
-  .al-warning{background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:12px 16px;font-size:13px;color:#795548;margin-top:16px;}
-  .al-disabled{background:rgba(255,59,48,0.08);border:1px solid rgba(255,59,48,0.2);border-radius:10px;padding:20px;color:#c62828;font-size:14px;text-align:center;margin-top:10px;}
-  #al-token{word-break:break-all;overflow-wrap:anywhere;font-family:monospace;font-size:13px;}
-  .toast{
-    position:fixed;bottom:16px;left:50%;transform:translate(-50%,12px);
-    max-width:360px;padding:12px 14px;border-radius:12px;font-weight:600;
-    color:#fff;box-shadow:0 12px 32px rgba(0,0,0,.25);opacity:0;
-    transition:.22s ease;pointer-events:none;display:flex;align-items:center;gap:8px;
-  }
-  .toast.ok{background:rgba(0,0,0,.85);}
-  .toast.error{background:#b91c1c;}
-  .toast.show{opacity:1;transform:translate(-50%,0);}
+    .autologin-token-url{font-family:monospace;font-size:13px;color:var(--text-dim);word-break:break-all;flex:1;}
+    .autologin-token-actions{display:flex;gap:8px;flex-shrink:0;}
+    .al-warning{background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:12px 16px;font-size:13px;color:var(--orange);margin-top:16px;}
+    .al-disabled{background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.2);border-radius:10px;padding:20px;color:var(--danger);font-size:14px;text-align:center;margin-top:10px;}
+    #al-token{word-break:break-all;overflow-wrap:anywhere;font-family:monospace;font-size:13px;color:var(--text);}
+
+    .toast{
+      position:fixed;bottom:16px;left:50%;transform:translate(-50%,12px);
+      max-width:360px;padding:12px 14px;border-radius:12px;font-weight:600;
+      color:#fff;box-shadow:0 12px 32px rgba(0,0,0,.25);opacity:0;
+      transition:.22s ease;pointer-events:none;display:flex;align-items:center;gap:8px;
+      z-index:2000;
+    }
+    .toast.ok{background:rgba(0,0,0,.85);}
+    .toast.error{background:#b91c1c;}
+    .toast.show{opacity:1;transform:translate(-50%,0);}
+
     .section-content{display:none;}
     .section-content.active{display:block;}
 
-    body.dark-mode .sidebar,
-    body.dark-mode .card{background:rgba(36,37,38,0.95);color:#e4e6eb;}
-    body.dark-mode .card h2{color:#66bb6a;}
-    body.dark-mode .card h3{color:#81c784;}
-    body.dark-mode .card p{color:#b0b3b8;}
-    body.dark-mode .sidebar-link{color:#e4e6eb;}
-    body.dark-mode .sidebar-link:hover{background:rgba(102,187,106,0.1);color:#66bb6a;}
-    body.dark-mode .sidebar-link.active{background:#66bb6a;color:#000;}
-    body.dark-mode .form-group label{color:#e4e6eb;}
-    body.dark-mode .form-group input{background:#3a3b3c;border-color:#3a3b3c;color:#e4e6eb;}
-    body.dark-mode .form-group input:focus{border-color:#66bb6a;}
-    body.dark-mode .theme-option{border-color:#3a3b3c;}
-    body.dark-mode .theme-option:hover,
-    body.dark-mode .theme-option.selected{border-color:#66bb6a;background:rgba(102,187,106,0.1);}
-    body.dark-mode .theme-option p{color:#b0b3b8 !important;}
-    body.dark-mode .theme-option strong{color:#e4e6eb;}
-    body.dark-mode .message.success{background:rgba(102,187,106,0.2);border-left-color:#66bb6a;color:#81c784;}
-    body.dark-mode .message.error{background:rgba(255,59,48,0.2);border-left-color:#ff3b30;color:#ff6b6b;}
-    body.dark-mode .btn-primary{background:#66bb6a;color:#000;}
-    body.dark-mode .btn-primary:hover{background:#81c784;}
-    body.dark-mode .btn-secondary{background:transparent;color:#66bb6a;border-color:#66bb6a;}
-    body.dark-mode .btn-secondary:hover{background:rgba(102,187,106,0.1);}
-    body.dark-mode .autologin-box{background:rgba(102,187,106,0.07);border-color:#66bb6a;}
-    body.dark-mode .autologin-token-row{background:#2a2b2c;border-color:#3a3b3c;}
-    body.dark-mode .autologin-token-url{color:#c8c8c8;}
-    body.dark-mode .al-warning{background:rgba(255,224,130,0.1);border-color:rgba(255,224,130,0.3);color:#c8a96a;}
-    body.dark-mode .info-row,
-    body.dark-mode .info-row-between{background:#2a2b2c !important;border-color:#3a3b3c !important;}
-    body.dark-mode .info-label{color:#888 !important;}
-    body.dark-mode .info-value{color:#e4e6eb !important;}
+    /* Éléments spécifiques qui ne dépendent pas d'une couleur de marque fixe */
+    #avatar-letter{
+      width:120px;height:120px;border-radius:50%;
+      background:linear-gradient(135deg,var(--vex-green-1),var(--vex-green-2));
+      display:flex;align-items:center;justify-content:center;color:#fff;font-size:48px;font-weight:700;
+      box-shadow:0 8px 24px rgba(76,175,80,0.3);flex-shrink:0;
+    }
+    #user-name{font-size:28px;margin-bottom:8px;color:var(--text);}
+    #user-email{color:var(--text-dim);}
+    .profile-top-row{display:flex;align-items:start;gap:30px;margin-bottom:30px;padding-bottom:30px;border-bottom:2px solid var(--panel-border);}
+    .profile-badges{display:flex;gap:15px;align-items:center;flex-wrap:wrap;}
+    .badge-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;color:#fff;border-radius:20px;font-size:13px;font-weight:600;}
 
     @media (max-width:768px){
       .main-layout{flex-direction:column;}
@@ -157,7 +156,7 @@
     }
   </style>
 </head>
-<body data-theme="light">
+<body>
 __NAV_HTML__
 
 <div class="container-main">
@@ -179,21 +178,19 @@ __NAV_HTML__
         <div class="card">
           <h2><i class="fas fa-user-circle"></i> Mon Profil</h2>
 
-          <div style="display:flex;align-items:start;gap:30px;margin-bottom:30px;padding-bottom:30px;border-bottom:2px solid #e0e0e0;">
-            <div style="flex-shrink:0;">
-              <div id="avatar-letter" style="width:120px;height:120px;border-radius:50%;background:linear-gradient(135deg,#4caf50,#45a049);display:flex;align-items:center;justify-content:center;color:white;font-size:48px;font-weight:700;box-shadow:0 8px 24px rgba(76,175,80,0.3);">V</div>
-            </div>
+          <div class="profile-top-row">
+            <div id="avatar-letter">V</div>
             <div style="flex:1;">
-              <h3 id="user-name" style="font-size:28px;margin-bottom:8px;color:#333;">Profil</h3>
-              <p style="color:#666;font-size:16px;margin-bottom:12px;">
-                <i class="fas fa-envelope" style="margin-right:8px;color:#4caf50;"></i>
+              <h3 id="user-name">Profil</h3>
+              <p style="margin-bottom:12px;">
+                <i class="fas fa-envelope" style="margin-right:8px;color:var(--accent);"></i>
                 <span id="user-email">email@example.com</span>
               </p>
-              <div style="display:flex;gap:15px;align-items:center;flex-wrap:wrap;">
-                <span id="user-privilege" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:#4caf50;color:white;border-radius:20px;font-size:13px;font-weight:600;">
+              <div class="profile-badges">
+                <span id="user-privilege" class="badge-pill" style="background:var(--accent);">
                   <i class="fas fa-shield-alt"></i> Privilège
                 </span>
-                <span id="user-plan" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:linear-gradient(135deg,#FFD700,#FFA500);color:white;border-radius:20px;font-size:13px;font-weight:600;">
+                <span id="user-plan" class="badge-pill" style="background:linear-gradient(135deg,#FFD700,#FFA500);">
                   <i class="fas fa-crown"></i> VIP
                 </span>
               </div>
@@ -215,14 +212,14 @@ __NAV_HTML__
           <h3><i class="fas fa-info-circle"></i> Informations détaillées</h3>
           <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:30px;">
             <div class="info-row">
-              <i class="fas fa-user" style="color:#4caf50;width:20px;text-align:center;flex-shrink:0;"></i>
+              <i class="fas fa-user" style="color:var(--accent);width:20px;text-align:center;flex-shrink:0;"></i>
               <div>
                 <div class="info-label">Nom d'utilisateur</div>
                 <div class="info-value" id="prof-nom">—</div>
               </div>
             </div>
             <div class="info-row">
-              <i class="fas fa-envelope" style="color:#4caf50;width:20px;text-align:center;flex-shrink:0;"></i>
+              <i class="fas fa-envelope" style="color:var(--accent);width:20px;text-align:center;flex-shrink:0;"></i>
               <div>
                 <div class="info-label">Adresse Email</div>
                 <div class="info-value" id="prof-mail">—</div>
@@ -230,7 +227,7 @@ __NAV_HTML__
             </div>
             <div class="info-row-between">
               <div class="info-row-inner">
-                <i class="fas fa-fingerprint" style="color:#4caf50;width:20px;text-align:center;flex-shrink:0;"></i>
+                <i class="fas fa-fingerprint" style="color:var(--accent);width:20px;text-align:center;flex-shrink:0;"></i>
                 <div>
                   <div class="info-label">Identifiant Unique</div>
                   <div class="info-value" id="prof-id">#—</div>
@@ -246,6 +243,47 @@ __NAV_HTML__
 
       <div id="preferences-section" class="section-content">
         <div class="card">
+          <h2><i class="fas fa-table-cells"></i> Affichage personnalisé</h2>
+          <p>Choisissez les tuiles du tableau de bord, les informations suivies et les applications du menu.</p>
+          <div id="affichage-box"><p style="opacity:.6">Chargement…</p></div>
+          <div class="aff-pied">
+            <button class="btn btn-primary" id="aff-save" onclick="saveAffichage()" disabled>
+              <i class="fas fa-save"></i> Enregistrer l'affichage
+            </button>
+            <span class="aff-msg" id="aff-msg"></span>
+          </div>
+          <style>
+          .aff-groupe{margin-bottom:22px;padding-bottom:18px;border-bottom:1px solid var(--border,#e5e7eb)}
+          .aff-groupe:last-child{border-bottom:none;padding-bottom:0;margin-bottom:0}
+          .aff-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:11px;flex-wrap:wrap}
+          .aff-titre{font-size:.94rem;font-weight:700;display:flex;align-items:center;gap:8px}
+          .aff-compteur{font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--alt,#e8f5e9);color:var(--accent,#2e7d32)}
+          .aff-aide{font-size:.79rem;opacity:.62;margin-top:3px}
+          .aff-actions{display:flex;gap:6px}
+          .aff-mini{padding:4px 11px;font-size:.74rem;font-weight:600;border:1px solid var(--border,#ddd);border-radius:99px;background:transparent;color:inherit;cursor:pointer}
+          .aff-mini:hover{border-color:var(--accent,#2e7d32);color:var(--accent,#2e7d32)}
+          .aff-liste{display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:8px}
+          .aff-item{display:flex;align-items:center;gap:10px;padding:10px 13px;border:1px solid var(--border,#e5e7eb);border-radius:10px;cursor:pointer;font-size:.87rem;transition:border-color .13s,opacity .13s}
+          .aff-item:hover{border-color:var(--accent,#2e7d32)}
+          .aff-item.off{opacity:.5}
+          .aff-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+          .aff-tag{font-size:.66rem;font-weight:700;padding:1px 7px;border-radius:99px;background:rgba(59,130,246,.12);color:#3b82f6}
+          .aff-switch{position:relative;width:36px;height:20px;flex-shrink:0}
+          .aff-switch input{position:absolute;opacity:0;width:0;height:0}
+          .aff-slider{position:absolute;inset:0;border-radius:99px;background:#c7ccd4;transition:background .16s}
+          .aff-slider::before{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .16s;box-shadow:0 1px 3px rgba(0,0,0,.28)}
+          .aff-switch input:checked + .aff-slider{background:var(--accent,#2e7d32)}
+          .aff-switch input:checked + .aff-slider::before{transform:translateX(16px)}
+          .aff-switch input:focus-visible + .aff-slider{box-shadow:0 0 0 3px rgba(46,125,50,.28)}
+          .aff-pied{display:flex;align-items:center;gap:12px;margin-top:18px;flex-wrap:wrap}
+          #aff-save:disabled{opacity:.5;cursor:not-allowed}
+          .aff-dirty{box-shadow:0 0 0 3px rgba(46,125,50,.22)}
+          .aff-msg{font-size:.82rem;font-weight:600}
+          .aff-msg.ok{color:var(--accent,#2e7d32)}
+          .aff-msg.ko{color:#dc2626}
+          </style>
+        </div>
+        <div class="card">
           <h2><i class="fas fa-palette"></i> Préférences d'Affichage</h2>
           <p>Personnalisez l'apparence de votre interface.</p>
           <div class="theme-toggle">
@@ -253,13 +291,13 @@ __NAV_HTML__
               <input type="radio" name="theme" value="0">
               <div class="theme-preview light"></div>
               <strong>Thème Clair</strong>
-              <p style="font-size:12px;color:#666;">Interface lumineuse</p>
+              <p>Interface lumineuse</p>
             </label>
             <label class="theme-option" data-val="1">
               <input type="radio" name="theme" value="1">
               <div class="theme-preview dark"></div>
               <strong>Thème Sombre</strong>
-              <p style="font-size:12px;color:#666;">Interface sombre</p>
+              <p>Interface sombre</p>
             </label>
           </div>
           <button class="btn btn-primary" style="margin-top:14px;" id="btn-save-theme">
@@ -342,22 +380,30 @@ __NAV_HTML__
     }
   }
 
-  function applyTheme(v){
-    const val=Number(v)===1?1:0;
-    S.theme=val;
-    document.documentElement.setAttribute('data-theme', val? 'dark':'light');
-    document.body.classList.toggle('dark-mode', !!val);
+  // FIX (thème) : on ne pose plus de classe body.dark-mode côté JS ni de
+  // localStorage — le thème vient du serveur (data-theme sur <html>,
+  // injecté par account.rs via get_theme_attr). Le JS se contente de
+  // cocher la bonne case dans l'écran Préférences et d'appeler l'API
+  // quand l'utilisateur change de choix ; la page se re-render au
+  // prochain chargement avec le thème à jour depuis la base.
+  function markThemeSelected(v){
+    const val = Number(v) === 1 ? 1 : 0;
+    S.theme = val;
     document.querySelectorAll('.theme-option').forEach(o=>{
-      o.classList.toggle('selected', Number(o.dataset.val)===val);
-      const input=o.querySelector('input[name="theme"]'); if(input) input.checked=Number(input.value)===val;
+      o.classList.toggle('selected', Number(o.dataset.val) === val);
+      const input = o.querySelector('input[name="theme"]');
+      if (input) input.checked = Number(input.value) === val;
     });
-    localStorage.setItem('vex-theme', val? 'dark':'light');
   }
   async function saveTheme(val){
-    applyTheme(val);
-    const body=new URLSearchParams({theme:String(val)});
-    const r=await j('/api/account/theme',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
-    toast(r.success?'Thème enregistré':(r.error||'Erreur thème'),!r.success);
+    const body = new URLSearchParams({theme:String(val)});
+    const r = await j('/api/account/theme', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
+    if (r.success) {
+      markThemeSelected(val);
+      // Applique immédiatement sans attendre un rechargement complet
+      document.documentElement.setAttribute('data-theme', Number(val) === 1 ? 'dark' : 'light');
+    }
+    toast(r.success ? 'Thème enregistré' : (r.error || 'Erreur thème'), !r.success);
   }
 
   function renderUser(d){
@@ -370,7 +416,7 @@ __NAV_HTML__
     $('#avatar-letter').textContent=(d.user.nom||'V').substring(0,1).toUpperCase();
     const pv=d.user.privilege_details;
     const privLabel=pv?.nom_privilege || ('Privilège '+(d.user.privilege??'?'));
-    const privColor=pv?.couleur_privilege || '#4caf50';
+    const privColor=pv?.couleur_privilege || 'var(--accent)';
     const elPriv=$('#user-privilege');
     if(elPriv){ elPriv.textContent=' '+privLabel; elPriv.prepend(Object.assign(document.createElement('i'),{className:'fas fa-shield-alt'})); elPriv.style.background=privColor; }
     const elPlan=$('#user-plan');
@@ -378,7 +424,7 @@ __NAV_HTML__
       if(d.user.vip===1){
         elPlan.style.background='linear-gradient(135deg,#FFD700,#FFA500)'; elPlan.innerHTML='<i class="fas fa-crown"></i> VIP';
       }else{
-        elPlan.style.background='linear-gradient(135deg,#4caf50,#45a049)'; elPlan.innerHTML='<i class="fas fa-user"></i> Free';
+        elPlan.style.background='linear-gradient(135deg,var(--vex-green-1),var(--vex-green-2))'; elPlan.innerHTML='<i class="fas fa-user"></i> Free';
       }
     }
     $('#stat-priv').textContent=privLabel;
@@ -399,7 +445,7 @@ __NAV_HTML__
     }
     info.className='autologin-box';
     if(a.has_token){
-      info.innerHTML='<h3 style="margin-top:0;margin-bottom:16px;color:#4caf50;"><i class="fas fa-check-circle"></i> Votre lien actif</h3><div class="muted">Un lien autologin existe déjà.</div>';
+      info.innerHTML='<h3 style="margin-top:0;margin-bottom:16px;color:var(--accent);"><i class="fas fa-check-circle"></i> Votre lien actif</h3><div>Un lien autologin existe déjà.</div>';
       $('#btn-al-delete').disabled=false;
     }else{
       info.innerHTML='<div class="autologin-box-empty"><div class="al-icon"><i class="fas fa-plus-circle"></i></div><h3>Aucun lien autologin</h3><p>Vous n\'avez pas encore de lien.<br>Cliquez pour en générer un.</p></div>';
@@ -421,12 +467,13 @@ __NAV_HTML__
       toast(r.error||'Erreur chargement',true);
       return;
     }
-    applyTheme(r.data.theme ?? 0);
+    markThemeSelected(r.data.theme ?? 0);
     renderUser(r.data);
     renderAutologin(r.data.autologin);
   }
 
   function switchSection(sec){
+    if(sec==='preferences') loadAffichage();
     document.querySelectorAll('.section-content').forEach(s=>s.classList.remove('active'));
     document.querySelectorAll('.sidebar-link').forEach(l=>l.classList.remove('active'));
     const target=$(`#${sec}-section`); if(target) target.classList.add('active');
@@ -515,13 +562,110 @@ __NAV_HTML__
   }
 
   document.addEventListener('DOMContentLoaded', ()=>{
-    const stored=localStorage.getItem('vex-theme');
-    if(stored==='dark') applyTheme(1);
-    else if(stored==='light') applyTheme(0);
     bindEvents();
     loadData();
   });
 })();
 </script>
 </body>
+
+<script>
+/* Affichage personnalise : tuiles, evenements, apps */
+let AFF={tuiles:[],evenements:[],apps:[]};
+function affEsc(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+const AFF_GROUPES=[
+  {cle:'dashboard_tiles',source:'tuiles',titre:'Tuiles du tableau de bord',
+   icone:'table-cells',aide:"Les encadres affiches sur votre page d'accueil."},
+  {cle:'dashboard_events',source:'evenements',titre:'Informations suivies',
+   icone:'bell',aide:"Ce que la tuile Administration doit vous remonter."},
+  {cle:'nav_apps',source:'apps',titre:'Applications du menu',
+   icone:'grip',aide:"Les raccourcis proposes dans le menu des applications."},
+];
+
+function affLigne(cle,x){
+  return `<label class="aff-item">
+    <span class="aff-switch">
+      <input type="checkbox" data-aff="${cle}" data-id="${affEsc(x.id)}"
+             ${x.actif?'checked':''} onchange="affMaj('${cle}')">
+      <span class="aff-slider"></span>
+    </span>
+    <span class="aff-label">${affEsc(x.label)}</span>
+    ${x.extension?'<span class="aff-tag">extension</span>':''}
+  </label>`;
+}
+
+function affGroupe(g){
+  const liste=AFF[g.source]||[];
+  if(!liste.length)return '';
+  return `<section class="aff-groupe">
+    <header class="aff-head">
+      <div>
+        <div class="aff-titre"><i class="fas fa-${g.icone}"></i> ${affEsc(g.titre)}
+          <span class="aff-compteur" id="cpt-${g.cle}"></span></div>
+        <div class="aff-aide">${affEsc(g.aide)}</div>
+      </div>
+      <div class="aff-actions">
+        <button type="button" class="aff-mini" onclick="affTout('${g.cle}',true)">Tout</button>
+        <button type="button" class="aff-mini" onclick="affTout('${g.cle}',false)">Aucun</button>
+      </div>
+    </header>
+    <div class="aff-liste">${liste.map(x=>affLigne(g.cle,x)).join('')}</div>
+  </section>`;
+}
+
+function affMaj(cle){
+  const cases=document.querySelectorAll(`[data-aff="${cle}"]`);
+  const n=[...cases].filter(c=>c.checked).length;
+  const cpt=document.getElementById('cpt-'+cle);
+  if(cpt)cpt.textContent=`${n}/${cases.length}`;
+  cases.forEach(c=>c.closest('.aff-item').classList.toggle('off',!c.checked));
+  const b=document.getElementById('aff-save');
+  if(b){b.disabled=false;b.classList.add('aff-dirty');}
+}
+function affTout(cle,val){
+  document.querySelectorAll(`[data-aff="${cle}"]`).forEach(c=>{c.checked=val;});
+  affMaj(cle);
+}
+
+async function loadAffichage(){
+  const box=document.getElementById('affichage-box');
+  if(!box||box.dataset.charge)return;
+  try{
+    const r=await (await fetch('/api/account/affichage',{credentials:'include'})).json();
+    if(!r.success){box.innerHTML='<p style="opacity:.6">Indisponible.</p>';return;}
+    AFF=r.data;
+    box.innerHTML=AFF_GROUPES.map(affGroupe).join('');
+    AFF_GROUPES.forEach(g=>affMaj(g.cle));
+    const b=document.getElementById('aff-save');
+    if(b){b.disabled=true;b.classList.remove('aff-dirty');}
+    box.dataset.charge='1';
+  }catch(e){box.innerHTML='<p style="opacity:.6">Erreur de chargement.</p>';}
+}
+
+async function saveAffichage(){
+  const b=document.getElementById('aff-save');
+  const cor={dashboard_tiles:{},dashboard_events:{},nav_apps:{}};
+  document.querySelectorAll('[data-aff]').forEach(el=>{
+    cor[el.dataset.aff][el.dataset.id]=el.checked?1:0;
+  });
+  const corps=Object.entries(cor)
+    .map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(JSON.stringify(v))).join('&');
+  if(b){b.disabled=true;b.textContent='Enregistrement...';}
+  const r=await (await fetch('/api/account/affichage',{
+    method:'POST',credentials:'include',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},body:corps})).json();
+  const msg=document.getElementById('aff-msg');
+  if(b)b.innerHTML='<i class="fas fa-save"></i> Enregistrer l&#39;affichage';
+  if(b)b.classList.remove('aff-dirty');
+  if(msg){
+    msg.textContent=r.success
+      ? 'Enregistre — rechargez le tableau de bord pour voir le resultat.'
+      : (r.error||'Echec de l enregistrement.');
+    msg.className='aff-msg '+(r.success?'ok':'ko');
+    setTimeout(()=>{msg.textContent='';msg.className='aff-msg';},5000);
+  }
+}
+if(document.querySelector('#preferences-section.active'))loadAffichage();
+</script>
 </html>

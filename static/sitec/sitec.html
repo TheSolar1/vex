@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="fr" id="html-root">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Sitec — VEX</title>
+<link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
+<link rel="stylesheet" href="/static/css/theme.css">
+<style>
+.ico    { display:inline-block; width:16px; height:16px; vertical-align:middle; flex-shrink:0; }
+.ico-sm { width:14px; height:14px; }
+.ico-md { width:20px; height:20px; }
+.ico-lg { width:44px; height:44px; }
+.ico-white { filter: brightness(0) invert(1); }
+.ico-muted { filter: invert(44%) sepia(9%) saturate(322%) hue-rotate(182deg) brightness(92%) contrast(89%); }
+.ico-red   { filter: invert(27%) sepia(88%) saturate(1200%) hue-rotate(335deg) brightness(92%) contrast(95%); }
+.ico-primary { filter: invert(48%) sepia(79%) saturate(476%) hue-rotate(86deg) brightness(95%) contrast(89%); }
+[data-theme="dark"] .ico-muted { filter: invert(72%) sepia(5%) saturate(400%) hue-rotate(180deg) brightness(85%); }
+@keyframes ico-spin { to { transform:rotate(360deg); } }
+.ico-spin { animation: ico-spin .8s linear infinite; }
+
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+html, body { height:100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg); color: var(--text);
+  overflow:hidden; padding-top:56px; -webkit-font-smoothing:antialiased;
+}
+
+.app { display:flex; height:calc(100vh - 56px); overflow:hidden; }
+
+.sidebar {
+  width:280px; background:var(--sidebar-bg); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; flex-shrink:0; overflow-y:auto; padding:16px 10px;
+}
+.btn-nouveau {
+  width:100%; padding:10px 16px; background:var(--accent); color:var(--surface);
+  border:none; border-radius:6px; font-size:14px; font-weight:600; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:16px;
+  transition:background .2s; font-family:inherit;
+}
+.btn-nouveau:hover { background:var(--vex-green-2); }
+
+.page-item {
+  padding:12px 14px; border-radius:8px; cursor:pointer; margin-bottom:4px;
+  border:1px solid transparent; transition:background .15s;
+}
+.page-item:hover  { background:var(--sidebar-hover); }
+.page-item.active { background:var(--alt); border-color:var(--accent); }
+.page-item-title { font-size:14px; font-weight:600; margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.page-item-meta  { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--text-dim); }
+.badge {
+  display:inline-flex; align-items:center; gap:3px; padding:1px 6px; border-radius:8px;
+  font-size:10px; font-weight:700;
+}
+.badge-public  { background:var(--alt); color:var(--accent); }
+.badge-partage { background:rgba(59,130,246,.15); color:var(--blue); }
+.empty-list { padding:30px 14px; text-align:center; color:var(--text-dim); font-size:13px; }
+
+.main { flex:1; overflow-y:auto; padding:28px 36px; }
+.empty-state {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  height:100%; color:var(--text-dim); text-align:center;
+}
+.empty-state p { margin-top:14px; font-size:15px; }
+
+.editor-card { max-width:760px; margin:0 auto; }
+.editor-hdr { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; gap:12px; flex-wrap:wrap; }
+.editor-hdr input.titre-input {
+  font-size:22px; font-weight:700; border:none; background:none; color:var(--text);
+  outline:none; width:100%; padding:4px 0; border-bottom:2px solid transparent; transition:border-color .2s;
+}
+.editor-hdr input.titre-input:focus { border-bottom-color:var(--accent); }
+.editor-actions { display:flex; gap:8px; flex-shrink:0; }
+
+.btn {
+  padding:9px 15px; border:none; border-radius:6px; cursor:pointer; font-size:13px;
+  font-weight:600; transition:all .2s; display:inline-flex; align-items:center; gap:7px; font-family:inherit;
+}
+.btn-primary   { background:var(--accent); color:var(--surface); }
+.btn-primary:hover { background:var(--vex-green-2); }
+.btn-secondary { background:transparent; color:var(--text-dim); border:1px solid var(--border); }
+.btn-secondary:hover { background:var(--sidebar-hover); }
+.btn-danger    { background:var(--danger); color:var(--surface); }
+.btn-danger:hover { background:var(--danger); filter:brightness(.88); }
+.btn:disabled  { opacity:.55; cursor:not-allowed; }
+
+.mode-tabs { display:flex; gap:6px; background:var(--sidebar-hover); border-radius:8px; padding:4px; margin-bottom:18px; width:fit-content; }
+.mode-tab {
+  padding:7px 16px; border-radius:6px; border:none; background:none; cursor:pointer;
+  font-size:13px; font-weight:600; color:var(--text-dim); font-family:inherit; transition:.15s;
+}
+.mode-tab.active { background:var(--surface); color:var(--accent); box-shadow:0 1px 3px rgba(0,0,0,.1); }
+
+.field-group { margin-bottom:16px; }
+.field-group label { display:block; margin-bottom:6px; font-weight:600; font-size:13px; }
+.field-group input[type=text], .field-group textarea {
+  width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:6px;
+  font-size:14px; outline:none; background:var(--input); color:var(--text);
+  font-family:inherit; transition:border-color .2s;
+}
+.field-group input[type=text]:focus, .field-group textarea:focus { border-color:var(--accent); }
+.field-group textarea { min-height:120px; resize:vertical; line-height:1.6; }
+.field-group textarea.code { font-family:'SF Mono',Consolas,monospace; font-size:13px; min-height:320px; }
+.hint { font-size:12px; color:var(--text-dim); margin-top:5px; }
+
+.pub-row {
+  display:flex; align-items:center; gap:10px; padding:12px 14px; background:var(--sidebar-hover);
+  border-radius:8px; margin-bottom:18px;
+}
+.switch { position:relative; width:40px; height:22px; flex-shrink:0; }
+.switch input { opacity:0; width:0; height:0; }
+.slider { position:absolute; inset:0; background:var(--border); border-radius:22px; cursor:pointer; transition:.2s; }
+.slider::before { content:''; position:absolute; width:16px; height:16px; left:3px; top:3px; background:var(--surface); border-radius:50%; transition:.2s; }
+.switch input:checked + .slider { background:var(--accent); }
+.switch input:checked + .slider::before { transform:translateX(18px); }
+.pub-label { font-size:13px; font-weight:600; }
+.pub-sub { font-size:12px; color:var(--text-dim); }
+
+.share-block { border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:18px; }
+.share-block h3 { font-size:13px; margin-bottom:12px; display:flex; align-items:center; gap:7px; }
+.share-add { display:flex; gap:8px; margin-bottom:10px; }
+.share-add input { flex:1; padding:8px 10px; border:1px solid var(--border); border-radius:6px; background:var(--input); color:var(--text); font-size:13px; outline:none; }
+.share-add input:focus { border-color:var(--accent); }
+.share-list { display:flex; flex-direction:column; gap:6px; }
+.share-item { display:flex; align-items:center; justify-content:space-between; padding:7px 10px; background:var(--sidebar-hover); border-radius:6px; font-size:13px; }
+.share-item-rm { background:none; border:none; cursor:pointer; color:var(--text-dim); font-size:16px; line-height:1; }
+.share-item-rm:hover { color:var(--danger); }
+.share-empty { font-size:12px; color:var(--text-dim); padding:6px 2px; }
+
+.link-row { display:flex; align-items:center; gap:8px; padding:10px 14px; background:var(--sidebar-hover); border-radius:8px; font-size:13px; margin-bottom:18px; }
+.link-row code { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-dim); }
+.link-row a { color:var(--accent); font-weight:600; text-decoration:none; display:flex; align-items:center; gap:5px; flex-shrink:0; }
+
+.spinner-wrap { display:flex; align-items:center; justify-content:center; padding:40px; }
+.spinner { border:3px solid var(--border); border-top:3px solid var(--accent); border-radius:50%; width:32px; height:32px; animation:ico-spin .8s linear infinite; }
+
+#toast-area { position:fixed; bottom:24px; right:24px; z-index:5000; display:flex; flex-direction:column; gap:10px; pointer-events:none; }
+.toast {
+  background:var(--surface); border:1px solid var(--border); border-radius:8px;
+  box-shadow:0 4px 12px rgba(0,0,0,.15); padding:12px 18px; font-size:13px; font-weight:600;
+  display:flex; align-items:center; gap:10px; animation:toast-in .25s ease; pointer-events:all; max-width:340px;
+}
+@keyframes toast-in { from{opacity:0;transform:translateY(20px);} to{opacity:1;transform:translateY(0);} }
+.toast.ok  { border-left:4px solid var(--accent); }
+.toast.err { border-left:4px solid var(--danger); }
+</style>
+</head>
+<body>
+
+<div id="vex-navbar"></div>
+
+<div class="app">
+  <aside class="sidebar">
+    <button class="btn-nouveau" id="createBtn">
+      <img class="ico ico-sm ico-white" src="/static/img/solid/plus.svg"> Nouvelle page
+    </button>
+    <div id="pageList"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+  </aside>
+
+  <div class="main" id="main">
+    <div class="empty-state">
+      <img class="ico ico-lg ico-muted" src="/static/img/solid/globe.svg">
+      <p>Sélectionnez ou créez une page</p>
+    </div>
+  </div>
+</div>
+
+<div id="toast-area"></div>
+
+<script>
+'use strict';
+const API = '/api/sitec';
+const ICO = '/static/img/solid/';
+const THEMES = ['light','dark','solarized','rose'];
+
+let pages = [];
+let current = null; // page en cours d'édition (objet complet)
+let dirty = false;
+
+function redirectLogin() { window.location.href = '/login/login'; }
+
+async function apiFetch(url, options = {}) {
+  const r = await fetch(url, { ...options, credentials:'include' });
+  if (r.status === 401) { redirectLogin(); throw new Error('Session expirée'); }
+  return r;
+}
+
+// ── Init ──────────────────────────────────────────────────────────
+async function initUI() {
+  try {
+    const r = await fetch('/api/sitec/navbar');
+    if (r.status === 401) { redirectLogin(); return; }
+    const html = await r.text();
+    const nav = document.getElementById('vex-navbar');
+    nav.innerHTML = html;
+    nav.querySelectorAll('script').forEach(old => {
+      const s = document.createElement('script');
+      if (old.src) s.src = old.src; else s.textContent = old.textContent;
+      document.body.appendChild(s); old.remove();
+    });
+  } catch {}
+}
+
+async function loadPages() {
+  document.getElementById('pageList').innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  try {
+    const r = await apiFetch(`${API}/list`);
+    const data = await r.json();
+    pages = data.pages || [];
+    renderList();
+  } catch(e) {
+    if (e.message !== 'Session expirée')
+      document.getElementById('pageList').innerHTML = '<div class="empty-list">Erreur de chargement</div>';
+  }
+}
+
+function renderList() {
+  const el = document.getElementById('pageList');
+  if (!pages.length) {
+    el.innerHTML = '<div class="empty-list">Aucune page pour l’instant</div>';
+    return;
+  }
+  el.innerHTML = pages.map(p => {
+    const active = current && current.id === p.id ? ' active' : '';
+    const badges = [];
+    if (p.public) badges.push('<span class="badge badge-public">Public</span>');
+    if (p.share_count > 0) badges.push(`<span class="badge badge-partage">${p.share_count} partagé(s)</span>`);
+    return `<div class="page-item${active}" data-id="${p.id}">
+      <div class="page-item-title">${esc(p.titre || 'Sans titre')}</div>
+      <div class="page-item-meta">${badges.join('') || '<span>Privé</span>'}</div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.page-item').forEach(item =>
+    item.onclick = () => openPage(item.dataset.id)
+  );
+}
+
+// ── Ouvrir / créer ────────────────────────────────────────────────
+async function openPage(id) {
+  if (dirty && !confirm('Modifications non enregistrées — continuer sans sauvegarder ?')) return;
+  document.getElementById('main').innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  try {
+    const r = await apiFetch(`${API}/get?id=${encodeURIComponent(id)}`);
+    const data = await r.json();
+    if (!data.success) { toast(data.error || 'Erreur', 'err'); return; }
+    current = data.page;
+    dirty = false;
+    renderList();
+    renderEditor();
+  } catch(e) { if (e.message !== 'Session expirée') toast('Erreur de chargement', 'err'); }
+}
+
+async function createPage() {
+  try {
+    const r = await apiFetch(`${API}/create`, { method:'POST' });
+    const data = await r.json();
+    if (!data.success) { toast(data.error || 'Erreur', 'err'); return; }
+    await loadPages();
+    await openPage(data.id);
+    toast('Page créée', 'ok');
+  } catch(e) { if (e.message !== 'Session expirée') toast('Erreur de création', 'err'); }
+}
+
+// ── Rendu éditeur ─────────────────────────────────────────────────
+function renderEditor() {
+  const p = current;
+  const viewUrl = `${window.location.origin}/page/${p.id}`;
+  const isSimple = p.mode !== 'brut';
+
+  document.getElementById('main').innerHTML = `
+    <div class="editor-card">
+      <div class="editor-hdr">
+        <input type="text" class="titre-input" id="titreInput" value="${escAttr(p.titre)}" placeholder="Titre de la page">
+        <div class="editor-actions">
+          <button class="btn btn-danger" id="deleteBtn">
+            <img class="ico ico-sm ico-white" src="${ICO}trash.svg"> Supprimer
+          </button>
+          <button class="btn btn-primary" id="saveBtn">
+            <img class="ico ico-sm ico-white" src="${ICO}floppy-disk.svg"> Enregistrer
+          </button>
+        </div>
+      </div>
+
+      <div class="link-row">
+        <code>${viewUrl}</code>
+        <a href="${viewUrl}" target="_blank">
+          <img class="ico ico-sm ico-primary" src="${ICO}up-right-from-square.svg"> Ouvrir
+        </a>
+        <a href="#" id="copyLinkBtn">
+          <img class="ico ico-sm ico-primary" src="${ICO}copy.svg"> Copier
+        </a>
+      </div>
+
+      <div class="pub-row">
+        <label class="switch">
+          <input type="checkbox" id="publicToggle" ${p.public ? 'checked' : ''}>
+          <span class="slider"></span>
+        </label>
+        <div>
+          <div class="pub-label">Page publique</div>
+          <div class="pub-sub">Visible par tout le monde, même sans compte VEX</div>
+        </div>
+      </div>
+
+      <div class="share-block">
+        <h3><img class="ico ico-sm ico-muted" src="${ICO}user-plus.svg"> Partager avec des utilisateurs</h3>
+        <div class="share-add">
+          <input type="text" id="shareEmailInput" placeholder="email@exemple.com">
+          <button class="btn btn-secondary" id="shareAddBtn">Ajouter</button>
+        </div>
+        <div class="share-list" id="shareList">
+          ${p.shared_with.length ? p.shared_with.map(u => `
+            <div class="share-item" data-email="${escAttr(u.email)}">
+              <span>${esc(u.nom)} <span style="color:var(--text-dim)">(${esc(u.email)})</span></span>
+              <button class="share-item-rm" title="Retirer l'accès">&times;</button>
+            </div>`).join('')
+            : '<div class="share-empty">Personne d’autre n’a accès à cette page.</div>'}
+        </div>
+      </div>
+
+      <div class="mode-tabs">
+        <button class="mode-tab${isSimple?' active':''}" data-mode="simple">Mode simple</button>
+        <button class="mode-tab${!isSimple?' active':''}" data-mode="brut">HTML brut</button>
+      </div>
+
+      <div id="simpleFields" style="display:${isSimple?'block':'none'}">
+        <div class="field-group">
+          <label>Titre affiché</label>
+          <input type="text" id="contenuTitreInput" value="${escAttr(p.contenu_titre||'')}">
+        </div>
+        <div class="field-group">
+          <label>Contenu</label>
+          <textarea id="contenuCorpsInput" placeholder="Texte de la page…">${esc(p.contenu_corps||'')}</textarea>
+          <div class="hint">Texte simple — les retours à la ligne sont conservés automatiquement.</div>
+        </div>
+      </div>
+
+      <div id="brutFields" style="display:${!isSimple?'block':'none'}">
+        <div class="field-group">
+          <label>HTML de la page</label>
+          <textarea class="code" id="contenuHtmlInput" placeholder="&lt;h1&gt;Bonjour&lt;/h1&gt;">${esc(p.contenu_html||'')}</textarea>
+          <div class="hint">HTML complet inséré tel quel dans la page — attention à ce que vous publiez en public.</div>
+        </div>
+      </div>
+    </div>`;
+
+  // ── Listeners ──
+  let mode = isSimple ? 'simple' : 'brut';
+  document.querySelectorAll('.mode-tab').forEach(tab => {
+    tab.onclick = () => {
+      mode = tab.dataset.mode;
+      document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t===tab));
+      document.getElementById('simpleFields').style.display = mode==='simple' ? 'block' : 'none';
+      document.getElementById('brutFields').style.display   = mode==='brut'   ? 'block' : 'none';
+      markDirty();
+    };
+  });
+
+  ['titreInput','contenuTitreInput','contenuCorpsInput','contenuHtmlInput','publicToggle'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.oninput = markDirty;
+  });
+
+  document.getElementById('copyLinkBtn').onclick = (e) => {
+    e.preventDefault();
+    navigator.clipboard.writeText(viewUrl).then(() => toast('Lien copié', 'ok'));
+  };
+
+  document.getElementById('deleteBtn').onclick = () => deletePage(p.id);
+  document.getElementById('saveBtn').onclick   = () => savePage(mode);
+
+  document.getElementById('shareAddBtn').onclick = () => addShare(p.id);
+  document.querySelectorAll('.share-item-rm').forEach(btn =>
+    btn.onclick = () => removeShare(p.id, btn.closest('.share-item').dataset.email)
+  );
+}
+
+function markDirty() { dirty = true; }
+
+// ── Sauvegarde / suppression ───────────────────────────────────────
+async function savePage(mode) {
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  const payload = {
+    id: current.id,
+    titre: document.getElementById('titreInput').value.trim() || 'Sans titre',
+    mode,
+    public: document.getElementById('publicToggle').checked,
+    contenu_titre: document.getElementById('contenuTitreInput')?.value || '',
+    contenu_corps: document.getElementById('contenuCorpsInput')?.value || '',
+    contenu_html:  document.getElementById('contenuHtmlInput')?.value || '',
+  };
+  try {
+    const r = await apiFetch(`${API}/save`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
+    });
+    const data = await r.json();
+    if (data.success) {
+      dirty = false;
+      toast('Page enregistrée ✓', 'ok');
+      await loadPages();
+    } else {
+      toast(data.error || 'Erreur', 'err');
+    }
+  } catch(e) { if (e.message !== 'Session expirée') toast('Erreur d’enregistrement', 'err'); }
+  finally { btn.disabled = false; }
+}
+
+async function deletePage(id) {
+  if (!confirm('Supprimer définitivement cette page ?')) return;
+  try {
+    await apiFetch(`${API}/delete`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})
+    });
+    current = null; dirty = false;
+    document.getElementById('main').innerHTML = `
+      <div class="empty-state">
+        <img class="ico ico-lg ico-muted" src="${ICO}globe.svg">
+        <p>Sélectionnez ou créez une page</p>
+      </div>`;
+    await loadPages();
+    toast('Page supprimée', 'ok');
+  } catch(e) { if (e.message !== 'Session expirée') toast('Erreur de suppression', 'err'); }
+}
+
+// ── Partage ─────────────────────────────────────────────────────────
+async function addShare(id) {
+  const input = document.getElementById('shareEmailInput');
+  const email = input.value.trim();
+  if (!email) return;
+  try {
+    const r = await apiFetch(`${API}/share`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id, email, action:'add'})
+    });
+    const data = await r.json();
+    if (data.success) { input.value=''; await openPage(id); toast('Accès accordé', 'ok'); }
+    else toast(data.error || 'Erreur', 'err');
+  } catch(e) { if (e.message !== 'Session expirée') toast('Erreur', 'err'); }
+}
+
+async function removeShare(id, email) {
+  try {
+    const r = await apiFetch(`${API}/share`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id, email, action:'remove'})
+    });
+    const data = await r.json();
+    if (data.success) { await openPage(id); toast('Accès retiré', 'ok'); }
+    else toast(data.error || 'Erreur', 'err');
+  } catch(e) { if (e.message !== 'Session expirée') toast('Erreur', 'err'); }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+function toast(msg, type='', dur=3000) {
+  const icons = {ok:'circle-check', err:'circle-xmark'};
+  const area = document.getElementById('toast-area');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<img class="ico ico-sm" src="${ICO}${icons[type]||'circle-info'}.svg"><span>${esc(msg)}</span>`;
+  area.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='.3s'; setTimeout(()=>area.removeChild(el),300); }, dur);
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function escAttr(s) {
+  return esc(s).replace(/"/g,'&quot;');
+}
+
+// ── Bootstrap ───────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  await initUI();
+  await loadPages();
+  document.getElementById('createBtn').onclick = createPage;
+
+  // Ouvre automatiquement la page ciblée par ?open=ID (lien depuis fchier)
+  const openId = new URLSearchParams(window.location.search).get('open');
+  if (openId) await openPage(openId);
+
+  window.addEventListener('beforeunload', (e) => {
+    if (dirty) { e.preventDefault(); e.returnValue=''; }
+  });
+});
+</script>
+</body>
+</html>

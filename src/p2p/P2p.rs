@@ -958,7 +958,7 @@ fn generer_annuaire_nouveautes(pool: &DbPool, node_state: &NodeState) -> String 
         };
         let pub_key = row.get::<String, &str>("pub_key").unwrap_or_default();
         let status = row.get::<String, &str>("status").unwrap_or_default();
-        let seen = row.get::<String, &str>("last_seen").unwrap_or_default();
+        let seen = row.get::<mysql::Value, &str>("last_seen").map(|v| match v { mysql::Value::Date(y, mo, d, h, mi, s, _) => format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02}", y, mo, d, h, mi, s), mysql::Value::NULL => String::new(), other => other.as_sql(false), }).unwrap_or_default();
         let version = row.get::<String, &str>("version").unwrap_or_default();
         out += &format!(
             "{} | {} | {} | {} | {} | {} | {}\n",

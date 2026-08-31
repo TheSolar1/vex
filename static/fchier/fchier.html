@@ -1,33 +1,13 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="light">
+<html lang="fr" id="html-root">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gestionnaire — Exodrive</title>
   <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="/static/css/theme.css">
   <style>
-:root {
-  --exo-primary:      #4CAF50;
-  --exo-primary-dark: #45a049;
-  --exo-bg:           #f0f2f5;
-  --exo-card-bg:      #ffffff;
-  --exo-text:         #1c1e21;
-  --exo-text-muted:   #65676b;
-  --exo-border:       #e4e6eb;
-  --exo-hover:        #f0f2f5;
-  --exo-sidebar-bg:   #ffffff;
-  --exo-input-bg:     #ffffff;
-}
-[data-theme="dark"] {
-  --exo-bg:         #121212;
-  --exo-card-bg:    #1e1e1e;
-  --exo-text:       #e0e0e0;
-  --exo-text-muted: #b0b0b0;
-  --exo-border:     #2a2a2a;
-  --exo-hover:      #2a2a2a;
-  --exo-sidebar-bg: #1a1a1a;
-  --exo-input-bg:   #2a2a2a;
-}
+
 .ico { display:inline-block; width:16px; height:16px; vertical-align:middle; flex-shrink:0; }
 .ico-lg { width:48px; height:48px; }
 .ico-md { width:24px; height:24px; }
@@ -47,27 +27,27 @@
 *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--exo-bg); color: var(--exo-text);
+  background: var(--bg); color: var(--text);
   -webkit-font-smoothing: antialiased;
 }
 .main-container { display:flex; height:100vh; }
 .sidebar {
-  width:260px; background:var(--exo-sidebar-bg);
-  border-right:1px solid var(--exo-border);
+  width:260px; background:var(--sidebar-bg);
+  border-right:1px solid var(--border);
   padding:20px 10px; overflow-y:auto; flex-shrink:0;
 }
 .create-btn-wrap { position:relative; margin-bottom:24px; }
 .create-btn {
-  width:100%; padding:12px 20px; background:var(--exo-primary);
-  color:#fff; border:none; border-radius:5px; font-size:14px; font-weight:600;
+  width:100%; padding:12px 20px; background:var(--accent);
+  color: var(--surface); border:none; border-radius:5px; font-size:14px; font-weight:600;
   cursor:pointer; display:flex; align-items:center; justify-content:center;
   gap:10px; transition:background .3s;
 }
-.create-btn:hover { background:var(--exo-primary-dark); }
+.create-btn:hover { background:var(--vex-green-2); }
 .create-dropdown {
   display:none; position:absolute; top:calc(100% + 6px); left:0; width:100%;
-  background:var(--exo-card-bg); border:1px solid var(--exo-border);
-  border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,.12); z-index:500;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:8px; box-shadow:0 6px 20px color-mix(in srgb, var(--text) 12%, transparent); z-index:500;
   overflow:hidden; animation:dd-in .15s ease;
 }
 .create-dropdown.open { display:block; }
@@ -75,135 +55,183 @@ body {
 .dd-item {
   display:flex; align-items:center; gap:12px;
   padding:12px 16px; cursor:pointer; font-size:14px; font-weight:500;
-  color:var(--exo-text); transition:background .15s; border:none; background:none; width:100%;
+  color:var(--text); transition:background .15s; border:none; background:none; width:100%;
 }
-.dd-item:hover { background:var(--exo-hover); }
-.dd-item + .dd-item { border-top:1px solid var(--exo-border); }
+.dd-item:hover { background:var(--sidebar-hover); }
+.dd-item + .dd-item { border-top:1px solid var(--border); }
 .nav-item {
   display:flex; align-items:center; gap:12px; padding:12px 16px;
-  color:var(--exo-text); text-decoration:none; border-radius:8px;
+  color:var(--text); text-decoration:none; border-radius:4px;
   margin:4px 0; transition:all .2s; font-size:14px; font-weight:500;
   cursor:pointer; border:none; background:none; width:100%;
 }
-.nav-item:hover  { background:var(--exo-hover); }
-.nav-item.active { background:var(--exo-primary); color:#fff; font-weight:600; }
+.nav-item:hover  { background:var(--sidebar-hover); }
+.nav-item.active { background:var(--accent); color: var(--surface); font-weight:600; }
 .nav-item.active .ico { filter: brightness(0) invert(1); }
-.content { flex:1; overflow-y:auto; padding:24px 32px; background:var(--exo-bg); }
+.content { flex:1; overflow-y:auto; padding:24px 32px; background:var(--bg); }
 .content-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
-.breadcrumb { display:flex; align-items:center; gap:8px; margin-bottom:10px; font-size:13px; color:var(--exo-text-muted); }
-.breadcrumb a, .breadcrumb span.bc-link { color:var(--exo-primary); text-decoration:none; cursor:pointer; }
-.breadcrumb a:hover, .breadcrumb span.bc-link:hover { text-decoration:underline; }
-.content-title { font-size:28px; font-weight:600; color:var(--exo-text); }
-.view-toggle { display:flex; background:var(--exo-card-bg); border-radius:5px; border:1px solid var(--exo-border); overflow:hidden; }
-.view-btn { padding:8px 14px; background:transparent; border:none; border-right:1px solid var(--exo-border); color:var(--exo-text-muted); cursor:pointer; transition:all .2s; display:flex; align-items:center; }
+.breadcrumb { display:flex; align-items:center; gap:0; margin-bottom:10px; font-size:13px; color:var(--text-dim); flex-wrap:nowrap; overflow-x:auto; white-space:nowrap; padding:4px 0; }
+.breadcrumb .bc-home {
+  display:inline-flex; align-items:center; gap:6px;
+  background:var(--accent); color:#fff; padding:6px 14px; border-radius:6px;
+  cursor:pointer; font-weight:600; flex-shrink:0; transition:opacity .15s;
+}
+.breadcrumb .bc-home:hover { opacity:.88; }
+.breadcrumb .bc-home img { filter:brightness(0) invert(1); }
+.breadcrumb .bc-seg {
+  display:inline-flex; align-items:center;
+  background:var(--sidebar-hover); color:var(--accent); cursor:pointer;
+  padding:6px 14px; border-radius:6px; flex-shrink:0; transition:background .15s;
+}
+.breadcrumb .bc-seg:hover { background:var(--alt); }
+.breadcrumb .bc-seg.current { background:var(--surface); border:1px solid var(--border); color:var(--text); font-weight:600; cursor:default; }
+.breadcrumb .bc-sep {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:20px; height:20px; margin:0 -10px; flex-shrink:0;
+  background:var(--surface); border:1px solid var(--border); border-radius:6px;
+  color:var(--text); font-size:14px; font-weight:700; line-height:1; position:relative; z-index:2;
+  box-shadow:var(--shadow);
+}
+.breadcrumb .bc-home.drop-target, .breadcrumb .bc-seg.drop-target { outline:2px dashed var(--accent); outline-offset:-2px; }
+.content-title { font-size:28px; font-weight:600; color:var(--text); }
+.view-toggle { display:flex; background:var(--surface); border-radius:5px; border:1px solid var(--border); overflow:hidden; }
+.view-btn { padding:8px 14px; background:transparent; border:none; border-right:1px solid var(--border); color:var(--text-dim); cursor:pointer; transition:all .2s; display:flex; align-items:center; }
 .view-btn:last-child { border-right:none; }
-.view-btn:hover  { background:var(--exo-hover); }
-.view-btn.active { background:var(--exo-primary); color:#fff; }
+.view-btn:hover  { background:var(--sidebar-hover); }
+.view-btn.active { background:var(--accent); color: var(--surface); }
 .view-btn.active .ico { filter: brightness(0) invert(1); }
 .files-grid {
   display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
-  gap:16px; margin-bottom:40px;
+  gap:16px; margin-bottom:40px; min-height:calc(100vh - 260px);
+  align-content:start;
 }
 .files-grid.hidden { display:none; }
 .file-card, .folder-card, .page-card {
-  background:var(--exo-card-bg); border:1px solid var(--exo-border); border-radius:8px;
+  background:var(--surface); border:1px solid var(--border); border-radius:8px;
   padding:20px 16px; text-align:center; cursor:pointer; transition:all .2s;
   text-decoration:none; color:inherit; display:block; position:relative;
 }
 .file-card:hover, .folder-card:hover, .page-card:hover {
-  border-color:var(--exo-primary); box-shadow:0 2px 8px rgba(76,175,80,.2); transform:translateY(-2px);
+  border-color:var(--accent); box-shadow:0 2px 8px color-mix(in srgb, var(--accent) 20%, transparent); transform:translateY(-2px);
 }
 .item-menu {
   position:absolute; top:10px; right:10px; cursor:pointer;
-  padding:5px 8px; border-radius:3px; z-index:10; color:var(--exo-text-muted); display:flex; align-items:center;
+  padding:5px 8px; border-radius:3px; z-index:10; color:var(--text-dim); display:flex; align-items:center;
 }
-.item-menu:hover { background:var(--exo-hover); }
+.item-menu:hover { background:var(--sidebar-hover); }
 .file-icon, .folder-icon, .page-icon {
   font-size:48px; margin-bottom:12px; display:flex; align-items:center; justify-content:center; min-height:48px;
 }
 .file-name, .folder-name, .page-name {
   font-weight:500; margin-bottom:6px; overflow:hidden;
-  text-overflow:ellipsis; white-space:nowrap; color:var(--exo-text); font-size:13px;
+  text-overflow:ellipsis; white-space:nowrap; color:var(--text); font-size:13px;
 }
-.file-date { font-size:11px; color:var(--exo-text-muted); }
-.files-list { background:var(--exo-card-bg); border:1px solid var(--exo-border); border-radius:8px; overflow:hidden; display:none; }
+.file-date { font-size:11px; color:var(--text-dim); }
+.files-list { background:var(--surface); border:1px solid var(--border); border-radius:8px; overflow:hidden; display:none; min-height:calc(100vh - 260px); }
 .files-list.active { display:block; }
-.list-header { display:grid; grid-template-columns:2fr 1fr 1fr 60px; gap:20px; padding:12px 20px; background:var(--exo-hover); border-bottom:1px solid var(--exo-border); font-weight:600; font-size:11px; color:var(--exo-text-muted); text-transform:uppercase; }
-.list-item { display:grid; grid-template-columns:2fr 1fr 1fr 60px; gap:20px; padding:14px 20px; border-bottom:1px solid var(--exo-border); transition:background .2s; cursor:pointer; text-decoration:none; color:inherit; position:relative; align-items:center; }
-.list-item:hover { background:var(--exo-hover); }
-.list-item-name { display:flex; align-items:center; gap:12px; font-weight:500; font-size:14px; color:var(--exo-text); overflow:hidden; }
+.list-header { display:grid; grid-template-columns:2fr 1fr 1fr 60px; gap:20px; padding:12px 20px; background:var(--sidebar-hover); border-bottom:1px solid var(--border); font-weight:600; font-size:11px; color:var(--text-dim); text-transform:uppercase; }
+.list-item { display:grid; grid-template-columns:2fr 1fr 1fr 60px; gap:20px; padding:14px 20px; border-bottom:1px solid var(--border); transition:background .2s; cursor:pointer; text-decoration:none; color:inherit; position:relative; align-items:center; }
+.list-item:hover { background:var(--sidebar-hover); }
+.list-item-name { display:flex; align-items:center; gap:12px; font-weight:500; font-size:14px; color:var(--text); overflow:hidden; }
 .list-item-name span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.empty-state { text-align:center; padding:60px 20px; background:var(--exo-card-bg); border-radius:8px; border:1px solid var(--exo-border); grid-column:1/-1; }
-.empty-state h3 { color:var(--exo-text); margin-bottom:8px; margin-top:16px; }
-.empty-state p  { color:var(--exo-text-muted); }
+.empty-state { text-align:center; padding:60px 20px; background:var(--surface); border-radius:8px; border:1px solid var(--border); grid-column:1/-1; }
+.empty-state h3 { color:var(--text); margin-bottom:8px; margin-top:16px; }
+.empty-state p  { color:var(--text-dim); }
 .filter-select, .search-box {
-  padding:8px 12px; border:1px solid var(--exo-border); border-radius:5px;
-  font-size:14px; background:var(--exo-card-bg); color:var(--exo-text);
+  padding:8px 12px; border:1px solid var(--border); border-radius:5px;
+  font-size:14px; background:var(--surface); color:var(--text);
 }
-.filter-select:focus, .search-box:focus { outline:none; border-color:var(--exo-primary); }
+.filter-select:focus, .search-box:focus { outline:none; border-color:var(--accent); }
 .context-menu {
-  display:none; position:fixed; background:var(--exo-card-bg);
-  border:1px solid var(--exo-border); border-radius:8px;
-  box-shadow:0 4px 12px rgba(0,0,0,.15); z-index:1000; min-width:200px; padding:8px 0;
+  display:none; position:fixed; background:var(--surface);
+  border:1px solid var(--border); border-radius:8px;
+  box-shadow:0 4px 12px color-mix(in srgb, var(--text) 15%, transparent); z-index:1000; min-width:200px; padding:8px 0;
 }
 .context-menu.show { display:block; }
 .context-menu-item {
   padding:10px 16px; cursor:pointer; transition:background .2s;
-  display:flex; align-items:center; gap:10px; font-size:14px; color:var(--exo-text);
+  display:flex; align-items:center; gap:10px; font-size:14px; color:var(--text);
 }
-.context-menu-item:hover { background:var(--exo-hover); }
-.context-menu-item.delete { color:#f44336; }
-.modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.5); z-index:2000; align-items:center; justify-content:center; }
+.context-menu-item:hover { background:var(--sidebar-hover); }
+.context-menu-item.delete { color:var(--danger); }
+.modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:color-mix(in srgb, var(--text) 50%, transparent); z-index:2000; align-items:center; justify-content:center; }
 .modal.active { display:flex; }
-.modal-content { background:var(--exo-card-bg); border-radius:12px; padding:28px; width:90%; max-width:460px; box-shadow:0 8px 32px rgba(0,0,0,.3); }
-.modal-header { font-size:20px; font-weight:600; margin-bottom:20px; color:var(--exo-text); display:flex; align-items:center; gap:10px; }
-.modal-body   { margin-bottom:20px; color:var(--exo-text); }
+.modal-content { background:var(--surface); border-radius:12px; padding:28px; width:90%; max-width:460px; box-shadow:0 8px 32px color-mix(in srgb, var(--text) 30%, transparent); }
+.modal-header { font-size:20px; font-weight:600; margin-bottom:20px; color:var(--text); display:flex; align-items:center; gap:10px; }
+.modal-body   { margin-bottom:20px; color:var(--text); }
 .modal-footer { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
 .form-group { margin-bottom:18px; }
-.form-group label { display:block; margin-bottom:6px; font-weight:500; color:var(--exo-text); font-size:13px; }
-.form-group input, .form-group select { width:100%; padding:10px 12px; border:1px solid var(--exo-border); border-radius:6px; font-size:14px; background:var(--exo-input-bg); color:var(--exo-text); transition:border-color .2s; }
-.form-group input:focus, .form-group select:focus { outline:none; border-color:var(--exo-primary); }
+.form-group label { display:block; margin-bottom:6px; font-weight:500; color:var(--text); font-size:13px; }
+.form-group input, .form-group select { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:6px; font-size:14px; background:var(--input); color:var(--text); transition:border-color .2s; }
+.form-group input:focus, .form-group select:focus { outline:none; border-color:var(--accent); }
 .btn { padding:10px 20px; border:none; border-radius:5px; font-size:14px; font-weight:600; cursor:pointer; transition:all .3s; display:inline-flex; align-items:center; gap:8px; font-family:inherit; }
-.btn-primary   { background:var(--exo-primary); color:#fff; }
-.btn-primary:hover   { background:var(--exo-primary-dark); }
-.btn-secondary { background:transparent; color:var(--exo-text-muted); border:1px solid var(--exo-border); }
-.btn-secondary:hover { background:var(--exo-hover); }
+.btn-primary   { background:var(--accent); color: var(--surface); }
+.btn-primary:hover   { background:var(--vex-green-2); }
+.btn-secondary { background:transparent; color:var(--text-dim); border:1px solid var(--border); }
+.btn-secondary:hover { background:var(--sidebar-hover); }
 .file-input-label {
-  border:2px dashed var(--exo-primary); padding:20px; text-align:center;
-  cursor:pointer; border-radius:8px; background:var(--exo-hover); transition:all .3s; display:block;
+  border:2px dashed var(--accent); padding:20px; text-align:center;
+  cursor:pointer; border-radius:8px; background:var(--sidebar-hover); transition:all .3s; display:block;
 }
-.file-input-label:hover, .file-input-label.dragover { background:var(--exo-border); border-color:var(--exo-primary-dark); }
+.file-input-label:hover, .file-input-label.dragover { background:var(--border); border-color:var(--vex-green-2); }
 .selected-files-list {
-  max-height:160px; overflow-y:auto; border:1px solid var(--exo-border);
+  max-height:160px; overflow-y:auto; border:1px solid var(--border);
   border-radius:6px; margin-top:10px;
 }
 .selected-file-item {
   display:flex; align-items:center; justify-content:space-between;
-  padding:7px 12px; font-size:13px; border-bottom:1px solid var(--exo-border);
+  padding:7px 12px; font-size:13px; border-bottom:1px solid var(--border);
 }
 .selected-file-item:last-child { border-bottom:none; }
 .selected-file-item .file-item-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; margin-right:8px; }
-.selected-file-item .file-item-size { color:var(--exo-text-muted); font-size:11px; white-space:nowrap; }
-.selected-file-item .file-item-remove { cursor:pointer; color:#f44336; margin-left:8px; font-size:16px; line-height:1; flex-shrink:0; }
+.selected-file-item .file-item-size { color:var(--text-dim); font-size:11px; white-space:nowrap; }
+.selected-file-item .file-item-remove { cursor:pointer; color:var(--danger); margin-left:8px; font-size:16px; line-height:1; flex-shrink:0; }
 .upload-progress-wrap { margin-top:12px; display:none; }
-.upload-progress-wrap .progress-bar { height:6px; background:var(--exo-hover); border-radius:3px; overflow:hidden; }
-.upload-progress-wrap .progress-fill { height:100%; background:var(--exo-primary); border-radius:3px; transition:width .3s; width:0; }
-.upload-progress-wrap .progress-label { font-size:12px; color:var(--exo-text-muted); margin-top:4px; }
+.upload-progress-wrap .progress-bar { height:6px; background:var(--sidebar-hover); border-radius:3px; overflow:hidden; }
+.upload-progress-wrap .progress-fill { height:100%; background:var(--accent); border-radius:3px; transition:width .3s; width:0; }
+.upload-progress-wrap .progress-label { font-size:12px; color:var(--text-dim); margin-top:4px; }
 .badge-share {
-  position:absolute; top:10px; left:10px; background:rgba(33,150,243,.9);
-  color:white; padding:4px 8px; border-radius:4px; font-size:11px;
+  position:absolute; top:10px; left:10px; background:color-mix(in srgb, var(--blue) 90%, transparent);
+  color: var(--surface); padding:4px 8px; border-radius:4px; font-size:11px;
   display:flex; align-items:center; gap:4px;
 }
+/* Drag & drop — déplacement de fichiers/dossiers */
+.dragging-src { opacity:.4; }
+.drop-target  { outline:2px dashed var(--accent); outline-offset:-2px; background:var(--sidebar-hover); }
+/* Arborescence latérale des dossiers */
+.sidebar-section-title {
+  font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-dim);
+  padding:14px 14px 6px;
+}
+.sidebar-tree { display:flex; flex-direction:column; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+.tree-level { display:flex; flex-direction:column; }
+.tree-node {
+  display:flex; align-items:stretch; gap:6px; padding:0 8px 0 0; border-radius:0;
+  border-bottom:1px solid var(--border);
+  cursor:pointer; font-size:13px; white-space:nowrap; overflow:hidden;
+}
+.tree-node:hover  { background:var(--sidebar-hover); }
+.tree-node.active { background:var(--accent); color:var(--surface); font-weight:600; }
+.tree-node.active .tree-label { color:var(--surface); }
+.tree-node.drop-target { outline:2px dashed var(--accent); outline-offset:-2px; }
+.tree-toggle {
+  width:20px; flex-shrink:0; align-self:stretch;
+  display:flex; align-items:center; justify-content:center;
+  font-size:10px; color:var(--text-dim);
+  cursor:pointer; user-select:none;
+}
+.tree-node.active .tree-toggle { color:var(--surface); }
+.tree-label { align-self:center; overflow:hidden; text-overflow:ellipsis; }
 /* Arbre de prévisualisation dossier */
 .folder-tree {
-  background:var(--exo-hover); border:1px solid var(--exo-border);
+  background:var(--sidebar-hover); border:1px solid var(--border);
   border-radius:6px; margin-top:10px; padding:10px 12px;
   font-size:12px; max-height:140px; overflow-y:auto;
-  font-family: 'Courier New', monospace; color:var(--exo-text-muted);
+  font-family: 'Courier New', monospace; color:var(--text-dim);
   line-height:1.7;
 }
-.folder-tree .tree-dir  { color:var(--exo-primary); font-weight:600; }
-.folder-tree .tree-file { color:var(--exo-text-muted); }
+.folder-tree .tree-dir  { color:var(--accent); font-weight:600; }
+.folder-tree .tree-file { color:var(--text-dim); }
 @media(max-width:768px) {
   .sidebar { width:70px; }
   .create-btn span, .nav-item span { display:none; }
@@ -226,6 +254,10 @@ __NAV_HTML__
           <img class="ico ico-18 ico-primary" src="/static/img/solid/folder-plus.svg">
           <span>Nouveau dossier</span>
         </button>
+        <button class="dd-item" onclick="createPageFromDD()">
+          <img class="ico ico-18 ico-primary" src="/static/img/solid/globe.svg">
+          <span>Nouvelle page web</span>
+        </button>
         <button class="dd-item" onclick="openUploadModalFromDD()">
           <img class="ico ico-18 ico-primary" src="/static/img/solid/arrow-up-from-bracket.svg">
           <span>Importer des fichiers</span>
@@ -246,6 +278,7 @@ __NAV_HTML__
         <span>Partagé avec moi</span>
       </button>
     </nav>
+    
   </aside>
 
   <main class="content">
@@ -283,7 +316,7 @@ __NAV_HTML__
 
     <div class="files-grid" id="grid-view">
       <div class="empty-state">
-        <div class="spinner" style="margin:0 auto;width:30px;height:30px;border:3px solid var(--exo-border);border-top-color:var(--exo-primary);border-radius:50%;animation:spin .7s linear infinite;"></div>
+        <div class="spinner" style="margin:0 auto;width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;"></div>
       </div>
     </div>
 
@@ -299,7 +332,7 @@ __NAV_HTML__
 <!-- Context menu -->
 <div class="context-menu" id="contextMenu">
   <div class="context-menu-item" id="ctx-open" onclick="handleAction('open')">
-    <img class="ico ico-18 ico-muted" src="/static/img/solid/folder-open.svg"> Ouvrir
+    <img class="ico ico-18 ico-muted" id="ctx-open-icon" src="/static/img/solid/folder-open.svg"> <span id="ctx-open-label">Ouvrir</span>
   </div>
   <div class="context-menu-item" id="ctx-download" onclick="handleAction('download')">
     <img class="ico ico-18 ico-muted" src="/static/img/solid/download.svg"> Télécharger
@@ -321,6 +354,22 @@ __NAV_HTML__
   </div>
   <div class="context-menu-item delete" onclick="handleAction('delete')">
     <img class="ico ico-18 ico-red" src="/static/img/solid/trash.svg"> Supprimer
+  </div>
+</div>
+
+<!-- Menu contextuel clic droit dans le vide (crée dans le dossier courant) -->
+<div class="context-menu" id="emptyContextMenu">
+  <div class="context-menu-item" onclick="closeEmptyCtx();openFolderModalFromDD()">
+    <img class="ico ico-18 ico-primary" src="/static/img/solid/folder-plus.svg"> Nouveau dossier
+  </div>
+  <div class="context-menu-item" onclick="closeEmptyCtx();createPageFromDD()">
+    <img class="ico ico-18 ico-primary" src="/static/img/solid/globe.svg"> Nouvelle page web
+  </div>
+  <div class="context-menu-item" onclick="closeEmptyCtx();openUploadModalFromDD()">
+    <img class="ico ico-18 ico-primary" src="/static/img/solid/arrow-up-from-bracket.svg"> Importer des fichiers
+  </div>
+  <div class="context-menu-item" onclick="closeEmptyCtx();openUploadFolderFromDD()">
+    <img class="ico ico-18 ico-primary" src="/static/img/solid/folder-open.svg"> Importer un dossier
   </div>
 </div>
 
@@ -474,7 +523,7 @@ __NAV_HTML__
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('deleteModal')">Annuler</button>
-      <button class="btn btn-primary" style="background:#f44336;" onclick="doDelete()">
+      <button class="btn btn-primary" style="background:var(--danger);" onclick="doDelete()">
         <img class="ico ico-sm ico-white" src="/static/img/solid/trash.svg"> Supprimer
       </button>
     </div>
@@ -490,7 +539,7 @@ __NAV_HTML__
     <div class="form-group">
       <label>IDs des utilisateurs (séparés par des virgules)</label>
       <input type="text" id="share-ids" placeholder="12, 45, 78">
-      <div style="font-size:11px;color:var(--exo-text-muted);margin-top:6px;">
+      <div style="font-size:11px;color:var(--text-dim);margin-top:6px;">
         Laisser vide pour révoquer tous les partages.
       </div>
     </div>
@@ -506,19 +555,20 @@ __NAV_HTML__
 <div id="toast-area" style="position:fixed;bottom:24px;right:24px;z-index:5000;display:flex;flex-direction:column;gap:10px;pointer-events:none;"></div>
 
 <style>
-.spinner { width:20px;height:20px;border:2px solid var(--exo-border);border-top-color:var(--exo-primary);border-radius:50%;animation:spin .7s linear infinite; }
+.spinner { width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite; }
 @keyframes spin { to { transform:rotate(360deg); } }
-.toast { background:var(--exo-card-bg);border:1px solid var(--exo-border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);padding:12px 18px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;animation:toast-in .25s ease;pointer-events:all;max-width:340px; }
+.toast { background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px color-mix(in srgb, var(--text) 15%, transparent);padding:12px 18px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;animation:toast-in .25s ease;pointer-events:all;max-width:340px; }
 @keyframes toast-in { from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);} }
-.toast.ok    { border-left:4px solid var(--exo-primary); }
-.toast.error { border-left:4px solid #f44336; }
-.toast.info  { border-left:4px solid #2196f3; }
+.toast.ok    { border-left:4px solid var(--accent); }
+.toast.error { border-left:4px solid var(--danger); }
+.toast.info  { border-left:4px solid var(--blue); }
 </style>
 
 <script src="/static/crypto.js"></script>
 <script>
 'use strict';
 const ICO = '/static/img/solid/';
+const THEMES = ['light','dark','solarized','rose']; // index = colonne `teme` en DB — identique à mess.html
 
 const state = {
   dossier:     0,
@@ -529,19 +579,42 @@ const state = {
   uploadFiles: [],
   uploadMode:  'files',
   cryptoReady:  false,
+  dragging:    null,
+  dragEndedAt: 0,
+  treeExpanded: new Set(),
 };
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // ── Initialisation session VEX depuis sessionStorage ─────────
   // Le mdp en clair est stocké en sessionStorage par login.html
   // après un login réussi. sessionStorage est effacé à la fermeture
   // de l'onglet — le mdp ne persiste jamais sur disque.
   if (!initCryptoSession()) return;
 
+  await applyTheme();   // pose data-theme AVANT le premier rendu visible
   setView(state.view, false);
   loadData();
   initDropZone();
+  initEmptyAreaContextMenu();
 });
+
+// ══════════════════════════════════════════════════════════════════
+// THÈME — récupère la préférence `teme` côté serveur et l'applique
+// (même pattern que mess.html : GET /api/fchier/prefs)
+// ══════════════════════════════════════════════════════════════════
+async function applyTheme() {
+  try {
+    const r = await fetch('/api/fchier/prefs', { credentials: 'include' });
+    if (r.status === 401) { redirectLogin(); return; }
+    const data = await r.json();
+    if (data && data.success) {
+      document.documentElement.setAttribute('data-theme', THEMES[data.teme] || 'light');
+    }
+  } catch (e) {
+    // Pas bloquant : si la pref échoue, on reste sur le thème par défaut (light)
+    console.warn('VEX : impossible de charger le thème :', e);
+  }
+}
 
 function redirectLogin() {
   window.location.href = '/login/login';
@@ -594,6 +667,19 @@ function openFolderModalFromDD() {
   openModal('folderModal');
   setTimeout(() => document.getElementById('folder-name').focus(), 50);
 }
+
+// ── Création d'une page Sitec directement dans le dossier fchier courant.
+// Reste sur la page fchier — pour éditer, clic droit sur la page > Modifier.
+async function createPageFromDD() {
+  closeCreateDropdown();
+  try {
+    const r = await apiFetch('/api/fchier/create_page', { parent_id: state.dossier });
+    if (!r.success) throw new Error(r.error || 'Erreur');
+    toast('Page créée', 'ok');
+    loadData();
+  } catch(e) { toast('Erreur : ' + e.message, 'error'); }
+}
+
 function openUploadModalFromDD() {
   closeCreateDropdown();
   state.uploadMode = 'files';
@@ -627,6 +713,30 @@ function initDropZone() {
     if (files.length) addFilesToUpload(files);
   });
 }
+
+// ── Clic droit dans le vide (grille/liste) : menu "Nouveau" contextuel.
+// state.dossier est déjà à jour → les actions du menu créent au bon endroit.
+function initEmptyAreaContextMenu() {
+  ['grid-view', 'list-view'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('contextmenu', e => {
+      if (e.target.closest('.file-card,.folder-card,.page-card,.list-item')) return;
+      e.preventDefault();
+      openEmptyCtx(e);
+    });
+  });
+}
+function openEmptyCtx(e) {
+  document.getElementById('contextMenu').classList.remove('show');
+  closeCreateDropdown();
+  const menu = document.getElementById('emptyContextMenu');
+  menu.classList.add('show');
+  let x = e.clientX, y = e.clientY;
+  if (x + 210 > window.innerWidth)  x = window.innerWidth  - 220;
+  if (y + 190 > window.innerHeight) y = window.innerHeight - 200;
+  menu.style.left = x + 'px'; menu.style.top = y + 'px';
+}
+function closeEmptyCtx() { document.getElementById('emptyContextMenu').classList.remove('show'); }
 
 function handleFileSelect(e) {
   const files = Array.from(e.target.files);
@@ -937,13 +1047,14 @@ function showLoading() {
   document.getElementById('list-body').innerHTML = '';
 }
 function showError(msg) {
-  document.getElementById('grid-view').innerHTML = `<div class="empty-state"><p style="color:#f44336;">Erreur : ${escHtml(msg)}</p></div>`;
+  document.getElementById('grid-view').innerHTML = `<div class="empty-state"><p style="color:var(--danger);">Erreur : ${escHtml(msg)}</p></div>`;
 }
 function renderAll() {
   const d = state.data;
   renderBreadcrumb(d.chemin || []);
   renderGrid(d.dossiers || [], d.fichiers || [], d.pages || []);
   renderList(d.dossiers || [], d.fichiers || [], d.pages || []);
+  renderFolderTreeSidebar();
   const chemin = d.chemin || [];
   const last   = chemin[chemin.length - 1];
   document.getElementById('content-title').textContent = last ? last.nom : 'Mes fichiers';
@@ -974,23 +1085,31 @@ function makeFolderCard(f) {
     <div class="folder-icon"><img class="ico ico-lg ico-orange" src="${ICO}folder.svg"></div>
     <div class="folder-name">${escHtml(f.nom || '')}</div>
     <div class="file-date">Dossier</div>`;
-  div.addEventListener('dblclick', () => { state.dossier = f.id; loadData(); });
+  div.addEventListener('click', () => { if (justDragged()) return; state.dossier = f.id; loadData(); });
   div.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'folder', f.id, f); });
+  enableDrag(div, f.id, 'folder');
+  enableDropTarget(div, f.id);
   return div;
 }
 
+// Cartes "page" — l'id est une STRING (20 car., id Sitec), pas un i64.
+// On l'injecte donc entre guillemets dans les attributs onclick.
 function makePageCard(p) {
   const div = document.createElement('div');
   div.className = 'page-card'; div.dataset.type = 'page'; div.dataset.name = p.nom || '';
+  const pid = String(p.id || '');
   div.innerHTML = `
-    <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'page',${p.id},${JSON.stringify(p).replace(/"/g,'&quot;')})">
+    ${p.partage ? `<div class="badge-share"><img class="ico ico-sm ico-white" src="${ICO}share-nodes.svg"></div>` : ''}
+    <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'page','${pid}',${JSON.stringify(p).replace(/"/g,'&quot;')})">
       <img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg">
     </div>
     <div class="page-icon"><img class="ico ico-lg ico-blue" src="${ICO}globe.svg"></div>
     <div class="page-name">${escHtml(p.nom || '')}</div>
     <div class="file-date">Page web</div>`;
-  div.addEventListener('dblclick', () => { if (p.urlpage) window.open('/sitec/pages/' + p.urlpage + '.php', '_blank'); });
-  div.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'page', p.id, p); });
+  // Double-clic = aperçu public (/page/id). Pour éditer : "..." > Modifier.
+  div.addEventListener('click', () => { if (justDragged()) return; window.open('/page/' + encodeURIComponent(pid), '_blank'); });
+  div.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'page', pid, p); });
+  enableDrag(div, pid, 'page');
   return div;
 }
 
@@ -1008,9 +1127,63 @@ function makeFileCard(f) {
     <div class="file-icon"><img class="ico ico-lg ico-muted" src="${src}"></div>
     <div class="file-name">${escHtml(f.nom || '')}</div>
     <div class="file-date">${formatDate(f.date || '')}</div>`;
-  div.addEventListener('dblclick', () => downloadFile(f));
+  div.addEventListener('click', () => { if (justDragged()) return; downloadFile(f); });
   div.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'file', f.id, f); });
+  enableDrag(div, f.id, 'file');
   return div;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DRAG & DROP — glisser un fichier/dossier/page sur un dossier (carte,
+// ligne de liste ou segment du fil d'ariane) pour le déplacer. Les
+// pages sont rangées via un champ "page:<id>" dans l'idpage du dossier
+// (même mécanisme que "fich:<id>" pour les fichiers, côté serveur).
+// ══════════════════════════════════════════════════════════════════
+// Certains navigateurs déclenchent encore un 'click' juste après un drop —
+// on l'ignore pour ne pas rouvrir l'élément qu'on vient de déplacer.
+function justDragged() { return Date.now() - state.dragEndedAt < 300; }
+
+function enableDrag(el, id, type) {
+  el.draggable = true;
+  // Firefox : sans setData(), le glisser-déposer personnalisé ne démarre
+  // pas de façon fiable. On désactive aussi le drag natif des <img>
+  // internes, sinon Firefox capte le geste sur l'icône au lieu de la ligne.
+  el.querySelectorAll('img').forEach(img => { img.draggable = false; });
+  el.addEventListener('dragstart', e => {
+    state.dragging = { id, type };
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(id));
+    el.classList.add('dragging-src');
+  });
+  el.addEventListener('dragend', () => {
+    el.classList.remove('dragging-src');
+    state.dragging = null;
+    state.dragEndedAt = Date.now();
+  });
+}
+
+function enableDropTarget(el, folderId) {
+  el.addEventListener('dragover', e => {
+    if (!state.dragging) return;
+    if (state.dragging.type === 'folder' && state.dragging.id === folderId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    el.classList.add('drop-target');
+  });
+  el.addEventListener('dragleave', () => el.classList.remove('drop-target'));
+  el.addEventListener('drop', async e => {
+    e.preventDefault();
+    el.classList.remove('drop-target');
+    if (!state.dragging) return;
+    const { id, type } = state.dragging;
+    state.dragging = null;
+    if (type === 'folder' && id === folderId) return;
+    try {
+      const r = await apiFetch('/api/fchier/move', { item_id: id, item_type: type, target_folder: folderId });
+      if (!r.success) throw new Error(r.error);
+      toast('Déplacé', 'ok'); loadData();
+    } catch(err) { toast('Erreur : ' + err.message, 'error'); }
+  });
 }
 
 function renderList(dossiers, fichiers, pages) {
@@ -1021,16 +1194,22 @@ function renderList(dossiers, fichiers, pages) {
     row.className = 'list-item'; row.dataset.type = 'folder'; row.dataset.name = f.nom || '';
     row.innerHTML = `<div class="list-item-name"><img class="ico ico-18 ico-orange" src="${ICO}folder.svg"><span>${escHtml(f.nom||'')}</span></div><div>Dossier</div><div>—</div>
       <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'folder',${f.id},${JSON.stringify(f).replace(/"/g,'&quot;')})"><img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg"></div>`;
-    row.addEventListener('dblclick', () => { state.dossier = f.id; loadData(); });
+    row.addEventListener('click', () => { if (justDragged()) return; state.dossier = f.id; loadData(); });
     row.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'folder', f.id, f); });
+    enableDrag(row, f.id, 'folder');
+    enableDropTarget(row, f.id);
     body.appendChild(row);
   });
   pages.forEach(p => {
+    const pid = String(p.id || '');
     const row = document.createElement('div');
     row.className = 'list-item'; row.dataset.type = 'page'; row.dataset.name = p.nom || '';
     row.innerHTML = `<div class="list-item-name"><img class="ico ico-18 ico-blue" src="${ICO}globe.svg"><span>${escHtml(p.nom||'')}</span></div><div>Page web</div><div>—</div>
-      <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'page',${p.id},${JSON.stringify(p).replace(/"/g,'&quot;')})"><img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg"></div>`;
-    row.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'page', p.id, p); });
+      <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'page','${pid}',${JSON.stringify(p).replace(/"/g,'&quot;')})"><img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg"></div>`;
+    // Double-clic = aperçu public (/page/id). Pour éditer : "..." > Modifier.
+    row.addEventListener('click', () => { if (justDragged()) return; window.open('/page/' + encodeURIComponent(pid), '_blank'); });
+    row.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'page', pid, p); });
+    enableDrag(row, pid, 'page');
     body.appendChild(row);
   });
   fichiers.forEach(f => {
@@ -1041,8 +1220,9 @@ function renderList(dossiers, fichiers, pages) {
     row.innerHTML = `<div class="list-item-name"><img class="ico ico-18 ico-muted" src="${src}"><span>${escHtml(f.nom||'')}</span></div>
       <div>${(f.nom||'').split('.').pop().toUpperCase()}</div><div>${formatDate(f.date||'')}</div>
       <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'file',${f.id},${JSON.stringify(f).replace(/"/g,'&quot;')})"><img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg"></div>`;
-    row.addEventListener('dblclick', () => downloadFile(f));
+    row.addEventListener('click', () => { if (justDragged()) return; downloadFile(f); });
     row.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'file', f.id, f); });
+    enableDrag(row, f.id, 'file');
     body.appendChild(row);
   });
 }
@@ -1051,17 +1231,97 @@ function renderBreadcrumb(chemin) {
   const bc = document.getElementById('breadcrumb');
   bc.innerHTML = '';
   chemin.forEach((seg, i) => {
-    if (i > 0) { const sep = document.createElement('span'); sep.textContent = '/'; bc.appendChild(sep); }
+    if (i === 0) {
+      const home = document.createElement('span');
+      home.className = 'bc-home';
+      home.innerHTML = `<img class="ico ico-sm" src="${ICO}house.svg"> ${escHtml(seg.nom || 'Accueil')}`;
+      home.onclick = () => navTo(seg.id || 0);
+      enableDropTarget(home, seg.id || 0);
+      bc.appendChild(home);
+      return;
+    }
+    const isLast = i === chemin.length - 1;
+
+    const sep = document.createElement('span');
+    sep.className = 'bc-sep';
+    sep.textContent = '›';
+    bc.appendChild(sep);
+
     const span = document.createElement('span');
-    span.className = 'bc-link';
-    if (i === 0) span.innerHTML = `<img class="ico ico-sm ico-primary" src="${ICO}house.svg"> ${escHtml(seg.nom||'Accueil')}`;
-    else         span.textContent = seg.nom || '';
-    span.onclick = () => navTo(seg.id || 0);
+    span.className = 'bc-seg' + (isLast ? ' current' : '');
+    span.textContent = seg.nom || '';
+    if (!isLast) span.onclick = () => navTo(seg.id || 0);
+    enableDropTarget(span, seg.id || 0);
     bc.appendChild(span);
   });
 }
 
 function navTo(id) { state.dossier = id; loadData(); }
+
+// ══════════════════════════════════════════════════════════════════
+// ARBORESCENCE LATÉRALE — panneau "Dossiers" façon explorateur classique
+// (dossiers imbriqués, dépliables, cible de drag & drop).
+// ══════════════════════════════════════════════════════════════════
+function renderFolderTreeSidebar() {
+  const container = document.getElementById('sidebarTree');
+  const title = document.getElementById('sidebarTreeTitle');
+  if (!container) return;
+  const folders = (state.data && state.data.all_folders) || [];
+
+  if (!folders.length) {
+    container.innerHTML = '';
+    container.style.display = 'none';
+    if (title) title.style.display = 'none';
+    return;
+  }
+  container.style.display = '';
+  if (title) title.style.display = '';
+
+  const byParent = {};
+  folders.forEach(f => {
+    const pid = f.parent_id || 0;
+    (byParent[pid] = byParent[pid] || []).push(f);
+  });
+  Object.values(byParent).forEach(arr => arr.sort((a, b) => (a.nom || '').localeCompare(b.nom || '')));
+
+  // Déplie automatiquement le chemin jusqu'au dossier courant
+  (state.data.chemin || []).forEach(seg => { if (seg.id) state.treeExpanded.add(seg.id); });
+
+  function renderChildren(parentId, depth) {
+    const kids = byParent[parentId] || [];
+    if (!kids.length) return '';
+    return kids.map(f => {
+      const hasKids  = (byParent[f.id] || []).length > 0;
+      const expanded = state.treeExpanded.has(f.id);
+      const active   = state.dossier === f.id;
+      return `
+        <div class="tree-node${active ? ' active' : ''}" data-id="${f.id}" style="padding-left:${8 + depth * 16}px">
+          <span class="tree-toggle" data-id="${f.id}">${hasKids ? (expanded ? '▾' : '▸') : ''}</span>
+          <img class="ico ico-sm ${active ? 'ico-white' : 'ico-orange'}" src="${ICO}folder.svg">
+          <span class="tree-label">${escHtml(f.nom || '')}</span>
+        </div>
+        ${expanded ? renderChildren(f.id, depth + 1) : ''}`;
+    }).join('');
+  }
+
+  container.innerHTML = renderChildren(0, 0);
+
+  container.querySelectorAll('.tree-toggle').forEach(t => {
+    if (!t.dataset.id) return;
+    t.onclick = e => {
+      e.stopPropagation();
+      const id = parseInt(t.dataset.id, 10);
+      if (state.treeExpanded.has(id)) state.treeExpanded.delete(id); else state.treeExpanded.add(id);
+      renderFolderTreeSidebar();
+    };
+  });
+  container.querySelectorAll('.tree-node').forEach(n => {
+    const id = parseInt(n.dataset.id, 10);
+    n.onclick = () => navTo(id);
+    if (id !== 0) enableDrag(n, id, 'folder');
+    enableDropTarget(n, id);
+  });
+}
 
 function switchTab(idx) {
   state.shared = idx; state.dossier = 0;
@@ -1216,14 +1476,24 @@ async function doDelete() {
 }
 
 // ── Context menu
+// `id` peut être un i64 (fichier/dossier) ou une String (page, id Sitec 20 car.)
 function openCtx(e, type, id, item) {
+  closeEmptyCtx();
+  closeCreateDropdown();
   item = item || {};
   state.ctx = { id, type, item };
-  document.getElementById('ctx-open').style.display       = type === 'folder' ? 'flex' : 'none';
+  document.getElementById('ctx-open').style.display       = (type === 'folder' || type === 'page') ? 'flex' : 'none';
+  if (type === 'page') {
+    document.getElementById('ctx-open-icon').src = ICO + 'globe.svg';
+    document.getElementById('ctx-open-label').textContent = 'Modifier';
+  } else {
+    document.getElementById('ctx-open-icon').src = ICO + 'folder-open.svg';
+    document.getElementById('ctx-open-label').textContent = 'Ouvrir';
+  }
   document.getElementById('ctx-download').style.display   = type === 'file'   ? 'flex' : 'none';
   document.getElementById('ctx-visibility').style.display = (type === 'page' || type === 'file') ? 'flex' : 'none';
-  document.getElementById('ctx-move').style.display       = type !== 'file'   ? 'flex' : 'none';
-  document.getElementById('ctx-share').style.display      = type !== 'page'   ? 'flex' : 'none';
+  document.getElementById('ctx-move').style.display       = (type === 'folder' || type === 'page') ? 'flex' : 'none';
+  document.getElementById('ctx-share').style.display      = type === 'file' || type === 'folder' ? 'flex' : 'none';
   document.getElementById('ctx-sendp2p').style.display    = type === 'file'   ? 'flex' : 'none';
   const menu = document.getElementById('contextMenu');
   menu.classList.add('show');
@@ -1243,6 +1513,7 @@ function handleAction(action) {
   if (!item.id) item.id = id;
   const name = item.nom || '';
   if      (action === 'open'       && type === 'folder') { state.dossier = id; loadData(); }
+  else if (action === 'open'       && type === 'page')   { window.open('/sitec?open=' + encodeURIComponent(id), '_blank'); }
   else if (action === 'download'   && type === 'file')   { downloadFile(item); }
   else if (action === 'rename')     { document.getElementById('rename-input').value = name; openModal('renameModal'); }
   else if (action === 'share')      { document.getElementById('share-ids').value = item.partage || ''; openModal('shareModal'); }
@@ -1255,6 +1526,8 @@ function handleAction(action) {
 document.addEventListener('click', e => {
   if (!e.target.closest('.item-menu') && !e.target.closest('#contextMenu'))
     document.getElementById('contextMenu').classList.remove('show');
+  if (!e.target.closest('#emptyContextMenu'))
+    closeEmptyCtx();
 });
 
 function openModal(id)  { document.getElementById(id).classList.add('active'); }
@@ -1266,6 +1539,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     document.querySelectorAll('.modal.active').forEach(m => m.classList.remove('active'));
     document.getElementById('contextMenu').classList.remove('show');
+    closeEmptyCtx();
     closeCreateDropdown();
   }
 });

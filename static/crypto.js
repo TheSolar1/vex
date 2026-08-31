@@ -1,17 +1,20 @@
 // ══════════════════════════════════════════════════════════════════
 // vex-crypto.js — Module cryptographique client VEX
-// v2.1 — IV intégré au blob chiffré — aucun champ IV séparé en DB
+// v2.2 — sel aléatoire par fichier (pqSalt) + IV, tous deux intégrés
+//        au blob chiffré — aucun champ séparé en DB
 //
 // PRINCIPES :
 //   • Le mot de passe en clair NE QUITTE JAMAIS le navigateur
 //   • Login/inscription → PBKDF2-SHA256(mdp, salt=email, 100k iter) → hex 64 car.
 //   • Chiffrement fichiers → AES-256-GCM
-//       Clé = HKDF(mdp, salt="VEX-file-salt-static", info="VEX-ExoDrive-file-v1")
-//       IV  = aléatoire, préfixé au contenu chiffré
-//       → IV jamais stocké en DB, transporté dans le blob chiffré
-//   • Chiffrement requêtes sensibles → AES-256-GCM (clé dérivée du cookie session
-//     XOR mdp en clair) — pour chiffrer les corps de requête contenant des données
-//     sensibles (ex: contenu de fichiers, notes, messages)
+//       Clé = HKDF(SHA-512(mdp) || pqSalt, salt="VEX-PQ-salt", info="VEX-PQ-file-v1")
+//       pqSalt = 32 octets aléatoires, généré à chaque fichier
+//       IV     = 12 octets aléatoires
+//       Blob   = MAGIC(4) || pqSalt(32) || IV(12) || ciphertext
+//       → pqSalt et IV jamais stockés à part, transportés dans le blob chiffré
+//   • Chiffrement requêtes sensibles → AES-256-GCM (clé dérivée du hash PBKDF2
+//     de session XOR hash du cookie) — pour chiffrer les corps de requête
+//     contenant des données sensibles (ex: contenu de fichiers, notes, messages)
 //   • IDs, dates, emails, noms d'utilisateur → NON chiffrés (métadonnées structurelles)
 //   • Seules les données "contenu" sont chiffrées (fichiers, champs marqués sensibles)
 //
@@ -34,17 +37,21 @@
     const AES_KEY_BITS      = 256;
     const IV_BYTES          = 12;   // 96 bits — recommandé AES-GCM
     const TAG_BYTES         = 16;   // 128 bits — défaut AES-GCM
-    const FILE_MAGIC        = new Uint8Array([0x56, 0x45, 0x58, 0x31]); // "VEX1"
+    const FILE_MAGIC = new Uint8Array([0x56, 0x45, 0x58, 0x32]);
+
+    const PQ_SALT_BYTES = 32;
 
     // Infos de contexte HKDF — distingue chaque usage de clé
-    const HKDF_INFO_FILE    = 'VEX-ExoDrive-file-v1';
+    const HKDF_INFO_FILE    = 'VEX-PQ-file-v1';
+    const HKDF_SALT_FILE    = 'VEX-PQ-salt';
     const HKDF_INFO_REQUEST = 'VEX-request-body-v1';
-    const HKDF_SALT_FILE    = 'VEX-file-salt-static';
+    const HKDF_SALT_REQUEST = 'VEX-file-salt-static';
 
     // ── État interne (jamais exposé directement) ──────────────────
-    let _mdpClair    = null;   // mot de passe en clair — gardé en mémoire JS uniquement
-    let _emailClair  = null;   // email en clair — nécessaire pour dériver l'IV
-    let _cookieCache = null;   // valeur du cookie session (lue une fois, mise en cache)
+    let _mdpClair         = null;   // mot de passe en clair — gardé en mémoire JS uniquement
+    let _emailClair       = null;   // email en clair — nécessaire pour dériver l'IV
+    let _cookieCache      = null;   // valeur du cookie session (lue une fois, mise en cache)
+    let _sessionHashBytes = null;   // hash PBKDF2 (bytes) — utilisé pour dériver la clé des requêtes
 
     // ── Utilitaires bas niveau ────────────────────────────────────
 
@@ -160,17 +167,24 @@
         return new Uint8Array(bits);
     }
 
-    // ── Clé de chiffrement fichiers ───────────────────────────────
-    // Dérivée du mdp en clair uniquement (stable tant que le mdp ne change pas).
-    async function getClesFichier() {
+    // ── Clé de chiffrement fichiers ────────────────────────────────
+    // Sel aléatoire par fichier (pqSalt), combiné au mot de passe via SHA-512
+    // puis HKDF — chaque fichier a donc une clé de chiffrement unique.
+    async function getClesFichier(pqSalt) {
         if (!_mdpClair) throw new Error('VEX : non connecté (mdp en clair absent)');
-        const mdpBytes = strToBytes(_mdpClair);
-        return hkdfDeriveAesKey(mdpBytes, HKDF_INFO_FILE, HKDF_SALT_FILE);
+
+        const sha = new Uint8Array(
+            await crypto.subtle.digest('SHA-512', strToBytes(_mdpClair))
+        );
+
+        const master = new Uint8Array(sha.length + pqSalt.length);
+        master.set(sha, 0);
+        master.set(pqSalt, sha.length);
+
+        return hkdfDeriveAesKey(master, HKDF_INFO_FILE, HKDF_SALT_FILE);
     }
 
-    // ── Clé de chiffrement requêtes ───────────────────────────────
-    let _sessionHashBytes = null;
-
+    // ── Clé de chiffrement requêtes ────────────────────────────────
     async function getCleRequete() {
         if (!_mdpClair) throw new Error('VEX : non connecté');
         if (!_sessionHashBytes) throw new Error('VEX : setSessionHash() non appelé après login');
@@ -184,7 +198,7 @@
         ));
 
         const masterBytes = xorBytes(_sessionHashBytes, cookieHash);
-        return hkdfDeriveAesKey(masterBytes, HKDF_INFO_REQUEST, HKDF_SALT_FILE);
+        return hkdfDeriveAesKey(masterBytes, HKDF_INFO_REQUEST, HKDF_SALT_REQUEST);
     }
 
     // ── Chiffrement / Déchiffrement AES-256-GCM générique ─────────
@@ -272,21 +286,28 @@
 
         /**
          * Chiffre un File avant upload.
-         * Le blob retourné contient IV || ciphertext, donc aucun champ IV séparé
-         * n'est nécessaire en DB.
+         * Le blob retourné contient MAGIC || pqSalt || IV || ciphertext,
+         * donc aucun champ pqSalt/IV séparé n'est nécessaire en DB.
          *
          * @param {File} file Fichier à chiffrer.
          * @returns {Promise<{blob: Blob}>}  Blob chiffré prêt à uploader.
          */
         async chiffrerFichier(file) {
             if (!_emailClair) throw new Error('VEX : email absent — appelez setSession(mdp, hash, email)');
-            const key   = await getClesFichier();
-            const plain = new Uint8Array(await file.arrayBuffer());
+            
+            const pqSalt = crypto.getRandomValues(new Uint8Array(PQ_SALT_BYTES));
+            const key    = await getClesFichier(pqSalt);
+            const plain  = new Uint8Array(await file.arrayBuffer());
             const { iv, data } = await aesEncrypt(key, plain);
-            const packed = new Uint8Array(FILE_MAGIC.length + IV_BYTES + data.length);
+
+            const packed = new Uint8Array(
+                FILE_MAGIC.length + PQ_SALT_BYTES + IV_BYTES + data.length
+            );
             packed.set(FILE_MAGIC, 0);
-            packed.set(iv, FILE_MAGIC.length);
-            packed.set(data, FILE_MAGIC.length + IV_BYTES);
+            packed.set(pqSalt, FILE_MAGIC.length);
+            packed.set(iv, FILE_MAGIC.length + PQ_SALT_BYTES);
+            packed.set(data, FILE_MAGIC.length + PQ_SALT_BYTES + IV_BYTES);
+
             return {
                 blob: new Blob([packed], { type: 'application/octet-stream' }),
             };
@@ -294,7 +315,7 @@
 
         /**
          * Déchiffre un blob reçu du serveur.
-         * Le blob doit contenir IV || ciphertext.
+         * Le blob doit contenir MAGIC || pqSalt || IV || ciphertext.
          *
          * @param {Blob} blob Blob chiffré reçu du serveur.
          * @param {string} mimeType Type MIME original du fichier.
@@ -302,15 +323,19 @@
          */
         async dechiffrerFichier(blob, mimeType) {
             if (!_emailClair) throw new Error('VEX : email absent — appelez setSession(mdp, hash, email)');
-            const key   = await getClesFichier();
             const packed = new Uint8Array(await blob.arrayBuffer());
-            const minLen = FILE_MAGIC.length + IV_BYTES + TAG_BYTES;
+            const minLen = FILE_MAGIC.length + PQ_SALT_BYTES + IV_BYTES + TAG_BYTES;
             if (packed.length < minLen) throw new Error('Fichier non chiffré ou trop court');
             for (let i = 0; i < FILE_MAGIC.length; i++) {
                 if (packed[i] !== FILE_MAGIC[i]) throw new Error('Fichier non chiffré VEX');
             }
-            const iv = packed.slice(FILE_MAGIC.length, FILE_MAGIC.length + IV_BYTES);
-            const data = packed.slice(FILE_MAGIC.length + IV_BYTES);
+            const pqSalt = packed.slice(FILE_MAGIC.length, FILE_MAGIC.length + PQ_SALT_BYTES);
+            const iv = packed.slice(
+                FILE_MAGIC.length + PQ_SALT_BYTES,
+                FILE_MAGIC.length + PQ_SALT_BYTES + IV_BYTES
+            );
+            const data = packed.slice(FILE_MAGIC.length + PQ_SALT_BYTES + IV_BYTES);
+            const key   = await getClesFichier(pqSalt);
             const plain = await aesDecrypt(key, iv, data);
             return new Blob([plain], { type: mimeType || 'application/octet-stream' });
         },
@@ -469,7 +494,7 @@
 //        body: JSON.stringify({ file_name, file_b64, mime_type, taille: bytes.length, visble, current_folder }),
 //    });
 //
-//    Le blob envoyé contient déjà IV || ciphertext.
+//    Le blob envoyé contient déjà pqSalt || IV || ciphertext.
 //
 // 3. DOWNLOAD FICHIER :
 //
@@ -506,7 +531,7 @@
 //    • Emails, noms d'utilisateur
 //    • Hash PBKDF2 (c'est son rôle — le serveur doit le comparer)
 //    • Métadonnées de fichier (nom, taille, type MIME)
-//    • L'IV N'EST PAS stocké à part — il est préfixé au blob chiffré
+//    • L'IV et le sel pqSalt NE SONT PAS stockés à part — préfixés au blob chiffré
 //
 //  Aucun changement de schéma DB requis.
 // ══════════════════════════════════════════════════════════════════

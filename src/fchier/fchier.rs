@@ -359,8 +359,10 @@ pub fn handle(pool: &DbPool, req: &mut Request) -> Response<std::io::Cursor<Vec<
         let action = path.trim_start_matches("/api/fchier/");
         return match action {
             "data" => api_data(pool, req, uid),
+            "prefs" => api_prefs(pool, uid),     
             "upload" => api_upload(pool, req, uid),
             "create_folder" => api_create_folder(pool, req, uid),
+            "create_page" => api_create_page(pool, req, uid),
             "share" => api_share(pool, req, uid),
             "change_visibility" => api_change_visibility(pool, req, uid),
             "rename" => api_rename(pool, req, uid),
@@ -467,6 +469,59 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
         })
         .collect();
 
+    // ── Tous dossiers (déplacement + arborescence latérale) + index
+    // fichier→dossier ET page→dossier. Ni un fichier ni une page n'a de
+    // colonne "dossier" à lui : leur appartenance est encodée dans le
+    // champ idpage DU DOSSIER qui les contient, sous forme "fich:<id>"
+    // / "page:<id>" (posé par api_upload/api_create_page/api_move). On
+    // construit ces index ICI, avant "Fichiers"/"Pages", pour pouvoir
+    // filtrer par dossier courant juste après.
+    let all_folders_raw = selectionner(
+        pool,
+        "sitecdos",
+        &[],
+        &["iddosier", "doisernom", "userid", "addpageuserid", "idpage"],
+        Some("doisernom ASC"),
+        None,
+    );
+    let mut all_folders: Vec<Value> = Vec::new();
+    let mut file_parent: HashMap<i64, i64> = HashMap::new();
+    let mut page_parent: HashMap<String, i64> = HashMap::new();
+    for row in &all_folders_raw {
+        let owner = row.get("userid").and_then(|v| v.as_i64()).unwrap_or(-1);
+        let addpage = row
+            .get("addpageuserid")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let folder_id = row.get("iddosier").and_then(|v| v.as_i64()).unwrap_or(0);
+        let idpage = row.get("idpage").and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+        // L'appartenance réelle d'un fichier/page à ce dossier ne dépend
+        // pas de qui a le droit de VOIR le dossier dans l'arbre — on
+        // indexe donc tous les dossiers, visibles ou non par l'utilisateur.
+        for tok in idpage.split(',') {
+            let tok = tok.trim();
+            if let Some(fid_str) = tok.strip_prefix("fich:") {
+                if let Ok(fid) = fid_str.parse::<i64>() {
+                    file_parent.insert(fid, folder_id);
+                }
+            } else if let Some(pid_str) = tok.strip_prefix("page:") {
+                page_parent.insert(pid_str.to_string(), folder_id);
+            }
+        }
+
+        if owner != uid && !is_shared_with(&addpage, uid) {
+            continue;
+        }
+        let parent_id = dos_parent(&idpage).unwrap_or(0);
+        all_folders.push(json!({
+            "id": folder_id,
+            "nom": row.get("doisernom").cloned().unwrap_or(json!("")),
+            "parent_id": parent_id,
+        }));
+    }
+
     // ── Fichiers
     let uid_val_fich = mysql::Value::from(uid);
     let tuple_fich = ("id_utilisateur", uid_val_fich);
@@ -499,6 +554,7 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
                 .get("id_utilisateur")
                 .and_then(|v| v.as_i64())
                 .unwrap_or(-1);
+            let file_id = row.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
             let partage_raw = row
                 .get("partage")
                 .and_then(|v| v.as_str())
@@ -510,6 +566,14 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
                 if owner == uid || !is_shared_with(&partage_raw, uid) {
                     return None;
                 }
+            }
+
+            // Filtrage par dossier courant (même principe que pour les
+            // sous-dossiers juste au-dessus : un fichier sans entrée dans
+            // file_parent est "à la racine").
+            let file_folder = file_parent.get(&file_id).copied().unwrap_or(0);
+            if file_folder != dossier {
+                return None;
             }
 
             // N'affiche le badge partage que si des ids différents du propriétaire existent
@@ -544,24 +608,41 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
         })
         .collect();
 
-    // ── Pages
+    // ── Pages (table sitec_pages — c'est celle que l'éditeur Sitec,
+    // src/sitec/sitec.rs, lit et écrit réellement. La table "sitec" est
+    // un vestige d'un ancien schéma et n'est plus utilisée par l'éditeur)
     let pages_raw = selectionner(
         pool,
-        "sitec",
-        &[("user_id", mysql::Value::from(uid))],
-        &["idpage", "nompage", "urlpage", "prob"],
-        Some("nompage ASC"),
+        "sitec_pages",
+        &[("owner_id", mysql::Value::from(uid))],
+        &["id", "titre", "public", "partage"],
+        Some("titre ASC"),
         None,
     );
     let pages_web: Vec<Value> = pages_raw
         .into_iter()
-        .map(|row| {
-            json!({
-                "id":      row.get("idpage").cloned().unwrap_or(json!(0)),
-                "nom":     row.get("nompage").cloned().unwrap_or(json!("")),
-                "urlpage": row.get("urlpage").cloned().unwrap_or(json!("")),
-                "prob":    row.get("prob").cloned().unwrap_or(json!(1)),
-            })
+        .filter_map(|row| {
+            let page_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let page_folder = page_parent.get(&page_id).copied().unwrap_or(0);
+            if page_folder != dossier {
+                return None;
+            }
+            let partage = row
+                .get("partage")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            // sitec_pages.public : 1 = publique. La convention utilisée ailleurs
+            // dans fchier (champs "visble"/"prob" : 1 = privé, 0 = public) est
+            // inversée — on convertit pour que la modale Visibilité reste cohérente.
+            let is_public = row.get("public").and_then(|v| v.as_i64()).unwrap_or(0) == 1;
+            Some(json!({
+                "id":      json!(page_id),
+                "nom":     row.get("titre").cloned().unwrap_or(json!("")),
+                "partage": partage,
+                "prob":    if is_public { 0 } else { 1 },
+            }))
         })
         .collect();
 
@@ -572,21 +653,6 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
         vec![json!({"id":0,"nom":"Mes fichiers"})]
     };
 
-    // ── Tous dossiers (déplacement)
-    let all_folders_raw = selectionner(
-        pool,
-        "sitecdos",
-        &[],
-        &["iddosier", "doisernom", "userid", "addpageuserid"],
-        Some("doisernom ASC"),
-        None,
-    );
-    let all_folders: Vec<Value> = all_folders_raw.into_iter().filter_map(|row| {
-        let owner   = row.get("userid").and_then(|v| v.as_i64()).unwrap_or(-1);
-        let addpage = row.get("addpageuserid").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        if owner != uid && !is_shared_with(&addpage, uid) { return None; }
-        Some(json!({"id": row.get("iddosier").cloned().unwrap_or(json!(0)), "nom": row.get("doisernom").cloned().unwrap_or(json!(""))}))
-    }).collect();
 
     // ── Quota
     let quota: i64 = selectionner(
@@ -775,6 +841,22 @@ fn api_upload(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
 // ══════════════════════════════════════════════════════════════════
 // POST /api/fchier/create_folder
 // ══════════════════════════════════════════════════════════════════
+// `sitecdos.iddosier` n'a pas AUTO_INCREMENT côté DB : on doit calculer
+// nous-mêmes le prochain id (MAX(iddosier)+1).
+fn next_sitecdos_id(pool: &DbPool) -> i64 {
+    let mut conn = match pool.get_conn() {
+        Ok(c) => c,
+        Err(_) => return 1,
+    };
+    let max: Option<i64> = mysql::prelude::Queryable::query_first(
+        &mut conn,
+        "SELECT MAX(iddosier) FROM sitecdos",
+    )
+    .unwrap_or(None)
+    .flatten();
+    max.unwrap_or(0) + 1
+}
+
 fn api_create_folder(
     pool: &DbPool,
     req: &mut Request,
@@ -799,11 +881,21 @@ fn api_create_folder(
     } else {
         String::new()
     };
+    // `iddosier` n'est PAS auto_increment côté DB (confirmé via
+    // SHOW COLUMNS FROM sitecdos : int NOT NULL, sans AUTO_INCREMENT ni
+    // valeur par défaut) — il faut le fournir nous-mêmes, sinon MySQL
+    // rejette l'insertion avec "Field 'iddosier' doesn't have a default
+    // value". D'où le 500 systématique sur toute création de dossier.
+    // Limite connue : MAX()+1 a une petite fenêtre de collision en cas
+    // de deux créations strictement simultanées ; acceptable ici vu
+    // l'absence d'AUTO_INCREMENT réel côté schéma.
+    let new_id = next_sitecdos_id(pool);
     // addpageuserid = vide à la création (sera rempli par api_share)
     let id = inserer_ou_modifier(
         pool,
         "sitecdos",
         &[
+            ("iddosier", mysql::Value::from(new_id)),
             ("doisernom", mysql::Value::from(folder_name.as_str())),
             ("userid", mysql::Value::from(uid)),
             ("idpage", mysql::Value::from(idpage_val.as_str())),
@@ -818,6 +910,137 @@ fn api_create_folder(
 }
 
 // ══════════════════════════════════════════════════════════════════
+// POST /api/fchier/create_page
+//   Crée une page dans `sitec_pages` (même table que l'éditeur Sitec)
+//   et renvoie son id (20 caractères) pour que le front puisse ouvrir
+//   /sitec?open=<id> immédiatement après création.
+// ══════════════════════════════════════════════════════════════════
+const PAGE_ID_LEN: usize = 20;
+const PAGE_ID_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+fn random_page_id() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let seed = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.subsec_nanos())
+        .unwrap_or(1) as u64;
+    let mut state = seed ^ 0x9e3779b97f4a7c15 ^ (std::process::id() as u64);
+    let mut out = String::with_capacity(PAGE_ID_LEN);
+    for _ in 0..PAGE_ID_LEN {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        out.push(PAGE_ID_CHARS[(state as usize) % PAGE_ID_CHARS.len()] as char);
+    }
+    out
+}
+
+fn generate_unique_page_id(pool: &DbPool) -> String {
+    for _ in 0..10 {
+        let candidate = random_page_id();
+        let exists = !selectionner(
+            pool,
+            "sitec_pages",
+            &[("id", mysql::Value::from(candidate.as_str()))],
+            &["id"],
+            None,
+            Some(1),
+        )
+        .is_empty();
+        if !exists {
+            return candidate;
+        }
+    }
+    random_page_id() // collision quasi impossible sur 20 car.
+}
+
+// Filet de sécurité : au cas où l'éditeur Sitec n'a encore jamais été
+// ouvert et que la table n'existe pas encore.
+fn ensure_sitec_pages_table(pool: &DbPool) {
+    if let Ok(mut conn) = pool.get_conn() {
+        let _ = mysql::prelude::Queryable::query_drop(
+            &mut conn,
+            "CREATE TABLE IF NOT EXISTS `sitec_pages` (
+                `id`             VARCHAR(20)  PRIMARY KEY,
+                `owner_id`       INT          NOT NULL,
+                `titre`          VARCHAR(255) NOT NULL DEFAULT '',
+                `mode`           VARCHAR(10)  NOT NULL DEFAULT 'simple',
+                `contenu_html`   LONGTEXT,
+                `contenu_titre`  VARCHAR(255),
+                `contenu_corps`  LONGTEXT,
+                `public`         TINYINT      NOT NULL DEFAULT 0,
+                `partage`        TEXT,
+                `created_at`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `updated_at`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        );
+    }
+}
+
+fn api_create_page(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::Cursor<Vec<u8>>> {
+    // Les pages sont rangées dans un dossier via le même mécanisme que
+    // les fichiers : le champ idpage DU DOSSIER liste ses pages sous
+    // forme "page:<id>" (id = 20 caractères), en plus de ses éventuels
+    // "fich:<id>" et sous-dossiers "dos:<id>". sitec_pages elle-même n'a
+    // toujours pas de colonne d'emplacement, et n'en a pas besoin.
+    let body = parse_json_body(req);
+    let parent_id = body
+        .as_ref()
+        .and_then(|b| b.get("parent_id"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+    ensure_sitec_pages_table(pool);
+
+    let id = generate_unique_page_id(pool);
+    let ok = inserer_ou_modifier(
+        pool,
+        "sitec_pages",
+        &[
+            ("id", mysql::Value::from(id.as_str())),
+            ("owner_id", mysql::Value::from(uid)),
+            ("titre", mysql::Value::from("Nouvelle page")),
+            ("mode", mysql::Value::from("simple")),
+            ("contenu_titre", mysql::Value::from("Nouvelle page")),
+            ("contenu_corps", mysql::Value::from("")),
+            ("contenu_html", mysql::Value::from("")),
+            ("public", mysql::Value::from(0i64)),
+            ("partage", mysql::Value::from("")),
+        ],
+        &[],
+    );
+    if ok < 0 {
+        return json_response(500, json!({"error":"Erreur création page"}));
+    }
+
+    if parent_id > 0 {
+        let rows = selectionner(
+            pool,
+            "sitecdos",
+            &[("iddosier", mysql::Value::from(parent_id))],
+            &["idpage"],
+            None,
+            Some(1),
+        );
+        if let Some(row) = rows.into_iter().next() {
+            let idpage = row.get("idpage").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let new_idpage = if idpage.is_empty() {
+                format!("page:{}", id)
+            } else {
+                format!("{},page:{}", idpage, id)
+            };
+            inserer_ou_modifier(
+                pool,
+                "sitecdos",
+                &[("idpage", mysql::Value::from(new_idpage.as_str()))],
+                &[("iddosier", mysql::Value::from(parent_id))],
+            );
+        }
+    }
+
+    json_response(200, json!({"success":true,"id":id}))
+}
+
+// ══════════════════════════════════════════════════════════════════
 // POST /api/fchier/share
 // ══════════════════════════════════════════════════════════════════
 fn api_share(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::Cursor<Vec<u8>>> {
@@ -825,7 +1048,6 @@ fn api_share(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::Cu
         Some(b) => b,
         None => return json_response(400, json!({"error":"Corps invalide"})),
     };
-    let item_id = body.get("item_id").and_then(|v| v.as_i64()).unwrap_or(0);
     let item_type = body
         .get("item_type")
         .and_then(|v| v.as_str())
@@ -838,6 +1060,55 @@ fn api_share(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::Cu
         .trim()
         .to_string();
 
+    // ── Pages : id string (20 car.), table sitec_pages, format de partage
+    // "uid:12,uid:45" attendu par src/sitec/sitec.rs (partage_contains).
+    if item_type == "page" {
+        let item_id = body
+            .get("item_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        if item_id.is_empty() {
+            return json_response(400, json!({"error":"item_id manquant"}));
+        }
+        let rows = selectionner(
+            pool,
+            "sitec_pages",
+            &[
+                ("id", mysql::Value::from(item_id.as_str())),
+                ("owner_id", mysql::Value::from(uid)),
+            ],
+            &["id"],
+            None,
+            Some(1),
+        );
+        if rows.is_empty() {
+            return json_response(403, json!({"error":"Non autorisé"}));
+        }
+        let share_normalized: String = share_data
+            .split(',')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .filter_map(|s| s.parse::<i64>().ok())
+            .map(|n| format!("uid:{}", n))
+            .collect::<Vec<_>>()
+            .join(",");
+        let res = inserer_ou_modifier(
+            pool,
+            "sitec_pages",
+            &[("partage", mysql::Value::from(share_normalized.as_str()))],
+            &[
+                ("id", mysql::Value::from(item_id.as_str())),
+                ("owner_id", mysql::Value::from(uid)),
+            ],
+        );
+        if res < 0 {
+            return json_response(500, json!({"error":"Erreur partage"}));
+        }
+        return json_response(200, json!({"success":true}));
+    }
+
+    let item_id = body.get("item_id").and_then(|v| v.as_i64()).unwrap_or(0);
     if item_id == 0 {
         return json_response(400, json!({"error":"item_id manquant"}));
     }
@@ -883,34 +1154,6 @@ fn api_share(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::Cu
                 &[
                     ("iddosier", mysql::Value::from(item_id)),
                     ("userid", mysql::Value::from(uid)),
-                ],
-            )
-        }
-        "page" => {
-            let rows = selectionner(
-                pool,
-                "sitec",
-                &[
-                    ("idpage", mysql::Value::from(item_id)),
-                    ("user_id", mysql::Value::from(uid)),
-                ],
-                &["idpage"],
-                None,
-                Some(1),
-            );
-            if rows.is_empty() {
-                return json_response(403, json!({"error":"Non autorisé"}));
-            }
-            inserer_ou_modifier(
-                pool,
-                "sitec",
-                &[(
-                    "addpageuserid",
-                    mysql::Value::from(share_normalized.as_str()),
-                )],
-                &[
-                    ("idpage", mysql::Value::from(item_id)),
-                    ("user_id", mysql::Value::from(uid)),
                 ],
             )
         }
@@ -960,7 +1203,6 @@ fn api_change_visibility(
         Some(b) => b,
         None => return json_response(400, json!({"error":"Corps invalide"})),
     };
-    let page_id = body.get("page_id").and_then(|v| v.as_i64()).unwrap_or(0);
     let item_type = body
         .get("item_type")
         .and_then(|v| v.as_str())
@@ -971,26 +1213,43 @@ fn api_change_visibility(
         .and_then(|v| v.as_str())
         .unwrap_or("1")
         .to_string();
-    let res = match item_type.as_str() {
-        "page" => inserer_ou_modifier(
+
+    if item_type == "page" {
+        let page_id = body
+            .get("page_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        if page_id.is_empty() {
+            return json_response(400, json!({"error":"page_id manquant"}));
+        }
+        // Convention fchier : "1"=privé,"0"=public. sitec_pages.public : 1=public.
+        let public_val: i64 = if new_visibility == "0" { 1 } else { 0 };
+        let res = inserer_ou_modifier(
             pool,
-            "sitec",
-            &[("prob", mysql::Value::from(new_visibility.as_str()))],
+            "sitec_pages",
+            &[("public", mysql::Value::from(public_val))],
             &[
-                ("idpage", mysql::Value::from(page_id)),
-                ("user_id", mysql::Value::from(uid)),
+                ("id", mysql::Value::from(page_id.as_str())),
+                ("owner_id", mysql::Value::from(uid)),
             ],
-        ),
-        _ => inserer_ou_modifier(
-            pool,
-            "fichiers",
-            &[("visble", mysql::Value::from(new_visibility.as_str()))],
-            &[
-                ("id", mysql::Value::from(page_id)),
-                ("id_utilisateur", mysql::Value::from(uid)),
-            ],
-        ),
-    };
+        );
+        if res < 0 {
+            return json_response(500, json!({"error":"Erreur visibilité"}));
+        }
+        return json_response(200, json!({"success":true}));
+    }
+
+    let page_id = body.get("page_id").and_then(|v| v.as_i64()).unwrap_or(0);
+    let res = inserer_ou_modifier(
+        pool,
+        "fichiers",
+        &[("visble", mysql::Value::from(new_visibility.as_str()))],
+        &[
+            ("id", mysql::Value::from(page_id)),
+            ("id_utilisateur", mysql::Value::from(uid)),
+        ],
+    );
     if res < 0 {
         return json_response(500, json!({"error":"Erreur visibilité"}));
     }
@@ -1005,7 +1264,6 @@ fn api_rename(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
         Some(b) => b,
         None => return json_response(400, json!({"error":"Corps invalide"})),
     };
-    let item_id = body.get("item_id").and_then(|v| v.as_i64()).unwrap_or(0);
     let item_type = body
         .get("item_type")
         .and_then(|v| v.as_str())
@@ -1020,6 +1278,32 @@ fn api_rename(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
     if new_name.is_empty() || new_name.len() > 255 {
         return json_response(400, json!({"error":"Nom invalide"}));
     }
+
+    if item_type == "page" {
+        let item_id = body
+            .get("item_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        if item_id.is_empty() {
+            return json_response(400, json!({"error":"item_id manquant"}));
+        }
+        let res = inserer_ou_modifier(
+            pool,
+            "sitec_pages",
+            &[("titre", mysql::Value::from(new_name.as_str()))],
+            &[
+                ("id", mysql::Value::from(item_id.as_str())),
+                ("owner_id", mysql::Value::from(uid)),
+            ],
+        );
+        if res < 0 {
+            return json_response(500, json!({"error":"Erreur renommage"}));
+        }
+        return json_response(200, json!({"success":true}));
+    }
+
+    let item_id = body.get("item_id").and_then(|v| v.as_i64()).unwrap_or(0);
     let res = match item_type.as_str() {
         "folder" => inserer_ou_modifier(
             pool,
@@ -1028,15 +1312,6 @@ fn api_rename(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
             &[
                 ("iddosier", mysql::Value::from(item_id)),
                 ("userid", mysql::Value::from(uid)),
-            ],
-        ),
-        "page" => inserer_ou_modifier(
-            pool,
-            "sitec",
-            &[("nompage", mysql::Value::from(new_name.as_str()))],
-            &[
-                ("idpage", mysql::Value::from(item_id)),
-                ("user_id", mysql::Value::from(uid)),
             ],
         ),
         _ => inserer_ou_modifier(
@@ -1057,27 +1332,96 @@ fn api_rename(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
 
 // ══════════════════════════════════════════════════════════════════
 // POST /api/fchier/delete
+// ── CORRIGÉ : vérification de propriété ajoutée pour "folder" et "page"
+//    (auparavant, n'importe quel utilisateur connecté pouvait supprimer
+//    le dossier ou la page de n'importe qui — faille IDOR).
 // ══════════════════════════════════════════════════════════════════
 fn api_delete(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::Cursor<Vec<u8>>> {
     let body = match parse_json_body(req) {
         Some(b) => b,
         None => return json_response(400, json!({"error":"Corps invalide"})),
     };
-    let item_id = body.get("item_id").and_then(|v| v.as_i64()).unwrap_or(0);
     let item_type = body
         .get("item_type")
         .and_then(|v| v.as_str())
         .unwrap_or("file")
         .to_string();
+
+    if item_type == "page" {
+        let item_id = body
+            .get("item_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        if item_id.is_empty() {
+            return json_response(400, json!({"error":"item_id manquant"}));
+        }
+        let rows = selectionner(
+            pool,
+            "sitec_pages",
+            &[
+                ("id", mysql::Value::from(item_id.as_str())),
+                ("owner_id", mysql::Value::from(uid)),
+            ],
+            &["id"],
+            None,
+            Some(1),
+        );
+        if rows.is_empty() {
+            return json_response(403, json!({"error":"Non autorisé"}));
+        }
+        let needle = format!("page:{}", item_id);
+        let mes_dossiers = selectionner(
+            pool,
+            "sitecdos",
+            &[("userid", mysql::Value::from(uid))],
+            &["iddosier", "idpage"],
+            None,
+            None,
+        );
+        for row in mes_dossiers {
+            let fid = row.get("iddosier").and_then(|v| v.as_i64()).unwrap_or(0);
+            let idpage = row.get("idpage").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            if idpage.split(',').any(|t| t.trim() == needle) {
+                let cleaned: String = idpage
+                    .split(',')
+                    .map(|t| t.trim())
+                    .filter(|t| !t.is_empty() && *t != needle)
+                    .collect::<Vec<_>>()
+                    .join(",");
+                inserer_ou_modifier(
+                    pool,
+                    "sitecdos",
+                    &[("idpage", mysql::Value::from(cleaned.as_str()))],
+                    &[("iddosier", mysql::Value::from(fid))],
+                );
+            }
+        }
+        supprimer_ligne(pool, "sitec_pages", "id", mysql::Value::from(item_id.as_str()));
+        return json_response(200, json!({"success":true}));
+    }
+
+    let item_id = body.get("item_id").and_then(|v| v.as_i64()).unwrap_or(0);
     if item_id == 0 {
         return json_response(400, json!({"error":"item_id manquant"}));
     }
     match item_type.as_str() {
         "folder" => {
+            let rows = selectionner(
+                pool,
+                "sitecdos",
+                &[
+                    ("iddosier", mysql::Value::from(item_id)),
+                    ("userid", mysql::Value::from(uid)),
+                ],
+                &["iddosier"],
+                None,
+                Some(1),
+            );
+            if rows.is_empty() {
+                return json_response(403, json!({"error":"Non autorisé"}));
+            }
             supprimer_ligne(pool, "sitecdos", "iddosier", mysql::Value::from(item_id));
-        }
-        "page" => {
-            supprimer_ligne(pool, "sitec", "idpage", mysql::Value::from(item_id));
         }
         _ => {
             let rows = selectionner(
@@ -1108,16 +1452,188 @@ fn api_move(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::Cur
         Some(b) => b,
         None => return json_response(400, json!({"error":"Corps invalide"})),
     };
-    let item_id = body.get("item_id").and_then(|v| v.as_i64()).unwrap_or(0);
-    let target_folder = body
-        .get("target_folder")
-        .and_then(|v| v.as_i64())
-        .unwrap_or(0);
     let item_type = body
         .get("item_type")
         .and_then(|v| v.as_str())
         .unwrap_or("file")
         .to_string();
+
+    if item_type == "page" {
+        // Même mécanisme que pour les fichiers : la page n'a pas de
+        // colonne d'emplacement propre, son appartenance est encodée
+        // dans le champ idpage DU DOSSIER, sous forme "page:<id>".
+        let item_id = body
+            .get("item_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let target_folder = body
+            .get("target_folder")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
+        if item_id.is_empty() {
+            return json_response(400, json!({"error":"item_id manquant"}));
+        }
+        let owned = selectionner(
+            pool,
+            "sitec_pages",
+            &[
+                ("id", mysql::Value::from(item_id.as_str())),
+                ("owner_id", mysql::Value::from(uid)),
+            ],
+            &["id"],
+            None,
+            Some(1),
+        );
+        if owned.is_empty() {
+            return json_response(403, json!({"error":"Non autorisé"}));
+        }
+
+        let needle = format!("page:{}", item_id);
+        let mes_dossiers = selectionner(
+            pool,
+            "sitecdos",
+            &[("userid", mysql::Value::from(uid))],
+            &["iddosier", "idpage"],
+            None,
+            None,
+        );
+        for row in mes_dossiers {
+            let fid = row.get("iddosier").and_then(|v| v.as_i64()).unwrap_or(0);
+            let idpage = row.get("idpage").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            if idpage.split(',').any(|t| t.trim() == needle) {
+                let cleaned: String = idpage
+                    .split(',')
+                    .map(|t| t.trim())
+                    .filter(|t| !t.is_empty() && *t != needle)
+                    .collect::<Vec<_>>()
+                    .join(",");
+                inserer_ou_modifier(
+                    pool,
+                    "sitecdos",
+                    &[("idpage", mysql::Value::from(cleaned.as_str()))],
+                    &[("iddosier", mysql::Value::from(fid))],
+                );
+            }
+        }
+
+        if target_folder > 0 {
+            let rows = selectionner(
+                pool,
+                "sitecdos",
+                &[("iddosier", mysql::Value::from(target_folder))],
+                &["idpage"],
+                None,
+                Some(1),
+            );
+            if let Some(row) = rows.into_iter().next() {
+                let idpage = row.get("idpage").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let new_idpage = if idpage.is_empty() {
+                    format!("page:{}", item_id)
+                } else {
+                    format!("{},page:{}", idpage, item_id)
+                };
+                inserer_ou_modifier(
+                    pool,
+                    "sitecdos",
+                    &[("idpage", mysql::Value::from(new_idpage.as_str()))],
+                    &[("iddosier", mysql::Value::from(target_folder))],
+                );
+            } else {
+                return json_response(404, json!({"error":"Dossier cible introuvable"}));
+            }
+        }
+        return json_response(200, json!({"success":true}));
+    }
+
+    let item_id = body.get("item_id").and_then(|v| v.as_i64()).unwrap_or(0);
+    let target_folder = body
+        .get("target_folder")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+
+    if item_type == "file" {
+        // Vérifie que le fichier appartient à l'utilisateur.
+        let owned = selectionner(
+            pool,
+            "fichiers",
+            &[
+                ("id", mysql::Value::from(item_id)),
+                ("id_utilisateur", mysql::Value::from(uid)),
+            ],
+            &["id"],
+            None,
+            Some(1),
+        );
+        if owned.is_empty() {
+            return json_response(403, json!({"error":"Non autorisé"}));
+        }
+
+        // Un fichier n'a pas de colonne "dossier" à lui : son appartenance
+        // est encodée dans le champ idpage DU DOSSIER qui le contient,
+        // sous forme "fich:<id>" (même convention que api_upload). On
+        // retire donc d'abord la référence de tous les dossiers de
+        // l'utilisateur qui la listent...
+        let needle = format!("fich:{}", item_id);
+        let mes_dossiers = selectionner(
+            pool,
+            "sitecdos",
+            &[("userid", mysql::Value::from(uid))],
+            &["iddosier", "idpage"],
+            None,
+            None,
+        );
+        for row in mes_dossiers {
+            let fid = row.get("iddosier").and_then(|v| v.as_i64()).unwrap_or(0);
+            let idpage = row.get("idpage").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            if idpage.split(',').any(|t| t.trim() == needle) {
+                let cleaned: String = idpage
+                    .split(',')
+                    .map(|t| t.trim())
+                    .filter(|t| !t.is_empty() && *t != needle)
+                    .collect::<Vec<_>>()
+                    .join(",");
+                inserer_ou_modifier(
+                    pool,
+                    "sitecdos",
+                    &[("idpage", mysql::Value::from(cleaned.as_str()))],
+                    &[("iddosier", mysql::Value::from(fid))],
+                );
+            }
+        }
+
+        // ...puis on l'ajoute au dossier cible (si ce n'est pas la racine —
+        // la racine n'a pas de ligne sitecdos, "ne plus être listé nulle
+        // part" suffit à représenter "à la racine").
+        if target_folder > 0 {
+            let rows = selectionner(
+                pool,
+                "sitecdos",
+                &[("iddosier", mysql::Value::from(target_folder))],
+                &["idpage"],
+                None,
+                Some(1),
+            );
+            if let Some(row) = rows.into_iter().next() {
+                let idpage = row.get("idpage").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let new_idpage = if idpage.is_empty() {
+                    format!("fich:{}", item_id)
+                } else {
+                    format!("{},fich:{}", idpage, item_id)
+                };
+                inserer_ou_modifier(
+                    pool,
+                    "sitecdos",
+                    &[("idpage", mysql::Value::from(new_idpage.as_str()))],
+                    &[("iddosier", mysql::Value::from(target_folder))],
+                );
+            } else {
+                return json_response(404, json!({"error":"Dossier cible introuvable"}));
+            }
+        }
+        return json_response(200, json!({"success":true}));
+    }
+
     let idpage_val = if target_folder > 0 {
         format!("dos:{}", target_folder)
     } else {
@@ -1131,18 +1647,6 @@ fn api_move(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::Cur
             &[
                 ("iddosier", mysql::Value::from(item_id)),
                 ("userid", mysql::Value::from(uid)),
-            ],
-        ),
-        "page" => inserer_ou_modifier(
-            pool,
-            "sitec",
-            &[(
-                "idpage",
-                mysql::Value::from(target_folder.to_string().as_str()),
-            )],
-            &[
-                ("idpage", mysql::Value::from(item_id)),
-                ("user_id", mysql::Value::from(uid)),
             ],
         ),
         _ => return json_response(400, json!({"error":"Type non déplaçable"})),
@@ -1205,7 +1709,7 @@ fn api_download(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cur
     )
 }
 
-// â•â• Envoi P2P d'un fichier Ã  un utilisateur (d'un autre nÅ“ud) â•â•
+// ── Envoi P2P d'un fichier à un utilisateur (d'un autre nœud) ──
 fn api_send_p2p(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::Cursor<Vec<u8>>> {
     let body = match parse_json_body(req) {
         Some(b) => b,
@@ -1258,4 +1762,30 @@ fn api_send_p2p(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io:
 
 fn serve_html(nav_html: &str) -> String {
     include_str!("../../static/fchier/fchier.html").replace("__NAV_HTML__", nav_html)
+}
+// ══════════════════════════════════════════════════════════════════
+// api_prefs
+//   Table réelle : `pref` (pas "users")
+//   Colonne id   : `id-user` (avec des backticks, contient un tiret)
+//   Lecture par requête SQL brute via mysql::prelude::Queryable::query_first
+// ══════════════════════════════════════════════════════════════════
+fn api_prefs(pool: &DbPool, uid: i64) -> Response<std::io::Cursor<Vec<u8>>> {
+    let mut conn = match pool.get_conn() {
+        Ok(c) => c,
+        Err(e) => {
+            return json_response(
+                500,
+                json!({"success": false, "error": format!("DB: {}", e)}),
+            )
+        }
+    };
+
+    let teme: i64 = mysql::prelude::Queryable::query_first(
+        &mut conn,
+        format!("SELECT COALESCE(teme,0) FROM pref WHERE `id-user`={}", uid),
+    )
+    .unwrap_or(Some(0))
+    .unwrap_or(0);
+
+    json_response(200, json!({ "success": true, "teme": teme }))
 }

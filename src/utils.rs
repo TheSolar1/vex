@@ -35,19 +35,33 @@ pub fn parse_query(url: &str) -> std::collections::HashMap<String, String> {
 }
 
 pub fn url_decode(s: &str) -> String {
+    // On decode vers des octets puis on reconstruit l'UTF-8 : un caractere
+    // accentue est encode sur plusieurs %XX, les pousser un par un dans une
+    // String les transformerait en mojibake (ex. "é" -> "Ã©").
     let s = s.replace('+', " ");
-    let mut r = String::new();
-    let mut c = s.chars().peekable();
-    while let Some(ch) = c.next() {
-        if ch == '%' {
-            let h1 = c.next().unwrap_or('0');
-            let h2 = c.next().unwrap_or('0');
-            if let Ok(b) = u8::from_str_radix(&format!("{}{}", h1, h2), 16) {
-                r.push(b as char);
+    let bytes = s.as_bytes();
+    let mut out: Vec<u8> = Vec::with_capacity(bytes.len());
+    let mut i = 0usize;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            // Lecture des deux chiffres hexa octet par octet : slicer la
+            // String paniquerait si le % est suivi d'un caractere multi-octets.
+            let hex = |b: u8| -> Option<u8> {
+                match b {
+                    b'0'..=b'9' => Some(b - b'0'),
+                    b'a'..=b'f' => Some(b - b'a' + 10),
+                    b'A'..=b'F' => Some(b - b'A' + 10),
+                    _ => None,
+                }
+            };
+            if let (Some(h), Some(l)) = (hex(bytes[i + 1]), hex(bytes[i + 2])) {
+                out.push(h * 16 + l);
+                i += 3;
+                continue;
             }
-        } else {
-            r.push(ch);
         }
+        out.push(bytes[i]);
+        i += 1;
     }
-    r
+    String::from_utf8_lossy(&out).into_owned()
 }

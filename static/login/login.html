@@ -1,45 +1,48 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="{{THEME}}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Connexion - VEX</title>
 <link rel="icon" href="/static/img/favicon.ico" type="image/svg+xml">
+<link rel="stylesheet" href="/static/css/theme.css">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(135deg,#4caf50 0%,#45a049 100%);min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px}
-.login-wrapper{background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:100%;max-width:420px;padding:40px;animation:slideIn .4s ease-out}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(135deg,var(--vex-green-1) 0%,var(--vex-green-2) 100%);min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px}
+.login-wrapper{background:var(--surface);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:100%;max-width:420px;padding:40px;animation:slideIn .4s ease-out}
 @keyframes slideIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
 .logo{text-align:center;margin-bottom:32px}
-.logo h1{font-size:28px;color:#1c1e21;font-weight:700;margin-bottom:8px}
-.logo p{font-size:14px;color:#65676b}
+.logo h1{font-size:28px;color:var(--text);font-weight:700;margin-bottom:8px}
+.logo p{font-size:14px;color:var(--text-dim)}
 .form-group{margin-bottom:20px}
-.form-label{display:block;margin-bottom:8px;font-weight:600;font-size:14px;color:#1c1e21}
-.form-input{width:100%;padding:12px 16px;border:1px solid #e4e6eb;border-radius:8px;font-size:15px;transition:all .3s;font-family:inherit}
-.form-input:focus{outline:none;border-color:#4caf50;box-shadow:0 0 0 3px rgba(76,175,80,.1)}
-.btn-primary{width:100%;padding:12px 16px;background:linear-gradient(135deg,#4caf50 0%,#45a049 100%);color:white;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;transition:all .3s;margin-top:8px}
+.form-label{display:block;margin-bottom:8px;font-weight:600;font-size:14px;color:var(--text)}
+.form-input{width:100%;padding:12px 16px;border:1px solid var(--panel-border);border-radius:8px;font-size:15px;transition:all .3s;font-family:inherit;background:var(--input);color:var(--text)}
+.form-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--alt)}
+.btn-primary{width:100%;padding:12px 16px;background:linear-gradient(135deg,var(--vex-green-1) 0%,var(--vex-green-2) 100%);color:white;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;transition:all .3s;margin-top:8px}
 .btn-primary:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(76,175,80,.3)}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
 .divider{text-align:center;margin:24px 0;position:relative}
-.divider::before{content:'';position:absolute;left:0;top:50%;width:100%;height:1px;background:#e4e6eb}
-.divider span{background:white;padding:0 16px;color:#65676b;font-size:14px;position:relative;z-index:1}
-.btn-secondary{width:100%;padding:12px 16px;background:#e4e6eb;color:#1c1e21;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;transition:all .3s}
-.btn-secondary:hover{background:#d0d2d6}
+.divider::before{content:'';position:absolute;left:0;top:50%;width:100%;height:1px;background:var(--panel-border)}
+.divider span{background:var(--surface);padding:0 16px;color:var(--text-dim);font-size:14px;position:relative;z-index:1}
+.btn-secondary{width:100%;padding:12px 16px;background:var(--surface2);color:var(--text);border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;transition:all .3s}
+.btn-secondary:hover{filter:brightness(0.96)}
 .message{padding:12px 16px;border-radius:8px;margin-bottom:20px;font-size:14px;text-align:center}
-.message.success{background:#e8f5e9;color:#2e7d32;border:1px solid #4caf50}
-.message.error{background:#ffebee;color:#c62828;border:1px solid #f44336}
+.message.success{background:var(--alt);color:var(--accent);border:1px solid var(--accent)}
+.message.error{background:rgba(220,38,38,0.1);color:var(--danger);border:1px solid var(--danger)}
 .checkbox-wrapper{display:flex;align-items:center;gap:8px;margin-top:16px}
-.checkbox-wrapper input[type=checkbox]{width:18px;height:18px;cursor:pointer;accent-color:#4caf50}
-.checkbox-wrapper label{font-size:13px;color:#65676b;cursor:pointer}
-.checkbox-wrapper a{color:#4caf50;text-decoration:none;font-weight:500}
+.checkbox-wrapper input[type=checkbox]{width:18px;height:18px;cursor:pointer;accent-color:var(--accent)}
+.checkbox-wrapper label{font-size:13px;color:var(--text-dim);cursor:pointer}
+.checkbox-wrapper a{color:var(--accent);text-decoration:none;font-weight:500}
 .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);justify-content:center;align-items:center;z-index:1000}
 .modal.active{display:flex}
-.modal-content{background:white;border-radius:12px;padding:0;width:90%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.3);animation:slideUp .3s ease-out}
+.modal-content{background:var(--surface);border-radius:12px;padding:0;width:90%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.3);animation:slideUp .3s ease-out}
 @keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
-.modal-header{padding:24px;border-bottom:1px solid #e4e6eb}
-.modal-header h2{font-size:24px;color:#1c1e21;font-weight:700}
+.modal-header{padding:24px;border-bottom:1px solid var(--panel-border)}
+.modal-header h2{font-size:24px;color:var(--text);font-weight:700}
 .modal-body{padding:24px}
-.modal-footer{padding:24px;border-top:1px solid #e4e6eb;display:flex;gap:12px;justify-content:flex-end}
-.btn-cancel{padding:10px 20px;background:#e4e6eb;color:#1c1e21;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}
+.modal-footer{padding:24px;border-top:1px solid var(--panel-border);display:flex;gap:12px;justify-content:flex-end}
+.btn-cancel{padding:10px 20px;background:var(--surface2);color:var(--text);border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}
+.security-note{margin-top:18px;font-size:11px;color:var(--text-dim);text-align:center;line-height:1.5}
 </style>
 </head>
 <body>
@@ -61,6 +64,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
         <button type="submit" class="btn-primary" id="login-btn">Se connecter</button>
     </form>
     <div id="signup-toggle"></div>
+    <div class="security-note">Authentification SRP-6a — votre mot de passe ne quitte jamais cet appareil, sous aucune forme.</div>
 </div>
 
 <div class="modal" id="signupModal">
@@ -80,7 +84,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
                 <div class="form-group">
                     <label class="form-label" for="s-mdp">
                         Mot de passe
-                        <span id="pass-hint" style="font-weight:400;color:#9e9e9e;font-size:12px;"></span>
+                        <span id="pass-hint" style="font-weight:400;color:var(--text-dim);font-size:12px;"></span>
                     </label>
                     <input type="password" id="s-mdp" name="motdepass" class="form-input" placeholder="••••••••" required>
                 </div>
@@ -93,170 +97,244 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
         </div>
         <div class="modal-footer">
             <button type="button" class="btn-cancel" onclick="hideSignupModal()">Annuler</button>
-            <button type="button" class="btn-primary" style="width:auto;margin:0;" onclick="submitSignup()">Créer le compte</button>
+            <button type="button" class="btn-primary" style="width:auto;margin:0;" onclick="submitSignup()" id="signup-submit-btn">Créer le compte</button>
         </div>
     </div>
 </div>
 
 <script>
 // ══════════════════════════════════════════════════════════════════
-// VEX Crypto — côté client uniquement
+// VEX SRP-6a — Client (RFC 5054 adapté SHA-256), BigInt natif
 //
-// PRINCIPE :
-//   1. Le mot de passe en clair NE QUITTE JAMAIS le navigateur.
-//   2. Avant envoi au serveur : PBKDF2-SHA256(mdp, salt_minute) → hash hex 64 car.
-//   3. Le serveur reçoit et stocke/compare uniquement ce hash.
-//   4. Le mdp en clair est gardé en mémoire JS (variable _VEX_MDP_CLAIR)
-//      pour chiffrer/déchiffrer les fichiers ExoDrive avec ChaCha20-Poly1305.
+// Le mot de passe ne quitte JAMAIS ce navigateur, sous AUCUNE forme :
+//   - Inscription : on calcule un salt aléatoire + un verifier
+//     (v = g^x mod N) et on envoie UNIQUEMENT ça. Le serveur ne peut
+//     pas en déduire le mot de passe, et le verifier seul ne permet
+//     pas de se connecter (contrairement à un hash classique).
+//   - Connexion : échange en 2 étapes qui prouve mathématiquement la
+//     connaissance du mot de passe sans jamais l'envoyer ni envoyer
+//     une valeur réutilisable pour se reconnecter (pas de "pass-the-hash").
 //
-// SALT : timestamp Unix tronqué à la minute (Math.floor(Date.now()/1000/60))
-//   → identique côté client lors du login ET lors de la vérification DB
-//     à condition que l'inscription ET le login soient dans la même minute,
-//     OU que le serveur stocke le salt avec le hash (voir note ci-dessous).
-//
-// NOTE IMPORTANTE SUR LE SALT :
-//   Le salt minute change toutes les 60 secondes. Pour que le login fonctionne
-//   après l'inscription (qui peut être le lendemain), le salt doit être
-//   reproductible à partir de données connues des deux côtés.
-//   → Stratégie retenue : salt = PBKDF2 ne sert PAS à l'anti-bruteforce
-//     (le mdp en clair n'est jamais envoyé, donc brute-force réseau = impossible).
-//     Le salt protège contre les rainbow tables sur la DB.
-//     On utilise donc : salt = email.toLowerCase() — stable, connu des deux
-//     côtés, unique par utilisateur, pas besoin de stocker.
-//
-// CHIFFREMENT FICHIERS :
-//   VEX.chiffrer(plaintext: Uint8Array) → { iv: Uint8Array, data: Uint8Array }
-//   VEX.dechiffrer(iv: Uint8Array, data: Uint8Array) → Uint8Array
-//   La clé dérivée (AES-256-GCM, meilleur support WebCrypto que ChaCha20)
-//   est dérivée du mdp en clair via HKDF-SHA256.
-//   → ChaCha20 n'est pas disponible nativement dans WebCrypto API du navigateur.
-//     On utilise AES-256-GCM qui est équivalent en solidité et disponible partout.
-//     Pour le Raspberry Pi (serveur), le module Rust utilisera ChaCha20 si besoin.
+// ⚠️ Doit être bit-à-bit identique au calcul serveur (crate::srp) :
+//    même N/g, même padding, même ordre de concaténation des hash.
 // ══════════════════════════════════════════════════════════════════
 
-const VEX = (() => {
-    // Mdp en clair gardé en mémoire — jamais dans le DOM, jamais dans localStorage
+const SRP = (() => {
+    // Mdp en clair gardé en mémoire — jamais dans le DOM, jamais persisté.
     let _mdp = null;
 
-    // ── Utilitaires bas niveau ────────────────────────────────────
+    // RFC 5054, groupe 2048 bits — DOIT être identique à N_HEX côté Rust (srp.rs)
+    const N_HEX = "AC6BDB41324A9A9BF166DE5E1389582FAF72B6651987EE07FC3192943DB56050A37329CBB4A099ED8193E0757767A13DD52312AB4B03310DCD7F48A9DA04FD50E8083969EDB767B0CF6095179A163AB3661A05FBD5FAAAE82918A9962F0B93B855F97993EC975EEAA80D740ADBF4FF747359D041D5C33EA71D281E446B14773BCA97B43A23FB801676BD207A436C6481F1D2B9078717461A5B9D32E688F87748544523B524B0D57D5EA77A2775D2ECFA032CFBDBF52FB3786160279004E57AE6AF874E7303CE53299CCC041C7BC308D82A5698F3A8D0C38271AE35F8E9DBFBB694B5C803D89F7AE435DE236D525F54759B65E372FCD68EF20FA7111F9E4AFF73";
+    const N = BigInt("0x" + N_HEX);
+    const G = BigInt(2);
+    const N_LEN_BYTES = 256; // 2048 bits / 8
 
-    function strToBytes(str) {
-        return new TextEncoder().encode(str);
+    // ── Conversions bas niveau ─────────────────────────────────────
+    function bytesToHex(bytes) {
+        return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
     }
-
-    function bytesToHex(buf) {
-        return Array.from(new Uint8Array(buf))
-            .map(b => b.toString(16).padStart(2, '0'))
-            .join('');
-    }
-
     function hexToBytes(hex) {
+        if (hex.length % 2 !== 0) throw new Error('hex invalide');
         const arr = new Uint8Array(hex.length / 2);
-        for (let i = 0; i < hex.length; i += 2)
-            arr[i / 2] = parseInt(hex.slice(i, i + 2), 16);
+        for (let i = 0; i < hex.length; i += 2) arr[i / 2] = parseInt(hex.slice(i, i + 2), 16);
         return arr;
     }
+    function bigIntToHex(n) {
+        let h = n.toString(16);
+        if (h.length % 2 !== 0) h = '0' + h;
+        return h;
+    }
+    function bigIntToBytes(n) {
+        return hexToBytes(bigIntToHex(n));
+    }
+    function bytesToBigInt(bytes) {
+        return BigInt("0x" + (bytesToHex(bytes) || "0"));
+    }
+    // PAD : big-endian, zéros à gauche jusqu'à `len` octets.
+    // CRITIQUE : doit produire exactement le même résultat que pad() côté Rust.
+    function pad(n, len) {
+        const raw = bigIntToBytes(n);
+        if (raw.length >= len) return raw.slice(raw.length - len);
+        const out = new Uint8Array(len);
+        out.set(raw, len - raw.length);
+        return out;
+    }
+    function concatBytes(...arrs) {
+        const total = arrs.reduce((s, a) => s + a.length, 0);
+        const out = new Uint8Array(total);
+        let off = 0;
+        for (const a of arrs) { out.set(a, off); off += a.length; }
+        return out;
+    }
+    async function sha256(bytes) {
+        const digest = await crypto.subtle.digest('SHA-256', bytes);
+        return new Uint8Array(digest);
+    }
+    function strToBytes(str) { return new TextEncoder().encode(str); }
 
-    // ── PBKDF2-SHA256 ─────────────────────────────────────────────
-    // Produit un hash hex 64 caractères à envoyer au serveur.
-    // salt = email en minuscules (stable, unique par user, connu des deux côtés)
-    // iterations = 100 000 (OWASP 2023 recommandation)
-    async function pbkdf2Hex(password, salt) {
-        const keyMaterial = await crypto.subtle.importKey(
-            'raw', strToBytes(password), 'PBKDF2', false, ['deriveBits']
-        );
-        const bits = await crypto.subtle.deriveBits(
-            {
-                name:       'PBKDF2',
-                hash:       'SHA-256',
-                salt:       strToBytes(salt.toLowerCase()),
-                iterations: 100000,
-            },
-            keyMaterial,
-            256 // 32 octets = 64 hex
-        );
-        return bytesToHex(bits);
+    // ── Exponentiation modulaire rapide (BigInt natif n'a pas modPow) ──
+    function modPow(base, exp, mod) {
+        base = base % mod;
+        let result = 1n;
+        while (exp > 0n) {
+            if (exp & 1n) result = (result * base) % mod;
+            exp >>= 1n;
+            base = (base * base) % mod;
+        }
+        return result;
     }
 
-    // ── Dérivation clé de chiffrement fichiers ────────────────────
-    // Utilise HKDF-SHA256 sur le mdp en clair pour produire une clé AES-256-GCM.
-    // Cette clé est stable tant que le mdp ne change pas.
-    async function deriverCleChiffrement() {
-        if (!_mdp) throw new Error('Non connecté');
-        const keyMaterial = await crypto.subtle.importKey(
-            'raw', strToBytes(_mdp), 'HKDF', false, ['deriveKey']
-        );
-        return crypto.subtle.deriveKey(
-            {
-                name: 'HKDF',
-                hash: 'SHA-256',
-                salt: strToBytes('VEX-ExoDrive-v1'),
-                info: strToBytes('file-encryption'),
-            },
-            keyMaterial,
-            { name: 'AES-GCM', length: 256 },
-            false,
-            ['encrypt', 'decrypt']
-        );
+    // ── Constante k = H(PAD(N) || PAD(g)) — RFC 5054 ────────────────
+    let _kPromise = null;
+    async function getK() {
+        if (!_kPromise) {
+            _kPromise = (async () => {
+                const h = await sha256(concatBytes(pad(N, N_LEN_BYTES), pad(G, N_LEN_BYTES)));
+                return bytesToBigInt(h);
+            })();
+        }
+        return _kPromise;
     }
 
-    // ── API publique ──────────────────────────────────────────────
+    // ── x = H(salt || H(email:password)) ────────────────────────────
+    async function computeX(saltBytes, email, password) {
+        const inner = await sha256(strToBytes(email.toLowerCase() + ':' + password));
+        const h = await sha256(concatBytes(saltBytes, inner));
+        return bytesToBigInt(h);
+    }
 
     return {
-        // Appelé après connexion réussie pour mémoriser le mdp en clair
-        setMdp(mdpClair) {
-            _mdp = mdpClair;
-        },
+        setMdp(mdpClair) { _mdp = mdpClair; },
+        clearMdp() { _mdp = null; },
+        getMdp() { return _mdp; },
 
-        // Efface le mdp de la mémoire (logout)
-        clearMdp() {
-            _mdp = null;
-        },
+        toHex: bigIntToHex,
+        fromHex: (h) => BigInt("0x" + h),
+        bytesToHex, hexToBytes,
 
-        // Hash PBKDF2 à envoyer au serveur
-        // usage : const hash = await VEX.hashPourServeur(mdp, email)
-        hashPourServeur: pbkdf2Hex,
-
-        // Chiffre un Uint8Array avec AES-256-GCM (clé dérivée du mdp en clair)
-        // Retourne { iv: Uint8Array(12), data: Uint8Array }
-        async chiffrer(plaintext) {
-            const cle = await deriverCleChiffrement();
-            const iv  = crypto.getRandomValues(new Uint8Array(12));
-            const data = await crypto.subtle.encrypt(
-                { name: 'AES-GCM', iv },
-                cle,
-                plaintext
+        // ── FIX (compat ExoDrive / vex-crypto.js) ───────────────────
+        // fchier.html (et les autres pages utilisant /static/crypto.js)
+        // s'attendent à retrouver sessionStorage.vex_mdp / vex_hash /
+        // vex_email pour initialiser leur propre session crypto locale
+        // (chiffrement des corps de requête sensibles, PAS l'auth qui
+        // passe maintenant par SRP). Ce hash PBKDF2 n'est JAMAIS envoyé
+        // au serveur — calculé et utilisé uniquement côté client, pour
+        // rester compatible avec vex-crypto.js sans rien envoyer de
+        // plus sur le réseau. On le recalcule ici avec la même formule
+        // que l'ancien flux (PBKDF2-SHA256, salt=email, 100k itérations).
+        async hashLocalPourCompat(email, password) {
+            const keyMaterial = await crypto.subtle.importKey('raw', strToBytes(password), 'PBKDF2', false, ['deriveBits']);
+            const bits = await crypto.subtle.deriveBits(
+                { name: 'PBKDF2', hash: 'SHA-256', salt: strToBytes(email.toLowerCase()), iterations: 100000 },
+                keyMaterial, 256
             );
-            return { iv, data: new Uint8Array(data) };
+            return bytesToHex(new Uint8Array(bits));
         },
 
-        // Déchiffre { iv, data } → Uint8Array
-        async dechiffrer(iv, data) {
-            const cle = await deriverCleChiffrement();
-            const plain = await crypto.subtle.decrypt(
-                { name: 'AES-GCM', iv },
-                cle,
-                data
-            );
-            return new Uint8Array(plain);
-        },
-
-        // Chiffre un File avant upload → { iv: hex, blob: Blob }
-        // usage dans ExoDrive : const { iv, blob } = await VEX.chiffrerFichier(file)
-        async chiffrerFichier(file) {
-            const bytes = new Uint8Array(await file.arrayBuffer());
-            const { iv, data } = await this.chiffrer(bytes);
+        /**
+         * Inscription : calcule salt (16 octets aléatoires) + verifier
+         * v = g^x mod N. Le mot de passe n'est utilisé que localement,
+         * jamais envoyé.
+         */
+        async genererSaltEtVerifier(email, password) {
+            const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+            const x = await computeX(saltBytes, email, password);
+            const v = modPow(G, x, N);
             return {
-                iv:   bytesToHex(iv),
-                blob: new Blob([data], { type: 'application/octet-stream' }),
+                salt_hex: bytesToHex(saltBytes),
+                verifier_hex: bigIntToHex(v),
             };
         },
 
-        // Déchiffre un blob reçu du serveur → Blob du fichier original
-        // iv doit être le hex retourné par chiffrerFichier
+        /**
+         * Étape 1 (login) : génère l'exposant privé client `a` et la
+         * valeur publique A = g^a mod N, à envoyer avec l'email pour
+         * demander salt+B au serveur.
+         */
+        genererA() {
+            // 256 bits d'aléa — suffisant, comparable à la taille usuelle des a en SRP.
+            const aBytes = crypto.getRandomValues(new Uint8Array(32));
+            const a = bytesToBigInt(aBytes);
+            const A = modPow(G, a, N);
+            return { a, A_hex: bigIntToHex(A) };
+        },
+
+        /**
+         * Étape 2 (login) : à partir de salt/B reçus du serveur + a/A
+         * locaux + email/password, calcule M1 (preuve à envoyer) et K
+         * (clé de session), et prépare la vérification de M2 (preuve
+         * retournée par le serveur, à valider pour confirmer qu'IL
+         * connaît bien le verifier correspondant — anti-serveur-usurpé).
+         */
+        async calculerPreuve(email, password, saltHex, aValue, aHex, bHex) {
+            const saltBytes = hexToBytes(saltHex);
+            const B = BigInt("0x" + bHex);
+            const A = BigInt("0x" + aHex);
+
+            if (B % N === 0n) throw new Error('Valeur B du serveur invalide.');
+
+            const k = await getK();
+            const uHash = await sha256(concatBytes(pad(A, N_LEN_BYTES), pad(B, N_LEN_BYTES)));
+            const u = bytesToBigInt(uHash);
+            if (u === 0n) throw new Error('Valeur u invalide.');
+
+            const x = await computeX(saltBytes, email, password);
+
+            // S = (B - k*g^x) ^ (a + u*x) mod N
+            const gx = modPow(G, x, N);
+            let base = (B - ((k * gx) % N)) % N;
+            if (base < 0n) base = (base + N) % N;
+            const exponent = aValue + u * x;
+            const S = modPow(base, exponent, N);
+
+            const K = await sha256(pad(S, N_LEN_BYTES));
+
+            const hN = await sha256(pad(N, N_LEN_BYTES));
+            const hG = await sha256(pad(G, N_LEN_BYTES));
+            const xorNG = new Uint8Array(hN.length);
+            for (let i = 0; i < hN.length; i++) xorNG[i] = hN[i] ^ hG[i];
+            const hI = await sha256(strToBytes(email));
+
+            const M1 = await sha256(concatBytes(xorNG, hI, saltBytes, pad(A, N_LEN_BYTES), pad(B, N_LEN_BYTES), K));
+            return { M1_hex: bytesToHex(M1), K, A_hex: bigIntToHex(A) };
+        },
+
+        /** Vérifie la preuve M2 retournée par le serveur (confirme qu'il connaît le verifier). */
+        async verifierM2(aHex, m1Hex, kBytes, m2HexRecu) {
+            const A = BigInt("0x" + aHex);
+            const m1Bytes = hexToBytes(m1Hex);
+            const m2Expected = await sha256(concatBytes(pad(A, N_LEN_BYTES), m1Bytes, kBytes));
+            return bytesToHex(m2Expected) === m2HexRecu;
+        },
+
+        // ── Chiffrement fichiers (inchangé — dérivé du mdp en clair) ──
+        async deriverCleChiffrement() {
+            if (!_mdp) throw new Error('Non connecté');
+            const keyMaterial = await crypto.subtle.importKey('raw', strToBytes(_mdp), 'HKDF', false, ['deriveKey']);
+            return crypto.subtle.deriveKey(
+                { name: 'HKDF', hash: 'SHA-256', salt: strToBytes('VEX-ExoDrive-v1'), info: strToBytes('file-encryption') },
+                keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+            );
+        },
+        async chiffrer(plaintext) {
+            const cle = await this.deriverCleChiffrement();
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const data = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cle, plaintext);
+            return { iv, data: new Uint8Array(data) };
+        },
+        async dechiffrer(iv, data) {
+            const cle = await this.deriverCleChiffrement();
+            const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cle, data);
+            return new Uint8Array(plain);
+        },
+        async chiffrerFichier(file) {
+            const bytes = new Uint8Array(await file.arrayBuffer());
+            const { iv, data } = await this.chiffrer(bytes);
+            return { iv: bytesToHex(iv), blob: new Blob([data], { type: 'application/octet-stream' }) };
+        },
         async dechiffrerFichier(blob, ivHex, mimeType) {
-            const data  = new Uint8Array(await blob.arrayBuffer());
-            const iv    = hexToBytes(ivHex);
+            const data = new Uint8Array(await blob.arrayBuffer());
+            const iv = hexToBytes(ivHex);
             const plain = await this.dechiffrer(iv, data);
             return new Blob([plain], { type: mimeType || 'application/octet-stream' });
         },
@@ -282,9 +360,7 @@ function showMsg(id, msg, type) {
 }
 
 function esc(s) {
-    return String(s)
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 function showSignupModal() { document.getElementById('signupModal').classList.add('active'); }
@@ -293,52 +369,75 @@ document.getElementById('signupModal').addEventListener('click', e => {
     if (e.target === e.currentTarget) hideSignupModal();
 });
 
-// ── Connexion ────────────────────────────────────────────────────
-document.getElementById('login-form').addEventListener('submit', async function(e) {
+// ── Connexion — flux SRP en 2 étapes ──────────────────────────────
+document.getElementById('login-form').addEventListener('submit', async function (e) {
     e.preventDefault();
     const btn = document.getElementById('login-btn');
     btn.disabled = true;
-    btn.textContent = '…';
+    btn.textContent = 'Connexion…';
 
     const mdpClair = document.getElementById('motdepass').value;
-    const email    = document.getElementById('email').value;
-    sessionStorage.removeItem('vex_mdp');
-    sessionStorage.removeItem('vex_hash');
-    sessionStorage.removeItem('vex_email');
+    const email = document.getElementById('email').value;
 
     try {
-        // Hash PBKDF2 côté client — le mdp en clair ne quitte jamais le navigateur
-        const hashMdp = await VEX.hashPourServeur(mdpClair, email);
-
-        const body = new URLSearchParams({
-            action:    'login',
-            email,
-            motdepass: hashMdp, // hash hex 64 car., jamais le mdp en clair
+        // ── Étape 1 : demande salt + B au serveur ──────────────────
+        const r1 = await fetch('/login/login', {
+            method: 'POST',
+            body: new URLSearchParams({ action: 'srp_step1', email }),
+            credentials: 'include',
         });
-
-        const r = await fetch('/login/login', { method: 'POST', body, credentials: 'include' });
-        const d = await r.json();
-
-        if (d.success) {
-            // Mémoriser le mdp en clair pour le chiffrement fichiers
-            VEX.setMdp(mdpClair);
-            sessionStorage.setItem('vex_mdp', mdpClair);
-            sessionStorage.setItem('vex_hash', hashMdp);
-            sessionStorage.setItem('vex_email', email);
-            window.location.href = d.redirect || '/login/dashboard';
-        } else {
-            showMsg('msg-login', d.error, 'error');
+        const d1 = await r1.json();
+        if (!d1.success) {
+            showMsg('msg-login', d1.error || 'Erreur de connexion.', 'error');
+            btn.disabled = false; btn.textContent = 'Se connecter';
+            return;
         }
+
+        // ── Calcul local A, M1, K (le mot de passe reste ici) ──────
+        const { a, A_hex } = SRP.genererA();
+        const { M1_hex, K, A_hex: aHexOut } = await SRP.calculerPreuve(email, mdpClair, d1.salt, a, A_hex, d1.B);
+
+        // ── Étape 2 : envoie A + M1 (preuve), jamais le mdp ─────────
+        const r2 = await fetch('/login/login', {
+            method: 'POST',
+            body: new URLSearchParams({ action: 'srp_step2', email, token: d1.token, A: aHexOut, M1: M1_hex }),
+            credentials: 'include',
+        });
+        const d2 = await r2.json();
+
+        if (!d2.success) {
+            showMsg('msg-login', d2.error || 'Email ou mot de passe incorrect.', 'error');
+            btn.disabled = false; btn.textContent = 'Se connecter';
+            return;
+        }
+
+        // ── Vérifie que le serveur connaît bien le verifier (M2) ────
+        const serveurValide = await SRP.verifierM2(aHexOut, M1_hex, K, d2.M2);
+        if (!serveurValide) {
+            showMsg('msg-login', 'Le serveur n\'a pas pu prouver son identité — connexion annulée.', 'error');
+            btn.disabled = false; btn.textContent = 'Se connecter';
+            return;
+        }
+
+        SRP.setMdp(mdpClair);
+        // FIX (critique) : sans ça, fchier.html (et toute page utilisant
+        // /static/crypto.js) ne trouve pas de session crypto au chargement
+        // et te renvoie en boucle vers le login → dashboard. Ce hash n'est
+        // JAMAIS envoyé au serveur, il ne sert qu'en local pour rester
+        // compatible avec vex-crypto.js (chiffrement des requêtes sensibles).
+        const hashCompat = await SRP.hashLocalPourCompat(email, mdpClair);
+        sessionStorage.setItem('vex_mdp', mdpClair);
+        sessionStorage.setItem('vex_hash', hashCompat);
+        sessionStorage.setItem('vex_email', email);
+        window.location.href = d2.redirect || '/login/dashboard';
     } catch (err) {
         showMsg('msg-login', 'Erreur réseau ou crypto.', 'error');
         console.error(err);
+        btn.disabled = false; btn.textContent = 'Se connecter';
     }
-
-    btn.disabled = false;
-    btn.textContent = 'Se connecter';
 });
 
-// ── Inscription ──────────────────────────────────────────────────
+// ── Inscription — calcule salt + verifier, jamais le mdp ──────────
 async function submitSignup() {
     const scales = document.getElementById('scales').checked;
     if (!scales) {
@@ -347,24 +446,26 @@ async function submitSignup() {
     }
 
     const mdpClair = document.getElementById('s-mdp').value;
-    const email    = document.getElementById('s-email').value;
-    const nom      = document.getElementById('s-nom').value;
+    const email = document.getElementById('s-email').value;
+    const nom = document.getElementById('s-nom').value;
 
-    // Vérification longueur côté client (le serveur ne peut pas vérifier sur le hash)
     if (mdpClair.length < window._VEX_PASS_MIN) {
         showMsg('msg-signup', `Mot de passe trop court (min. ${window._VEX_PASS_MIN} car.).`, 'error');
         return;
     }
 
+    const btn = document.getElementById('signup-submit-btn');
+    btn.disabled = true; btn.textContent = 'Création…';
+
     try {
-        const hashMdp = await VEX.hashPourServeur(mdpClair, email);
+        const { salt_hex, verifier_hex } = await SRP.genererSaltEtVerifier(email, mdpClair);
 
         const body = new URLSearchParams({
-            action:    'signup',
-            nom,
-            email,
-            motdepass: hashMdp,
-            scales:    '1',
+            action: 'signup',
+            nom, email,
+            srp_salt: salt_hex,
+            srp_verifier: verifier_hex,
+            scales: '1',
         });
 
         const activation = document.getElementById('activation-input');
@@ -383,24 +484,23 @@ async function submitSignup() {
         showMsg('msg-signup', 'Erreur réseau ou crypto.', 'error');
         console.error(err);
     }
+
+    btn.disabled = false; btn.textContent = 'Créer le compte';
 }
 
 // ── Init ─────────────────────────────────────────────────────────
 (async function init() {
     const cfg = await loadConfig();
-
-    const regMode = cfg.registration_mode  || 'open';
+    const regMode = cfg.registration_mode || 'open';
     const passMin = cfg.password_min_length || 8;
-    const actReq  = cfg.activation_key_required || false;
+    const actReq = cfg.activation_key_required || false;
 
-    // Stocké sur window pour y accéder dans submitSignup
     window._VEX_PASS_MIN = passMin;
-
     document.getElementById('pass-hint').textContent = `(min. ${passMin} car.)`;
 
     if (regMode === 'closed') {
         document.getElementById('signup-toggle').innerHTML =
-            '<p style="text-align:center;margin-top:20px;font-size:13px;color:#999;">Les inscriptions sont fermées.</p>';
+            '<p style="text-align:center;margin-top:20px;font-size:13px;color:var(--text-dim);">Les inscriptions sont fermées.</p>';
     } else {
         document.getElementById('signup-toggle').innerHTML =
             '<div class="divider"><span>ou</span></div>' +

@@ -1,0 +1,20 @@
+# Build artifacts
+/target/
+/dist/
+/log/
+
+# Secrets & config locale
+db.json
+config.json
+keys/*
+!keys/.gitkeep
+static/onlyoffice/data/*.key
+
+# IDE / éditeurs
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

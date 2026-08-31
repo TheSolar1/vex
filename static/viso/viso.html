@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="{{THEME}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visio — VEX</title>
+<link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
+<link rel="stylesheet" href="/static/css/theme.css">
+
+<style>
+/* ══════════════════════════════════════════════════════════════
+   VEX Viso — mêmes tokens que build_nav_html (function.rs)
+   Toutes les couleurs viennent de theme.css. Les teintes qui
+   n'ont pas de token direct (glow, overlay sombre sur vidéo,
+   hover plus foncé) sont recréées via color-mix() à partir des
+   variables existantes — aucun hex ni rgb() en dur.
+   ══════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding-top: 72px;
+}
+
+body > .gate-wrap,
+body > .call-wrap,
+body > .controls-bar {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Écran d'accueil (créer / rejoindre) ─────────────────────── */
+.gate-wrap { max-width: 460px; margin: 32px auto; padding: 0 20px; }
+.gate-card { background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 28px; }
+.gate-card h1 { font-size: 20px; margin-bottom: 4px; }
+.gate-card p.sub { color: var(--text-dim); font-size: 13px; margin-bottom: 22px; }
+
+.tabs { display: flex; gap: 6px; background: var(--bg); border-radius: 10px; padding: 4px; margin-bottom: 20px; }
+.tab-btn { flex: 1; border: none; background: transparent; padding: 9px 0; border-radius: 8px; font-weight: 600; font-size: 13px; color: var(--text-dim); cursor: pointer; }
+.tab-btn.active { background: var(--panel); color: var(--text); box-shadow: var(--shadow); }
+
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 6px; }
+.field input { width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid var(--panel-border); background: var(--bg); color: var(--text); font-size: 14px; }
+.field input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.btn-primary { width: 100%; padding: 12px; border: none; border-radius: 9px; background: var(--nav-gradient); color: var(--surface); font-weight: 700; font-size: 14px; cursor: pointer; box-shadow: var(--shadow); }
+.btn-primary:hover { filter: brightness(1.05); }
+.btn-primary:disabled { opacity: .55; cursor: not-allowed; }
+
+.gate-error { display: none; background: color-mix(in srgb, var(--danger) 10%, transparent); border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); color: var(--danger); font-size: 13px; padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; }
+
+.security-note { margin-top: 18px; display: flex; gap: 10px; align-items: flex-start; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+.security-note svg { flex-shrink: 0; margin-top: 2px; color: var(--accent); }
+
+/* ── Salle d'appel ────────────────────────────────────────────── */
+.call-wrap { display: none; padding: 16px; padding-bottom: 100px; max-width: 1400px; margin: 0 auto; }
+.call-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+.call-header-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.call-title { font-size: 16px; font-weight: 700; }
+
+.status-pill { display: inline-flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--panel-border); color: var(--text-dim); font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 20px; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--orange); }
+.status-dot.live { background: var(--accent); box-shadow: 0 0 0 3px var(--aglow); }
+
+.participants-pill { display: inline-flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--panel-border); color: var(--text-dim); font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 20px; }
+
+.room-code-chip { display: inline-flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--panel-border); padding: 6px 12px; border-radius: 20px; font-size: 13px; cursor: pointer; font-family: "SFMono-Regular", Consolas, monospace; letter-spacing: 0.5px; color: var(--text); }
+.room-code-chip:hover { border-color: var(--accent); }
+
+/* ── GRILLE VIDÉO — style Discord ──────────────────────────────
+   Tuile sombre uniforme, ratio 16/9, coin arrondi, nom+icônes en
+   bas à gauche façon "chip" translucide, avatar rond avec
+   initiale quand la caméra est coupée / pas de flux vidéo. */
+.video-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.tile {
+  position: relative; background: var(--surface2);
+  border-radius: 12px; overflow: hidden; aspect-ratio: 16/9;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+}
+.tile.speaking { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent), var(--shadow); }
+.tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tile.mirror video { transform: scaleX(-1); }
+.tile.no-video video { display: none; }
+
+.tile-avatar {
+  width: 30%; height: 30%; min-width: 56px; min-height: 56px; max-width: 96px; max-height: 96px;
+  border-radius: 50%; display: none; align-items: center; justify-content: center;
+  font-size: clamp(16px, 4vw, 30px); font-weight: 700; color: var(--surface);
+  background: linear-gradient(135deg,var(--vex-green-1) 0%,var(--vex-green-2) 100%);
+}
+.tile.no-video .tile-avatar { display: flex; }
+
+.tile .tile-label {
+  position: absolute; left: 8px; bottom: 8px; max-width: calc(100% - 16px);
+  background: color-mix(in srgb, var(--text) 60%, transparent); color: var(--surface); font-size: 12px; font-weight: 600;
+  padding: 4px 8px 4px 6px; border-radius: 8px; display: flex; align-items: center; gap: 5px;
+  overflow: hidden;
+}
+.tile .tile-label span.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile .tile-label .mic-ico { width: 13px; height: 13px; flex-shrink: 0; opacity: 0.9; }
+.tile .tile-label .mic-ico.off { color: var(--danger); }
+
+.tile .screen-badge {
+  position: absolute; top: 8px; left: 8px; background: color-mix(in srgb, var(--text) 60%, transparent); color: var(--surface);
+  font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 7px;
+  display: flex; align-items: center; gap: 4px;
+}
+
+/* ── Barre de contrôle ── position fixed (voir note historique) */
+.controls-bar { position: fixed; left: 0; right: 0; bottom: 16px; display: flex; justify-content: center; z-index: 50; pointer-events: none; }
+.controls-inner { pointer-events: auto; display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--panel-border); padding: 10px 14px; border-radius: 40px; box-shadow: var(--shadow); }
+.ctrl-btn { width: 46px; height: 46px; border-radius: 50%; border: none; background: var(--bg); color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s, transform .1s; }
+.ctrl-btn svg { display: block; }
+.ctrl-btn:hover { transform: translateY(-2px); }
+.ctrl-btn.off { background: var(--danger); color: var(--surface); }
+.ctrl-btn.hangup { background: var(--danger); color: var(--surface); width: 56px; }
+.ctrl-btn.hangup:hover { background: color-mix(in srgb, var(--danger) 85%, black); }
+.ctrl-btn.active-toggle { background: var(--accent); color: var(--surface); }
+
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--panel-border); color: var(--text); padding: 10px 18px; border-radius: 10px; box-shadow: var(--shadow); font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 200; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(-6px); }
+
+.empty-hint { text-align: center; color: var(--text-dim); font-size: 13px; margin: 40px 0; }
+
+@media (max-width: 640px) { .video-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+{{NAV_HTML}}
+
+<!-- ══════════════ ÉCRAN D'ACCUEIL ══════════════ -->
+<div class="gate-wrap" id="gateWrap">
+  <div class="gate-card">
+    <h1>Appel vidéo VEX</h1>
+    <p class="sub">Signalisation chiffrée de bout en bout — le serveur ne voit ni votre flux, ni vos SDP.</p>
+
+    <div class="gate-error" id="gateError"></div>
+
+    <div class="tabs">
+      <button class="tab-btn active" id="tabCreate">Créer une salle</button>
+      <button class="tab-btn" id="tabJoin">Rejoindre</button>
+    </div>
+
+    <div id="paneCreate">
+      <div class="field"><label for="createTitle">Nom de l'appel</label><input type="text" id="createTitle" placeholder="Réunion équipe" maxlength="120"></div>
+      <div class="field"><label for="createPassword">Mot de passe (optionnel)</label><input type="password" id="createPassword" placeholder="Laisser vide = pas de mot de passe"></div>
+      <button class="btn-primary" id="btnCreate">Créer et démarrer</button>
+    </div>
+
+    <div id="paneJoin" style="display:none;">
+      <div class="field"><label for="joinCode">Code de la salle</label><input type="text" id="joinCode" placeholder="xxxx-xxxxxx" autocapitalize="off" autocomplete="off"></div>
+      <div class="field"><label for="joinPassword">Mot de passe (si demandé)</label><input type="password" id="joinPassword" placeholder="•••••••"></div>
+      <button class="btn-primary" id="btnJoin">Rejoindre l'appel</button>
+    </div>
+
+    <div class="security-note">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6l8-4z"/></svg>
+      <span>Chaque appareil génère une paire de clés ECDH éphémère. La négociation WebRTC (offres/réponses/ICE) est chiffrée en AES-256-GCM avant de transiter par le serveur, qui ne peut pas la déchiffrer. Le flux audio/vidéo passe en direct entre les participants (DTLS-SRTP).</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SALLE D'APPEL ══════════════ -->
+<div class="call-wrap" id="callWrap">
+  <div class="call-header">
+    <div class="call-header-left">
+      <div class="call-title" id="callTitle">Appel VEX</div>
+      <div class="status-pill" id="statusPill" style="display:none;">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Connexion…</span>
+      </div>
+      <div class="participants-pill" id="participantsPill" style="display:none;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span id="participantsCount">1</span>
+      </div>
+    </div>
+    <div class="room-code-chip" id="roomCodeChip" title="Copier le code">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      <span id="roomCodeText">----</span>
+    </div>
+  </div>
+
+  <div class="video-grid" id="videoGrid"></div>
+  <div class="empty-hint" id="emptyHint" style="display:none;">Vous êtes seul(e) dans cet appel pour le moment. Partagez le code pour inviter quelqu'un.</div>
+</div>
+
+<!-- ══════════════ BARRE DE CONTRÔLE ══════════════ -->
+<div class="controls-bar" id="controlsBar" style="display:none;">
+  <div class="controls-inner">
+    <button class="ctrl-btn" id="btnMic" title="Micro">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8" y1="23" x2="16" y2="23"/>
+      </svg>
+    </button>
+    <button class="ctrl-btn" id="btnCam" title="Caméra">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M23 7l-7 5 7 5V7z"/>
+        <rect x="1" y="5" width="15" height="14" rx="2"/>
+      </svg>
+    </button>
+    <button class="ctrl-btn" id="btnShare" title="Partager l'écran">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="2" y="3" width="20" height="14" rx="2"/>
+        <line x1="8" y1="21" x2="16" y2="21"/>
+        <line x1="12" y1="17" x2="12" y2="21"/>
+      </svg>
+    </button>
+    <button class="ctrl-btn hangup" id="btnHangup" title="Quitter l'appel">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+"use strict";
+
+const API_BASE = "/api/viso";
+const HKDF_INFO = "VEX-VISIO-signal-v1";
+const HKDF_SALT = "VEX-VISIO-signal-v1";
+const HEARTBEAT_MS = 25_000;
+const POLL_MS = 1_200;
+const ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
+
+let myKeyPair = null, myPubB64 = "", mySessionId = "", myNom = "Vous";
+let roomId = null, localStream = null, micOn = true, camOn = true;
+let screenSharing = false;
+let heartbeatTimer = null, pollTimer = null;
+
+// peers[sessionId] = { pc, pubKeyRaw, sharedKeyPromise, nom, micOn, camOn }
+const peers = {};
+
+const enc = new TextEncoder(), dec = new TextDecoder();
+function b64(bytes) { let bin = ""; for (const b of new Uint8Array(bytes)) bin += String.fromCharCode(b); return btoa(bin); }
+function fromB64(str) { const bin = atob(str); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); return arr; }
+function genSessionId() { const arr = new Uint8Array(24); crypto.getRandomValues(arr); return b64(arr).replace(/[+/=]/g, c => ({ "+": "-", "/": "_", "=": "" }[c])); }
+function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2600); }
+function setStatus(text, live) { const pill = document.getElementById("statusPill"); pill.style.display = "inline-flex"; document.getElementById("statusText").textContent = text; document.getElementById("statusDot").classList.toggle("live", !!live); }
+
+async function apiCall(action, params) {
+  const body = new URLSearchParams({ action, ...params });
+  const r = await fetch(API_BASE, { method: "POST", credentials: "include", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body });
+  return r.json();
+}
+
+// ── CRYPTO ──
+async function genKeyPair() { return crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]); }
+async function exportPub(keyPair) { const raw = await crypto.subtle.exportKey("raw", keyPair.publicKey); return b64(raw); }
+async function deriveSharedAesKey(myPriv, peerPubB64) {
+  const peerPub = await crypto.subtle.importKey("raw", fromB64(peerPubB64), { name: "ECDH", namedCurve: "P-256" }, false, []);
+  const bits = await crypto.subtle.deriveBits({ name: "ECDH", public: peerPub }, myPriv, 256);
+  const hkdfMaterial = await crypto.subtle.importKey("raw", bits, "HKDF", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name: "HKDF", hash: "SHA-256", salt: enc.encode(HKDF_SALT), info: enc.encode(HKDF_INFO) }, hkdfMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+}
+async function encryptSignal(aesKey, obj) { const iv = crypto.getRandomValues(new Uint8Array(12)); const plain = enc.encode(JSON.stringify(obj)); const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesKey, plain); return { ciphertext: b64(cipher), nonce: b64(iv) }; }
+async function decryptSignal(aesKey, ciphertextB64, nonceB64) { const iv = fromB64(nonceB64); const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, aesKey, fromB64(ciphertextB64)); return JSON.parse(dec.decode(plain)); }
+
+// ── PAIR ──
+function getOrCreatePeer(sessionId, pubKeyRaw, nom) {
+  if (peers[sessionId]) return peers[sessionId];
+
+  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  const entry = { pc, pubKeyRaw, nom: nom || "Participant", micOn: true, camOn: true, sharedKeyPromise: deriveSharedAesKey(myKeyPair.privateKey, pubKeyRaw), videoEl: null };
+  peers[sessionId] = entry;
+
+  if (screenSharing && screenSharing.track) {
+    if (localStream) localStream.getAudioTracks().forEach(t => pc.addTrack(t, localStream));
+    pc.addTrack(screenSharing.track, new MediaStream([screenSharing.track]));
+  } else if (localStream) {
+    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+  }
+
+  pc.onicecandidate = async (e) => { if (!e.candidate) return; await sendSignal(sessionId, "ice", { candidate: e.candidate }); };
+  pc.ontrack = (e) => { addRemoteTile(sessionId, entry.nom, e.streams[0]); };
+  pc.onconnectionstatechange = () => { if (["failed", "closed", "disconnected"].includes(pc.connectionState)) removeRemoteTile(sessionId); };
+
+  let negotiating = false;
+  pc.onnegotiationneeded = async () => {
+    if (negotiating) return;
+    negotiating = true;
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await sendSignal(sessionId, "offer", { sdp: offer });
+    } catch (e) { console.warn("Renégociation impossible pour", sessionId, e); }
+    finally { negotiating = false; }
+  };
+
+  updateParticipantsCount();
+  return entry;
+}
+
+async function sendSignal(toSessionId, payloadType, obj) {
+  const entry = peers[toSessionId];
+  if (!entry) return;
+  const aesKey = await entry.sharedKeyPromise;
+  const { ciphertext, nonce } = await encryptSignal(aesKey, obj);
+  await apiCall("poster_signal", { room_id: String(roomId), from_session: mySessionId, to_session: toSessionId, payload_type: payloadType, ciphertext, nonce });
+}
+
+async function initierAppel(sessionId, pubKeyRaw, nom) {
+  const entry = getOrCreatePeer(sessionId, pubKeyRaw, nom);
+  const offer = await entry.pc.createOffer();
+  await entry.pc.setLocalDescription(offer);
+  await sendSignal(sessionId, "offer", { sdp: offer });
+}
+
+// ── SIGNAUX ──
+async function pollSignaux() {
+  try {
+    const res = await apiCall("recuperer_signaux", { session_id: mySessionId });
+    if (!res.success) return;
+    for (const sig of res.data.signaux) await traiterSignal(sig);
+  } catch (e) { /* silencieux */ }
+}
+
+async function traiterSignal(sig) {
+  const from = sig.from_session;
+  let entry = peers[from];
+  if (!entry) { await rafraichirParticipants(); entry = peers[from]; if (!entry) return; }
+
+  let payload;
+  try { const aesKey = await entry.sharedKeyPromise; payload = await decryptSignal(aesKey, sig.ciphertext, sig.nonce); }
+  catch (e) { console.warn("Signal illisible — ignoré."); return; }
+
+  switch (sig.payload_type) {
+    case "offer": { await entry.pc.setRemoteDescription(new RTCSessionDescription(payload.sdp)); const answer = await entry.pc.createAnswer(); await entry.pc.setLocalDescription(answer); await sendSignal(from, "answer", { sdp: answer }); break; }
+    case "answer": await entry.pc.setRemoteDescription(new RTCSessionDescription(payload.sdp)); break;
+    case "ice": try { await entry.pc.addIceCandidate(payload.candidate); } catch (e) {} break;
+    // FIX (visibilité participants) : on relaie désormais l'état mic/cam
+    // via un payload "state" dédié, pour que la tuile distante affiche
+    // les bonnes icônes (avant : toujours "micro ouvert" affiché).
+    case "state":
+      entry.micOn = !!payload.micOn; entry.camOn = !!payload.camOn;
+      updateTileState(from, entry.micOn, entry.camOn, entry.nom);
+      break;
+    case "bye": removeRemoteTile(from); break;
+  }
+}
+
+async function broadcastState() {
+  for (const sid in peers) { try { await sendSignal(sid, "state", { micOn, camOn }); } catch (e) {} }
+}
+
+// ── PARTICIPANTS ──
+async function rafraichirParticipants() {
+  const res = await apiCall("lister_participants", { room_id: String(roomId), session_id: mySessionId });
+  if (!res.success) return;
+  for (const p of res.data.participants) {
+    const sid = p.session_id;
+    if (sid === mySessionId || peers[sid]) continue;
+    // FIX (idem) : clé passée en base64 brut, pas pré-décodée.
+    getOrCreatePeer(sid, p.x25519_pub, p.nom);
+  }
+  // FIX : purge les tuiles de participants qui ont quitté sans "bye"
+  // reçu (coupure réseau) — évite les tuiles fantômes qui donnaient
+  // l'impression de ne "pas voir qui est présent".
+  const actifs = new Set(res.data.participants.map(p => p.session_id).concat([mySessionId]));
+  for (const sid in peers) { if (!actifs.has(sid)) removeRemoteTile(sid); }
+}
+
+function updateParticipantsCount() {
+  const pill = document.getElementById("participantsPill");
+  const n = Object.keys(peers).length + 1;
+  pill.style.display = "inline-flex";
+  document.getElementById("participantsCount").textContent = n;
+}
+
+// ── UI VIDÉO — style Discord ──
+function initials(nom) { return (nom || "?").trim().split(/\s+/).map(s => s[0]).slice(0, 2).join("").toUpperCase() || "?"; }
+
+const MIC_ON_SVG = '<svg class="mic-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>';
+const MIC_OFF_SVG = '<svg class="mic-ico off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2M19 10v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+
+function ensureTile(sessionId, nom, isLocal) {
+  const grid = document.getElementById("videoGrid");
+  let tile = document.getElementById("tile-" + sessionId);
+  if (tile) return tile;
+  tile = document.createElement("div");
+  tile.className = "tile no-video" + (isLocal ? " mirror" : "");
+  tile.id = "tile-" + sessionId;
+  const video = document.createElement("video");
+  video.autoplay = true; video.playsInline = true; if (isLocal) video.muted = true;
+  tile.appendChild(video);
+  const avatar = document.createElement("div");
+  avatar.className = "tile-avatar"; avatar.textContent = initials(nom);
+  tile.appendChild(avatar);
+  const label = document.createElement("div");
+  label.className = "tile-label";
+  label.innerHTML = MIC_ON_SVG + `<span class="name">${escapeHtml(nom)}${isLocal ? " (vous)" : ""}</span>`;
+  tile.appendChild(label);
+  grid.appendChild(tile);
+  return tile;
+}
+
+function updateTileState(sessionId, micOnState, camOnState, nom) {
+  const tile = document.getElementById("tile-" + sessionId);
+  if (!tile) return;
+  const label = tile.querySelector(".tile-label");
+  const nameSpan = label.querySelector(".name");
+  if (nom) nameSpan.textContent = nom + (sessionId === "local" ? " (vous)" : "");
+  const micIcoWrap = document.createElement("span");
+  micIcoWrap.style.display = "contents";
+  label.innerHTML = (micOnState ? MIC_ON_SVG : MIC_OFF_SVG) + `<span class="name">${nameSpan.textContent}</span>`;
+  tile.classList.toggle("no-video", !camOnState);
+}
+
+function addRemoteTile(sessionId, nom, stream) {
+  const tile = ensureTile(sessionId, nom, false);
+  const video = tile.querySelector("video");
+  const hasVideo = stream.getVideoTracks().some(t => t.enabled);
+  tile.classList.toggle("no-video", !hasVideo);
+  if (video.srcObject !== stream) {
+    video.srcObject = stream;
+    video.play().catch(() => console.warn("Lecture vidéo bloquée pour", sessionId));
+  }
+  stream.getVideoTracks().forEach(t => {
+    t.onmute = () => tile.classList.add("no-video");
+    t.onunmute = () => tile.classList.remove("no-video");
+  });
+  updateEmptyHint();
+}
+function removeRemoteTile(sessionId) {
+  const entry = peers[sessionId];
+  if (entry) { try { entry.pc.close(); } catch (e) {} delete peers[sessionId]; }
+  const tile = document.getElementById("tile-" + sessionId);
+  if (tile) tile.remove();
+  updateEmptyHint();
+  updateParticipantsCount();
+}
+function updateEmptyHint() { const grid = document.getElementById("videoGrid"); document.getElementById("emptyHint").style.display = grid.children.length <= 1 ? "block" : "none"; }
+function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+// ── CONTRÔLES ──
+document.getElementById("btnMic").addEventListener("click", () => {
+  if (!localStream) return;
+  micOn = !micOn;
+  localStream.getAudioTracks().forEach(t => t.enabled = micOn);
+  document.getElementById("btnMic").classList.toggle("off", !micOn);
+  updateTileState("tile-local".replace("tile-", ""), micOn, camOn, myNom);
+  broadcastState();
+});
+document.getElementById("btnCam").addEventListener("click", () => {
+  if (!localStream) return;
+  camOn = !camOn;
+  localStream.getVideoTracks().forEach(t => t.enabled = camOn);
+  document.getElementById("btnCam").classList.toggle("off", !camOn);
+  const tile = document.getElementById("tile-local");
+  if (tile) tile.classList.toggle("no-video", !camOn);
+  broadcastState();
+});
+
+document.getElementById("btnShare").addEventListener("click", async () => {
+  const btn = document.getElementById("btnShare");
+  try {
+    if (!screenSharing) {
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const screenTrack = screenStream.getVideoTracks()[0];
+      const senders = {};
+      for (const sid in peers) { const pc = peers[sid].pc; senders[sid] = pc.addTrack(screenTrack, screenStream); }
+      screenTrack.onended = () => document.getElementById("btnShare").click();
+      btn.classList.add("active-toggle");
+      screenSharing = { track: screenTrack, senders };
+      toast("Partage d'écran démarré.");
+    } else {
+      for (const sid in screenSharing.senders) {
+        const pc = peers[sid] && peers[sid].pc;
+        const sender = screenSharing.senders[sid];
+        if (pc && sender) { try { pc.removeTrack(sender); } catch (e) {} }
+      }
+      if (screenSharing.track) screenSharing.track.stop();
+      screenSharing = false;
+      btn.classList.remove("active-toggle");
+      toast("Partage d'écran arrêté.");
+    }
+  } catch (e) { toast("Partage d'écran annulé ou indisponible."); }
+});
+
+document.getElementById("btnHangup").addEventListener("click", quitterAppel);
+document.getElementById("roomCodeChip").addEventListener("click", () => {
+  const code = document.getElementById("roomCodeText").textContent;
+  navigator.clipboard?.writeText(code).then(() => toast("Code copié dans le presse-papiers."));
+});
+
+document.getElementById("tabCreate").addEventListener("click", () => switchTab("create"));
+document.getElementById("tabJoin").addEventListener("click", () => switchTab("join"));
+function switchTab(which) {
+  document.getElementById("tabCreate").classList.toggle("active", which === "create");
+  document.getElementById("tabJoin").classList.toggle("active", which === "join");
+  document.getElementById("paneCreate").style.display = which === "create" ? "block" : "none";
+  document.getElementById("paneJoin").style.display = which === "join" ? "block" : "none";
+  hideGateError();
+}
+function showGateError(msg) { const el = document.getElementById("gateError"); el.textContent = msg; el.style.display = "block"; }
+function hideGateError() { document.getElementById("gateError").style.display = "none"; }
+
+document.getElementById("btnCreate").addEventListener("click", async () => {
+  hideGateError();
+  const title = document.getElementById("createTitle").value.trim() || "Appel VEX";
+  const password = document.getElementById("createPassword").value;
+  const btn = document.getElementById("btnCreate");
+  btn.disabled = true; btn.textContent = "Création…";
+  const res = await apiCall("creer_salle", { title, password, max_participants: "8", is_public: "0" });
+  btn.disabled = false; btn.textContent = "Créer et démarrer";
+  if (!res.success) { showGateError(res.error || "Erreur inconnue."); return; }
+  await entrerDansAppel(res.data.room_id, res.data.room_code, res.data.title, password);
+});
+
+document.getElementById("btnJoin").addEventListener("click", async () => {
+  hideGateError();
+  const code = document.getElementById("joinCode").value.trim();
+  const password = document.getElementById("joinPassword").value;
+  if (!code) { showGateError("Merci de saisir un code de salle."); return; }
+  const btn = document.getElementById("btnJoin");
+  btn.disabled = true; btn.textContent = "Connexion…";
+  await rejoindreEtEntrer(code, password);
+  btn.disabled = false; btn.textContent = "Rejoindre l'appel";
+});
+
+async function entrerDansAppel(rId, code, title, password) { await rejoindreEtEntrer(code, password, rId, title); }
+
+async function rejoindreEtEntrer(code, password, knownRoomId, knownTitle) {
+  try {
+    myKeyPair = await genKeyPair();
+    myPubB64 = await exportPub(myKeyPair);
+    mySessionId = genSessionId();
+
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+      .catch(() => navigator.mediaDevices.getUserMedia({ audio: true, video: false }))
+      .catch(() => navigator.mediaDevices.getUserMedia({ audio: false, video: true }))
+      .catch(() => null);
+
+    const res = await apiCall("rejoindre_salle", { room_code: code, session_id: mySessionId, x25519_pub: myPubB64, password: password || "" });
+    if (!res.success) { showGateError(res.error || "Impossible de rejoindre la salle."); stopLocalStream(); return; }
+
+    roomId = res.data.room_id;
+    myNom = res.data.your_nom || "Vous";
+    document.getElementById("callTitle").textContent = knownTitle || res.data.title || "Appel VEX";
+    document.getElementById("roomCodeText").textContent = code;
+
+    afficherSalle();
+    ajouterVignetteLocale();
+
+    camOn = !!(localStream && localStream.getVideoTracks().length);
+    micOn = !!(localStream && localStream.getAudioTracks().length);
+    if (!localStream) {
+      const btnMic = document.getElementById("btnMic"), btnCam = document.getElementById("btnCam");
+      btnMic.classList.add("off"); btnMic.disabled = true;
+      btnCam.classList.add("off"); btnCam.disabled = true;
+      toast("Rejoint sans caméra ni micro (accès refusé ou indisponible).");
+    }
+
+    // FIX (bug "String contains an invalid character") : on passait ici
+    // une clé déjà décodée (Uint8Array) à getOrCreatePeer, qui la
+    // repassait telle quelle à deriveSharedAesKey — laquelle refait un
+    // fromB64() dessus en interne. Double décodage = atob() plantait
+    // systématiquement, donc jamais de connexion chiffrée avec les
+    // autres participants. On passe désormais la clé en base64 brut
+    // (string), comme l'attend deriveSharedAesKey.
+    for (const p of res.data.participants) {
+      getOrCreatePeer(p.session_id, p.x25519_pub, p.nom);
+      await initierAppel(p.session_id, p.x25519_pub, p.nom);
+    }
+
+    setStatus("En communication", true);
+    updateParticipantsCount();
+    heartbeatTimer = setInterval(() => apiCall("heartbeat", { session_id: mySessionId }), HEARTBEAT_MS);
+    pollTimer = setInterval(() => { pollSignaux(); rafraichirParticipants(); }, POLL_MS);
+
+    window.addEventListener("beforeunload", quitterAppelSync);
+  } catch (e) {
+    console.error(e);
+    showGateError("Accès caméra/micro refusé, ou erreur réseau.");
+    stopLocalStream();
+  }
+}
+
+function ajouterVignetteLocale() {
+  const tile = ensureTile("local", myNom, true);
+  const video = tile.querySelector("video");
+  video.srcObject = localStream;
+  video.play().catch(() => {});
+  const hasVideo = !!(localStream && localStream.getVideoTracks().length);
+  tile.classList.toggle("no-video", !hasVideo);
+  updateEmptyHint();
+}
+
+function afficherSalle() {
+  document.getElementById("gateWrap").style.display = "none";
+  document.getElementById("callWrap").style.display = "block";
+  document.getElementById("controlsBar").style.display = "flex";
+}
+
+function stopLocalStream() { if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; } }
+
+async function quitterAppel() {
+  clearInterval(heartbeatTimer); clearInterval(pollTimer);
+  for (const sid in peers) { try { await sendSignal(sid, "bye", {}); } catch (e) {} peers[sid].pc.close(); }
+  stopLocalStream();
+  await apiCall("quitter_salle", { session_id: mySessionId });
+  window.location.reload();
+}
+function quitterAppelSync() { navigator.sendBeacon?.(API_BASE, new URLSearchParams({ action: "quitter_salle", session_id: mySessionId })); }
+
+})();
+</script>
+</body>
+</html>

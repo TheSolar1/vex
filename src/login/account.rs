@@ -7,8 +7,8 @@ use crate::appeldb::{inserer_ou_modifier, selectionner, supprimer_ligne, DbPool}
 use crate::c::verifier_session;
 use crate::config_loader::VexConfig;
 use crate::function::{
-    build_nav_html, get_privilege_details_json, get_user_preferences, update_user_preference,
-    NavContext,
+    build_nav_html, get_privilege_details_json, get_theme_attr, get_user_preferences,
+    update_user_preference, NavContext,
 };
 use crate::utils::{strip_port, url_decode};
 use serde_json::{json, Value};
@@ -23,13 +23,23 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
     let cookie_val = get_cookie(&request, "connexion_cookie");
     let user_agent = get_header(&request, "User-Agent");
 
-    // ── GET /login/account → sert le HTML avec navbar injectée ───
+    // ── GET /login/account → sert le HTML avec navbar + thème injectés ───
     if method == "GET" && (path == "/login/account" || path == "/login/account/") {
         let session = verifier_session(pool, &cookie_val, &remote_ip, &user_agent);
         if !session.connecte {
             redirect(request, "/login");
             return;
         }
+
+        // FIX (cohérence thème) : auparavant cette page codait en dur
+        // data-theme="light" dans le HTML et gérait le mode sombre
+        // uniquement via une classe JS posée depuis localStorage
+        // (body.dark-mode). Résultat : flash visible en clair avant que
+        // le JS s'exécute, et thème potentiellement désynchronisé de la
+        // préférence réellement stockée en base (table `pref`). On
+        // injecte désormais le thème serveur, comme sur toutes les
+        // autres pages VEX (viso, admin, etc.), via get_theme_attr().
+        let theme = get_theme_attr(pool, session.user_id);
 
         // Construit la navbar de façon autonome (juste cookie + ip + ua)
         let nav_ctx = NavContext {
@@ -44,7 +54,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
             admin_apps: vec![],
         };
         let nav_html = build_nav_html(&nav_ctx);
-        serve_html_with_nav(request, "static/login/account.html", &nav_html);
+        serve_html_with_nav(request, "static/login/account.html", &nav_html, theme);
         return;
     }
 
@@ -67,6 +77,103 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
         ("GET", "/api/account/data") => {
             let data = build_account_data(pool, config, user_id, &user_email);
             respond_json(request, data, 200);
+        }
+
+        // ── Affichage : tuiles, evenements, apps ──────────────────
+        ("GET", "/api/account/affichage") => {
+            let prefs = crate::function::get_user_preferences(pool, user_id);
+            let etat = |m: &std::collections::HashMap<String, serde_json::Value>, k: &str| {
+                m.get(k).map(|v| v.as_i64().unwrap_or(1) != 0).unwrap_or(true)
+            };
+
+            // Tuiles integrees + tuiles publiees par les extensions
+            let mut tuiles = vec![
+                json!({"id":"admin",    "label":"Administration"}),
+                json!({"id":"fichiers", "label":"Fichiers"}),
+                json!({"id":"vexmail",  "label":"VexMail"}),
+                json!({"id":"sitec",    "label":"Sitec"}),
+                json!({"id":"editeur",  "label":"Éditeur de fichiers"}),
+                json!({"id":"videos",   "label":"Vidéos"}),
+            ];
+            let mut apps = vec![
+                json!({"id":"login_dashboard","label":"Accueil","url":"/login/dashboard"}),
+                json!({"id":"mess",           "label":"Mail","url":"/mess/"}),
+                json!({"id":"fchier",         "label":"Fichiers","url":"/fchier/"}),
+                json!({"id":"viso",           "label":"Vidéos","url":"/viso/"}),
+                json!({"id":"sitec",          "label":"Sitec","url":"/sitec/"}),
+                json!({"id":"admin",          "label":"Administration","url":"/admin"}),
+            ];
+            for (id, e) in crate::function::extensions_actives("config.json") {
+                if let Some(t) = e.get("dashboard_tile") {
+                    tuiles.push(json!({
+                        "id": format!("ext_{}", id),
+                        "label": t.get("titre").and_then(|v| v.as_str()).unwrap_or(id.as_str()),
+                        "extension": true,
+                    }));
+                }
+                if let Some(a) = e.get("nav_app") {
+                    let url = a.get("url").and_then(|v| v.as_str())
+                        .map(|x| x.to_string())
+                        .unwrap_or_else(|| format!("/ext/{}", id));
+                    apps.push(json!({
+                        "id": crate::function::cle_app(&url),
+                        "label": a.get("label").and_then(|v| v.as_str()).unwrap_or(id.as_str()),
+                        "url": url,
+                        "extension": true,
+                    }));
+                }
+            }
+
+            let evenements = vec![
+                json!({"id":"stats",      "label":"Chiffres cles du service"}),
+                json!({"id":"admins",     "label":"Comptes administrateurs"}),
+                json!({"id":"etat",       "label":"Etat du serveur (maintenance, debug)"}),
+                json!({"id":"extensions", "label":"Infos publiees par les extensions"}),
+                json!({"id":"connexions", "label":"Connexions recentes"}),
+            ];
+
+            let marque = |liste: &Vec<serde_json::Value>,
+                          m: &std::collections::HashMap<String, serde_json::Value>| {
+                liste.iter().map(|x| {
+                    let id = x.get("id").and_then(|v| v.as_str()).unwrap_or("");
+                    let mut o = x.clone();
+                    o["actif"] = json!(etat(m, id));
+                    o
+                }).collect::<Vec<_>>()
+            };
+
+            respond_json(request, json!({"success":true,"data":{
+                "tuiles":      marque(&tuiles, &prefs.dashboard_tiles),
+                "evenements":  marque(&evenements, &prefs.dashboard_events),
+                "apps":        marque(&apps, &prefs.nav_apps),
+            }}), 200);
+        }
+
+        ("POST", "/api/account/affichage") => {
+            let body = read_body(&mut request);
+            let mut ok = true;
+            for champ in ["dashboard_tiles", "dashboard_events", "nav_apps"] {
+                if let Some(v) = body.get(champ) {
+                    // On valide que c'est bien un objet JSON avant d'ecrire
+                    match serde_json::from_str::<serde_json::Value>(v) {
+                        Ok(j) if j.is_object() => {
+                            ok &= update_user_preference(pool, user_id, champ, v);
+                        }
+                        _ => {
+                            return respond_json(
+                                request,
+                                json!({"success":false,"error":format!("{} invalide", champ)}),
+                                200,
+                            )
+                        }
+                    }
+                }
+            }
+            respond_json(
+                request,
+                json!({"success":ok,"message":"Affichage enregistré."}),
+                200,
+            );
         }
 
         // ── Changer le thème ──────────────────────────────────────
@@ -375,11 +482,16 @@ fn build_account_data(pool: &DbPool, config: &VexConfig, user_id: i64, user_emai
 // Utilitaires
 // ══════════════════════════════════════════════════════════════════
 
-/// Sert un fichier HTML en remplaçant __NAV_HTML__ par la navbar
-fn serve_html_with_nav(request: Request, path: &str, nav_html: &str) {
+/// Sert un fichier HTML en remplaçant __NAV_HTML__ par la navbar et
+/// {{THEME}} par le thème résolu côté serveur ("light" | "dark").
+/// FIX : theme désormais passé en paramètre au lieu d'être codé en dur
+/// dans le fichier statique — cohérent avec build_nav_html/viso/admin.
+fn serve_html_with_nav(request: Request, path: &str, nav_html: &str, theme: &str) {
     match std::fs::read_to_string(path) {
         Ok(html) => {
-            let html = html.replace("__NAV_HTML__", nav_html);
+            let html = html
+                .replace("__NAV_HTML__", nav_html)
+                .replace("{{THEME}}", theme);
             let _ = request.respond(Response::from_string(html).with_header(
                 tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap(),
             ));

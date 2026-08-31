@@ -1,0 +1,392 @@
+{
+  "_comment": "VEX Server Configuration File",
+  "_version": "0.3",
+  "app": {
+    "available_languages": [
+      "fr",
+      "en",
+      "es",
+      "de"
+    ],
+    "debug_mode": false,
+    "default_language": "fr",
+    "maintenance_mode": false,
+    "name": "VEX",
+    "version": "alpha-0.3"
+  },
+  "autologin": {
+    "admin_can_block": true,
+    "cookie_duration_days": 30,
+    "enabled": true,
+    "log_autologin": true,
+    "max_tokens_per_user": 1,
+    "plans_autorises": [
+      "free",
+      "vip"
+    ],
+    "privilege_min": 10,
+    "require_same_browser": true,
+    "require_same_ip": true,
+    "server_secret": "CHANGE_ME",
+    "session_duration_hours": 1,
+    "token_length": 200,
+    "url_format": "/login/autologin.php?idutilsteur={id}&nombre={token}"
+  },
+  "editor": {
+    "_supported_formats_arr": [
+      "docx",
+      "xlsx",
+      "pptx",
+      "odt",
+      "ods",
+      "odp"
+    ],
+    "collaborative_editing": true,
+    "online_editing_enabled": true,
+    "provider": "onlyoffice",
+    "providers": {
+      "collabora": {
+        "auto_save": true,
+        "callback_path": "/api/fchier/wopi",
+        "collaborative_editing": true,
+        "default_format": "odt",
+        "editor_api_js": "",
+        "enabled": false,
+        "healthcheck_expect": "wopi",
+        "healthcheck_path": "/hosting/discovery",
+        "jwt_enabled": false,
+        "jwt_secret": "change-me-secret",
+        "kind": "collabora",
+        "max_file_size_mb": 100,
+        "name": "Collabora Online (CODE)",
+        "server_url": "http://127.0.0.1:9980",
+        "start_cmd": "",
+        "stop_cmd": "",
+        "supported_formats": [
+          "odt",
+          "ods",
+          "odp",
+          "docx",
+          "xlsx",
+          "pptx",
+          "rtf",
+          "csv"
+        ],
+        "wait_boot_ms": 10000,
+        "wopi_discovery_path": "/hosting/discovery"
+      },
+      "onlyoffice": {
+        "auto_save": true,
+        "callback_path": "/api/fchier/onlyoffice/callback",
+        "collaborative_editing": true,
+        "default_format": "docx",
+        "editor_api_js": "/web-apps/apps/api/documents/api.js",
+        "enabled": true,
+        "healthcheck_expect": "true",
+        "healthcheck_path": "/healthcheck",
+        "jwt_enabled": true,
+        "jwt_secret": "change-me-secret",
+        "kind": "onlyoffice",
+        "max_file_size_mb": 100,
+        "name": "OnlyOffice Document Server",
+        "server_url": "http://127.0.0.1:8080",
+        "start_cmd": "powershell -ExecutionPolicy Bypass -File static/onlyoffice/start_onlyoffice.ps1",
+        "stop_cmd": "powershell -ExecutionPolicy Bypass -File static/onlyoffice/stop_onlyoffice.ps1",
+        "supported_formats": [
+          "docx",
+          "xlsx",
+          "pptx",
+          "odt",
+          "ods",
+          "odp"
+        ],
+        "wait_boot_ms": 8000,
+        "wopi_discovery_path": ""
+      }
+    },
+    "supported_formats": [
+      "docx",
+      "xlsx",
+      "pptx",
+      "odt",
+      "ods",
+      "odp"
+    ]
+  },
+  "extensions": {
+    "allow_user_install": false,
+    "auto_update": false,
+    "build_cmd": "cargo build --release",
+    "enabled": true,
+    "extension_params": {
+      "_comment": "Chaque extension a son propre bloc identifie par son id",
+      "_template": {
+        "enabled": true,
+        "params": {
+          "param_bool": true,
+          "param_nombre": 42,
+          "param_texte": "valeur"
+        },
+        "plans_autorises": [
+          "vip"
+        ],
+        "privilege_min": 10,
+        "version": "1.0.0"
+      },
+      "exodrive": {
+        "enabled": true,
+        "params": {
+          "public_share_enabled": true,
+          "public_share_expiry_days": 7,
+          "trash_retention_days": 30,
+          "versioning_enabled": false,
+          "versioning_max_versions": 5
+        },
+        "plans_autorises": [
+          "free",
+          "vip"
+        ],
+        "privilege_min": 10,
+        "version": "0.1"
+      },
+      "meet": {
+        "enabled": true,
+        "params": {
+          "max_participants": 10,
+          "max_room_duration_minutes": 120,
+          "recording_enabled": false,
+          "require_password_by_default": false
+        },
+        "plans_autorises": [
+          "vip"
+        ],
+        "privilege_min": 10,
+        "version": "0.1"
+      },
+      "onlyoffice": {
+        "enabled": true,
+        "params": {
+          "auto_save": true,
+          "auto_save_interval_seconds": 600,
+          "callback_timeout_seconds": 10,
+          "default_format": "docx",
+          "document_timeout_seconds": 3600,
+          "force_save": true,
+          "jwt_enabled": true,
+          "jwt_secret": "change-me-secret",
+          "max_file_size_mb": 100,
+          "preview_max_pages": 10,
+          "server_url": "http://127.0.0.1:8080",
+          "trace_enabled": false
+        },
+        "plans_autorises": [
+          "vip"
+        ],
+        "privilege_min": 10,
+        "version": "7.x"
+      },
+      "qseal": {
+        "dashboard_tile": {
+          "couleur": "#7c3aed",
+          "icone": "shield-halved",
+          "lignes": [
+            {
+              "badge": "pret",
+              "sous_titre": "Rangees dans l'explorateur de fichiers",
+              "titre": "Vos cles"
+            }
+          ],
+          "sous_titre": "Chiffrement post-quantique",
+          "titre": "QSeal",
+          "url": "/ext/qseal"
+        },
+        "enabled": true,
+        "nav_app": {
+          "icone": "shield-halved",
+          "label": "QSeal",
+          "url": "/ext/qseal"
+        },
+        "params": {
+          "algorithmes": "ML-KEM-512 / Falcon-512 / AES-GCM",
+          "compat_extension_navigateur": true,
+          "stockage_cles": "explorateur de fichiers VEX (visble=1)"
+        },
+        "permissions": {
+          "chiffrer": {
+            "plans_autorises": [],
+            "privilege_min": 1
+          },
+          "signer": {
+            "plans_autorises": [],
+            "privilege_min": 1
+          }
+        },
+        "plans_autorises": [
+          "free",
+          "vip"
+        ],
+        "privilege_min": 10,
+        "version": "0.1.1"
+      },
+      "sitec": {
+        "enabled": true,
+        "params": {
+          "custom_domain_enabled": false,
+          "max_sites_per_user": 3,
+          "ssl_auto": true
+        },
+        "plans_autorises": [
+          "vip"
+        ],
+        "privilege_min": 10,
+        "version": "0.1"
+      },
+      "vexmail": {
+        "enabled": true,
+        "params": {
+          "max_attachment_size_mb": 25,
+          "max_emails_per_day": 100,
+          "sender_address": "noreply@example.com",
+          "sender_name": "VEX Mail",
+          "smtp_encryption": "tls",
+          "smtp_host": "",
+          "smtp_password": "",
+          "smtp_port": 587,
+          "smtp_user": ""
+        },
+        "plans_autorises": [
+          "vip"
+        ],
+        "privilege_min": 10,
+        "version": "0.1"
+      }
+    },
+    "marketplace_url": "https://github.com/TheSolar1/vex/releases/tag/Extensions"
+  },
+  "onlyoffice_server": {
+    "_comment": "Controle du Document Server OnlyOffice",
+    "auto_stop": false,
+    "auto_stop_after_idle_seconds": 900,
+    "enabled": true,
+    "healthcheck_path": "/healthcheck",
+    "server_url": "http://127.0.0.1:8080",
+    "start_cmd": "powershell -ExecutionPolicy Bypass -File static/onlyoffice/start_onlyoffice.ps1",
+    "stop_cmd": "powershell -ExecutionPolicy Bypass -File static/onlyoffice/stop_onlyoffice.ps1",
+    "wait_boot_ms": 8000
+  },
+  "p2p": {
+    "bootstrap_url": "https://vex.hopto.org/neut",
+    "chunk_size_bytes": 1048576,
+    "chunks_dir": "/tmp/vex_chunks",
+    "output_dir": "/tmp/vex_received",
+    "port": 7700,
+    "sync_interval_secs": 1800,
+    "tor_addr": "",
+    "use_tor": true
+  },
+  "payment": {
+    "currency": "EUR",
+    "mode": "free",
+    "provider": "stripe",
+    "stripe_public_key": "",
+    "stripe_secret_key": "",
+    "trial_days": 14
+  },
+  "plans": {
+    "available_plans": [
+      {
+        "features": {
+          "api_access": false,
+          "email_sending": false,
+          "extensions": [],
+          "file_sharing": true,
+          "max_files": 50,
+          "online_editing": false,
+          "storage": "500MB"
+        },
+        "id": "free",
+        "name": "Gratuit",
+        "price_eur_month": 0
+      },
+      {
+        "features": {
+          "api_access": true,
+          "email_sending": true,
+          "extensions": [
+            "*"
+          ],
+          "file_sharing": true,
+          "max_files": -1,
+          "online_editing": true,
+          "storage": "20GB"
+        },
+        "id": "vip",
+        "name": "VIP",
+        "price_eur_month": 5
+      }
+    ],
+    "enforce_plan_restrictions": true
+  },
+  "privilege_labels": {
+    "10": "Aucun",
+    "11": "Banni",
+    "12": "Banni",
+    "2": "Super admin",
+    "3": "Admin",
+    "4": "Verificateur",
+    "5": "Super-moderateur",
+    "6": "Moderateur",
+    "7": "",
+    "8": "Utilisateur certifie",
+    "9": "Beta-testeur",
+    "_comment": "Noms personnalises des niveaux de privilege affiches dans l'admin panel. Le privilege 1 (fondateur) n'est jamais modifiable ni affiche dans l'interface."
+  },
+  "security": {
+    "ip_blacklist": [],
+    "ip_blacklist_enabled": false,
+    "ip_whitelist": [],
+    "ip_whitelist_enabled": false,
+    "lockout_duration_minutes": 60,
+    "max_login_attempts": 5,
+    "password_min_length": 8,
+    "password_require_number": true,
+    "password_require_special_char": false,
+    "password_require_uppercase": true,
+    "two_factor_auth": false
+  },
+  "storage": {
+    "allowed_extensions": [
+      "pdf",
+      "docx",
+      "xlsx",
+      "pptx",
+      "txt",
+      "png",
+      "jpg",
+      "jpeg",
+      "zip",
+      "mp4"
+    ],
+    "blocked_extensions": [
+      "exe",
+      "bat",
+      "sh",
+      "php",
+      "js"
+    ],
+    "file_retention_days": 90,
+    "max_file_size_mb": 512,
+    "quota_by_plan": {
+      "free": "500MB",
+      "vip": "20GB"
+    }
+  },
+  "users": {
+    "account_expiration_days": 0,
+    "activation_key": "all",
+    "activation_key_required": false,
+    "max_users": 100,
+    "registration_mode": "open",
+    "session_expiration_minutes": 60
+  }
+}

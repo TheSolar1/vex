@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Configuration VEX</title>
 <link rel="icon" href="/static/img/favicon.ico" type="image/svg+xml">
+<link rel="stylesheet" href="/static/css/theme.css">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#4caf50 0%,#2e7d32 100%);min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px}
@@ -95,6 +96,60 @@ input:focus{outline:none;border-color:#4caf50;box-shadow:0 0 0 3px rgba(76,175,8
 
 </div>
 <script>
+// ══════════════════════════════════════════════════════════════════
+// SRP-6a (RFC 5054 adapté SHA-256) — génération salt/verifier client.
+// Le mot de passe n'est utilisé que localement, jamais envoyé.
+// ⚠️ Doit être bit-à-bit identique au calcul serveur (crate::srp) et
+// à SRP.genererSaltEtVerifier() de login.html.
+// ══════════════════════════════════════════════════════════════════
+const SRP_N_HEX = "AC6BDB41324A9A9BF166DE5E1389582FAF72B6651987EE07FC3192943DB56050A37329CBB4A099ED8193E0757767A13DD52312AB4B03310DCD7F48A9DA04FD50E8083969EDB767B0CF6095179A163AB3661A05FBD5FAAAE82918A9962F0B93B855F97993EC975EEAA80D740ADBF4FF747359D041D5C33EA71D281E446B14773BCA97B43A23FB801676BD207A436C6481F1D2B9078717461A5B9D32E688F87748544523B524B0D57D5EA77A2775D2ECFA032CFBDBF52FB3786160279004E57AE6AF874E7303CE53299CCC041C7BC308D82A5698F3A8D0C38271AE35F8E9DBFBB694B5C803D89F7AE435DE236D525F54759B65E372FCD68EF20FA7111F9E4AFF73";
+const SRP_N = BigInt("0x" + SRP_N_HEX);
+const SRP_G = BigInt(2);
+
+function srpBytesToHex(bytes) {
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function srpBigIntToHex(n) {
+    let h = n.toString(16);
+    if (h.length % 2 !== 0) h = '0' + h;
+    return h;
+}
+function srpBytesToBigInt(bytes) {
+    return BigInt("0x" + (srpBytesToHex(bytes) || "0"));
+}
+function srpConcatBytes(...arrs) {
+    const total = arrs.reduce((s, a) => s + a.length, 0);
+    const out = new Uint8Array(total);
+    let off = 0;
+    for (const a of arrs) { out.set(a, off); off += a.length; }
+    return out;
+}
+async function srpSha256(bytes) {
+    return new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+}
+function srpStrToBytes(str) { return new TextEncoder().encode(str); }
+function srpModPow(base, exp, mod) {
+    base = base % mod;
+    let result = 1n;
+    while (exp > 0n) {
+        if (exp & 1n) result = (result * base) % mod;
+        exp >>= 1n;
+        base = (base * base) % mod;
+    }
+    return result;
+}
+async function srpComputeX(saltBytes, email, password) {
+    const inner = await srpSha256(srpStrToBytes(email.toLowerCase() + ':' + password));
+    const h = await srpSha256(srpConcatBytes(saltBytes, inner));
+    return srpBytesToBigInt(h);
+}
+async function genererSaltEtVerifier(email, password) {
+    const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+    const x = await srpComputeX(saltBytes, email, password);
+    const v = srpModPow(SRP_G, x, SRP_N);
+    return { salt_hex: srpBytesToHex(saltBytes), verifier_hex: srpBigIntToHex(v) };
+}
+
 function esc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
         .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -120,7 +175,8 @@ async function submitSetup() {
     btn.textContent = '⏳ Création en cours…';
 
     try {
-        const body = new URLSearchParams({setup:'1', nom, email, motdepass:mdp, motdepass2:mdp2});
+        const { salt_hex, verifier_hex } = await genererSaltEtVerifier(email, mdp);
+        const body = new URLSearchParams({setup:'1', nom, email, srp_salt: salt_hex, srp_verifier: verifier_hex});
         const r = await fetch('/login/first_setup', {method:'POST', body, credentials:'include'});
         const d = await r.json();
         if (d.success) {

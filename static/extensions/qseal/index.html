@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="__LANG__" data-theme="__THEME__">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>QSeal — VEX</title>
+<link rel="icon" href="/static/img/favicon.ico">
+<link rel="stylesheet" href="/static/css/theme.css">
+<style>
+/* Tout est bati sur les variables du theme VEX : la page suit
+   automatiquement le mode clair/sombre choisi par l'utilisateur. */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+/* padding-top : la barre de navigation VEX est fixee en haut. */
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+     background:var(--bg);color:var(--text);min-height:100vh;padding:86px 20px 60px}
+.wrap{max-width:960px;margin:0 auto}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+code,pre,textarea.mono{font-family:"Courier New",Courier,monospace}
+
+.entete{display:flex;align-items:center;gap:13px;margin-bottom:6px}
+.entete-ico{width:44px;height:44px;border-radius:12px;background:var(--alt);
+            display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.entete-ico img{width:24px;height:24px;filter:var(--icon-filter)}
+h1{font-size:1.45rem;font-weight:800;letter-spacing:-.02em}
+.sous{font-size:.84rem;color:var(--text-secondary,var(--text-m));margin-bottom:22px}
+
+.onglets{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:20px;flex-wrap:wrap}
+.onglet{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border:none;
+        border-bottom:2px solid transparent;background:none;color:var(--text-secondary,var(--text-m));
+        font-size:.86rem;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:-1px}
+.onglet:hover{color:var(--text);background:var(--surface2)}
+.onglet.on{color:var(--accent);border-bottom-color:var(--accent)}
+
+.vue{display:none}.vue.on{display:block;animation:fu .18s ease}
+@keyframes fu{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+.carte{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius,10px);
+       box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden}
+.carte-t{padding:12px 17px;border-bottom:1px solid var(--border);font-weight:700;font-size:.88rem;
+         display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+         background:var(--surface2)}
+.carte-c{padding:17px}
+
+label.et{display:block;font-size:.71rem;font-weight:700;text-transform:uppercase;
+         letter-spacing:.06em;color:var(--text-secondary,var(--text-m));margin-bottom:5px}
+label.et small{display:block;font-weight:400;text-transform:none;letter-spacing:0;opacity:.75}
+input[type=text],input[type=password],textarea,select{
+    width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;
+    background:var(--input,var(--surface));color:var(--text);font-size:.88rem;font-family:inherit}
+textarea{resize:vertical;min-height:120px;font-size:.8rem;line-height:1.55}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+.champ{margin-bottom:13px}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+@media(max-width:640px){.duo{grid-template-columns:1fr}}
+
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border:none;border-radius:8px;
+     font-size:.85rem;font-weight:600;cursor:pointer;font-family:inherit;height:36px;white-space:nowrap}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-p{background:var(--accent);color:#fff}
+.btn-s{background:transparent;color:var(--text-secondary,var(--text-m));border:1px solid var(--border)}
+.btn-s:hover{background:var(--surface2);color:var(--text)}
+.btn-d{background:var(--danger,#dc2626);color:#fff}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:6px}
+
+.puce{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:99px;
+      font-size:.7rem;font-weight:700}
+.p-ok{background:var(--alt);color:var(--accent)}
+.p-warn{background:rgba(245,158,11,.14);color:#b45309}
+.p-err{background:rgba(220,38,38,.12);color:var(--danger,#dc2626)}
+.p-neutre{background:rgba(120,130,145,.14);color:var(--text-secondary,var(--text-m))}
+
+.cle{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);
+     border-radius:10px;margin-bottom:9px;flex-wrap:wrap}
+.cle-nom{font-weight:700;font-size:.9rem}
+.cle-id{font-family:"Courier New",monospace;font-size:.74rem;color:var(--text-secondary,var(--text-m))}
+.cle-actions{margin-left:auto;display:flex;gap:7px;flex-wrap:wrap}
+
+.msg{padding:11px 14px;border-radius:9px;font-size:.85rem;font-weight:600;margin-bottom:14px;display:none}
+.msg.on{display:block}
+.msg.ok{background:var(--alt);border:1px solid var(--aglow);color:var(--accent)}
+.msg.ko{background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.22);color:var(--danger,#dc2626)}
+
+.aide{font-size:.8rem;color:var(--text-secondary,var(--text-m));line-height:1.65;
+      background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:11px 14px;margin-bottom:15px}
+.vide{padding:26px;text-align:center;color:var(--text-secondary,var(--text-m));font-size:.86rem;
+      background:var(--surface2);border:1px dashed var(--border);border-radius:10px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);
+      border-top-color:var(--accent);border-radius:50%;animation:sp .6s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+__NAV_HTML__
+
+<div class="wrap">
+
+  <div class="entete">
+    <div class="entete-ico"><img src="/static/img/solid/shield-halved.svg" alt=""></div>
+    <div>
+      <h1>QSeal</h1>
+      <div class="sous">Chiffrement et signature post-quantiques — ML-KEM-512, Falcon-512, AES-GCM.
+        Compatible avec l'extension navigateur QSeal.</div>
+    </div>
+  </div>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="onglets">
+    <button class="onglet on" data-vue="cles"><img src="/static/img/solid/key.svg" class="ico" style="width:15px;height:15px;filter:var(--icon-filter)" alt=""> Mes cles</button>
+    <button class="onglet" data-vue="chiffrer">Chiffrer</button>
+    <button class="onglet" data-vue="dechiffrer">Dechiffrer</button>
+    <button class="onglet" data-vue="signer">Signer / Verifier</button>
+    <button class="onglet" data-vue="contacts">Contacts</button>
+  </div>
+
+  <!-- ── Mes cles ─────────────────────────────────────────────── -->
+  <div class="vue on" id="vue-cles">
+    <div class="aide">
+      Vos cles sont enregistrees comme des fichiers <code>.qsealkey</code> dans
+      <a href="/fchier/">votre explorateur de fichiers</a>, en prive.
+      <strong>La cryptographie se fait entierement dans votre navigateur</strong> :
+      si vous protegez une cle par phrase secrete, le serveur ne recoit que le
+      resultat chiffre et ne peut pas la lire.
+    </div>
+
+    <div class="carte">
+      <div class="carte-t"><span>Creer une identite</span></div>
+      <div class="carte-c">
+        <div class="duo">
+          <div class="champ"><label class="et">Nom de la cle</label>
+            <input type="text" id="nouv-nom" placeholder="ex : perso"></div>
+          <div class="champ"><label class="et">Phrase secrete
+              <small>Laissez vide pour stocker la cle sans protection.</small></label>
+            <input type="password" id="nouv-pass" placeholder="recommande"></div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-p" id="btn-gen">Generer une identite</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="carte">
+      <div class="carte-t"><span>Cles enregistrees</span>
+        <button class="btn btn-s" id="btn-recharger">Rafraichir</button></div>
+      <div class="carte-c"><div id="liste-cles"><div class="vide"><span class="spin"></span></div></div></div>
+    </div>
+
+    <div class="carte">
+      <div class="carte-t"><span>Importer une cle</span></div>
+      <div class="carte-c">
+        <div class="champ"><label class="et">Sauvegarde QSeal
+            <small>Bloc <code>-----BEGIN QSEAL BACKUP-----</code> exporte depuis l'extension navigateur ou d'ici.</small></label>
+          <textarea id="imp-bloc" class="mono" placeholder="-----BEGIN QSEAL BACKUP-----"></textarea></div>
+        <div class="duo">
+          <div class="champ"><label class="et">Nom a donner</label><input type="text" id="imp-nom" placeholder="ex : importee"></div>
+          <div class="champ"><label class="et">Phrase secrete de la sauvegarde</label><input type="password" id="imp-pass"></div>
+        </div>
+        <div class="actions"><button class="btn btn-p" id="btn-importer">Importer</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Chiffrer ─────────────────────────────────────────────── -->
+  <div class="vue" id="vue-chiffrer">
+    <div class="carte">
+      <div class="carte-t"><span>Chiffrer un message</span></div>
+      <div class="carte-c">
+        <div class="duo">
+          <div class="champ"><label class="et">Destinataires
+              <small>Contacts enregistres, plusieurs choix possibles.</small></label>
+            <select id="ch-dest" multiple size="4"></select></div>
+          <div class="champ"><label class="et">Signer avec
+              <small>Facultatif : prouve que le message vient bien de vous.</small></label>
+            <select id="ch-signeur"><option value="">Ne pas signer</option></select></div>
+        </div>
+        <div class="champ"><label class="et">Message</label>
+          <textarea id="ch-texte" placeholder="Votre texte en clair"></textarea></div>
+        <div class="actions">
+          <button class="btn btn-p" id="btn-chiffrer">Chiffrer</button>
+          <button class="btn btn-s" id="btn-copier-ch">Copier le resultat</button>
+        </div>
+        <div class="champ" style="margin-top:14px"><label class="et">Bloc chiffre</label>
+          <textarea id="ch-sortie" class="mono" readonly placeholder="-----BEGIN QSEAL MSG-----"></textarea></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Dechiffrer ───────────────────────────────────────────── -->
+  <div class="vue" id="vue-dechiffrer">
+    <div class="carte">
+      <div class="carte-t"><span>Dechiffrer un message</span></div>
+      <div class="carte-c">
+        <div class="champ"><label class="et">Bloc QSeal recu</label>
+          <textarea id="de-entree" class="mono" placeholder="-----BEGIN QSEAL MSG-----"></textarea></div>
+        <div class="actions"><button class="btn btn-p" id="btn-dechiffrer">Dechiffrer</button></div>
+        <div id="de-etat" style="margin-top:14px"></div>
+        <div class="champ" style="margin-top:10px"><label class="et">Message en clair</label>
+          <textarea id="de-sortie" readonly></textarea></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Signer / verifier ────────────────────────────────────── -->
+  <div class="vue" id="vue-signer">
+    <div class="carte">
+      <div class="carte-t"><span>Signer un texte</span></div>
+      <div class="carte-c">
+        <div class="champ"><label class="et">Signer avec</label><select id="si-cle"></select></div>
+        <div class="champ"><label class="et">Texte</label><textarea id="si-texte"></textarea></div>
+        <div class="actions">
+          <button class="btn btn-p" id="btn-signer">Signer</button>
+          <button class="btn btn-s" id="btn-copier-si">Copier</button>
+        </div>
+        <div class="champ" style="margin-top:14px"><label class="et">Bloc signe</label>
+          <textarea id="si-sortie" class="mono" readonly></textarea></div>
+      </div>
+    </div>
+    <div class="carte">
+      <div class="carte-t"><span>Verifier une signature</span></div>
+      <div class="carte-c">
+        <div class="champ"><label class="et">Bloc signe</label>
+          <textarea id="ve-entree" class="mono" placeholder="-----BEGIN QSEAL SIGNED-----"></textarea></div>
+        <div class="actions"><button class="btn btn-p" id="btn-verifier">Verifier</button></div>
+        <div id="ve-etat" style="margin-top:14px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Contacts ─────────────────────────────────────────────── -->
+  <div class="vue" id="vue-contacts">
+    <div class="aide">
+      Un contact est la cle publique de quelqu'un. Demandez-lui son bloc
+      <code>-----BEGIN QSEAL KEY-----</code> et collez-le ici pour pouvoir lui
+      ecrire. Les contacts restent dans ce navigateur.
+    </div>
+    <div class="carte">
+      <div class="carte-t"><span>Ajouter un contact</span></div>
+      <div class="carte-c">
+        <div class="champ"><label class="et">Nom</label><input type="text" id="co-nom" placeholder="ex : Alice"></div>
+        <div class="champ"><label class="et">Cle publique</label>
+          <textarea id="co-bloc" class="mono" placeholder="-----BEGIN QSEAL KEY-----"></textarea></div>
+        <div class="actions"><button class="btn btn-p" id="btn-ajouter-contact">Ajouter</button></div>
+      </div>
+    </div>
+    <div class="carte">
+      <div class="carte-t"><span>Contacts connus</span></div>
+      <div class="carte-c"><div id="liste-contacts"></div></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="/static/extensions/qseal/qseal-core.js"></script>
+<script src="/static/extensions/qseal/qseal.js"></script>
+</body>
+</html>

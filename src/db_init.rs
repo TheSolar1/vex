@@ -93,6 +93,28 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         "ALTER TABLE `fichiers` MODIFY `fichier` LONGTEXT NOT NULL"
     );
 
+    // ── FIX (migration SRP-6a) ──────────────────────────────────────
+    // Ajoute les colonnes nécessaires à l'authentification SRP-6a
+    // (voir crate::srp / login.rs). `motdepass` est rendu nullable
+    // car il n'est plus utilisé par le nouveau flux d'inscription —
+    // sans ça, tout INSERT signup échouait silencieusement (colonne
+    // NOT NULL sans valeur fournie), ce qui donnait "Erreur lors de
+    // l'inscription." sans plus de détail côté client.
+    let _ = conn.query_drop("ALTER TABLE `login` ADD COLUMN `srp_salt` VARCHAR(64) DEFAULT NULL");
+    let _ = conn.query_drop("ALTER TABLE `login` ADD COLUMN `srp_verifier` VARCHAR(512) DEFAULT NULL");
+    let _ = conn.query_drop("ALTER TABLE `login` MODIFY `motdepass` VARCHAR(250) DEFAULT NULL");
+
+    // ── srp_sessions (éphémère, corrèle srp_step1 → srp_step2) ──────
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `srp_sessions` (
+            `token`      VARCHAR(64)  NOT NULL,
+            `email`      VARCHAR(255) NOT NULL,
+            `b_hex`      VARCHAR(64)  NOT NULL,
+            `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`token`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+    )?;
+
     // ── loginc ────────────────────────────────────────────────────
     conn.query_drop(
         "CREATE TABLE IF NOT EXISTS `loginc` (
@@ -222,6 +244,10 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         "ALTER TABLE `pref` ADD COLUMN `logo_pages` TEXT DEFAULT NULL",
         "ALTER TABLE `pref` ADD COLUMN `profile_icon_type` VARCHAR(20) DEFAULT 'initials'",
         "ALTER TABLE `pref` ADD COLUMN `profile_icon_url` VARCHAR(500) DEFAULT NULL",
+        // Choix utilisateur : tuiles du dashboard et apps du menu
+        "ALTER TABLE `pref` ADD COLUMN `dashboard_tiles` TEXT DEFAULT NULL",
+        "ALTER TABLE `pref` ADD COLUMN `nav_apps` TEXT DEFAULT NULL",
+        "ALTER TABLE `pref` ADD COLUMN `dashboard_events` TEXT DEFAULT NULL",
     ] {
         let _ = conn.query_drop(*col);
     }
