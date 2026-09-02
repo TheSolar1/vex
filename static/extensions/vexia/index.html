@@ -44,6 +44,21 @@ textarea:focus{outline:none;border-color:var(--accent)}
 .avertissement{margin:14px 0;padding:12px 15px;border-radius:9px;background:rgba(245,158,11,.08);
     border:1px solid rgba(245,158,11,.3);color:color-mix(in srgb, var(--orange,#f59e0b) 80%, black);font-size:.83rem;line-height:1.6}
 [data-theme="dark"] .avertissement{color:color-mix(in srgb, var(--orange,#f59e0b) 70%, white)}
+
+.reglage-auto{display:flex;align-items:center;gap:9px;margin-bottom:14px;font-size:.83rem;color:var(--text-m)}
+.reglage-auto input{width:16px;height:16px;accent-color:var(--accent)}
+.reglage-auto small{display:block;font-size:.76rem;opacity:.85}
+
+.pending{align-self:stretch;border:1px solid var(--border);border-radius:11px;padding:11px 13px;font-size:.85rem;background:var(--surface2)}
+.pending.admin{border-color:var(--danger,#dc2626);background:rgba(220,38,38,.06)}
+.pending-badge{display:inline-block;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+    padding:2px 7px;border-radius:5px;background:var(--danger,#dc2626);color:#fff;margin-bottom:6px}
+.pending-label{margin-bottom:10px;line-height:1.5}
+.pending-actions{display:flex;gap:10px}
+.pending-actions button{flex:1;border:none;border-radius:8px;padding:8px 0;font-size:.82rem;cursor:pointer;font-weight:600;font-family:inherit}
+.pending-confirm{background:var(--accent);color:#fff}
+.pending-cancel{background:var(--surface);border:1px solid var(--border) !important;color:var(--text)}
+.pending-actions button:disabled{opacity:.5;cursor:not-allowed}
 </style>
 </head>
 <body>
@@ -57,6 +72,13 @@ __NAV_HTML__
     <div><h1>VexIA</h1></div>
   </div>
   <div class="sous">Assistant IA (Claude), integre a VEX. Votre cle API reste sur ce serveur.</div>
+
+  <label class="reglage-auto">
+    <input type="checkbox" id="auto-confirm" __AUTO_CONFIRM__>
+    <span>Exécution automatique des actions à faible risque
+      <small>Les actions admin demandent toujours une confirmation, quel que soit ce réglage.</small>
+    </span>
+  </label>
 
   <div id="avert-box"></div>
 
@@ -97,6 +119,67 @@ function ajouterMsg(role, texte){
     return div;
 }
 
+document.getElementById('auto-confirm').addEventListener('change', async function(){
+    const active = this.checked;
+    try{
+        const r = await fetch('/api/ext/vexia/prefs', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            credentials: 'include',
+            body: JSON.stringify({auto_confirm: active}),
+        });
+        const d = await r.json();
+        if(!d.success){ this.checked = !active; }
+    }catch(e){ this.checked = !active; }
+});
+
+function ajouterPending(action){
+    const vide = document.getElementById('vide');
+    if(vide) vide.remove();
+    const box = document.getElementById('msgs');
+    const div = document.createElement('div');
+    div.className = 'pending' + (action.tier === 'admin' ? ' admin' : '');
+    div.innerHTML = (action.tier === 'admin' ? '<div class="pending-badge">Action admin</div>' : '')
+        + '<div class="pending-label"></div>'
+        + '<div class="pending-actions">'
+        + '<button class="pending-cancel" type="button">Annuler</button>'
+        + '<button class="pending-confirm" type="button">Confirmer</button>'
+        + '</div>';
+    div.querySelector('.pending-label').textContent = action.label;
+    const btnOk = div.querySelector('.pending-confirm');
+    const btnNo = div.querySelector('.pending-cancel');
+    const resoudre = async (decision) => {
+        btnOk.disabled = true; btnNo.disabled = true;
+        try{
+            const r = await fetch('/api/ext/vexia/confirm', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'include',
+                body: JSON.stringify({action_id: action.id, decision}),
+            });
+            const d = await r.json();
+            div.remove();
+            if(decision === 'cancel'){
+                ajouterMsg('assistant', 'Action annulée.');
+                return;
+            }
+            if(d.success){
+                ajouterMsg('assistant', d.reply || 'Action effectuée.');
+                if(d.reply) HISTORIQUE.push({role:'assistant', content: d.reply});
+            }else{
+                ajouterMsg('erreur', d.error || 'Erreur inconnue.');
+            }
+        }catch(e){
+            div.remove();
+            ajouterMsg('erreur', 'Erreur réseau.');
+        }
+    };
+    btnOk.addEventListener('click', () => resoudre('confirm'));
+    btnNo.addEventListener('click', () => resoudre('cancel'));
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+}
+
 async function verifierStatut(){
     try{
         const r = await fetch('/api/ext/vexia/status', {credentials:'include'});
@@ -133,9 +216,16 @@ async function envoyer(){
         const d = await r.json();
         bulle.remove();
         if(d.success){
-            ajouterMsg('assistant', d.reply);
-            HISTORIQUE.push({role:'user', content: message});
-            HISTORIQUE.push({role:'assistant', content: d.reply});
+            if(d.reply){
+                ajouterMsg('assistant', d.reply);
+                HISTORIQUE.push({role:'user', content: message});
+                HISTORIQUE.push({role:'assistant', content: d.reply});
+            }else{
+                HISTORIQUE.push({role:'user', content: message});
+            }
+            if(d.pending_action){
+                ajouterPending(d.pending_action);
+            }
         }else{
             ajouterMsg('erreur', d.error || 'Erreur inconnue.');
         }

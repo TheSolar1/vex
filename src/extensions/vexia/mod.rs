@@ -11,13 +11,27 @@
 // Le widget flottant (static/extensions/vexia/vexia-widget.js) permet
 // de l'appeler depuis d'autres pages (fchier, sitec) via la même API.
 // Le privilege et le plan sont deja verifies par access_control.
+//
+// ── Execution d'outils (tool use) ────────────────────────────────
+// VexIA peut proposer d'executer une action parmi une liste FERMEE
+// (voir tools.rs) : jamais d'acces shell/console libre. Toute action
+// qui modifie quelque chose (hors lecture seule) exige une confirmation
+// explicite de l'utilisateur avant execution, sauf s'il a active
+// "execution automatique" pour les outils a faible risque (jamais les
+// outils admin, qui exigent TOUJOURS une confirmation). Chaque
+// execution est journalisee dans `vexia_audit`.
 // ══════════════════════════════════════════════════════════════════
+
+mod tools;
 
 use crate::appeldb::DbPool;
 use crate::c::SessionInfo;
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::collections::{HashMap, VecDeque};
 use std::io::Cursor;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 use tiny_http::{Header, Request, Response};
 
 const CONFIG_PATH: &str = "config.json";
@@ -27,6 +41,9 @@ const DEFAULT_MODEL: &str = "claude-sonnet-4-5-20250929";
 const DEFAULT_MAX_TOKENS: u64 = 1024;
 const MAX_MESSAGE_LEN: usize = 32_000;
 const MAX_HISTORY: usize = 20;
+const PENDING_TTL_SECS: u64 = 300;
+const RATE_WINDOW_SECS: u64 = 60;
+const RATE_MAX_PER_WINDOW: usize = 10;
 
 pub fn handle(
     pool: &DbPool,
@@ -40,7 +57,9 @@ pub fn handle(
         let sous = sous.trim_end_matches('/');
         let reponse = match sous {
             "/status" | "" => statut(),
-            "/chat" => chat(req),
+            "/chat" => chat(pool, session, req),
+            "/confirm" => confirmer(pool, session, req),
+            "/prefs" => prefs_update(pool, session, req),
             _ => json!({"success": false, "error": "Route VexIA inconnue."}),
         };
         return json_response(reponse);
@@ -58,7 +77,8 @@ pub fn handle(
                 .replace("__LANG__", &prefs.langue)
                 .replace("__USER_NOM__", &echapper(&session.user_nom))
                 .replace("__USER_EMAIL__", &echapper(&session.user_email))
-                .replace("__USER_ID__", &session.user_id.to_string());
+                .replace("__USER_ID__", &session.user_id.to_string())
+                .replace("__AUTO_CONFIRM__", if prefs.vexia_auto_confirm == 1 { "checked" } else { "" });
             Response::from_string(html).with_header(
                 Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap(),
             )
@@ -81,6 +101,7 @@ struct VexiaConfig {
     model: String,
     max_tokens: u64,
     system_prompt: String,
+    tools_enabled: bool,
 }
 
 fn charger_config() -> VexiaConfig {
@@ -116,6 +137,10 @@ fn charger_config() -> VexiaConfig {
             .and_then(|v| v.as_str())
             .unwrap_or("Tu es VexIA, l'assistant integre a VEX (auto-heberge). Reponds de facon concise et utile, en francais sauf si on te parle dans une autre langue.")
             .to_string(),
+        tools_enabled: params
+            .get("tools_enabled")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true),
     }
 }
 
@@ -126,7 +151,7 @@ fn statut() -> Value {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// Chat — proxy vers l'API Anthropic (Messages API)
+// Chat — proxy vers l'API Anthropic (Messages API), avec tool use
 // ══════════════════════════════════════════════════════════════════
 
 #[derive(Deserialize)]
@@ -142,7 +167,18 @@ struct ChatBody {
     history: Vec<ChatMsg>,
 }
 
-fn chat(req: &mut Request) -> Value {
+fn tools_json_for(session: &SessionInfo) -> Vec<Value> {
+    tools::visible_for(session)
+        .iter()
+        .map(|t| json!({
+            "name": t.name,
+            "description": t.description,
+            "input_schema": (t.input_schema)(),
+        }))
+        .collect()
+}
+
+fn chat(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Value {
     let cfg = charger_config();
     if cfg.api_key.is_empty() {
         return json!({"success": false,
@@ -179,46 +215,323 @@ fn chat(req: &mut Request) -> Value {
         .collect();
     messages.push(json!({"role": "user", "content": message}));
 
-    let payload = json!({
+    let tools_json: Vec<Value> = if cfg.tools_enabled { tools_json_for(session) } else { vec![] };
+    let messages_sent = messages.clone();
+
+    let body = match anthropic_call(&cfg, messages, &tools_json) {
+        Ok(b) => b,
+        Err(e) => return json!({"success": false, "error": e}),
+    };
+
+    if body.get("stop_reason").and_then(|v| v.as_str()) == Some("tool_use") {
+        let content = body.get("content").cloned().unwrap_or(json!([]));
+        if let Some((tool_use_id, name, args)) = premier_tool_use(&content) {
+            return traiter_tool_use(pool, session, &cfg, messages_sent, content, tool_use_id, name, args, &tools_json);
+        }
+    }
+
+    let texte = premier_texte(&body.get("content").cloned().unwrap_or(json!([])));
+    if texte.is_empty() {
+        json!({"success": false, "error": "Reponse vide du modele."})
+    } else {
+        json!({"success": true, "reply": texte})
+    }
+}
+
+/// Decide s'il faut executer tout de suite (lecture seule, ou outil scope
+/// avec l'auto-confirm active) ou creer une action en attente qui necessite
+/// une confirmation explicite du front (TOUJOURS pour les outils admin).
+fn traiter_tool_use(
+    pool: &DbPool,
+    session: &SessionInfo,
+    cfg: &VexiaConfig,
+    messages_sent: Vec<Value>,
+    assistant_content: Value,
+    tool_use_id: String,
+    tool_name: String,
+    args: Value,
+    tools_json: &[Value],
+) -> Value {
+    let lead_text = premier_texte(&assistant_content);
+
+    let Some(tool) = tools::find(&tool_name) else {
+        return json!({"success": false, "error": format!("Outil inconnu : {}", tool_name)});
+    };
+    // Defense en profondeur : re-verifie le privilege meme si le modele
+    // n'aurait normalement pas du recevoir cet outil dans sa liste.
+    if !tools::authorized_for(tool, session) {
+        return json!({"success": false, "error": "Action non autorisée pour votre niveau de privilège."});
+    }
+
+    let prefs = crate::function::get_user_preferences(pool, session.user_id);
+    let auto_ok = matches!(tool.tier, tools::ToolTier::Scoped) && prefs.vexia_auto_confirm == 1;
+
+    if tool.read_only || auto_ok {
+        if !check_rate_limit(session.user_id) {
+            let err = "Trop d'actions exécutées récemment, réessayez dans une minute.".to_string();
+            tools::log_tool_execution(pool, session.user_id, tool, &args, &Err(err.clone()));
+            return json!({"success": false, "error": err});
+        }
+        let result = (tool.handler)(pool, session, &args);
+        tools::log_tool_execution(pool, session.user_id, tool, &args, &result);
+        return suite_apres_execution(cfg, messages_sent, assistant_content, tool_use_id, result, tools_json);
+    }
+
+    // Action mutante hors auto-confirm (ou outil admin) : confirmation requise.
+    let label = (tool.describe)(&args);
+    let id = crate::c::random_hex_id();
+    {
+        let mut map = pending_store().lock().unwrap();
+        prune_pending(&mut map);
+        map.insert(id.clone(), PendingAction {
+            user_id: session.user_id,
+            tool_name: tool_name.clone(),
+            args,
+            tool_use_id,
+            messages_sent,
+            assistant_content,
+            created_at: Instant::now(),
+        });
+    }
+    json!({
+        "success": true,
+        "reply": lead_text,
+        "pending_action": {
+            "id": id,
+            "tool": tool_name,
+            "tier": tool.tier.as_str(),
+            "label": label,
+            "expires_in": PENDING_TTL_SECS,
+        }
+    })
+}
+
+/// Envoie le resultat d'un outil a Anthropic (message "tool_result") pour
+/// obtenir une reponse en langage naturel a afficher a l'utilisateur.
+fn suite_apres_execution(
+    cfg: &VexiaConfig,
+    messages_sent: Vec<Value>,
+    assistant_content: Value,
+    tool_use_id: String,
+    result: Result<Value, String>,
+    tools_json: &[Value],
+) -> Value {
+    let (result_content, action_ok) = match &result {
+        Ok(v) => (v.to_string(), true),
+        Err(e) => (json!({"error": e}).to_string(), false),
+    };
+    let mut followup = messages_sent;
+    followup.push(json!({"role": "assistant", "content": assistant_content}));
+    followup.push(json!({"role": "user", "content": [
+        {"type": "tool_result", "tool_use_id": tool_use_id, "content": result_content, "is_error": !action_ok}
+    ]}));
+
+    match anthropic_call(cfg, followup, tools_json) {
+        Ok(body) => {
+            let texte = premier_texte(&body.get("content").cloned().unwrap_or(json!([])));
+            let reply = if !texte.is_empty() {
+                texte
+            } else if action_ok {
+                "C'est fait.".to_string()
+            } else {
+                "L'action a échoué.".to_string()
+            };
+            json!({"success": true, "reply": reply, "action_result": {"success": action_ok}})
+        }
+        Err(e) => json!({"success": action_ok, "reply": "", "error": e, "action_result": {"success": action_ok}}),
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Confirmation d'une action en attente
+// ══════════════════════════════════════════════════════════════════
+
+#[derive(Deserialize)]
+struct ConfirmBody {
+    action_id: String,
+    decision: String,
+}
+
+struct PendingAction {
+    user_id: i64,
+    tool_name: String,
+    args: Value,
+    tool_use_id: String,
+    messages_sent: Vec<Value>,
+    assistant_content: Value,
+    created_at: Instant,
+}
+
+static PENDING: OnceLock<Mutex<HashMap<String, PendingAction>>> = OnceLock::new();
+
+fn pending_store() -> &'static Mutex<HashMap<String, PendingAction>> {
+    PENDING.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn prune_pending(map: &mut HashMap<String, PendingAction>) {
+    let now = Instant::now();
+    map.retain(|_, p| now.duration_since(p.created_at).as_secs() < PENDING_TTL_SECS);
+}
+
+fn confirmer(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Value {
+    let mut brut = String::new();
+    if std::io::Read::read_to_string(req.as_reader(), &mut brut).is_err() {
+        return json!({"success": false, "error": "Corps de requete illisible."});
+    }
+    let corps: ConfirmBody = match serde_json::from_str(&brut) {
+        Ok(c) => c,
+        Err(_) => return json!({"success": false, "error": "Requete invalide."}),
+    };
+
+    let pending = {
+        let mut map = pending_store().lock().unwrap();
+        prune_pending(&mut map);
+        match map.get(&corps.action_id) {
+            Some(p) if p.user_id == session.user_id => map.remove(&corps.action_id),
+            _ => None,
+        }
+    };
+
+    let Some(pending) = pending else {
+        return json!({"success": false, "error": "Action expirée ou introuvable."});
+    };
+
+    if corps.decision != "confirm" {
+        return json!({"success": true, "cancelled": true});
+    }
+
+    let Some(tool) = tools::find(&pending.tool_name) else {
+        return json!({"success": false, "error": "Outil inconnu."});
+    };
+    // Re-verification live : le privilege a pu changer entre la proposition
+    // et la confirmation.
+    if !tools::authorized_for(tool, session) {
+        return json!({"success": false, "error": "Action non autorisée pour votre niveau de privilège."});
+    }
+    if !check_rate_limit(session.user_id) {
+        let err = "Trop d'actions exécutées récemment, réessayez dans une minute.".to_string();
+        tools::log_tool_execution(pool, session.user_id, tool, &pending.args, &Err(err.clone()));
+        return json!({"success": false, "error": err});
+    }
+
+    // Execute avec UNIQUEMENT les arguments stockes cote serveur -- jamais
+    // ceux (absents ici) du corps de la requete de confirmation.
+    let result = (tool.handler)(pool, session, &pending.args);
+    tools::log_tool_execution(pool, session.user_id, tool, &pending.args, &result);
+
+    let cfg = charger_config();
+    let tools_json = tools_json_for(session);
+    suite_apres_execution(&cfg, pending.messages_sent, pending.assistant_content, pending.tool_use_id, result, &tools_json)
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Preference "execution automatique" (outils scoped uniquement)
+// ══════════════════════════════════════════════════════════════════
+
+#[derive(Deserialize)]
+struct PrefsBody {
+    auto_confirm: bool,
+}
+
+fn prefs_update(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Value {
+    let mut brut = String::new();
+    if std::io::Read::read_to_string(req.as_reader(), &mut brut).is_err() {
+        return json!({"success": false, "error": "Corps de requete illisible."});
+    }
+    let corps: PrefsBody = match serde_json::from_str(&brut) {
+        Ok(c) => c,
+        Err(_) => return json!({"success": false, "error": "Requete invalide."}),
+    };
+    let ok = crate::function::update_user_preference(
+        pool,
+        session.user_id,
+        "vexia_auto_confirm",
+        if corps.auto_confirm { "1" } else { "0" },
+    );
+    if ok {
+        json!({"success": true})
+    } else {
+        json!({"success": false, "error": "Echec de la sauvegarde."})
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Limite de frequence d'execution d'outils (independante du chat lui-meme)
+// ══════════════════════════════════════════════════════════════════
+
+static EXEC_RATE: OnceLock<Mutex<HashMap<i64, VecDeque<Instant>>>> = OnceLock::new();
+
+fn check_rate_limit(user_id: i64) -> bool {
+    let store = EXEC_RATE.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut map = store.lock().unwrap();
+    let now = Instant::now();
+    let dq = map.entry(user_id).or_default();
+    while dq.front().map_or(false, |t: &Instant| now.duration_since(*t).as_secs() > RATE_WINDOW_SECS) {
+        dq.pop_front();
+    }
+    if dq.len() >= RATE_MAX_PER_WINDOW {
+        return false;
+    }
+    dq.push_back(now);
+    true
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Appel Anthropic bas niveau + extraction de contenu
+// ══════════════════════════════════════════════════════════════════
+
+fn anthropic_call(cfg: &VexiaConfig, messages: Vec<Value>, tools: &[Value]) -> Result<Value, String> {
+    let mut payload = json!({
         "model": cfg.model,
         "max_tokens": cfg.max_tokens,
         "system": cfg.system_prompt,
         "messages": messages,
     });
+    if !tools.is_empty() {
+        payload["tools"] = json!(tools);
+    }
 
     let resp = ureq::post(ANTHROPIC_API_URL)
         .set("x-api-key", &cfg.api_key)
         .set("anthropic-version", ANTHROPIC_VERSION)
         .set("content-type", "application/json")
-        .timeout(std::time::Duration::from_secs(60))
+        .timeout(Duration::from_secs(60))
         .send_json(payload);
 
     match resp {
-        Ok(r) => {
-            let body: Value = r.into_json().unwrap_or(json!({}));
-            let texte = body
-                .get("content")
-                .and_then(|c| c.as_array())
-                .and_then(|arr| arr.iter().find(|b| b.get("type").and_then(|t| t.as_str()) == Some("text")))
-                .and_then(|b| b.get("text"))
-                .and_then(|t| t.as_str())
-                .unwrap_or("");
-            if texte.is_empty() {
-                json!({"success": false, "error": "Reponse vide du modele."})
-            } else {
-                json!({"success": true, "reply": texte})
-            }
-        }
+        Ok(r) => Ok(r.into_json().unwrap_or(json!({}))),
         Err(ureq::Error::Status(code, r)) => {
             let detail = r
                 .into_json::<Value>()
                 .ok()
                 .and_then(|v| v.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()).map(|s| s.to_string()))
                 .unwrap_or_else(|| format!("HTTP {}", code));
-            json!({"success": false, "error": format!("API Anthropic : {}", detail)})
+            Err(format!("API Anthropic : {}", detail))
         }
-        Err(e) => json!({"success": false, "error": format!("Connexion a l'API Anthropic impossible : {}", e)}),
+        Err(e) => Err(format!("Connexion a l'API Anthropic impossible : {}", e)),
     }
+}
+
+fn premier_texte(content: &Value) -> String {
+    content
+        .as_array()
+        .and_then(|arr| arr.iter().find(|b| b.get("type").and_then(|t| t.as_str()) == Some("text")))
+        .and_then(|b| b.get("text"))
+        .and_then(|t| t.as_str())
+        .unwrap_or("")
+        .to_string()
+}
+
+fn premier_tool_use(content: &Value) -> Option<(String, String, Value)> {
+    content.as_array().and_then(|arr| {
+        arr.iter()
+            .find(|b| b.get("type").and_then(|t| t.as_str()) == Some("tool_use"))
+            .map(|b| (
+                b.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                b.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                b.get("input").cloned().unwrap_or(json!({})),
+            ))
+    })
 }
 
 // ══════════════════════════════════════════════════════════════════

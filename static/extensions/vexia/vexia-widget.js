@@ -40,6 +40,16 @@
 #vexia-widget-input:focus{outline:none;border-color:var(--accent,#4caf50)}
 #vexia-widget-send{border:none;border-radius:8px;background:var(--accent,#4caf50);color:#fff;width:36px;flex-shrink:0;cursor:pointer}
 #vexia-widget-send:disabled{opacity:.5;cursor:not-allowed}
+.vw-pending{align-self:stretch;border:1px solid var(--border,#e2e6ec);border-radius:10px;padding:9px 11px;font-size:.8rem;background:var(--surface2,#f7f9fb)}
+.vw-pending.admin{border-color:#dc2626;background:rgba(220,38,38,.06)}
+.vw-pending-badge{display:inline-block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+    padding:1px 6px;border-radius:4px;background:#dc2626;color:#fff;margin-bottom:5px}
+.vw-pending-label{margin-bottom:8px;line-height:1.4}
+.vw-pending-actions{display:flex;gap:8px}
+.vw-pending-actions button{flex:1;border:none;border-radius:7px;padding:6px 0;font-size:.78rem;cursor:pointer;font-weight:600}
+.vw-pending-confirm{background:var(--accent,#4caf50);color:#fff}
+.vw-pending-cancel{background:var(--surface,#fff);border:1px solid var(--border,#e2e6ec) !important;color:var(--text,#1c1e21)}
+.vw-pending-actions button:disabled{opacity:.5;cursor:not-allowed}
 `;
     document.head.appendChild(style);
 
@@ -92,6 +102,55 @@
         }catch(e){ return true; }
     }
 
+    function ajouterPending(action){
+        const box = document.getElementById('vexia-widget-msgs');
+        const vide = box.querySelector('.vw-vide');
+        if(vide) vide.remove();
+        const div = document.createElement('div');
+        div.className = 'vw-pending' + (action.tier === 'admin' ? ' admin' : '');
+        div.innerHTML = (action.tier === 'admin' ? '<div class="vw-pending-badge">Action admin</div>' : '')
+            + '<div class="vw-pending-label"></div>'
+            + '<div class="vw-pending-actions">'
+            + '<button class="vw-pending-cancel" type="button">Annuler</button>'
+            + '<button class="vw-pending-confirm" type="button">Confirmer</button>'
+            + '</div>';
+        div.querySelector('.vw-pending-label').textContent = action.label;
+        const btnOk = div.querySelector('.vw-pending-confirm');
+        const btnNo = div.querySelector('.vw-pending-cancel');
+        const resoudre = async (decision) => {
+            btnOk.disabled = true; btnNo.disabled = true;
+            try{
+                const r = await fetch('/api/ext/vexia/confirm', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    credentials:'include',
+                    body: JSON.stringify({action_id: action.id, decision}),
+                });
+                const d = await r.json();
+                div.remove();
+                if(decision === 'cancel'){
+                    ajouter('assistant', 'Action annulée.');
+                    return;
+                }
+                if(d.success){
+                    ajouter('assistant', d.reply || 'Action effectuée.');
+                    if(d.reply){
+                        historique.push({role:'assistant', content: d.reply});
+                    }
+                }else{
+                    ajouter('erreur', d.error || 'Erreur inconnue.');
+                }
+            }catch(e){
+                div.remove();
+                ajouter('erreur', 'Erreur réseau.');
+            }
+        };
+        btnOk.addEventListener('click', () => resoudre('confirm'));
+        btnNo.addEventListener('click', () => resoudre('cancel'));
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
     async function envoyer(){
         if(enCours) return;
         const zone = document.getElementById('vexia-widget-input');
@@ -110,9 +169,16 @@
             });
             const d = await r.json();
             if(d.success){
-                ajouter('assistant', d.reply);
-                historique.push({role:'user', content: message});
-                historique.push({role:'assistant', content: d.reply});
+                if(d.reply){
+                    ajouter('assistant', d.reply);
+                    historique.push({role:'user', content: message});
+                    historique.push({role:'assistant', content: d.reply});
+                }else{
+                    historique.push({role:'user', content: message});
+                }
+                if(d.pending_action){
+                    ajouterPending(d.pending_action);
+                }
             }else{
                 ajouter('erreur', d.error || 'Erreur inconnue.');
             }

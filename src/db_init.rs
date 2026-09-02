@@ -248,6 +248,8 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         "ALTER TABLE `pref` ADD COLUMN `dashboard_tiles` TEXT DEFAULT NULL",
         "ALTER TABLE `pref` ADD COLUMN `nav_apps` TEXT DEFAULT NULL",
         "ALTER TABLE `pref` ADD COLUMN `dashboard_events` TEXT DEFAULT NULL",
+        // VexIA : execution automatique des outils "scoped" sans confirmation
+        "ALTER TABLE `pref` ADD COLUMN `vexia_auto_confirm` TINYINT(1) NOT NULL DEFAULT 0",
     ] {
         let _ = conn.query_drop(*col);
     }
@@ -286,6 +288,23 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
             `auteur` TEXT         NOT NULL,
             `id`     INT          NOT NULL AUTO_INCREMENT,
             UNIQUE KEY `id` (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    )?;
+
+    // ── vexia_audit ───────────────────────────────────────────────
+    // Journal des actions declenchees par VexIA (outils Anthropic).
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `vexia_audit` (
+            `id`          INT          NOT NULL AUTO_INCREMENT,
+            `user_id`     INT          NOT NULL,
+            `tool_name`   VARCHAR(100) NOT NULL,
+            `tier`        VARCHAR(20)  NOT NULL,
+            `args_json`   TEXT         NOT NULL,
+            `success`     TINYINT(1)   NOT NULL,
+            `result_json` TEXT         DEFAULT NULL,
+            `error`       TEXT         DEFAULT NULL,
+            `created_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     )?;
 

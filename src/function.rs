@@ -69,6 +69,8 @@ pub struct UserPrefs {
     pub dashboard_events: HashMap<String, Value>,
     /// Apps visibles dans le menu : cle = id d'app, valeur 0/1.
     pub nav_apps: HashMap<String, Value>,
+    /// VexIA peut executer directement les outils "scoped" sans carte de confirmation.
+    pub vexia_auto_confirm: i64,
 }
 
 impl Default for UserPrefs {
@@ -86,6 +88,7 @@ impl Default for UserPrefs {
             dashboard_tiles: HashMap::new(),
             dashboard_events: HashMap::new(),
             nav_apps: HashMap::new(),
+            vexia_auto_confirm: 0,
         }
     }
 }
@@ -145,6 +148,7 @@ pub fn get_user_preferences(pool: &DbPool, user_id: i64) -> UserPrefs {
         dashboard_tiles: parse_json_vide("dashboard_tiles"),
         dashboard_events: parse_json_vide("dashboard_events"),
         nav_apps: parse_json_vide("nav_apps"),
+        vexia_auto_confirm: row.get("vexia_auto_confirm").and_then(|v| v.as_i64()).unwrap_or(0),
     }
 }
 
@@ -154,7 +158,7 @@ pub fn get_user_preferences(pool: &DbPool, user_id: i64) -> UserPrefs {
 const ALLOWED_PREFS: &[&str] = &[
     "teme", "langue", "notifications_meet", "auto_record", "mic_default",
     "camera_default", "quality_video", "nav_button_style", "logo_pages",
-    "dashboard_tiles", "dashboard_events", "nav_apps",
+    "dashboard_tiles", "dashboard_events", "nav_apps", "vexia_auto_confirm",
 ];
 const JSON_PREFS: &[&str] = &[
     "nav_button_style", "logo_pages",
