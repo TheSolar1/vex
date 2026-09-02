@@ -385,7 +385,7 @@ fn handle_srp_step2(
 
     let expires = chrono::Local::now() + chrono::Duration::days(30);
     let cookie_str = format!(
-        "connexion_cookie={}; Path=/; HttpOnly; Expires={}",
+        "connexion_cookie={}; Path=/; HttpOnly; SameSite=Strict; Expires={}",
         cookie_value,
         expires.format("%a, %d %b %Y %H:%M:%S GMT")
     );
