@@ -56,7 +56,7 @@ pub fn handle(
     if let Some(sous) = chemin.strip_prefix("/api/ext/vexia") {
         let sous = sous.trim_end_matches('/');
         let reponse = match sous {
-            "/status" | "" => statut(),
+            "/status" | "" => statut(pool, session),
             "/chat" => chat(pool, session, req),
             "/confirm" => confirmer(pool, session, req),
             "/prefs" => prefs_update(pool, session, req),
@@ -98,13 +98,16 @@ pub fn handle(
 
 struct VexiaConfig {
     api_key: String,
+    cle_perso: bool,
     model: String,
     max_tokens: u64,
     system_prompt: String,
     tools_enabled: bool,
 }
 
-fn charger_config() -> VexiaConfig {
+/// `user_key` : cle API Anthropic personnelle de l'utilisateur courant
+/// (pref.vexia_api_key), prioritaire sur la cle partagee admin si presente.
+fn charger_config(user_key: Option<&str>) -> VexiaConfig {
     let cfg = crate::config_loader::load_config(CONFIG_PATH);
     let params = cfg
         .extensions
@@ -114,13 +117,21 @@ fn charger_config() -> VexiaConfig {
         .cloned()
         .unwrap_or(json!({}));
 
+    let admin_key = params
+        .get("api_key")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let user_key = user_key.map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+    let (api_key, cle_perso) = match user_key {
+        Some(k) => (k, true),
+        None => (admin_key, false),
+    };
+
     VexiaConfig {
-        api_key: params
-            .get("api_key")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .trim()
-            .to_string(),
+        api_key,
+        cle_perso,
         model: params
             .get("model")
             .and_then(|v| v.as_str())
@@ -145,9 +156,14 @@ fn charger_config() -> VexiaConfig {
 }
 
 /// Indique au front si une cle API est configuree, sans jamais l'exposer.
-fn statut() -> Value {
-    let cfg = charger_config();
-    json!({"success": true, "data": {"configure": !cfg.api_key.is_empty(), "model": cfg.model}})
+fn statut(pool: &DbPool, session: &SessionInfo) -> Value {
+    let prefs = crate::function::get_user_preferences(pool, session.user_id);
+    let cfg = charger_config(prefs.vexia_api_key.as_deref());
+    json!({"success": true, "data": {
+        "configure": !cfg.api_key.is_empty(),
+        "model": cfg.model,
+        "cle_perso": cfg.cle_perso,
+    }})
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -179,10 +195,11 @@ fn tools_json_for(session: &SessionInfo) -> Vec<Value> {
 }
 
 fn chat(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Value {
-    let cfg = charger_config();
+    let prefs = crate::function::get_user_preferences(pool, session.user_id);
+    let cfg = charger_config(prefs.vexia_api_key.as_deref());
     if cfg.api_key.is_empty() {
         return json!({"success": false,
-            "error": "VexIA n'est pas configure : ajoutez votre cle API Anthropic dans config.json (extensions.extension_params.vexia.params.api_key)."});
+            "error": "VexIA n'est pas configure : renseignez votre propre cle API Anthropic dans vos reglages VexIA, ou demandez a un administrateur de configurer la cle partagee."});
     }
 
     let mut brut = String::new();
@@ -419,7 +436,8 @@ fn confirmer(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Value {
     let result = (tool.handler)(pool, session, &pending.args);
     tools::log_tool_execution(pool, session.user_id, tool, &pending.args, &result);
 
-    let cfg = charger_config();
+    let prefs = crate::function::get_user_preferences(pool, session.user_id);
+    let cfg = charger_config(prefs.vexia_api_key.as_deref());
     let tools_json = tools_json_for(session);
     suite_apres_execution(&cfg, pending.messages_sent, pending.assistant_content, pending.tool_use_id, result, &tools_json)
 }
@@ -428,9 +446,10 @@ fn confirmer(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Value {
 // Preference "execution automatique" (outils scoped uniquement)
 // ══════════════════════════════════════════════════════════════════
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 struct PrefsBody {
-    auto_confirm: bool,
+    auto_confirm: Option<bool>,
+    api_key: Option<String>,
 }
 
 fn prefs_update(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Value {
@@ -442,12 +461,16 @@ fn prefs_update(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Valu
         Ok(c) => c,
         Err(_) => return json!({"success": false, "error": "Requete invalide."}),
     };
-    let ok = crate::function::update_user_preference(
-        pool,
-        session.user_id,
-        "vexia_auto_confirm",
-        if corps.auto_confirm { "1" } else { "0" },
-    );
+    let mut ok = true;
+    if let Some(auto) = corps.auto_confirm {
+        ok &= crate::function::update_user_preference(
+            pool, session.user_id, "vexia_auto_confirm", if auto { "1" } else { "0" },
+        );
+    }
+    if let Some(cle) = corps.api_key {
+        // Chaine vide = retire la cle personnelle, retombe sur la cle admin.
+        ok &= crate::function::update_user_preference(pool, session.user_id, "vexia_api_key", cle.trim());
+    }
     if ok {
         json!({"success": true})
     } else {

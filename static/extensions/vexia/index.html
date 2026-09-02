@@ -59,6 +59,18 @@ textarea:focus{outline:none;border-color:var(--accent)}
 .pending-confirm{background:var(--accent);color:#fff}
 .pending-cancel{background:var(--surface);border:1px solid var(--border) !important;color:var(--text)}
 .pending-actions button:disabled{opacity:.5;cursor:not-allowed}
+
+.cle-perso{margin-bottom:14px;padding:12px 14px;border:1px solid var(--border);border-radius:9px;background:var(--surface2)}
+.cle-perso-titre{font-size:.84rem;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:7px}
+.cle-perso-aide{font-size:.76rem;color:var(--text-m);margin-bottom:9px;line-height:1.5}
+.cle-perso-bar{display:flex;gap:8px}
+.cle-perso-bar input{flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:.82rem;
+    font-family:var(--mono,monospace);background:var(--input,var(--surface));color:var(--text)}
+.cle-perso-bar button{padding:0 14px;border:none;border-radius:7px;font-size:.8rem;font-weight:600;cursor:pointer;font-family:inherit}
+.cle-perso-save{background:var(--accent);color:#fff}
+.cle-perso-clear{background:var(--surface);border:1px solid var(--border) !important;color:var(--text)}
+.cle-perso-statut{font-size:.74rem;margin-top:7px;color:var(--text-m)}
+.cle-perso-statut.perso{color:var(--accent)}
 </style>
 </head>
 <body>
@@ -72,6 +84,17 @@ __NAV_HTML__
     <div><h1>VexIA</h1></div>
   </div>
   <div class="sous">Assistant IA (Claude), integre a VEX. Votre cle API reste sur ce serveur.</div>
+
+  <div class="cle-perso">
+    <div class="cle-perso-titre"><img src="/static/img/solid/key.svg" style="width:14px;height:14px;filter:var(--icon-filter)" alt=""> Ma cle API Anthropic</div>
+    <div class="cle-perso-aide">Optionnel. Si renseignee, vos conversations utilisent votre propre cle (facturee sur votre compte Anthropic) au lieu de la cle partagee de l'administrateur.</div>
+    <div class="cle-perso-bar">
+      <input type="password" id="cle-perso-input" placeholder="sk-ant-…" autocomplete="off">
+      <button class="cle-perso-save" type="button" onclick="sauverClePerso()">Enregistrer</button>
+      <button class="cle-perso-clear" type="button" onclick="retirerClePerso()">Retirer</button>
+    </div>
+    <div class="cle-perso-statut" id="cle-perso-statut"></div>
+  </div>
 
   <label class="reglage-auto">
     <input type="checkbox" id="auto-confirm" __AUTO_CONFIRM__>
@@ -187,9 +210,43 @@ async function verifierStatut(){
         if(d.success && !d.data.configure){
             document.getElementById('avert-box').innerHTML =
                 '<div class="avertissement">⚠️ Aucune cle API Anthropic configuree. '+
-                'Un administrateur doit renseigner <code>extensions.extension_params.vexia.params.api_key</code> dans config.json pour activer VexIA.</div>';
+                'Renseignez votre propre cle ci-dessus, ou demandez a un administrateur de configurer la cle partagee.</div>';
+        }
+        const statutEl = document.getElementById('cle-perso-statut');
+        if(d.success && statutEl){
+            statutEl.className = 'cle-perso-statut' + (d.data.cle_perso ? ' perso' : '');
+            statutEl.textContent = d.data.cle_perso
+                ? 'Votre cle personnelle est active.'
+                : (d.data.configure ? 'Cle partagee de l\'administrateur active.' : 'Aucune cle active.');
         }
     }catch(e){}
+}
+
+async function sauverClePerso(){
+    const zone = document.getElementById('cle-perso-input');
+    const cle = zone.value.trim();
+    if(!cle) return;
+    try{
+        const r = await fetch('/api/ext/vexia/prefs', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            credentials: 'include', body: JSON.stringify({api_key: cle}),
+        });
+        const d = await r.json();
+        if(d.success){ zone.value=''; verifierStatut(); }
+        else ajouterMsg('erreur', d.error || 'Echec de la sauvegarde.');
+    }catch(e){ ajouterMsg('erreur', 'Erreur réseau.'); }
+}
+
+async function retirerClePerso(){
+    try{
+        const r = await fetch('/api/ext/vexia/prefs', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            credentials: 'include', body: JSON.stringify({api_key: ''}),
+        });
+        const d = await r.json();
+        if(d.success){ document.getElementById('cle-perso-input').value=''; verifierStatut(); }
+        else ajouterMsg('erreur', d.error || 'Echec de la suppression.');
+    }catch(e){ ajouterMsg('erreur', 'Erreur réseau.'); }
 }
 
 async function envoyer(){

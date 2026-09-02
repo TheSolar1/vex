@@ -250,6 +250,9 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         "ALTER TABLE `pref` ADD COLUMN `dashboard_events` TEXT DEFAULT NULL",
         // VexIA : execution automatique des outils "scoped" sans confirmation
         "ALTER TABLE `pref` ADD COLUMN `vexia_auto_confirm` TINYINT(1) NOT NULL DEFAULT 0",
+        // VexIA : cle API Anthropic personnelle (facturee sur le compte de
+        // l'utilisateur), utilisee a la place de la cle partagee admin.
+        "ALTER TABLE `pref` ADD COLUMN `vexia_api_key` VARCHAR(255) DEFAULT NULL",
     ] {
         let _ = conn.query_drop(*col);
     }

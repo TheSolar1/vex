@@ -71,6 +71,8 @@ pub struct UserPrefs {
     pub nav_apps: HashMap<String, Value>,
     /// VexIA peut executer directement les outils "scoped" sans carte de confirmation.
     pub vexia_auto_confirm: i64,
+    /// Cle API Anthropic personnelle, prioritaire sur la cle partagee admin.
+    pub vexia_api_key: Option<String>,
 }
 
 impl Default for UserPrefs {
@@ -89,6 +91,7 @@ impl Default for UserPrefs {
             dashboard_events: HashMap::new(),
             nav_apps: HashMap::new(),
             vexia_auto_confirm: 0,
+            vexia_api_key: None,
         }
     }
 }
@@ -149,6 +152,7 @@ pub fn get_user_preferences(pool: &DbPool, user_id: i64) -> UserPrefs {
         dashboard_events: parse_json_vide("dashboard_events"),
         nav_apps: parse_json_vide("nav_apps"),
         vexia_auto_confirm: row.get("vexia_auto_confirm").and_then(|v| v.as_i64()).unwrap_or(0),
+        vexia_api_key: row.get("vexia_api_key").and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty()).map(|s| s.to_string()),
     }
 }
 
@@ -158,7 +162,7 @@ pub fn get_user_preferences(pool: &DbPool, user_id: i64) -> UserPrefs {
 const ALLOWED_PREFS: &[&str] = &[
     "teme", "langue", "notifications_meet", "auto_record", "mic_default",
     "camera_default", "quality_video", "nav_button_style", "logo_pages",
-    "dashboard_tiles", "dashboard_events", "nav_apps", "vexia_auto_confirm",
+    "dashboard_tiles", "dashboard_events", "nav_apps", "vexia_auto_confirm", "vexia_api_key",
 ];
 const JSON_PREFS: &[&str] = &[
     "nav_button_style", "logo_pages",
@@ -679,15 +683,22 @@ pub fn build_nav_html(ctx: &NavContext) -> String {
     let admin_ref: &[NavApp] = &admin_filtrees;
 
     // ── Sidebar links ──────────────────────────────────────────────
-    let sidebar_links: Vec<(&str, &str, &str, bool)> = {
-        let mut v = vec![
-            ("fas fa-home", "Accueil", "/login/dashboard", false),
-            ("fas fa-envelope", "Mail", "/mess/", false),
-            ("fas fa-globe", "Sitec", "/sitec/", false),
-            ("fas fa-video", "Vidéos", "/viso/", false),
-            ("fas fa-folder-open", "Fichiers", "/fchier/", false),
+    // Les extensions declarant un nav_app s'inserent apres "Fichiers" et
+    // avant "Administration", pas seulement dans le popup de la grille
+    // d'apps (apps_ref plus bas) : elles doivent etre visibles en
+    // permanence comme les apps de base.
+    let sidebar_links: Vec<(String, String, String, bool)> = {
+        let mut v: Vec<(String, String, String, bool)> = vec![
+            ("fas fa-home".to_string(), "Accueil".to_string(), "/login/dashboard".to_string(), false),
+            ("fas fa-envelope".to_string(), "Mail".to_string(), "/mess/".to_string(), false),
+            ("fas fa-globe".to_string(), "Sitec".to_string(), "/sitec/".to_string(), false),
+            ("fas fa-video".to_string(), "Vidéos".to_string(), "/viso/".to_string(), false),
+            ("fas fa-folder-open".to_string(), "Fichiers".to_string(), "/fchier/".to_string(), false),
         ];
-        if is_admin { v.push(("fas fa-shield-alt", "Administration", "/admin", true)); }
+        for a in apps_extensions(false).into_iter().filter(|a| app_visible(&choix_apps, &a.url)) {
+            v.push((a.icon, a.label, a.url, false));
+        }
+        if is_admin { v.push(("fas fa-shield-alt".to_string(), "Administration".to_string(), "/admin".to_string(), true)); }
         v
     };
 
@@ -736,7 +747,7 @@ pub fn build_nav_html(ctx: &NavContext) -> String {
     let mut sidebar_normal = String::new();
     let mut sidebar_admin = String::new();
     for (icon, label, url, is_adm) in &sidebar_links {
-        let active = if *url != "#" && url.contains(ctx.page_key) && !ctx.page_key.is_empty() { " active" } else { "" };
+        let active = if url.as_str() != "#" && url.contains(ctx.page_key) && !ctx.page_key.is_empty() { " active" } else { "" };
         let adm_cls = if *is_adm { " admin-item" } else { "" };
         let icon_name = icon.split_whitespace().find(|p| p.starts_with("fa-")).map(|p| p.trim_start_matches("fa-")).unwrap_or("file");
         let item = format!(
