@@ -894,9 +894,11 @@ async function loadExt(){
             Le fichier est ecrit dans <code>${esc(EXT_DATA.src_root)}/&lt;id&gt;/mod.rs</code>, enregistre dans config.json avec ses permissions,
             et ajoute au registre compilable. <strong style="color:var(--text)">Utilisable immediatement</strong> via son dossier statique ; la compilation du code Rust est lancee automatiquement en arriere-plan et prend le relais au redemarrage.
             <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <button class="btn bg2" onclick="updateExt()" ${EXT_DATA.is_super?'':'disabled title="Superadmin uniquement"'}><img src="/static/img/solid/cloud-arrow-down.svg" class="ico ico-accent" alt=""> Mettre à jour depuis GitHub</button>
                 <button class="btn ba" onclick="rebuildExt()" ${EXT_DATA.is_super?'':'disabled title="Superadmin uniquement"'}><img src="/static/img/solid/hammer.svg" class="ico" style="filter:invert(1)" alt=""> Recompiler VEX</button>
                 <code style="font-size:.73rem">${esc(EXT_DATA.build_cmd||'')}</code>
             </div>
+            <div style="margin-top:6px;font-size:.72rem;color:var(--text-m)">"Mettre à jour" fait <code>git pull</code> puis relance la compilation. En cas de conflit git (fichiers modifies localement, ex. via une reinstallation marketplace), la sortie l'indiquera — resolution manuelle par SSH necessaire dans ce cas.</div>
         </div></div>`;
 
     if((EXT_DATA.orphelins||[]).length){
@@ -1129,6 +1131,13 @@ async function saveExtMeta(id){
 async function rebuildExt(){
     if(!await confirmerDialogue(`Relancer « ${EXT_DATA.build_cmd} » ?\n\nLa compilation part deja seule a chaque upload. VEX doit etre redemarre une fois terminee pour charger le code natif.`,{titre:'Recompiler VEX'}))return;
     const r=await post('/extensions/rebuild');
+    if(!r.success){flash(r.error,true);return;}
+    flash(r.message);planifierStatutBuild();loadExt();
+}
+
+async function updateExt(){
+    if(!await confirmerDialogue(`Tirer les derniers changements depuis GitHub (git pull) puis recompiler ?\n\nEn cas de modifications locales non commitees (ex. reinstallation d'une extension via le marketplace), le pull peut echouer -- la sortie l'indiquera.`,{titre:'Mettre à jour depuis GitHub'}))return;
+    const r=await post('/extensions/update');
     if(!r.success){flash(r.error,true);return;}
     flash(r.message);planifierStatutBuild();loadExt();
 }

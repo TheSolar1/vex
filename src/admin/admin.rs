@@ -233,6 +233,7 @@ fn handle_api(
         "/extensions/upload",
         "/extensions/delete",
         "/extensions/rebuild",
+        "/extensions/update",
         "/editor/start",
         "/editor/stop",
         // Installer depuis GitHub = executer du code distant.
@@ -1144,6 +1145,21 @@ fn handle_api(
 
         "/extensions/rebuild/status" => {
             json!({"success": true, "data": lire_build_status()})
+        }
+
+        // Tire le depot git (origin/main) puis relance la compilation --
+        // meme mecanisme de suivi que /extensions/rebuild, juste une
+        // commande differente (git pull d'abord).
+        "/extensions/update" => {
+            let cfg = read_config(config_path);
+            let build_cmd = ext_build_cmd(&cfg);
+            let cmd = format!("git pull origin main 2>&1 && {}", build_cmd);
+            match ext_lancer_build(&cmd) {
+                Ok(_) => json!({"success": true, "message":
+                    "Mise à jour depuis GitHub + compilation lancées en arrière-plan. Redémarrez VEX une fois terminée.",
+                    "data": {"cmd": cmd}}),
+                Err(e) => json!({"success": false, "error": e}),
+            }
         }
 
         // ══════════════════════════════════════════════════════════
