@@ -345,6 +345,9 @@ __NAV_HTML__
   <div class="context-menu-item" id="ctx-edit" onclick="handleAction('edit')">
     <img class="ico ico-18 ico-muted" src="/static/img/solid/file-lines.svg"> Voir / Éditer
   </div>
+  <div class="context-menu-item" id="ctx-edit-office" onclick="handleAction('edit_office')">
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/file-word.svg"> Éditer (OnlyOffice)
+  </div>
   <div class="context-menu-item" onclick="handleAction('rename')">
     <img class="ico ico-18 ico-muted" src="/static/img/solid/pen-to-square.svg"> Renommer
   </div>
@@ -1435,6 +1438,57 @@ function estFichierTexte(nom) {
   return EXTENSIONS_TEXTE.includes(ext);
 }
 
+// ══════════════════════════════════════════════════════════════════
+// ÉDITION OFFICE (OnlyOffice) — compromis assume : le document est
+// brievement dechiffre sur le serveur pendant l'edition (avertissement
+// affiche a l'utilisateur avant ouverture). Le reste de fchier reste
+// chiffre de bout en bout.
+// ══════════════════════════════════════════════════════════════════
+const EXTENSIONS_OFFICE = ['docx','doc','odt','xlsx','xls','ods','pptx','ppt','odp'];
+function estFichierOffice(nom) {
+  const ext = (nom.split('.').pop() || '').toLowerCase();
+  return EXTENSIONS_OFFICE.includes(ext);
+}
+
+async function ouvrirOnlyOffice(item) {
+  if (!requireCryptoSession()) return;
+  if (!confirm(`Ouvrir "${item.nom}" dans OnlyOffice ?\n\nPendant l'edition, ce document sera temporairement dechiffre sur le serveur (necessaire pour qu'OnlyOffice puisse le lire). Il est re-chiffre et le fichier temporaire supprime des que vous terminez l'edition.`)) return;
+  toast(`Préparation de ${item.nom}…`, 'info');
+  try {
+    const r = await vexFetch(`/api/fchier/download?id=${item.id}`, { credentials:'include' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    if (!data.success) throw new Error(data.error || 'Erreur');
+
+    const bytes = VEX.fromBase64(data.contenu);
+    let blob;
+    if (VEX.isConnected()) {
+      try {
+        blob = await VEX.dechiffrerFichier(new Blob([bytes]), data.mime);
+      } catch (e) {
+        if (!e.message || !e.message.includes('non chiffré')) throw e;
+        blob = new Blob([bytes], { type: data.mime });
+      }
+    } else {
+      throw new Error('Session expirée — reconnectez-vous');
+    }
+
+    const plainBytes = new Uint8Array(await blob.arrayBuffer());
+    const ext = (item.nom.split('.').pop() || '').toLowerCase();
+    const rp = await apiFetch('/api/fchier/onlyoffice/prepare', {
+      id: item.id, ext, contenu_plain_b64: arrayBufferToBase64(plainBytes.buffer),
+    });
+    if (!rp.success) throw new Error(rp.error || 'Preparation impossible');
+
+    sessionStorage.setItem('vex_oo_' + rp.token, JSON.stringify({
+      config: rp.config, editor_api_js: rp.editor_api_js, file_id: item.id, nom: item.nom, mime: data.mime,
+    }));
+    window.open('/static/fchier/onlyoffice-editor.html?token=' + encodeURIComponent(rp.token), '_blank');
+  } catch(e) {
+    toast('Erreur : ' + e.message, 'error');
+  }
+}
+
 let editState = { id: null, nom: '', mime: '' };
 
 async function openEditor(item) {
@@ -1596,6 +1650,7 @@ function openCtx(e, type, id, item) {
   }
   document.getElementById('ctx-download').style.display   = type === 'file'   ? 'flex' : 'none';
   document.getElementById('ctx-edit').style.display       = (type === 'file' && estFichierTexte(item.nom || '')) ? 'flex' : 'none';
+  document.getElementById('ctx-edit-office').style.display = (type === 'file' && estFichierOffice(item.nom || '')) ? 'flex' : 'none';
   document.getElementById('ctx-visibility').style.display = (type === 'page' || type === 'file') ? 'flex' : 'none';
   document.getElementById('ctx-move').style.display       = (type === 'folder' || type === 'page' || type === 'file') ? 'flex' : 'none';
   document.getElementById('ctx-share').style.display      = type === 'file' || type === 'folder' ? 'flex' : 'none';
@@ -1621,6 +1676,7 @@ function handleAction(action) {
   else if (action === 'open'       && type === 'page')   { window.open('/sitec?open=' + encodeURIComponent(id), '_blank'); }
   else if (action === 'download'   && type === 'file')   { downloadFile(item); }
   else if (action === 'edit'        && type === 'file')   { openEditor(item); }
+  else if (action === 'edit_office' && type === 'file')   { ouvrirOnlyOffice(item); }
   else if (action === 'rename')     { document.getElementById('rename-input').value = name; openModal('renameModal'); }
   else if (action === 'share')      { document.getElementById('share-ids').value = item.partage || ''; openModal('shareModal'); }
   else if (action === 'send_p2p')   { document.getElementById('p2p-to-user').value=''; openModal('p2pModal'); }

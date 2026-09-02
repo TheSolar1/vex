@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Édition — VEX</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;width:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#1c1e21}
+#barre{position:fixed;top:0;left:0;right:0;height:48px;background:#2a2d31;color:#fff;display:flex;align-items:center;
+    gap:12px;padding:0 16px;z-index:10000;font-size:.86rem}
+#barre .nom{font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#barre button{background:#4caf50;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:.82rem;
+    font-weight:600;cursor:pointer;font-family:inherit}
+#barre button:disabled{opacity:.5;cursor:not-allowed}
+#barre .statut{font-size:.78rem;opacity:.85}
+#placeholder{position:absolute;top:48px;left:0;right:0;bottom:0}
+#etat{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#fff;z-index:9999}
+.spin{display:inline-block;width:30px;height:30px;border:3px solid rgba(255,255,255,.25);border-top-color:#4caf50;
+    border-radius:50%;animation:sp 0.8s linear infinite;margin-bottom:12px}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div id="barre">
+  <span class="nom" id="nom-fichier">Chargement…</span>
+  <span class="statut" id="statut"></span>
+  <button id="btn-finir" onclick="terminerEdition()" disabled>Enregistrer et fermer</button>
+</div>
+<div id="etat"><div class="spin"></div><div>Chargement du document…</div></div>
+<div id="placeholder"></div>
+
+<script src="/static/crypto.js"></script>
+<script>
+const params = new URLSearchParams(location.search);
+const TOKEN = params.get('token');
+let SESSION = null;
+let EDITOR = null;
+let TERMINE = false;
+
+function initCryptoSession() {
+    try {
+        if (!window.VEX) throw new Error('module crypto absent');
+        const mdp = sessionStorage.getItem('vex_mdp');
+        const hash = sessionStorage.getItem('vex_hash');
+        const email = sessionStorage.getItem('vex_email');
+        if (!mdp || !hash || !email) throw new Error('session crypto incomplete');
+        VEX.setSession(mdp, hash, email);
+        return VEX.isConnected();
+    } catch(e) { return false; }
+}
+
+function arrayBufferToBase64(buf) {
+    let binary = '';
+    const bytes = new Uint8Array(buf);
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+}
+
+async function demarrer() {
+    if (!TOKEN) { erreur('Lien invalide (token manquant).'); return; }
+    if (!initCryptoSession()) { erreur('Session expirée — reconnectez-vous puis relancez l\'édition.'); return; }
+
+    const brut = sessionStorage.getItem('vex_oo_' + TOKEN);
+    if (!brut) { erreur('Session d\'édition introuvable ou expirée. Rouvrez le document depuis le gestionnaire de fichiers.'); return; }
+    sessionStorage.removeItem('vex_oo_' + TOKEN);
+    SESSION = JSON.parse(brut);
+    document.getElementById('nom-fichier').textContent = SESSION.nom || 'Document';
+    document.title = (SESSION.nom || 'Document') + ' — VEX';
+
+    const script = document.createElement('script');
+    script.src = SESSION.editor_api_js;
+    script.onload = () => {
+        document.getElementById('etat').style.display = 'none';
+        const config = Object.assign({}, SESSION.config, {
+            width: '100%', height: '100%',
+            events: {
+                onDocumentReady: () => { document.getElementById('statut').textContent = 'Prêt.'; },
+                onError: (e) => { console.error(e); document.getElementById('statut').textContent = 'Erreur OnlyOffice.'; },
+            },
+        });
+        EDITOR = new DocsAPI.DocEditor('placeholder', config);
+        document.getElementById('btn-finir').disabled = false;
+    };
+    script.onerror = () => erreur('Impossible de charger OnlyOffice (serveur hors ligne ?).');
+    document.head.appendChild(script);
+}
+
+function erreur(msg) {
+    document.getElementById('etat').innerHTML = '<div style="color:#f87171;max-width:400px">' + msg + '</div>';
+}
+
+window.addEventListener('beforeunload', (e) => {
+    if (!TERMINE) { e.preventDefault(); e.returnValue = ''; }
+});
+
+async function terminerEdition() {
+    const btn = document.getElementById('btn-finir');
+    const statutEl = document.getElementById('statut');
+    btn.disabled = true;
+    statutEl.textContent = 'Sauvegarde en cours dans OnlyOffice…';
+    try {
+        // Laisse a OnlyOffice le temps d'envoyer son propre callback de
+        // sauvegarde avant qu'on recupere le contenu final.
+        if (EDITOR && EDITOR.downloadAs) { try { EDITOR.downloadAs = EDITOR.downloadAs; } catch(_){} }
+        await new Promise(r => setTimeout(r, 1500));
+
+        statutEl.textContent = 'Récupération du contenu…';
+        const rf = await fetch('/api/fchier/onlyoffice/finish', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            credentials: 'include', body: JSON.stringify({token: TOKEN}),
+        });
+        const df = await rf.json();
+        if (!df.success) throw new Error(df.error || 'Echec de la récupération.');
+
+        statutEl.textContent = 'Chiffrement…';
+        const bytes = VEX.fromBase64(df.contenu_plain_b64);
+        const file = new File([bytes], SESSION.nom, {type: SESSION.mime || 'application/octet-stream'});
+        const { blob } = await VEX.chiffrerFichier(file);
+        const cipherBytes = new Uint8Array(await blob.arrayBuffer());
+        const b64 = arrayBufferToBase64(cipherBytes.buffer);
+
+        statutEl.textContent = 'Enregistrement…';
+        const re = await fetch('/api/fchier/edit_content', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            credentials: 'include', body: JSON.stringify({id: df.file_id, contenu_b64: b64}),
+        });
+        const de = await re.json();
+        if (!de.success) throw new Error(de.error || 'Echec de l\'enregistrement.');
+
+        TERMINE = true;
+        statutEl.textContent = 'Enregistré.';
+        document.getElementById('etat').style.display = 'flex';
+        document.getElementById('etat').style.flexDirection = 'column';
+        document.getElementById('etat').innerHTML = '<div style="color:#4caf50;font-size:1.1rem">✓ Document enregistré.</div><div style="margin-top:8px;font-size:.85rem;opacity:.8">Vous pouvez fermer cet onglet.</div>';
+    } catch(e) {
+        statutEl.textContent = 'Erreur : ' + e.message;
+        btn.disabled = false;
+    }
+}
+
+demarrer();
+</script>
+</body>
+</html>

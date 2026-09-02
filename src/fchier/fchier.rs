@@ -317,6 +317,17 @@ fn dos_parent(idpage: &str) -> Option<i64> {
 pub fn handle(pool: &DbPool, req: &mut Request) -> Response<std::io::Cursor<Vec<u8>>> {
     let url = req.url().to_string();
 
+    // OnlyOffice (le conteneur Document Server) appelle ces deux routes
+    // directement, serveur-a-serveur -- il n'a pas notre cookie de
+    // session. Protegees par un token opaque non devinable (voir
+    // fchier/onlyoffice.rs), pas par l'authentification VEX normale.
+    if url.starts_with("/api/fchier/onlyoffice/doc") {
+        return super::onlyoffice::servir_doc(req);
+    }
+    if url.starts_with("/api/fchier/onlyoffice/callback") {
+        return super::onlyoffice::callback(req);
+    }
+
     if url == "/fchier" || url == "/fchier/" {
         let user = match verifier_session(pool, req) {
             Some(u) => u,
@@ -361,6 +372,8 @@ pub fn handle(pool: &DbPool, req: &mut Request) -> Response<std::io::Cursor<Vec<
             "move" => api_move(pool, req, uid),
             "download" => api_download(pool, req, uid),
             "edit_content" => api_edit_content(pool, req, uid),
+            "onlyoffice/prepare" => super::onlyoffice::prepare(pool, req, uid),
+            "onlyoffice/finish" => super::onlyoffice::finish(pool, req, uid),
             "send_p2p" => api_send_p2p(pool, req, uid),
             _ => json_response(404, json!({"error":"Endpoint inconnu"})),
         };

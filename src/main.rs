@@ -31,6 +31,7 @@ mod login {
 }
 mod fchier {
     pub mod fchier;
+    pub mod onlyoffice;
 }
 mod mess {
     pub mod mess;
