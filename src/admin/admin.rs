@@ -656,6 +656,13 @@ fn handle_api(
             }})
         }
 
+        // Verification en lecture seule (aucune commande d'application/mise
+        // a jour n'est exposee ici -- volontairement, l'admin applique lui-meme
+        // via SSH une fois informe de ce qui est disponible).
+        "/server/updates" => {
+            json!({"success":true,"data":verifier_maj_systeme()})
+        }
+
         "/logs" => {
             let (empty, content, files) = read_log_content();
             if empty || content.trim().is_empty() {
@@ -1823,6 +1830,45 @@ fn uptime_sec() -> u64 {
         }
     }
     0
+}
+
+/// Etat des mises a jour disponibles (OS, noyau, toolchain Rust).
+/// Purement informatif : ne lance jamais de commande d'installation --
+/// c'est a l'administrateur de les appliquer lui-meme, en connaissance
+/// de cause, via SSH.
+fn verifier_maj_systeme() -> Value {
+    #[cfg(windows)]
+    {
+        return json!({
+            "os_nom": "Windows", "kernel": "", "paquets_dispo": 0,
+            "rustc_version": "", "rust_maj_disponible": false, "rust_detail": "",
+            "supporte": false,
+        });
+    }
+    #[cfg(unix)]
+    {
+        let (_, os_nom) = run_shell_command(
+            "grep -m1 PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'",
+        );
+        let (_, kernel) = run_shell_command("uname -r");
+        let (_, apt_out) = run_shell_command(
+            "apt list --upgradable 2>/dev/null | tail -n +2 | wc -l",
+        );
+        let paquets_dispo: u64 = apt_out.trim().parse().unwrap_or(0);
+        let (_, rustc_version) = run_shell_command(". $HOME/.cargo/env 2>/dev/null; rustc --version 2>/dev/null");
+        let (_, rustup_check) = run_shell_command(". $HOME/.cargo/env 2>/dev/null; rustup check 2>&1");
+        let rust_maj_disponible = rustup_check.to_lowercase().contains("update available");
+
+        json!({
+            "os_nom": os_nom.trim(),
+            "kernel": kernel.trim(),
+            "paquets_dispo": paquets_dispo,
+            "rustc_version": rustc_version.trim(),
+            "rust_maj_disponible": rust_maj_disponible,
+            "rust_detail": rustup_check.trim(),
+            "supporte": true,
+        })
+    }
 }
 // ══════════════════════════════════════════════════════════════════
 // EXTENSIONS — upload de fichiers .rs, permissions, compilation

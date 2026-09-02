@@ -1213,7 +1213,39 @@ async function loadServer(){
         <div class="sc" style="--si:#f59e0b"><div class="sc-i"><img src="/static/img/solid/laptop.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:.9rem">${esc(d.os)} / ${esc(d.arch)}</div><div class="sc-l">OS / Arch</div></div>
         <div class="sc" style="--si:${pct>80?'#ef4444':pct>60?'#f59e0b':'var(--accent)'}"><div class="sc-i"><img src="/static/img/solid/hard-drive.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1.1rem">${esc(String(dk.used_gb))} <span style="font-size:.6em;font-weight:400">/ ${esc(String(dk.total_gb))} GB</span></div><div class="sc-l">Disque (${pct}%)</div><div class="pg"><div class="pgb ${cl}" style="width:${pct}%"></div></div></div>
         <div class="sc" style="--si:#8b5cf6"><div class="sc-i"><img src="/static/img/solid/clock.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1.1rem">${esc(d.uptime_sec)}s</div><div class="sc-l">Uptime</div></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+        <div class="ch">
+            <span><img src="/static/img/solid/arrow-up-right-dots.svg" class="ico ico-accent" alt=""> Mises à jour système <small>lecture seule — a appliquer manuellement</small></span>
+            <button class="btn bg2" onclick="loadSystemUpdates()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Vérifier</button>
+        </div>
+        <div class="cb" id="system-updates-content"><div style="padding:14px;color:var(--text-m);font-size:.84rem">Cliquez sur "Vérifier" pour interroger le serveur (peut prendre quelques secondes).</div></div>
     </div>`;
+}
+
+async function loadSystemUpdates(){
+    const box=document.getElementById('system-updates-content');
+    box.innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const r=await api('/server/updates');
+    if(!r.success){box.innerHTML=`<div style="padding:14px;color:var(--text-m)">${esc(r.error||'Erreur.')}</div>`;return;}
+    const d=r.data;
+    if(!d.supporte){box.innerHTML='<div style="padding:14px;color:var(--text-m)">Non disponible sur cette plateforme.</div>';return;}
+    const badgePkg = d.paquets_dispo>0
+        ? `<span class="b bo">${d.paquets_dispo} paquet(s) systeme a mettre a jour</span>`
+        : `<span class="b bg">Systeme a jour</span>`;
+    const badgeRust = d.rust_maj_disponible
+        ? `<span class="b bo">Mise a jour Rust disponible</span>`
+        : `<span class="b bg">Toolchain Rust a jour</span>`;
+    box.innerHTML=`
+        <div class="cgr">
+            <div><label class="cl">Systeme d'exploitation</label><div style="font-size:.85rem;padding:6px 0">${esc(d.os_nom||'?')}</div></div>
+            <div><label class="cl">Noyau</label><div style="font-size:.85rem;padding:6px 0;font-family:var(--mono)">${esc(d.kernel||'?')}</div></div>
+            <div><label class="cl">Rust</label><div style="font-size:.85rem;padding:6px 0;font-family:var(--mono)">${esc(d.rustc_version||'?')}</div></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">${badgePkg}${badgeRust}</div>
+        ${d.paquets_dispo>0?'<div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">Sur le serveur : <code>sudo apt update && sudo apt upgrade</code></div>':''}
+        ${d.rust_maj_disponible?'<div style="margin-top:6px;font-size:.78rem;color:var(--text-m)">Sur le serveur : <code>rustup update</code></div>':''}
+    `;
 }
 
 /* ── Logs ── */
