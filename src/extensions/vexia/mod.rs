@@ -200,6 +200,8 @@ fn statut(pool: &DbPool, session: &SessionInfo) -> Value {
         "cle_perso": cfg.cle_perso,
         "provider": cfg.provider,
         "tools_actifs": cfg.tools_enabled && cfg.provider == "anthropic",
+        "widget_on": prefs.vexia_widget_on != 0,
+        "auto_confirm": prefs.vexia_auto_confirm != 0,
     }})
 }
 
@@ -490,6 +492,7 @@ struct PrefsBody {
     auto_confirm: Option<bool>,
     api_key: Option<String>,
     provider: Option<String>,
+    widget_on: Option<bool>,
 }
 
 fn prefs_update(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Value {
@@ -517,6 +520,11 @@ fn prefs_update(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Valu
             _ => "anthropic",
         };
         ok &= crate::function::update_user_preference(pool, session.user_id, "vexia_provider", p);
+    }
+    if let Some(on) = corps.widget_on {
+        ok &= crate::function::update_user_preference(
+            pool, session.user_id, "vexia_widget_on", if on { "1" } else { "0" },
+        );
     }
     if ok {
         json!({"success": true})

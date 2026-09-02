@@ -75,6 +75,8 @@ pub struct UserPrefs {
     pub vexia_api_key: Option<String>,
     /// Fournisseur associe a la cle personnelle : "anthropic" | "openai" | "xai".
     pub vexia_provider: Option<String>,
+    /// Bulle de chat flottante VexIA affichee sur les pages (fchier, mess, admin...).
+    pub vexia_widget_on: i64,
 }
 
 impl Default for UserPrefs {
@@ -95,6 +97,7 @@ impl Default for UserPrefs {
             vexia_auto_confirm: 0,
             vexia_api_key: None,
             vexia_provider: None,
+            vexia_widget_on: 1,
         }
     }
 }
@@ -157,6 +160,7 @@ pub fn get_user_preferences(pool: &DbPool, user_id: i64) -> UserPrefs {
         vexia_auto_confirm: row.get("vexia_auto_confirm").and_then(|v| v.as_i64()).unwrap_or(0),
         vexia_api_key: row.get("vexia_api_key").and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty()).map(|s| s.to_string()),
         vexia_provider: row.get("vexia_provider").and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty()).map(|s| s.to_string()),
+        vexia_widget_on: row.get("vexia_widget_on").and_then(|v| v.as_i64()).unwrap_or(1),
     }
 }
 
@@ -166,7 +170,7 @@ pub fn get_user_preferences(pool: &DbPool, user_id: i64) -> UserPrefs {
 const ALLOWED_PREFS: &[&str] = &[
     "teme", "langue", "notifications_meet", "auto_record", "mic_default",
     "camera_default", "quality_video", "nav_button_style", "logo_pages",
-    "dashboard_tiles", "dashboard_events", "nav_apps", "vexia_auto_confirm", "vexia_api_key", "vexia_provider",
+    "dashboard_tiles", "dashboard_events", "nav_apps", "vexia_auto_confirm", "vexia_api_key", "vexia_provider", "vexia_widget_on",
 ];
 const JSON_PREFS: &[&str] = &[
     "nav_button_style", "logo_pages",

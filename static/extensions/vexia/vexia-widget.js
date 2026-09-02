@@ -3,13 +3,22 @@
 // n'importe quelle page VEX (fchier, sitec, ...) via :
 //   <script src="/static/extensions/vexia/vexia-widget.js"></script>
 //
-// S'auto-initialise, ne fait rien tant qu'on ne clique pas sur la
-// bulle (aucun appel reseau au chargement, hormis /status au premier
-// clic). N'affiche rien si l'utilisateur n'a pas acces a l'extension
-// (401/403 silencieux — pas de bulle qui ne mene nulle part).
+// Un appel a /status est fait au chargement pour savoir si la bulle
+// doit meme etre injectee (extension configuree + reglage personnel
+// "bulle flottante" active, voir Mon Compte > Affichage personnalisé).
+// N'affiche rien si l'utilisateur n'a pas acces a l'extension ou a
+// desactive la bulle (401/403/preference — pas de bulle qui ne mene
+// nulle part, ou que l'utilisateur ne veut pas voir).
 // ══════════════════════════════════════════════════════════════════
-(function(){
+(async function(){
     if(document.getElementById('vexia-widget-bulle')) return; // deja injecte
+
+    try{
+        const r = await fetch('/api/ext/vexia/status', {credentials:'include'});
+        if(!r.ok) return;
+        const d = await r.json();
+        if(!d.success || d.data.widget_on === false) return;
+    }catch(e){ return; }
 
     const style = document.createElement('style');
     style.textContent = `

@@ -717,13 +717,27 @@ async function loadExtPrefs(){
           <input type="checkbox" id="ep-vexia-auto">
           <span>Exécution automatique des actions à faible risque <small>(jamais pour les actions admin)</small></span>
         </label>
+        <label class="ext-pref-toggle">
+          <input type="checkbox" id="ep-vexia-widget">
+          <span>Afficher la bulle de chat flottante <small>sur les autres pages (fichiers, messagerie, admin…)</small></span>
+        </label>
       </div>`;
     EXT_PREFS_CHARGE=true;
     document.getElementById('ep-vexia-provider').addEventListener('change',saveExtPref_vexia_provider_seul);
+    document.getElementById('ep-vexia-auto').checked = d.auto_confirm === true;
+    document.getElementById('ep-vexia-widget').checked = d.widget_on !== false;
     document.getElementById('ep-vexia-auto').addEventListener('change',async function(){
       const active=this.checked;
       try{
         const rr=await fetch('/api/ext/vexia/prefs',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({auto_confirm:active})});
+        const dd=await rr.json();
+        if(!dd.success)this.checked=!active;
+      }catch(e){this.checked=!active;}
+    });
+    document.getElementById('ep-vexia-widget').addEventListener('change',async function(){
+      const active=this.checked;
+      try{
+        const rr=await fetch('/api/ext/vexia/prefs',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({widget_on:active})});
         const dd=await rr.json();
         if(!dd.success)this.checked=!active;
       }catch(e){this.checked=!active;}

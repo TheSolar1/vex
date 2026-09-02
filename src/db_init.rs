@@ -254,6 +254,9 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         // l'utilisateur), utilisee a la place de la cle partagee admin.
         "ALTER TABLE `pref` ADD COLUMN `vexia_api_key` VARCHAR(255) DEFAULT NULL",
         "ALTER TABLE `pref` ADD COLUMN `vexia_provider` VARCHAR(20) DEFAULT NULL",
+        // Bulle de chat flottante VexIA (visible sur toutes les pages) :
+        // certains utilisateurs ne veulent pas de VexIA du tout.
+        "ALTER TABLE `pref` ADD COLUMN `vexia_widget_on` TINYINT(1) NOT NULL DEFAULT 1",
     ] {
         let _ = conn.query_drop(*col);
     }

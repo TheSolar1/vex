@@ -242,20 +242,6 @@
         "version": "0.1"
       },
       "vexia": {
-        "dashboard_tile": {
-          "couleur": "#3b82f6",
-          "icone": "robot",
-          "lignes": [
-            {
-              "badge": "cle requise",
-              "sous_titre": "Configurez votre cle API Anthropic",
-              "titre": "Assistant"
-            }
-          ],
-          "sous_titre": "Assistant IA (Claude)",
-          "titre": "VexIA",
-          "url": "/ext/vexia"
-        },
         "enabled": true,
         "params": {
           "api_key": "",
