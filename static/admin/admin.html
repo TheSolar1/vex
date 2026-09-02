@@ -468,6 +468,31 @@ async function api(p,o={}){try{const r=await fetch('/api/admin'+p,{credentials:'
 function post(p,d={}){return api(p,{method:'POST',body:Object.entries(d).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(typeof v==='object'?JSON.stringify(v):v)).join('&')});}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
+/* ── Dialogue de confirmation (remplace confirm() natif) ── */
+function confirmerDialogue(message,opts={}){
+    const {danger=false,titre='Confirmer',ok='Confirmer',annuler='Annuler'}=opts;
+    return new Promise(resolve=>{
+        document.getElementById('confirm-modal')?.remove();
+        const m=document.createElement('div');m.id='confirm-modal';m.className='modal-bg';
+        m.innerHTML=`<div class="modal-box">
+            <div style="font-weight:800;font-size:1.05rem;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+                <img src="/static/img/solid/${danger?'triangle-exclamation':'circle-question'}.svg" class="ico" style="filter:${danger?'invert(30%) sepia(90%) saturate(4000%) hue-rotate(340deg)':'invert(30%) sepia(90%) saturate(400%) hue-rotate(100deg)'}" alt="">
+                ${esc(titre)}
+            </div>
+            <div style="font-size:.86rem;line-height:1.6;white-space:pre-wrap;margin-bottom:18px">${esc(message)}</div>
+            <div style="display:flex;gap:10px">
+                <button class="btn ${danger?'br2':'ba'}" id="confirm-dlg-ok"><img src="/static/img/solid/check.svg" class="ico" style="filter:invert(1)" alt=""> ${esc(ok)}</button>
+                <button class="btn bg2" id="confirm-dlg-annuler"><img src="/static/img/solid/xmark.svg" class="ico ico-gray" alt=""> ${esc(annuler)}</button>
+            </div>
+        </div>`;
+        document.body.appendChild(m);
+        const fin=val=>{m.remove();resolve(val);};
+        document.getElementById('confirm-dlg-ok').addEventListener('click',()=>fin(true));
+        document.getElementById('confirm-dlg-annuler').addEventListener('click',()=>fin(false));
+        m.addEventListener('click',e=>{if(e.target===m)fin(false);});
+    });
+}
+
 /* ── Dashboard ── */
 async function loadDash(){
     const r=await api('/dashboard');if(!r.success){flash(r.error,true);return;}
@@ -521,7 +546,7 @@ function renderUsers(users){
 function filterUsers(q){document.querySelectorAll('#utbl tbody tr').forEach(r=>{r.style.display=r.dataset.s.includes(q.toLowerCase())?'':'none';});}
 async function setPriv(uid,priv){const r=await post('/users/privilege',{uid,privilege:priv});flash(r.success?r.message:r.error,!r.success);}
 async function setVip(uid,vip){const r=await post('/users/vip',{uid,vip});flash(r.success?r.message:r.error,!r.success);}
-async function delUser(uid,nom){if(!confirm(`Supprimer ${nom} ?`))return;const r=await post('/users/delete',{uid});if(r.success){flash(r.message);loadUsers();}else flash(r.error,true);}
+async function delUser(uid,nom){if(!await confirmerDialogue(`Supprimer ${nom} ?`,{danger:true,titre:'Supprimer l\'utilisateur'}))return;const r=await post('/users/delete',{uid});if(r.success){flash(r.message);loadUsers();}else flash(r.error,true);}
 
 /* ── Blocages ── */
 async function loadBlocks(){
@@ -547,7 +572,7 @@ async function submitAddBlock(){
     const r=await post('/blocks/add',{iduserb:uid,priviautro:priv,pageb:pages.join(',')});
     if(r.success){flash(r.message);loadBlocks();}else flash(r.error,true);
 }
-async function delBlock(bid){if(!confirm('Supprimer ce blocage ?'))return;const r=await post('/blocks/delete',{bid});if(r.success){flash(r.message);loadBlocks();}else flash(r.error,true);}
+async function delBlock(bid){if(!await confirmerDialogue('Supprimer ce blocage ?',{danger:true}))return;const r=await post('/blocks/delete',{bid});if(r.success){flash(r.message);loadBlocks();}else flash(r.error,true);}
 function toggleAllPages(){S.allChecked=!S.allChecked;document.querySelectorAll('#pages-grid input[type=checkbox]').forEach(c=>{c.checked=S.allChecked;c.closest('.page-chk').classList.toggle('checked',S.allChecked);});}
 
 /* ── Explorateur DB ── */
@@ -577,7 +602,7 @@ async function loadDb(table=null,page=1){
     }
 }
 function editCell(t,c,v,pk,pkv){const n=prompt(`Modifier "${c}" (${pk}=${pkv}) :`,v);if(n===null||n===v)return;post('/db/cell/edit',{table:t,col:c,val:n,pk_col:pk,pk_val:pkv}).then(r=>{flash(r.success?r.message:r.error,!r.success);if(r.success)loadDb(t,S.dbPage);});}
-function delRow(t,pk,pkv){if(!confirm(`Supprimer ${pk}=${pkv} dans "${t}" ?`))return;post('/db/row/delete',{table:t,pk_col:pk,pk_val:pkv}).then(r=>{flash(r.success?r.message:r.error,!r.success);if(r.success)loadDb(t,S.dbPage);});}
+function delRow(t,pk,pkv){confirmerDialogue(`Supprimer ${pk}=${pkv} dans "${t}" ?`,{danger:true}).then(ok=>{if(!ok)return;post('/db/row/delete',{table:t,pk_col:pk,pk_val:pkv}).then(r=>{flash(r.success?r.message:r.error,!r.success);if(r.success)loadDb(t,S.dbPage);});});}
 async function showAddRow(table){
     if(!DB_COLS.length){const r=await api(`/db/table/${encodeURIComponent(table)}?page=1`);if(r.success){DB_COLS=r.data.cols||[];IS_SUPER=r.data.is_super||false;}}
     const cols=DB_COLS.filter(c=>c!=='id');if(!cols.length){flash('Impossible de recuperer la structure.',true);return;}
@@ -940,14 +965,14 @@ async function mkSource(){
 async function mkInstall(nom,id,confirme){
     const x=MK.items.find(i=>i.nom===nom);
     if(!x){flash('Element introuvable dans le catalogue.',true);return;}
-    if(!confirme&&!confirm(`Installer « ${id} » depuis GitHub ?\n\nDu code distant sera pose dans src/extensions/${id}/ puis compile.\nN'installez que des extensions dont vous connaissez la provenance.`))return;
+    if(!confirme&&!await confirmerDialogue(`Installer « ${id} » depuis GitHub ?\n\nDu code distant sera pose dans src/extensions/${id}/ puis compile.\nN'installez que des extensions dont vous connaissez la provenance.`,{danger:true,titre:'Installer une extension distante'}))return;
     flash('Telechargement de '+id+'…');
     const r=await post('/marketplace/install',{url:x.url,nom:x.nom,id:x.id,confirm_risques:confirme?'1':'0'});
     if(r.success){flash(r.message);loadExt();return;}
     if(r.need_confirm){
         const detail=(r.risques||[]).slice(0,12)
             .map(v=>`l.${v.ligne} — ${v.motif}\n   ${v.extrait}`).join('\n');
-        if(confirm(`${r.error}\n\n${detail}\n\nInstaller quand meme ?`))mkInstall(nom,id,true);
+        if(await confirmerDialogue(`${r.error}\n\n${detail}\n\nInstaller quand meme ?`,{danger:true}))mkInstall(nom,id,true);
         return;
     }
     flash(r.error||'Installation impossible.',true);
@@ -1055,8 +1080,8 @@ async function submitUploadExt(confirme){
 
 async function deleteExt(id){
     if(BASE_APPS.has(id)){flash('Impossible de supprimer une app de base.',true);return;}
-    if(!confirm(`Retirer l'extension "${id}" de la configuration ?`))return;
-    const purge=confirm(`Supprimer aussi les fichiers src/extensions/${id}/ et static/extensions/${id}/ ?\n\nOK = supprimer les fichiers, Annuler = les conserver.`);
+    if(!await confirmerDialogue(`Retirer l'extension "${id}" de la configuration ?`,{danger:true,titre:'Retirer une extension'}))return;
+    const purge=await confirmerDialogue(`Supprimer aussi les fichiers src/extensions/${id}/ et static/extensions/${id}/ ?\n\nConfirmer = supprimer les fichiers, Annuler = les conserver.`,{titre:'Supprimer les fichiers ?'});
     const r=await post('/extensions/delete',{id,purge:purge?'1':'0'});
     if(r.success){flash(r.message);loadExt();}else flash(r.error,true);
 }
@@ -1086,7 +1111,7 @@ async function saveExtMeta(id){
 }
 
 async function rebuildExt(){
-    if(!confirm(`Relancer « ${EXT_DATA.build_cmd} » ?\n\nLa compilation part deja seule a chaque upload. VEX doit etre redemarre une fois terminee pour charger le code natif.`))return;
+    if(!await confirmerDialogue(`Relancer « ${EXT_DATA.build_cmd} » ?\n\nLa compilation part deja seule a chaque upload. VEX doit etre redemarre une fois terminee pour charger le code natif.`,{titre:'Recompiler VEX'}))return;
     const r=await post('/extensions/rebuild');
     if(!r.success){flash(r.error,true);return;}
     flash(r.message);planifierStatutBuild();loadExt();
@@ -1169,7 +1194,7 @@ async function loadServer(){
 /* ── Logs ── */
 async function loadLogs(){document.getElementById('log-content').innerHTML='<div class="loading"><span class="spin"></span></div>';const r=await api('/logs');if(!r.success){flash(r.error,true);return;}const files=r.data.files||[];const filesHtml=files.length?`<div style="margin-bottom:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:.78rem;color:var(--text-m)"><div style="font-weight:700;color:var(--text);margin-bottom:6px">Fichiers de logs</div><div style="display:flex;flex-wrap:wrap;gap:6px">${files.map(f=>`<span style="padding:4px 8px;border-radius:999px;background:var(--alt);color:var(--accent);font-family:monospace">${esc(f)}</span>`).join('')}</div></div>`:'';document.getElementById('log-content').innerHTML=r.data.empty?'<div style="padding:24px;text-align:center;color:var(--text-m)">Aucun log disponible</div>':`<div>${filesHtml}<div class="lb" id="lb">${esc(r.data.content)}</div></div>`;scrollLogs();loadVexiaAudit();}
 function scrollLogs(){const lb=document.getElementById('lb');if(lb)lb.scrollTop=lb.scrollHeight;}
-async function clearLogs(){if(!confirm('Vider le log ?'))return;const r=await post('/logs/clear');if(r.success){flash(r.message);loadLogs();}else flash(r.error,true);}
+async function clearLogs(){if(!await confirmerDialogue('Vider le log ?',{danger:true}))return;const r=await post('/logs/clear');if(r.success){flash(r.message);loadLogs();}else flash(r.error,true);}
 
 async function loadVexiaAudit(){
     const el=document.getElementById('vexia-audit-content');
@@ -1369,7 +1394,7 @@ async function submitAddProvider(){
 }
 
 async function deleteProvider(id){
-    if(!confirm(`Supprimer le systeme d'edition "${id}" ?`))return;
+    if(!await confirmerDialogue(`Supprimer le systeme d'edition "${id}" ?`,{danger:true}))return;
     const r=await post('/editor/delete',{id});
     if(r.success){flash(r.message);loadEditor();}else flash(r.error,true);
 }
@@ -1392,7 +1417,7 @@ async function loadP2pTransfers(){document.getElementById('p2p-transfers-table')
 async function loadP2pAnnuaire(){document.getElementById('p2p-annuaire-content').innerHTML='<div class="loading"><span class="spin"></span></div>';const r=await api('/p2p/annuaire');if(!r.success){flash(r.error,true);return;}document.getElementById('p2p-annuaire-content').innerHTML=`<div class="lb" id="p2p-annuaire-txt" style="max-height:500px">${esc(r.data.annuaire||'')}</div>`;}
 function copyAnnuaire(){const el=document.getElementById('p2p-annuaire-txt');if(el){navigator.clipboard.writeText(el.textContent).then(()=>flash('Annuaire copie.'));}}
 async function p2pSyncNow(){const btn=document.getElementById('p2p-sync-btn');btn.disabled=true;btn.innerHTML='<span class="spin"></span> Sync…';const r=await post('/p2p/sync_now');btn.disabled=false;btn.innerHTML='<img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Sync bootstrap';flash(r.success?r.message:r.error,!r.success);if(r.success)loadP2p();}
-async function kickPeer(id){if(!confirm('Supprimer ce noeud ?'))return;const r=await post('/p2p/kick',{peer_id:id});flash(r.success?r.message:r.error,!r.success);if(r.success)loadP2p();}
+async function kickPeer(id){if(!await confirmerDialogue('Supprimer ce noeud ?',{danger:true}))return;const r=await post('/p2p/kick',{peer_id:id});flash(r.success?r.message:r.error,!r.success);if(r.success)loadP2p();}
 
 /* ── Init ── */
 (async function(){
