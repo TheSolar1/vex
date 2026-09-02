@@ -39,26 +39,16 @@ fn get_cookie(req: &Request, name: &str) -> String {
 }
 
 fn remote_ip(req: &Request) -> String {
-    req.headers()
-        .iter()
-        .find(|h| {
-            h.field
-                .as_str()
-                .as_str()
-                .eq_ignore_ascii_case("X-Forwarded-For")
-        })
-        .and_then(|h| {
-            h.value
-                .as_str()
-                .split(',')
-                .next()
-                .map(|s| s.trim().to_string())
-        })
-        .unwrap_or_else(|| {
-            req.remote_addr()
-                .map(|a| a.ip().to_string())
-                .unwrap_or_default()
-        })
+    // NOTE : ne PAS utiliser X-Forwarded-For ici. L'app tourne derrière
+    // Apache (reverse proxy), et le reste du code (main.rs, login.rs,
+    // dashboard.rs) identifie/stocke la session via request.remote_addr()
+    // brut (donc "127.0.0.1" côté serveur, pas l'IP réelle du client).
+    // Préférer X-Forwarded-For ici cassait la comparaison IP de
+    // verifier_connexion() : la session semblait toujours invalide sur
+    // /fchier alors qu'elle était valide partout ailleurs.
+    req.remote_addr()
+        .map(|a| a.ip().to_string())
+        .unwrap_or_default()
 }
 
 fn user_agent(req: &Request) -> String {
@@ -71,7 +61,8 @@ fn user_agent(req: &Request) -> String {
 
 fn verifier_session(pool: &DbPool, req: &Request) -> Option<HashMap<String, Value>> {
     let cookie = get_cookie(req, "connexion_cookie");
-    crate::appeldb::verifier_connexion(pool, &cookie, &remote_ip(req), &user_agent(req))
+    let ip = crate::utils::strip_port(&remote_ip(req));
+    crate::appeldb::verifier_connexion(pool, &cookie, &ip, &user_agent(req))
 }
 
 fn json_response(status: u16, body: Value) -> Response<std::io::Cursor<Vec<u8>>> {

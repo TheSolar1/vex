@@ -219,7 +219,7 @@ __NAV_HTML__
     <div class="sb-sep">Système</div>
     <div class="sb-a" data-sec="db"><img src="/static/img/solid/database.svg" alt=""> <span>Base de données</span></div>
     <div class="sb-a" data-sec="config"><img src="/static/img/solid/gear.svg" alt=""> <span>Configuration</span></div>
-    <div class="sb-a" data-sec="extensions"><img src="/static/img/solid/puzzle-piece.svg" alt=""> <span>Extensions</span></div>
+    <div class="sb-a" data-sec="extensions"><img src="/static/img/solid/puzzle-piece.svg" alt=""> <span>Extensions / Plugin</span></div>
     <div class="sb-a" data-sec="roles"><img src="/static/img/solid/id-badge.svg" alt=""> <span>Rôles &amp; Plans</span></div>
     <div class="sb-a" data-sec="server"><img src="/static/img/solid/server.svg" alt=""> <span>Serveur</span></div>
     <div class="sb-a" data-sec="logs"><img src="/static/img/solid/scroll.svg" alt=""> <span>Logs</span></div>
@@ -677,7 +677,7 @@ function extCard(e){
     const isBase=e.base_app, id=e.id;
     const badge = isBase
         ? `<span style="padding:2px 8px;border-radius:5px;background:var(--alt);color:var(--accent);font-size:.68rem;font-weight:700">APP DE BASE</span>`
-        : `<span style="padding:2px 8px;border-radius:5px;background:rgba(59,130,243,.1);color:#3b82f6;font-size:.68rem;font-weight:700">EXTENSION</span>`;
+        : `<span style="padding:2px 8px;border-radius:5px;background:rgba(59,130,243,.1);color:#3b82f6;font-size:.68rem;font-weight:700">PLUGIN</span>`;
     const d=e.disque||{};
     let etat='';
     if(!isBase){
@@ -798,8 +798,13 @@ async function loadExt(){
 
     let html=buildBanner();
 
+    html+=`<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-m);margin-bottom:10px;display:flex;align-items:center;gap:8px"><img src="/static/img/solid/cube.svg" class="ico ico-accent" alt=""> Applications de base (${base.length})</div>`;
+    html+=base.length?base.map(extCard).join(''):'<div style="color:var(--text-m);font-size:.82rem;padding:12px">Aucune app de base configuree.</div>';
+
+    html+=`<div style="height:1px;background:var(--border);margin:20px 0"></div>`;
+
     html+=`<div class="card" style="margin-bottom:18px;border-left:3px solid var(--accent)"><div class="ch">
-        <span><img src="/static/img/solid/store.svg" class="ico ico-accent" alt=""> Catalogue d'extensions</span>
+        <span><img src="/static/img/solid/store.svg" class="ico ico-accent" alt=""> Extensions / Plugin</span>
         <a href="#" id="mk-source" target="_blank" style="font-size:.73rem;font-family:var(--mono)"></a>
         </div>
         <div class="cb">
@@ -841,10 +846,6 @@ async function loadExt(){
             <span style="color:var(--text-m);margin-left:8px;font-size:.78rem">— re-uploadez le fichier pour leur donner des permissions.</span></div>`;
     }
 
-    html+=`<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-m);margin-bottom:10px;display:flex;align-items:center;gap:8px"><img src="/static/img/solid/cube.svg" class="ico ico-accent" alt=""> Applications de base (${base.length})</div>`;
-    html+=base.length?base.map(extCard).join(''):'<div style="color:var(--text-m);font-size:.82rem;padding:12px">Aucune app de base configuree.</div>';
-
-    html+=`<div style="height:1px;background:var(--border);margin:20px 0"></div>`;
     html+=`<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-m);margin-bottom:10px;display:flex;align-items:center;gap:8px"><img src="/static/img/solid/puzzle-piece.svg" style="width:14px;height:14px;filter:invert(30%) sepia(90%) saturate(400%) hue-rotate(200deg)" alt=""> Extensions installees (${autres.length})</div>`;
     html+=autres.length?autres.map(extCard).join(''):`<div style="padding:20px;text-align:center;color:var(--text-m);background:var(--surface2);border:1px dashed var(--border);border-radius:var(--r);font-size:.84rem">Aucune extension. Cliquez sur <strong>Uploader</strong> pour en installer une.</div>`;
 
@@ -879,12 +880,18 @@ function mkCarte(x){
 }
 function mkRendre(){
     const q=(document.getElementById('mk-q')?.value||'').trim().toLowerCase();
-    const liste=MK.items.filter(x=>!q||x.id.includes(q)||x.nom.toLowerCase().includes(q));
+    // Sans recherche active, on masque les extensions deja installees
+    // (pas besoin de les voir a chaque fois qu'on ouvre le catalogue) —
+    // elles restent trouvables en tapant leur nom.
+    const liste=MK.items.filter(x=>{
+        if(q) return x.id.includes(q)||x.nom.toLowerCase().includes(q);
+        return !x.installee;
+    });
     const box=document.getElementById('mk-res');
     if(!box)return;
     box.innerHTML=liste.length
         ? `<div class="mk-grid">${liste.map(mkCarte).join('')}</div>`
-        : `<div class="mk-vide">${MK.items.length?'Aucune extension ne correspond a « '+esc(q)+' ».':'Aucune extension publiee dans cette release.'}</div>`;
+        : `<div class="mk-vide">${q?'Aucune extension ne correspond a « '+esc(q)+' ».':'Toutes les extensions du catalogue sont deja installees.'}</div>`;
 }
 async function loadMarket(forcer){
     const box=document.getElementById('mk-res');

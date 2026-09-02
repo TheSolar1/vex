@@ -241,6 +241,40 @@
         "privilege_min": 10,
         "version": "0.1"
       },
+      "vexia": {
+        "dashboard_tile": {
+          "couleur": "#3b82f6",
+          "icone": "robot",
+          "lignes": [
+            {
+              "badge": "cle requise",
+              "sous_titre": "Configurez votre cle API Anthropic",
+              "titre": "Assistant"
+            }
+          ],
+          "sous_titre": "Assistant IA (Claude)",
+          "titre": "VexIA",
+          "url": "/ext/vexia"
+        },
+        "enabled": true,
+        "nav_app": {
+          "icone": "robot",
+          "label": "VexIA",
+          "url": "/ext/vexia"
+        },
+        "params": {
+          "api_key": "",
+          "max_tokens": 1024,
+          "model": "claude-sonnet-4-5-20250929",
+          "system_prompt": "Tu es VexIA, l'assistant integre a VEX (auto-heberge). Reponds de facon concise et utile, en francais sauf si on te parle dans une autre langue."
+        },
+        "plans_autorises": [
+          "free",
+          "vip"
+        ],
+        "privilege_min": 10,
+        "version": "0.1.0"
+      },
       "vexmail": {
         "enabled": true,
         "params": {

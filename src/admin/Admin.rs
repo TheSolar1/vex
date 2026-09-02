@@ -2087,11 +2087,14 @@ fn ext_regenerer_registre() -> Result<Vec<String>, String> {
 }
 
 /// Commande de compilation configurable (extensions.build_cmd).
+/// Source ~/.cargo/env par défaut : run_shell_command() lance `sh -c`, qui
+/// n'hérite pas forcément du PATH mis à jour par rustup (le process vex
+/// est démarré hors shell de login) — sans ça, "cargo: not found".
 fn ext_build_cmd(cfg: &Value) -> String {
     cfg["extensions"]["build_cmd"]
         .as_str()
         .filter(|s| !s.trim().is_empty())
-        .unwrap_or("cargo build --release")
+        .unwrap_or(". $HOME/.cargo/env 2>/dev/null; cargo build --release")
         .to_string()
 }
 

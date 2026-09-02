@@ -20,7 +20,7 @@ md5        = "0.7"
 hex        = "0.4"
 base64     = "0.22"
 
-ureq       = { version = "2", features = ["json"] }
+ureq       = { version = "2", features = ["json", "tls"] }
 
 getrandom  = { version = "0.2", features = ["std"] }
 bcrypt     = "0.15"
