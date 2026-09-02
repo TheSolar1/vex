@@ -264,6 +264,7 @@
         },
         "params": {
           "api_key": "",
+          "provider": "anthropic",
           "max_tokens": 1024,
           "model": "claude-sonnet-4-5-20250929",
           "system_prompt": "Tu es VexIA, l'assistant integre a VEX (auto-heberge). Reponds de facon concise et utile, en francais sauf si on te parle dans une autre langue.",

@@ -253,6 +253,7 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         // VexIA : cle API Anthropic personnelle (facturee sur le compte de
         // l'utilisateur), utilisee a la place de la cle partagee admin.
         "ALTER TABLE `pref` ADD COLUMN `vexia_api_key` VARCHAR(255) DEFAULT NULL",
+        "ALTER TABLE `pref` ADD COLUMN `vexia_provider` VARCHAR(20) DEFAULT NULL",
     ] {
         let _ = conn.query_drop(*col);
     }

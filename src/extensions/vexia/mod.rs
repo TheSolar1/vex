@@ -97,6 +97,7 @@ pub fn handle(
 // ══════════════════════════════════════════════════════════════════
 
 struct VexiaConfig {
+    provider: String,
     api_key: String,
     cle_perso: bool,
     model: String,
@@ -105,9 +106,20 @@ struct VexiaConfig {
     tools_enabled: bool,
 }
 
-/// `user_key` : cle API Anthropic personnelle de l'utilisateur courant
-/// (pref.vexia_api_key), prioritaire sur la cle partagee admin si presente.
-fn charger_config(user_key: Option<&str>) -> VexiaConfig {
+/// URL de l'API et modele par defaut pour un fournisseur donne.
+/// xAI (Grok) expose une API compatible OpenAI -- meme format de requete/reponse.
+fn provider_defaults(provider: &str) -> (&'static str, &'static str) {
+    match provider {
+        "openai" => ("https://api.openai.com/v1/chat/completions", "gpt-4o-mini"),
+        "xai" => ("https://api.x.ai/v1/chat/completions", "grok-2-latest"),
+        _ => (ANTHROPIC_API_URL, DEFAULT_MODEL),
+    }
+}
+
+/// `user_key`/`user_provider` : reglages personnels de l'utilisateur courant
+/// (pref.vexia_api_key / vexia_provider), prioritaires sur la config admin
+/// partagee si une cle personnelle est renseignee.
+fn charger_config(user_key: Option<&str>, user_provider: Option<&str>) -> VexiaConfig {
     let cfg = crate::config_loader::load_config(CONFIG_PATH);
     let params = cfg
         .extensions
@@ -123,21 +135,44 @@ fn charger_config(user_key: Option<&str>) -> VexiaConfig {
         .unwrap_or("")
         .trim()
         .to_string();
+    let admin_provider = params
+        .get("provider")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or("anthropic")
+        .to_string();
     let user_key = user_key.map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    let (api_key, cle_perso) = match user_key {
-        Some(k) => (k, true),
-        None => (admin_key, false),
+    let (api_key, cle_perso, provider) = match user_key {
+        Some(k) => {
+            let p = user_provider
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "anthropic".to_string());
+            (k, true, p)
+        }
+        None => (admin_key, false, admin_provider),
     };
-
-    VexiaConfig {
-        api_key,
-        cle_perso,
-        model: params
+    let (_, default_model) = provider_defaults(&provider);
+    // Le modele configure par l'admin (params.model) ne s'applique que
+    // lorsqu'on utilise sa cle/son fournisseur -- sinon un modele Anthropic
+    // configure par l'admin serait envoye a tort a l'API OpenAI/xAI d'un
+    // utilisateur ayant choisi un autre fournisseur pour sa cle perso.
+    let model = if cle_perso {
+        default_model.to_string()
+    } else {
+        params
             .get("model")
             .and_then(|v| v.as_str())
             .filter(|s| !s.trim().is_empty())
-            .unwrap_or(DEFAULT_MODEL)
-            .to_string(),
+            .unwrap_or(default_model)
+            .to_string()
+    };
+
+    VexiaConfig {
+        provider,
+        api_key,
+        cle_perso,
+        model,
         max_tokens: params
             .get("max_tokens")
             .and_then(|v| v.as_u64())
@@ -158,11 +193,13 @@ fn charger_config(user_key: Option<&str>) -> VexiaConfig {
 /// Indique au front si une cle API est configuree, sans jamais l'exposer.
 fn statut(pool: &DbPool, session: &SessionInfo) -> Value {
     let prefs = crate::function::get_user_preferences(pool, session.user_id);
-    let cfg = charger_config(prefs.vexia_api_key.as_deref());
+    let cfg = charger_config(prefs.vexia_api_key.as_deref(), prefs.vexia_provider.as_deref());
     json!({"success": true, "data": {
         "configure": !cfg.api_key.is_empty(),
         "model": cfg.model,
         "cle_perso": cfg.cle_perso,
+        "provider": cfg.provider,
+        "tools_actifs": cfg.tools_enabled && cfg.provider == "anthropic",
     }})
 }
 
@@ -196,7 +233,7 @@ fn tools_json_for(session: &SessionInfo) -> Vec<Value> {
 
 fn chat(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Value {
     let prefs = crate::function::get_user_preferences(pool, session.user_id);
-    let cfg = charger_config(prefs.vexia_api_key.as_deref());
+    let cfg = charger_config(prefs.vexia_api_key.as_deref(), prefs.vexia_provider.as_deref());
     if cfg.api_key.is_empty() {
         return json!({"success": false,
             "error": "VexIA n'est pas configure : renseignez votre propre cle API Anthropic dans vos reglages VexIA, ou demandez a un administrateur de configurer la cle partagee."});
@@ -232,10 +269,12 @@ fn chat(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Value {
         .collect();
     messages.push(json!({"role": "user", "content": message}));
 
-    let tools_json: Vec<Value> = if cfg.tools_enabled { tools_json_for(session) } else { vec![] };
+    // Tool-use n'est cable que pour Anthropic (format de tools specifique) --
+    // OpenAI/xAI restent en chat simple pour l'instant.
+    let tools_json: Vec<Value> = if cfg.tools_enabled && cfg.provider == "anthropic" { tools_json_for(session) } else { vec![] };
     let messages_sent = messages.clone();
 
-    let body = match anthropic_call(&cfg, messages, &tools_json) {
+    let body = match llm_call(&cfg, messages, &tools_json) {
         Ok(b) => b,
         Err(e) => return json!({"success": false, "error": e}),
     };
@@ -343,7 +382,7 @@ fn suite_apres_execution(
         {"type": "tool_result", "tool_use_id": tool_use_id, "content": result_content, "is_error": !action_ok}
     ]}));
 
-    match anthropic_call(cfg, followup, tools_json) {
+    match llm_call(cfg, followup, tools_json) {
         Ok(body) => {
             let texte = premier_texte(&body.get("content").cloned().unwrap_or(json!([])));
             let reply = if !texte.is_empty() {
@@ -437,7 +476,7 @@ fn confirmer(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Value {
     tools::log_tool_execution(pool, session.user_id, tool, &pending.args, &result);
 
     let prefs = crate::function::get_user_preferences(pool, session.user_id);
-    let cfg = charger_config(prefs.vexia_api_key.as_deref());
+    let cfg = charger_config(prefs.vexia_api_key.as_deref(), prefs.vexia_provider.as_deref());
     let tools_json = tools_json_for(session);
     suite_apres_execution(&cfg, pending.messages_sent, pending.assistant_content, pending.tool_use_id, result, &tools_json)
 }
@@ -450,6 +489,7 @@ fn confirmer(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Value {
 struct PrefsBody {
     auto_confirm: Option<bool>,
     api_key: Option<String>,
+    provider: Option<String>,
 }
 
 fn prefs_update(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Value {
@@ -470,6 +510,13 @@ fn prefs_update(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Valu
     if let Some(cle) = corps.api_key {
         // Chaine vide = retire la cle personnelle, retombe sur la cle admin.
         ok &= crate::function::update_user_preference(pool, session.user_id, "vexia_api_key", cle.trim());
+    }
+    if let Some(provider) = corps.provider {
+        let p = match provider.trim() {
+            "openai" | "xai" => provider.trim(),
+            _ => "anthropic",
+        };
+        ok &= crate::function::update_user_preference(pool, session.user_id, "vexia_provider", p);
     }
     if ok {
         json!({"success": true})
@@ -503,7 +550,27 @@ fn check_rate_limit(user_id: i64) -> bool {
 // Appel Anthropic bas niveau + extraction de contenu
 // ══════════════════════════════════════════════════════════════════
 
-fn anthropic_call(cfg: &VexiaConfig, messages: Vec<Value>, tools: &[Value]) -> Result<Value, String> {
+/// Appelle le fournisseur configure. Le tool-use n'est cable que pour
+/// Anthropic (`tools` est ignore pour les autres) -- OpenAI/xAI repondent
+/// donc toujours en `{"content":[{"type":"text","text":...}]}`, normalise
+/// pour que le reste du code (premier_texte/premier_tool_use, verif du
+/// stop_reason) n'ait pas a connaitre le fournisseur actif.
+fn llm_call(cfg: &VexiaConfig, messages: Vec<Value>, tools: &[Value]) -> Result<Value, String> {
+    match cfg.provider.as_str() {
+        "openai" | "xai" => appel_compatible_openai(cfg, messages),
+        _ => appel_anthropic(cfg, messages, tools),
+    }
+}
+
+fn nom_fournisseur(provider: &str) -> &'static str {
+    match provider {
+        "openai" => "OpenAI",
+        "xai" => "xAI (Grok)",
+        _ => "Anthropic",
+    }
+}
+
+fn appel_anthropic(cfg: &VexiaConfig, messages: Vec<Value>, tools: &[Value]) -> Result<Value, String> {
     let mut payload = json!({
         "model": cfg.model,
         "max_tokens": cfg.max_tokens,
@@ -524,15 +591,57 @@ fn anthropic_call(cfg: &VexiaConfig, messages: Vec<Value>, tools: &[Value]) -> R
     match resp {
         Ok(r) => Ok(r.into_json().unwrap_or(json!({}))),
         Err(ureq::Error::Status(code, r)) => {
-            let detail = r
-                .into_json::<Value>()
-                .ok()
-                .and_then(|v| v.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()).map(|s| s.to_string()))
-                .unwrap_or_else(|| format!("HTTP {}", code));
+            let detail = extraire_erreur(r, code);
             Err(format!("API Anthropic : {}", detail))
         }
         Err(e) => Err(format!("Connexion a l'API Anthropic impossible : {}", e)),
     }
+}
+
+/// OpenAI et xAI (Grok) exposent la meme API Chat Completions.
+fn appel_compatible_openai(cfg: &VexiaConfig, messages: Vec<Value>) -> Result<Value, String> {
+    let (url, _) = provider_defaults(&cfg.provider);
+    let mut msgs = vec![json!({"role": "system", "content": cfg.system_prompt})];
+    msgs.extend(messages);
+    let payload = json!({
+        "model": cfg.model,
+        "max_tokens": cfg.max_tokens,
+        "messages": msgs,
+    });
+
+    let resp = ureq::post(url)
+        .set("Authorization", &format!("Bearer {}", cfg.api_key))
+        .set("content-type", "application/json")
+        .timeout(Duration::from_secs(60))
+        .send_json(payload);
+
+    let nom = nom_fournisseur(&cfg.provider);
+    match resp {
+        Ok(r) => {
+            let body: Value = r.into_json().unwrap_or(json!({}));
+            let texte = body
+                .get("choices")
+                .and_then(|c| c.as_array())
+                .and_then(|arr| arr.first())
+                .and_then(|c| c.get("message"))
+                .and_then(|m| m.get("content"))
+                .and_then(|t| t.as_str())
+                .unwrap_or("");
+            Ok(json!({"content": [{"type": "text", "text": texte}]}))
+        }
+        Err(ureq::Error::Status(code, r)) => {
+            let detail = extraire_erreur(r, code);
+            Err(format!("API {} : {}", nom, detail))
+        }
+        Err(e) => Err(format!("Connexion a l'API {} impossible : {}", nom, e)),
+    }
+}
+
+fn extraire_erreur(r: ureq::Response, code: u16) -> String {
+    r.into_json::<Value>()
+        .ok()
+        .and_then(|v| v.get("error").and_then(|e| e.get("message").or(Some(e))).and_then(|m| m.as_str().map(|s| s.to_string())))
+        .unwrap_or_else(|| format!("HTTP {}", code))
 }
 
 fn premier_texte(content: &Value) -> String {

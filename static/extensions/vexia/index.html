@@ -66,6 +66,8 @@ textarea:focus{outline:none;border-color:var(--accent)}
 .cle-perso-bar{display:flex;gap:8px}
 .cle-perso-bar input{flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:.82rem;
     font-family:var(--mono,monospace);background:var(--input,var(--surface));color:var(--text)}
+.cle-perso-bar select{padding:7px 8px;border:1px solid var(--border);border-radius:7px;font-size:.82rem;
+    font-family:inherit;background:var(--input,var(--surface));color:var(--text)}
 .cle-perso-bar button{padding:0 14px;border:none;border-radius:7px;font-size:.8rem;font-weight:600;cursor:pointer;font-family:inherit}
 .cle-perso-save{background:var(--accent);color:#fff}
 .cle-perso-clear{background:var(--surface);border:1px solid var(--border) !important;color:var(--text)}
@@ -83,13 +85,19 @@ __NAV_HTML__
     <div class="entete-ico"><img src="/static/img/solid/robot.svg" alt=""></div>
     <div><h1>VexIA</h1></div>
   </div>
-  <div class="sous">Assistant IA (Claude), integre a VEX. Votre cle API reste sur ce serveur.</div>
+  <div class="sous">Assistant IA integre a VEX (Claude, GPT ou Grok selon la cle configuree). Votre cle API reste sur ce serveur.</div>
 
   <div class="cle-perso">
-    <div class="cle-perso-titre"><img src="/static/img/solid/key.svg" style="width:14px;height:14px;filter:var(--icon-filter)" alt=""> Ma cle API Anthropic</div>
-    <div class="cle-perso-aide">Optionnel. Si renseignee, vos conversations utilisent votre propre cle (facturee sur votre compte Anthropic) au lieu de la cle partagee de l'administrateur.</div>
+    <div class="cle-perso-titre"><img src="/static/img/solid/key.svg" style="width:14px;height:14px;filter:var(--icon-filter)" alt=""> Ma cle API personnelle</div>
+    <div class="cle-perso-aide">Optionnel. Si renseignee, vos conversations utilisent votre propre cle (facturee sur votre compte) au lieu de la cle partagee de l'administrateur.
+      <strong>Les actions (envoyer/supprimer, etc.) ne sont disponibles qu'avec Claude (Anthropic)</strong> — OpenAI et xAI restent en discussion simple pour l'instant.</div>
     <div class="cle-perso-bar">
-      <input type="password" id="cle-perso-input" placeholder="sk-ant-…" autocomplete="off">
+      <select id="cle-perso-provider">
+        <option value="anthropic">Claude (Anthropic)</option>
+        <option value="openai">GPT (OpenAI)</option>
+        <option value="xai">Grok (xAI)</option>
+      </select>
+      <input type="password" id="cle-perso-input" placeholder="Cle API…" autocomplete="off">
       <button class="cle-perso-save" type="button" onclick="sauverClePerso()">Enregistrer</button>
       <button class="cle-perso-clear" type="button" onclick="retirerClePerso()">Retirer</button>
     </div>
@@ -209,15 +217,17 @@ async function verifierStatut(){
         const d = await r.json();
         if(d.success && !d.data.configure){
             document.getElementById('avert-box').innerHTML =
-                '<div class="avertissement">⚠️ Aucune cle API Anthropic configuree. '+
+                '<div class="avertissement">⚠️ Aucune cle API configuree. '+
                 'Renseignez votre propre cle ci-dessus, ou demandez a un administrateur de configurer la cle partagee.</div>';
         }
+        const NOMS_FOURNISSEUR = {anthropic:'Claude (Anthropic)', openai:'GPT (OpenAI)', xai:'Grok (xAI)'};
         const statutEl = document.getElementById('cle-perso-statut');
         if(d.success && statutEl){
+            const nomF = NOMS_FOURNISSEUR[d.data.provider] || d.data.provider;
             statutEl.className = 'cle-perso-statut' + (d.data.cle_perso ? ' perso' : '');
             statutEl.textContent = d.data.cle_perso
-                ? 'Votre cle personnelle est active.'
-                : (d.data.configure ? 'Cle partagee de l\'administrateur active.' : 'Aucune cle active.');
+                ? `Votre cle personnelle (${nomF}) est active.` + (d.data.tools_actifs ? '' : ' Actions desactivees avec ce fournisseur.')
+                : (d.data.configure ? `Cle partagee de l'administrateur active (${nomF}).` : 'Aucune cle active.');
         }
     }catch(e){}
 }
@@ -226,10 +236,11 @@ async function sauverClePerso(){
     const zone = document.getElementById('cle-perso-input');
     const cle = zone.value.trim();
     if(!cle) return;
+    const provider = document.getElementById('cle-perso-provider').value;
     try{
         const r = await fetch('/api/ext/vexia/prefs', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
-            credentials: 'include', body: JSON.stringify({api_key: cle}),
+            credentials: 'include', body: JSON.stringify({api_key: cle, provider}),
         });
         const d = await r.json();
         if(d.success){ zone.value=''; verifierStatut(); }
