@@ -281,6 +281,16 @@ __NAV_HTML__
           .aff-msg{font-size:.82rem;font-weight:600}
           .aff-msg.ok{color:var(--accent,#2e7d32)}
           .aff-msg.ko{color:#dc2626}
+          .ext-pref-bloc{padding:14px 16px;border:1px solid var(--border,#e5e7eb);border-radius:10px}
+          .ext-pref-titre{font-weight:700;margin-bottom:5px;display:flex;align-items:center;gap:8px}
+          .ext-pref-aide{font-size:.79rem;opacity:.72;margin-bottom:11px;line-height:1.5}
+          .ext-pref-bar{display:flex;gap:8px;flex-wrap:wrap}
+          .ext-pref-bar select,.ext-pref-bar input{padding:8px 10px;border:1px solid var(--border,#ddd);border-radius:7px;font-size:.85rem;background:var(--input,#fff);color:inherit}
+          .ext-pref-bar input{flex:1;min-width:160px}
+          .ext-pref-statut{font-size:.78rem;opacity:.7;margin-top:8px}
+          .ext-pref-toggle{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:.85rem;cursor:pointer}
+          .ext-pref-toggle input{width:16px;height:16px}
+          .ext-pref-toggle small{opacity:.65;display:block}
           </style>
         </div>
         <div class="card">
@@ -303,6 +313,12 @@ __NAV_HTML__
           <button class="btn btn-primary" style="margin-top:14px;" id="btn-save-theme">
             <i class="fas fa-save"></i> Enregistrer les préférences
           </button>
+        </div>
+
+        <div class="card" id="ext-prefs-card" style="display:none">
+          <h2><i class="fas fa-puzzle-piece"></i> Paramètres des extensions</h2>
+          <p>Réglages personnels propres à une extension (clé API, options individuelles).</p>
+          <div id="ext-prefs-box"></div>
         </div>
       </div>
 
@@ -473,7 +489,7 @@ __NAV_HTML__
   }
 
   function switchSection(sec){
-    if(sec==='preferences') loadAffichage();
+    if(sec==='preferences'){ loadAffichage(); loadExtPrefs(); }
     document.querySelectorAll('.section-content').forEach(s=>s.classList.remove('active'));
     document.querySelectorAll('.sidebar-link').forEach(l=>l.classList.remove('active'));
     const target=$(`#${sec}-section`); if(target) target.classList.add('active');
@@ -666,6 +682,73 @@ async function saveAffichage(){
     setTimeout(()=>{msg.textContent='';msg.className='aff-msg';},5000);
   }
 }
-if(document.querySelector('#preferences-section.active'))loadAffichage();
+/* Parametres individuels des extensions (ex: cle API personnelle VexIA) */
+let EXT_PREFS_CHARGE=false;
+async function loadExtPrefs(){
+  const box=document.getElementById('ext-prefs-box');
+  const card=document.getElementById('ext-prefs-card');
+  if(!box||EXT_PREFS_CHARGE)return;
+  try{
+    const r=await (await fetch('/api/ext/vexia/status',{credentials:'include'})).json();
+    if(!r.success){return;}
+    card.style.display='';
+    const d=r.data;
+    const NOMS={anthropic:'Claude (Anthropic)',openai:'GPT (OpenAI)',xai:'Grok (xAI)'};
+    box.innerHTML=`
+      <div class="ext-pref-bloc">
+        <div class="ext-pref-titre"><i class="fas fa-robot"></i> VexIA — assistant IA</div>
+        <p class="ext-pref-aide">Optionnel. Si renseignee, vos conversations utilisent votre propre cle (facturee sur votre compte) au lieu de la cle partagee de l'administrateur.
+          <strong>Les actions (envoyer/supprimer, etc.) ne sont disponibles qu'avec Claude (Anthropic).</strong></p>
+        <div class="ext-pref-bar">
+          <select id="ep-vexia-provider">
+            <option value="anthropic">Claude (Anthropic)</option>
+            <option value="openai">GPT (OpenAI)</option>
+            <option value="xai">Grok (xAI)</option>
+          </select>
+          <input type="password" id="ep-vexia-key" placeholder="Cle API…" autocomplete="off">
+          <button type="button" class="btn btn-primary" onclick="saveExtPref_vexia()">Enregistrer</button>
+          <button type="button" class="btn btn-secondary" onclick="clearExtPref_vexia()">Retirer</button>
+        </div>
+        <div class="ext-pref-statut" id="ep-vexia-statut">${
+          d.cle_perso ? `Votre cle personnelle (${affEsc(NOMS[d.provider]||d.provider)}) est active.`
+          : (d.configure ? `Cle partagee de l'administrateur active (${affEsc(NOMS[d.provider]||d.provider)}).` : 'Aucune cle active.')
+        }</div>
+        <label class="ext-pref-toggle">
+          <input type="checkbox" id="ep-vexia-auto">
+          <span>Exécution automatique des actions à faible risque <small>(jamais pour les actions admin)</small></span>
+        </label>
+      </div>`;
+    EXT_PREFS_CHARGE=true;
+    document.getElementById('ep-vexia-provider').addEventListener('change',saveExtPref_vexia_provider_seul);
+    document.getElementById('ep-vexia-auto').addEventListener('change',async function(){
+      const active=this.checked;
+      try{
+        const rr=await fetch('/api/ext/vexia/prefs',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({auto_confirm:active})});
+        const dd=await rr.json();
+        if(!dd.success)this.checked=!active;
+      }catch(e){this.checked=!active;}
+    });
+  }catch(e){}
+}
+async function saveExtPref_vexia_provider_seul(){ /* le provider seul n'est envoye qu'avec la cle, voir saveExtPref_vexia */ }
+async function saveExtPref_vexia(){
+  const cle=document.getElementById('ep-vexia-key').value.trim();
+  if(!cle)return;
+  const provider=document.getElementById('ep-vexia-provider').value;
+  try{
+    const rr=await fetch('/api/ext/vexia/prefs',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({api_key:cle,provider})});
+    const dd=await rr.json();
+    if(dd.success){document.getElementById('ep-vexia-key').value='';EXT_PREFS_CHARGE=false;loadExtPrefs();}
+  }catch(e){}
+}
+async function clearExtPref_vexia(){
+  try{
+    const rr=await fetch('/api/ext/vexia/prefs',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({api_key:''})});
+    const dd=await rr.json();
+    if(dd.success){EXT_PREFS_CHARGE=false;loadExtPrefs();}
+  }catch(e){}
+}
+
+if(document.querySelector('#preferences-section.active')){loadAffichage();loadExtPrefs();}
 </script>
 </html>

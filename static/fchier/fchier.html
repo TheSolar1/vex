@@ -569,6 +569,7 @@ __NAV_HTML__
 
 <div id="oo-overlay">
   <div id="oo-barre">
+    <button id="oo-btn-retour" onclick="fermerOnlyOffice()" style="background:#3d4148">← Retour</button>
     <span class="oo-nom" id="oo-nom-fichier">Chargement…</span>
     <span class="oo-statut" id="oo-statut"></span>
     <button id="oo-btn-finir" onclick="terminerOnlyOffice()" disabled>Enregistrer et fermer</button>
@@ -1553,6 +1554,20 @@ async function ouvrirOnlyOffice(item) {
   } catch(e) {
     etat.innerHTML = `<div style="color:#f87171;max-width:400px">${escHtml(e.message)}</div>`;
   }
+}
+
+async function fermerOnlyOffice() {
+  const ok = await confirmerFchier(
+    'Fermer sans enregistrer ?\n\nLes modifications faites dans OnlyOffice depuis la derniere sauvegarde automatique seront perdues.',
+    { titre: 'Fermer sans enregistrer', icone: '/static/img/solid/triangle-exclamation.svg' }
+  );
+  if (!ok) return;
+  OO.termine = true;
+  document.getElementById('oo-overlay').classList.remove('active');
+  const script = document.getElementById('oo-api-script');
+  if (script) script.remove();
+  // Nettoie le fichier temporaire en clair cote serveur (contenu ignore, pas re-chiffre).
+  if (OO.token) { try { await apiFetch('/api/fchier/onlyoffice/finish', { token: OO.token }); } catch(_){} }
 }
 
 async function terminerOnlyOffice() {

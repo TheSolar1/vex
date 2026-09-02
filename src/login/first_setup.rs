@@ -98,7 +98,10 @@ fn handle_post(pool: &DbPool, body: &HashMap<String, String>) -> String {
             ("email", mysql::Value::from(html_escape(&email).as_str())),
             ("srp_salt", mysql::Value::from(salt_hex.as_str())),
             ("srp_verifier", mysql::Value::from(verifier_hex.as_str())),
-            ("privilege", mysql::Value::from(1i64)),
+            // Superadmin (2), pas fondateur (1) : le fondateur est un role
+            // protege/permanent qui ne devrait pas etre attribue automatiquement
+            // au premier compte cree, meme legitime.
+            ("privilege", mysql::Value::from(2i64)),
             ("vip", mysql::Value::from(1i64)),
         ],
         &[],
