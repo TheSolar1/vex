@@ -18,10 +18,9 @@ use std::process::Command;
 use std::sync::{Arc, RwLock};
 use tiny_http::{Request, Response};
 
+use crate::admin::actions::{PRIVILEGE_MAX, PRIVILEGE_MIN_SET, PRIVILEGE_SUPER};
+
 const HTML_PATH: &str = "static/admin/admin.html";
-const PRIVILEGE_MAX: i64 = 3;
-const PRIVILEGE_SUPER: i64 = 2;
-const PRIVILEGE_MIN_SET: i64 = 2;
 
 fn vex_pages() -> Vec<(&'static str, &'static str)> {
     vec![
@@ -239,6 +238,9 @@ fn handle_api(
         // Installer depuis GitHub = executer du code distant.
         "/marketplace/install",
         "/marketplace/source",
+        // Visualiser les actions admin declenchees par VexIA (toutes,
+        // pas seulement les siennes) est aussi sensible que les executer.
+        "/vexia/audit",
     ];
     let needs_super =
         sub.starts_with("/p2p") || superadmin_routes.iter().any(|r| sub.starts_with(r));
@@ -340,31 +342,10 @@ fn handle_api(
                 .and_then(|v| v.parse::<i64>().ok())
                 .unwrap_or(0);
 
-            if priv_val < PRIVILEGE_MIN_SET {
-                return respond_json(
-                    request,
-                    json!({"success":false,"error":"Le privilege 1 ne peut pas être attribué via le panel."}),
-                );
+            match crate::admin::actions::set_user_privilege(pool, user_id, privilege, tid, priv_val) {
+                Ok(v) => v,
+                Err(e) => return respond_json(request, json!({"success":false,"error":e})),
             }
-            if priv_val > 12 || tid == user_id {
-                return respond_json(
-                    request,
-                    json!({"success":false,"error":"Action non autorisée."}),
-                );
-            }
-            if privilege > PRIVILEGE_SUPER && priv_val < privilege {
-                return respond_json(
-                    request,
-                    json!({"success":false,"error":"Vous ne pouvez pas donner un privilege supérieur au vôtre."}),
-                );
-            }
-            inserer_ou_modifier(
-                pool,
-                "login",
-                &[("privilege", mysql::Value::from(priv_val))],
-                &[("id", mysql::Value::from(tid))],
-            );
-            json!({"success":true,"message":"Privilège mis à jour."})
         }
 
         "/users/vip" => {
@@ -390,33 +371,10 @@ fn handle_api(
                 .get("uid")
                 .and_then(|v| v.parse::<i64>().ok())
                 .unwrap_or(0);
-            if tid == user_id {
-                return respond_json(
-                    request,
-                    json!({"success":false,"error":"Impossible de supprimer votre propre compte."}),
-                );
+            match crate::admin::actions::delete_user(pool, user_id, privilege, tid) {
+                Ok(v) => v,
+                Err(e) => return respond_json(request, json!({"success":false,"error":e})),
             }
-            let target = selectionner(
-                pool,
-                "login",
-                &[("id", mysql::Value::from(tid))],
-                &["privilege"],
-                None,
-                Some(1),
-            );
-            let target_priv = target
-                .first()
-                .and_then(|r| r.get("privilege"))
-                .and_then(|v| v.as_i64())
-                .unwrap_or(99);
-            if target_priv <= PRIVILEGE_SUPER && privilege > PRIVILEGE_SUPER {
-                return respond_json(
-                    request,
-                    json!({"success":false,"error":"Impossible de supprimer un superadmin."}),
-                );
-            }
-            supprimer_ligne(pool, "login", "id", mysql::Value::from(tid));
-            json!({"success":true,"message":"Utilisateur supprimé."})
         }
 
         "/blocks" => {
@@ -717,6 +675,21 @@ fn handle_api(
                 let _ = std::fs::write(&path, "");
             }
             json!({"success":true,"message":"Logs vidés sans supprimer les fichiers."})
+        }
+
+        "/vexia/audit" => {
+            let rows = selectionner(pool, "vexia_audit", &[], &[], Some("id DESC"), Some(200));
+            let items: Vec<Value> = rows.iter().map(|r| json!({
+                "id":         r.get("id").and_then(|v| v.as_i64()).unwrap_or(0),
+                "user_id":    r.get("user_id").and_then(|v| v.as_i64()).unwrap_or(0),
+                "tool_name":  r.get("tool_name").and_then(|v| v.as_str()).unwrap_or(""),
+                "tier":       r.get("tier").and_then(|v| v.as_str()).unwrap_or(""),
+                "args_json":  r.get("args_json").and_then(|v| v.as_str()).unwrap_or(""),
+                "success":    r.get("success").and_then(|v| v.as_i64()).unwrap_or(0) == 1,
+                "error":      r.get("error").and_then(|v| v.as_str()).unwrap_or(""),
+                "created_at": r.get("created_at").and_then(|v| v.as_str()).unwrap_or(""),
+            })).collect();
+            json!({"success":true,"data":items})
         }
 
         // ── Compatibilite : /onlyoffice* pilote desormais le provider actif ──

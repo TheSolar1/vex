@@ -18,6 +18,7 @@ mod p2p {
     pub mod p2p;
 }
 mod admin {
+    pub mod actions;
     pub mod admin;
 }
 mod login {

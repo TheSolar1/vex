@@ -230,16 +230,16 @@ fn handle_get_pubkey_for(
     }
 }
 
-fn handle_list(
+/// Coeur de la liste des messages d'un dossier, reutilise par le handler
+/// HTTP et par l'outil VexIA "mess_list_my_messages".
+pub(crate) fn query_messages(
     conn: &mut mysql::PooledConn,
     session: &crate::c::SessionInfo,
-    url: &str,
-) -> Response<std::io::Cursor<Vec<u8>>> {
-    let params = utils::parse_query(url);
-    let folder = params.get("folder").cloned().unwrap_or_else(|| "inbox".to_string());
-    let email  = esc(&session.user_email);
+    folder: &str,
+) -> Value {
+    let email = esc(&session.user_email);
 
-    let where_clause = match folder.as_str() {
+    let where_clause = match folder {
         "sent"  => format!("message_type='mess' AND JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.from'))='{}' AND status!='delivered'", email),
         "trash" => format!("message_type='mess' AND status='delivered' AND (JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.from'))='{0}' OR JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.to'))='{0}')", email),
         _       => format!("message_type='mess' AND JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.to'))='{}' AND status!='delivered'", email),
@@ -267,7 +267,17 @@ fn handle_list(
     ).unwrap_or_default();
 
     let unread = rows.iter().filter(|m| !m["lu"].as_bool().unwrap_or(true)).count();
-    json_resp(json!({"success":true,"messages":rows,"unread":unread}), 200)
+    json!({"success":true,"messages":rows,"unread":unread})
+}
+
+fn handle_list(
+    conn: &mut mysql::PooledConn,
+    session: &crate::c::SessionInfo,
+    url: &str,
+) -> Response<std::io::Cursor<Vec<u8>>> {
+    let params = utils::parse_query(url);
+    let folder = params.get("folder").cloned().unwrap_or_else(|| "inbox".to_string());
+    json_resp(query_messages(conn, session, &folder), 200)
 }
 
 fn handle_send(
@@ -329,6 +339,25 @@ fn handle_read(
     json_resp(json!({"success":true}), 200)
 }
 
+/// Coeur de la suppression d'un message (marque "delivered", scope a
+/// l'utilisateur courant), reutilise par le handler HTTP et par l'outil
+/// VexIA "mess_delete_my_message".
+pub(crate) fn delete_message(
+    conn: &mut mysql::PooledConn,
+    session: &crate::c::SessionInfo,
+    id: i64,
+) -> Result<Value, String> {
+    if id == 0 {
+        return Err("id manquant".into());
+    }
+    mysql::prelude::Queryable::query_drop(conn, format!(
+        "UPDATE p2p_messages SET status='delivered' \
+         WHERE id={} AND message_type='mess' AND (JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.to'))='{}' OR JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.from'))='{}')",
+        id, esc(&session.user_email), esc(&session.user_email)
+    )).ok();
+    Ok(json!({"success":true,"id":id}))
+}
+
 fn handle_delete(
     conn: &mut mysql::PooledConn,
     session: &crate::c::SessionInfo,
@@ -336,13 +365,10 @@ fn handle_delete(
 ) -> Response<std::io::Cursor<Vec<u8>>> {
     let data: Value = serde_json::from_str(body).unwrap_or_default();
     let id = data["id"].as_i64().unwrap_or(0);
-    if id == 0 { return json_resp(json!({"success":false,"error":"id manquant"}), 400); }
-    mysql::prelude::Queryable::query_drop(conn, format!(
-        "UPDATE p2p_messages SET status='delivered' \
-         WHERE id={} AND message_type='mess' AND (JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.to'))='{}' OR JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.from'))='{}')",
-        id, esc(&session.user_email), esc(&session.user_email)
-    )).ok();
-    json_resp(json!({"success":true}), 200)
+    match delete_message(conn, session, id) {
+        Ok(v) => json_resp(v, 200),
+        Err(e) => json_resp(json!({"success":false,"error":e}), 400),
+    }
 }
 
 fn handle_users(
