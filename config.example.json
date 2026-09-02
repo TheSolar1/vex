@@ -89,9 +89,9 @@
         "kind": "onlyoffice",
         "max_file_size_mb": 100,
         "name": "OnlyOffice Document Server",
-        "server_url": "http://127.0.0.1:8080",
-        "start_cmd": "powershell -ExecutionPolicy Bypass -File static/onlyoffice/start_onlyoffice.ps1",
-        "stop_cmd": "powershell -ExecutionPolicy Bypass -File static/onlyoffice/stop_onlyoffice.ps1",
+        "server_url": "http://127.0.0.1:8084",
+        "start_cmd": "",
+        "stop_cmd": "",
         "supported_formats": [
           "docx",
           "xlsx",
@@ -295,7 +295,7 @@
         "version": "0.1"
       }
     },
-    "marketplace_url": "https://github.com/TheSolar1/vex/releases/tag/Extensions"
+    "marketplace_url": "https://github.com/TheSolar1/vex/releases/tag/Plugin"
   },
   "onlyoffice_server": {
     "_comment": "Controle du Document Server OnlyOffice",
@@ -303,9 +303,9 @@
     "auto_stop_after_idle_seconds": 900,
     "enabled": true,
     "healthcheck_path": "/healthcheck",
-    "server_url": "http://127.0.0.1:8080",
-    "start_cmd": "powershell -ExecutionPolicy Bypass -File static/onlyoffice/start_onlyoffice.ps1",
-    "stop_cmd": "powershell -ExecutionPolicy Bypass -File static/onlyoffice/stop_onlyoffice.ps1",
+    "server_url": "http://127.0.0.1:8084",
+    "start_cmd": "",
+    "stop_cmd": "",
     "wait_boot_ms": 8000
   },
   "p2p": {
