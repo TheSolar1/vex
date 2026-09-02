@@ -162,6 +162,18 @@ body {
     border-radius:8px; font-family:var(--mono,monospace); font-size:13px; line-height:1.5; background:var(--input); color:var(--text); }
 #edit-textarea:focus { outline:none; border-color:var(--accent); }
 .edit-meta { font-size:12px; color:var(--text-m); margin-bottom:8px; display:flex; justify-content:space-between; }
+
+#oo-overlay{position:fixed;inset:0;background:#1c1e21;z-index:20000;display:none;flex-direction:column}
+#oo-overlay.active{display:flex}
+#oo-barre{height:48px;background:#2a2d31;color:#fff;display:flex;align-items:center;gap:12px;padding:0 16px;font-size:.86rem;flex-shrink:0}
+#oo-barre .oo-nom{font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#oo-barre button{background:#4caf50;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:.82rem;font-weight:600;cursor:pointer;font-family:inherit}
+#oo-barre button:disabled{opacity:.5;cursor:not-allowed}
+#oo-barre .oo-statut{font-size:.78rem;opacity:.85}
+#oo-placeholder{flex:1;position:relative}
+#oo-etat{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#fff}
+.oo-spin{display:inline-block;width:30px;height:30px;border:3px solid rgba(255,255,255,.25);border-top-color:#4caf50;border-radius:50%;animation:oosp 0.8s linear infinite;margin-bottom:12px}
+@keyframes oosp{to{transform:rotate(360deg)}}
 .modal-header { font-size:20px; font-weight:600; margin-bottom:20px; color:var(--text); display:flex; align-items:center; gap:10px; }
 .modal-body   { margin-bottom:20px; color:var(--text); }
 .modal-footer { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
@@ -544,6 +556,28 @@ __NAV_HTML__
 </div>
 
 <!-- Supprimer -->
+<div class="modal" id="confirmModal">
+  <div class="modal-content">
+    <div class="modal-header"><img class="ico ico-20 ico-primary" id="confirm-modal-icon" src="/static/img/solid/circle-question.svg"> <span id="confirm-modal-titre">Confirmer</span></div>
+    <div class="modal-body"><p id="confirm-modal-msg" style="white-space:pre-wrap"></p></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="confirm-modal-annuler">Annuler</button>
+      <button class="btn btn-primary" id="confirm-modal-ok">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<div id="oo-overlay">
+  <div id="oo-barre">
+    <span class="oo-nom" id="oo-nom-fichier">Chargement…</span>
+    <span class="oo-statut" id="oo-statut"></span>
+    <button id="oo-btn-finir" onclick="terminerOnlyOffice()" disabled>Enregistrer et fermer</button>
+  </div>
+  <div id="oo-placeholder">
+    <div id="oo-etat"><div class="oo-spin"></div><div>Chargement du document…</div></div>
+  </div>
+</div>
+
 <div class="modal" id="deleteModal">
   <div class="modal-content">
     <div class="modal-header">
@@ -1450,15 +1484,33 @@ function estFichierOffice(nom) {
   return EXTENSIONS_OFFICE.includes(ext);
 }
 
+let OO = { token: null, fileId: null, nom: '', mime: '', termine: false };
+
 async function ouvrirOnlyOffice(item) {
   if (!requireCryptoSession()) return;
-  if (!confirm(`Ouvrir "${item.nom}" dans OnlyOffice ?\n\nPendant l'edition, ce document sera temporairement dechiffre sur le serveur (necessaire pour qu'OnlyOffice puisse le lire). Il est re-chiffre et le fichier temporaire supprime des que vous terminez l'edition.`)) return;
-  toast(`Préparation de ${item.nom}…`, 'info');
+  const ok = await confirmerFchier(
+    `Ouvrir "${item.nom}" dans OnlyOffice ?\n\nPendant l'edition, ce document sera temporairement dechiffre sur le serveur (necessaire pour qu'OnlyOffice puisse le lire). Il est re-chiffre et le fichier temporaire supprime des que vous terminez l'edition.`,
+    { titre: 'Éditer avec OnlyOffice', icone: '/static/img/solid/triangle-exclamation.svg' }
+  );
+  if (!ok) return;
+
+  const overlay = document.getElementById('oo-overlay');
+  const etat = document.getElementById('oo-etat');
+  document.getElementById('oo-nom-fichier').textContent = item.nom;
+  document.getElementById('oo-statut').textContent = '';
+  document.getElementById('oo-btn-finir').disabled = true;
+  etat.style.display = '';
+  etat.innerHTML = '<div class="oo-spin"></div><div>Préparation du document…</div>';
+  document.getElementById('oo-placeholder').querySelectorAll(':scope > *:not(#oo-etat)').forEach(n => n.remove());
+  overlay.classList.add('active');
+  OO = { token: null, fileId: item.id, nom: item.nom, mime: '', termine: false };
+
   try {
     const r = await vexFetch(`/api/fchier/download?id=${item.id}`, { credentials:'include' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     if (!data.success) throw new Error(data.error || 'Erreur');
+    OO.mime = data.mime;
 
     const bytes = VEX.fromBase64(data.contenu);
     let blob;
@@ -1479,15 +1531,70 @@ async function ouvrirOnlyOffice(item) {
       id: item.id, ext, contenu_plain_b64: arrayBufferToBase64(plainBytes.buffer),
     });
     if (!rp.success) throw new Error(rp.error || 'Preparation impossible');
+    OO.token = rp.token;
 
-    sessionStorage.setItem('vex_oo_' + rp.token, JSON.stringify({
-      config: rp.config, editor_api_js: rp.editor_api_js, file_id: item.id, nom: item.nom, mime: data.mime,
-    }));
-    window.open('/static/fchier/onlyoffice-editor.html?token=' + encodeURIComponent(rp.token), '_blank');
+    const script = document.createElement('script');
+    script.id = 'oo-api-script';
+    script.src = rp.editor_api_js;
+    script.onload = () => {
+      etat.style.display = 'none';
+      const config = Object.assign({}, rp.config, {
+        width: '100%', height: '100%',
+        events: {
+          onDocumentReady: () => { document.getElementById('oo-statut').textContent = 'Prêt.'; },
+          onError: (e) => { console.error(e); document.getElementById('oo-statut').textContent = 'Erreur OnlyOffice.'; },
+        },
+      });
+      new DocsAPI.DocEditor('oo-placeholder', config);
+      document.getElementById('oo-btn-finir').disabled = false;
+    };
+    script.onerror = () => { etat.innerHTML = '<div style="color:#f87171">Impossible de charger OnlyOffice (serveur hors ligne ?).</div>'; };
+    document.head.appendChild(script);
   } catch(e) {
-    toast('Erreur : ' + e.message, 'error');
+    etat.innerHTML = `<div style="color:#f87171;max-width:400px">${escHtml(e.message)}</div>`;
   }
 }
+
+async function terminerOnlyOffice() {
+  const btn = document.getElementById('oo-btn-finir');
+  const statutEl = document.getElementById('oo-statut');
+  btn.disabled = true;
+  statutEl.textContent = 'Sauvegarde en cours dans OnlyOffice…';
+  try {
+    await new Promise(r => setTimeout(r, 1500));
+
+    statutEl.textContent = 'Récupération du contenu…';
+    const rf = await apiFetch('/api/fchier/onlyoffice/finish', { token: OO.token });
+    if (!rf.success) throw new Error(rf.error || 'Echec de la récupération.');
+
+    statutEl.textContent = 'Chiffrement…';
+    const bytes = VEX.fromBase64(rf.contenu_plain_b64);
+    const file = new File([bytes], OO.nom, { type: OO.mime || 'application/octet-stream' });
+    const { blob } = await VEX.chiffrerFichier(file);
+    const cipherBytes = new Uint8Array(await blob.arrayBuffer());
+    const b64 = arrayBufferToBase64(cipherBytes.buffer);
+
+    statutEl.textContent = 'Enregistrement…';
+    const re = await apiFetch('/api/fchier/edit_content', { id: rf.file_id, contenu_b64: b64 });
+    if (!re.success) throw new Error(re.error || 'Echec de l\'enregistrement.');
+
+    OO.termine = true;
+    document.getElementById('oo-overlay').classList.remove('active');
+    const script = document.getElementById('oo-api-script');
+    if (script) script.remove();
+    toast('Document enregistré.', 'ok');
+    loadData();
+  } catch(e) {
+    statutEl.textContent = 'Erreur : ' + e.message;
+    btn.disabled = false;
+  }
+}
+
+window.addEventListener('beforeunload', (e) => {
+  if (document.getElementById('oo-overlay')?.classList.contains('active') && !OO.termine) {
+    e.preventDefault(); e.returnValue = '';
+  }
+});
 
 let editState = { id: null, nom: '', mime: '' };
 
@@ -1694,6 +1801,22 @@ document.addEventListener('click', e => {
 
 function openModal(id)  { document.getElementById(id).classList.add('active'); }
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+/* Dialogue de confirmation reutilisable (remplace confirm() natif) */
+function confirmerFchier(message, opts = {}) {
+  const { titre = 'Confirmer', icone = '/static/img/solid/circle-question.svg' } = opts;
+  return new Promise(resolve => {
+    document.getElementById('confirm-modal-titre').textContent = titre;
+    document.getElementById('confirm-modal-icon').src = icone;
+    document.getElementById('confirm-modal-msg').textContent = message;
+    openModal('confirmModal');
+    const btnOk = document.getElementById('confirm-modal-ok');
+    const btnNo = document.getElementById('confirm-modal-annuler');
+    const fin = (val) => { closeModal('confirmModal'); btnOk.onclick = null; btnNo.onclick = null; resolve(val); };
+    btnOk.onclick = () => fin(true);
+    btnNo.onclick = () => fin(false);
+  });
+}
 document.querySelectorAll('.modal').forEach(m => {
   m.addEventListener('click', e => { if (e.target === m) m.classList.remove('active'); });
 });

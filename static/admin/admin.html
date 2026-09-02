@@ -527,7 +527,7 @@ async function loadDash(){
 async function loadUsers(){
     document.getElementById('users-table').innerHTML='<div class="loading"><span class="spin"></span></div>';
     const r=await api('/users');if(!r.success){flash(r.error,true);return;}
-    S.users=r.data.filter(u=>u.privilege!==1);
+    S.users=r.data;
     document.getElementById('users-count').textContent=S.users.length+' comptes';
     document.getElementById('pill-users').textContent=S.users.length;
     renderUsers(S.users);
@@ -536,9 +536,9 @@ async function loadUsers(){
 }
 function vipOpts(v){return[`<option value="0" ${!v?'selected':''}>— Free —</option>`,...S.vipTypes.map(t=>`<option value="${esc(String(t.id))}" ${v==t.id?'selected':''}>${esc(t.label)}</option>`)].join('');}
 function renderUsers(users){
-    users=users.filter(u=>u.privilege!==1);
     document.getElementById('users-table').innerHTML=`<table class="t" id="utbl"><thead><tr><th>#</th><th>Nom</th><th>Email</th><th>Rôle actuel</th><th>Changer rôle</th><th>VIP</th><th>Actions</th></tr></thead><tbody>${users.map(u=>{
-        const po=[2,3,4,5,6,7,8,9,10,11,12].map(p=>`<option value="${p}" ${u.privilege==p?'selected':''}>${p} — ${pNom(p)}</option>`).join('');
+        const options=u.privilege===1?[1,...[2,3,4,5,6,7,8,9,10,11,12]]:[2,3,4,5,6,7,8,9,10,11,12];
+        const po=options.map(p=>`<option value="${p}" ${u.privilege==p?'selected':''} ${p===1?'disabled':''}>${p} — ${pNom(p)}</option>`).join('');
         const badge=`<span class="b bx" style="color:${pCol(u.privilege)};border:1px solid ${pCol(u.privilege)}44">${u.privilege} — ${esc(pNom(u.privilege))}</span>`;
         return`<tr data-s="${(u.nom+u.email).toLowerCase()}"><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${badge}</td><td><select class="isel" style="color:${pCol(u.privilege)};font-weight:600" onchange="setPriv(${u.id},this.value)">${po}</select></td><td><select class="vip-sel" onchange="setVip(${u.id},this.value)">${vipOpts(u.vip)}</select></td><td><button class="btn br2" onclick="delUser(${u.id},'${esc(u.nom)}')"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Suppr.</button></td></tr>`;
     }).join('')}</tbody></table>`;

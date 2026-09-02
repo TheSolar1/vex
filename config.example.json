@@ -257,11 +257,6 @@
           "url": "/ext/vexia"
         },
         "enabled": true,
-        "nav_app": {
-          "icone": "robot",
-          "label": "VexIA",
-          "url": "/ext/vexia"
-        },
         "params": {
           "api_key": "",
           "provider": "anthropic",
