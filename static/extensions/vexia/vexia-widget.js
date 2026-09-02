@@ -13,12 +13,12 @@
 
     const style = document.createElement('style');
     style.textContent = `
-#vexia-widget-bulle{position:fixed;bottom:22px;right:22px;width:52px;height:52px;border-radius:50%;
+#vexia-widget-bulle{position:fixed;bottom:92px;right:22px;width:52px;height:52px;border-radius:50%;
     background:var(--accent,#4caf50);box-shadow:0 4px 16px rgba(0,0,0,.25);border:none;cursor:pointer;
     display:flex;align-items:center;justify-content:center;z-index:9998;transition:transform .15s}
 #vexia-widget-bulle:hover{transform:scale(1.06)}
 #vexia-widget-bulle img{width:24px;height:24px;filter:brightness(0) invert(1)}
-#vexia-widget-panel{position:fixed;bottom:86px;right:22px;width:340px;max-width:calc(100vw - 32px);
+#vexia-widget-panel{position:fixed;bottom:156px;right:22px;width:340px;max-width:calc(100vw - 32px);
     height:440px;max-height:calc(100vh - 120px);background:var(--surface,#fff);border:1px solid var(--border,#e2e6ec);
     border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.3);z-index:9999;display:none;flex-direction:column;overflow:hidden}
 #vexia-widget-panel.open{display:flex}

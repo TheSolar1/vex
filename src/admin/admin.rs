@@ -320,9 +320,14 @@ fn handle_api(
                 Some("privilege ASC, nom ASC"),
                 None,
             );
-            // ── Filtrer le fondateur (privilege=1) ──
+            // ── Filtrer les fondateurs (privilege=1), sauf l'appelant lui-meme :
+            // un fondateur doit pouvoir se voir dans sa propre liste d'utilisateurs.
             json!({ "success": true, "data": users.iter()
-                .filter(|u| u.get("privilege").and_then(|v| v.as_i64()).unwrap_or(99) != 1)
+                .filter(|u| {
+                    let priv_u = u.get("privilege").and_then(|v| v.as_i64()).unwrap_or(99);
+                    let id_u = u.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+                    priv_u != 1 || id_u == user_id
+                })
                 .map(|u| json!({
                 "id":        u.get("id").and_then(|v| v.as_i64()).unwrap_or(0),
                 "nom":       u.get("nom").and_then(|v| v.as_str()).unwrap_or(""),

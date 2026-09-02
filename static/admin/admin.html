@@ -87,8 +87,8 @@ body{padding-top:60px}
 .fr{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .isel{padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--input);color:var(--text);font-size:.82rem;font-family:var(--sans);cursor:pointer;height:34px}
 .isel:focus{outline:none;border-color:var(--accent)}
-.pages-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin-top:4px}
-.page-chk{display:flex;align-items:center;gap:9px;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .13s;font-size:.845rem;font-weight:500}
+.pages-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:10px}
+.page-chk{display:flex;align-items:center;gap:11px;padding:13px 15px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .13s;font-size:.845rem;font-weight:500}
 .page-chk:hover{border-color:var(--accent);background:var(--alt)}
 .page-chk input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
 .page-chk.checked{border-color:var(--accent);background:var(--alt)}
@@ -587,8 +587,21 @@ async function loadDb(table=null,page=1){
         const{tables,sizes}=r.data;
         document.getElementById('db-subtitle').textContent=`${tables.length} tables`;
         document.getElementById('db-edit-bar').style.display='none';DB_COLS=[];
-        const mx=Math.max(1,...sizes.map(s=>s.sz));
-        document.getElementById('db-content').innerHTML=`<div class="card"><div class="ch"><span><img src="/static/img/solid/table-list.svg" class="ico ico-accent" alt=""> Tables</span></div><div class="cb"><div class="tgr">${tables.map(t=>`<div class="ttl" onclick="loadDb('${esc(t)}')"><img src="/static/img/solid/table.svg" class="ico ico-gray" alt=""> ${esc(t)}</div>`).join('')}</div></div></div><div class="card"><div class="ch"><span><img src="/static/img/solid/chart-bar.svg" class="ico ico-accent" alt=""> Taille des tables</span></div><div style="overflow-x:auto"><table class="t"><thead><tr><th>Table</th><th>Lignes</th><th>Taille (KB)</th><th></th></tr></thead><tbody>${sizes.map(s=>{const pct=Math.min(100,Math.round(s.sz/mx*100)),cl=pct>80?'d':pct>50?'w':'';return`<tr><td><a href="#" onclick="loadDb('${esc(s.table_name)}');return false">${esc(s.table_name)}</a></td><td>${Number(s.rws).toLocaleString()}</td><td>${s.sz}</td><td><div class="pg"><div class="pgb ${cl}" style="width:${pct}%"></div></div></td></tr>`;}).join('')}</tbody></table></div></div>`;
+        // Seuils absolus (Ko) -- une base perso reste petite, un simple "plus
+        // grosse table du lot" n'a pas de sens pour un jeu de tables toutes
+        // quasi vides (ca affichait du rouge sur 64 Ko juste par comparaison).
+        const SEUIL_W=10240, SEUIL_D=51200;
+        const clPour=sz=>sz>SEUIL_D?'d':sz>SEUIL_W?'w':'';
+        const pctPour=sz=>Math.min(100,Math.round(sz/SEUIL_D*100));
+        const listeTables=arr=>arr.map(t=>`<div class="ttl" onclick="loadDb('${esc(t)}')"><img src="/static/img/solid/table.svg" class="ico ico-gray" alt=""> ${esc(t)}</div>`).join('');
+        const ligneTaille=s=>`<tr><td><a href="#" onclick="loadDb('${esc(s.table_name)}');return false">${esc(s.table_name)}</a></td><td>${Number(s.rws).toLocaleString()}</td><td>${s.sz}</td><td><div class="pg"><div class="pgb ${clPour(s.sz)}" style="width:${pctPour(s.sz)}%"></div></div></td></tr>`;
+        const tablesBase=tables.filter(t=>!EXT_TABLES.has(t)), tablesExt=tables.filter(t=>EXT_TABLES.has(t));
+        const sizesBase=sizes.filter(s=>!EXT_TABLES.has(s.table_name)), sizesExt=sizes.filter(s=>EXT_TABLES.has(s.table_name));
+        document.getElementById('db-content').innerHTML=`
+            <div class="card"><div class="ch"><span><img src="/static/img/solid/table-list.svg" class="ico ico-accent" alt=""> Tables du coeur VEX (${tablesBase.length})</span></div><div class="cb"><div class="tgr">${listeTables(tablesBase)}</div></div></div>
+            ${tablesExt.length?`<div class="card" style="margin-top:16px"><div class="ch"><span><img src="/static/img/solid/puzzle-piece.svg" class="ico ico-accent" alt=""> Tables des extensions (${tablesExt.length})</span></div><div class="cb"><div class="tgr">${listeTables(tablesExt)}</div></div></div>`:''}
+            <div class="card" style="margin-top:16px"><div class="ch"><span><img src="/static/img/solid/chart-bar.svg" class="ico ico-accent" alt=""> Taille des tables — coeur VEX</span></div><div style="overflow-x:auto"><table class="t"><thead><tr><th>Table</th><th>Lignes</th><th>Taille (KB)</th><th></th></tr></thead><tbody>${sizesBase.map(ligneTaille).join('')}</tbody></table></div></div>
+            ${sizesExt.length?`<div class="card" style="margin-top:16px"><div class="ch"><span><img src="/static/img/solid/chart-bar.svg" class="ico ico-accent" alt=""> Taille des tables — extensions</span></div><div style="overflow-x:auto"><table class="t"><thead><tr><th>Table</th><th>Lignes</th><th>Taille (KB)</th><th></th></tr></thead><tbody>${sizesExt.map(ligneTaille).join('')}</tbody></table></div></div>`:''}`;
     }else{
         const r=await api(`/db/table/${encodeURIComponent(table)}?page=${page}`);if(!r.success){flash(r.error,true);return;}
         const d=r.data;IS_SUPER=d.is_super||false;DB_COLS=d.cols||[];
@@ -709,6 +722,9 @@ async function saveCfg(){
 
 /* ── Extensions ── */
 const BASE_APPS = new Set(['meet','onlyoffice','sitec','vexmail','mess','p2p','viso']);
+/* Tables creees par une extension (pas le coeur VEX) -- a completer si une
+   future extension ajoute sa propre table. */
+const EXT_TABLES = new Set(['vexia_audit']);
 let EXT_DATA={extensions:[],orphelins:[],build_cmd:'',build_status:{}};
 let EXT_FILE={name:'',b64:'',size:0};
 let BUILD_TIMER=null;
