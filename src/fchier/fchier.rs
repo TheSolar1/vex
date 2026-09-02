@@ -360,6 +360,7 @@ pub fn handle(pool: &DbPool, req: &mut Request) -> Response<std::io::Cursor<Vec<
             "delete" => api_delete(pool, req, uid),
             "move" => api_move(pool, req, uid),
             "download" => api_download(pool, req, uid),
+            "edit_content" => api_edit_content(pool, req, uid),
             "send_p2p" => api_send_p2p(pool, req, uid),
             _ => json_response(404, json!({"error":"Endpoint inconnu"})),
         };
@@ -1317,6 +1318,50 @@ fn api_rename(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
     };
     if res < 0 {
         return json_response(500, json!({"error":"Erreur renommage"}));
+    }
+    json_response(200, json!({"success":true}))
+}
+
+// ══════════════════════════════════════════════════════════════════
+// POST /api/fchier/edit_content — enregistre le contenu edite d'un
+// fichier texte depuis l'editeur en ligne. Reserve au proprietaire
+// (la clause id_utilisateur=uid scope la mise a jour, meme pattern que
+// api_rename : 0 ligne affectee si l'appelant n'est pas proprietaire).
+// ══════════════════════════════════════════════════════════════════
+fn api_edit_content(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::Cursor<Vec<u8>>> {
+    let body = match parse_json_body(req) {
+        Some(b) => b,
+        None => return json_response(400, json!({"error":"Corps invalide"})),
+    };
+    let item_id = body.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+    let contenu_b64 = body.get("contenu_b64").and_then(|v| v.as_str()).unwrap_or("");
+    if item_id == 0 {
+        return json_response(400, json!({"error":"id manquant"}));
+    }
+    // Limite volontairement basse : l'editeur en ligne vise les petits
+    // fichiers texte, pas un remplacement de l'upload pour gros fichiers.
+    const MAX_EDIT_B64: usize = 4_000_000;
+    if contenu_b64.len() > MAX_EDIT_B64 {
+        return json_response(400, json!({"error":"Fichier trop volumineux pour l'editeur en ligne (max ~3 Mo)."}));
+    }
+    if B64.decode(contenu_b64).is_err() {
+        return json_response(400, json!({"error":"Contenu invalide (base64 attendu)."}));
+    }
+    let taille_reelle = contenu_b64.len() as i64 * 3 / 4;
+    let res = inserer_ou_modifier(
+        pool,
+        "fichiers",
+        &[
+            ("fichier", mysql::Value::from(contenu_b64)),
+            ("taille", mysql::Value::from(taille_reelle)),
+        ],
+        &[
+            ("id", mysql::Value::from(item_id)),
+            ("id_utilisateur", mysql::Value::from(uid)),
+        ],
+    );
+    if res < 0 {
+        return json_response(500, json!({"error":"Erreur d'enregistrement"}));
     }
     json_response(200, json!({"success":true}))
 }

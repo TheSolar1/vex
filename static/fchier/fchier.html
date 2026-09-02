@@ -157,6 +157,11 @@ body {
 .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:color-mix(in srgb, var(--text) 50%, transparent); z-index:2000; align-items:center; justify-content:center; }
 .modal.active { display:flex; }
 .modal-content { background:var(--surface); border-radius:12px; padding:28px; width:90%; max-width:460px; box-shadow:0 8px 32px color-mix(in srgb, var(--text) 30%, transparent); }
+.modal-content.wide { max-width:860px; }
+#edit-textarea { width:100%; height:52vh; min-height:280px; resize:vertical; padding:12px 14px; border:1px solid var(--border);
+    border-radius:8px; font-family:var(--mono,monospace); font-size:13px; line-height:1.5; background:var(--input); color:var(--text); }
+#edit-textarea:focus { outline:none; border-color:var(--accent); }
+.edit-meta { font-size:12px; color:var(--text-m); margin-bottom:8px; display:flex; justify-content:space-between; }
 .modal-header { font-size:20px; font-weight:600; margin-bottom:20px; color:var(--text); display:flex; align-items:center; gap:10px; }
 .modal-body   { margin-bottom:20px; color:var(--text); }
 .modal-footer { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
@@ -337,6 +342,9 @@ __NAV_HTML__
   <div class="context-menu-item" id="ctx-download" onclick="handleAction('download')">
     <img class="ico ico-18 ico-muted" src="/static/img/solid/download.svg"> Télécharger
   </div>
+  <div class="context-menu-item" id="ctx-edit" onclick="handleAction('edit')">
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/file-lines.svg"> Voir / Éditer
+  </div>
   <div class="context-menu-item" onclick="handleAction('rename')">
     <img class="ico ico-18 ico-muted" src="/static/img/solid/pen-to-square.svg"> Renommer
   </div>
@@ -447,6 +455,26 @@ __NAV_HTML__
       <button class="btn btn-secondary" onclick="closeModal('renameModal')">Annuler</button>
       <button class="btn btn-primary" onclick="doRename()">
         <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> Renommer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Voir / Éditer -->
+<div class="modal" id="editModal">
+  <div class="modal-content wide">
+    <div class="modal-header">
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/file-lines.svg"> <span id="edit-modal-title">Voir / Éditer</span>
+    </div>
+    <div class="edit-meta">
+      <span id="edit-modal-info"></span>
+      <span id="edit-modal-statut"></span>
+    </div>
+    <textarea id="edit-textarea" spellcheck="false" placeholder="Chargement…"></textarea>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('editModal')">Fermer</button>
+      <button class="btn btn-primary" id="edit-save-btn" onclick="doSaveEdit()">
+        <img class="ico ico-sm ico-white" src="/static/img/solid/floppy-disk.svg"> Enregistrer
       </button>
     </div>
   </div>
@@ -1399,6 +1427,82 @@ async function downloadFile(item) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// VOIR / ÉDITER (fichiers texte)
+// ══════════════════════════════════════════════════════════════════
+const EXTENSIONS_TEXTE = ['txt','md','markdown','json','rs','js','ts','html','htm','css','csv','yml','yaml','toml','ini','xml','sh','py','log'];
+function estFichierTexte(nom) {
+  const ext = (nom.split('.').pop() || '').toLowerCase();
+  return EXTENSIONS_TEXTE.includes(ext);
+}
+
+let editState = { id: null, nom: '', mime: '' };
+
+async function openEditor(item) {
+  if (!requireCryptoSession()) return;
+  editState = { id: item.id, nom: item.nom || '', mime: '' };
+  document.getElementById('edit-modal-title').textContent = item.nom || 'Voir / Éditer';
+  document.getElementById('edit-modal-info').textContent = 'Chargement…';
+  document.getElementById('edit-modal-statut').textContent = '';
+  document.getElementById('edit-textarea').value = '';
+  document.getElementById('edit-textarea').disabled = true;
+  document.getElementById('edit-save-btn').disabled = true;
+  openModal('editModal');
+  try {
+    const r = await vexFetch(`/api/fchier/download?id=${item.id}`, { credentials:'include' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    if (!data.success) throw new Error(data.error || 'Erreur');
+    editState.mime = data.mime || 'text/plain';
+
+    const bytes = VEX.fromBase64(data.contenu);
+    let blob;
+    if (VEX.isConnected()) {
+      try {
+        blob = await VEX.dechiffrerFichier(new Blob([bytes]), editState.mime);
+      } catch (e) {
+        if (!e.message || !e.message.includes('non chiffré')) throw e;
+        blob = new Blob([bytes], { type: editState.mime });
+      }
+    } else {
+      throw new Error('Session expirée — reconnectez-vous pour ouvrir ce fichier chiffré');
+    }
+    const texte = await blob.text();
+    document.getElementById('edit-textarea').value = texte;
+    document.getElementById('edit-textarea').disabled = false;
+    document.getElementById('edit-save-btn').disabled = false;
+    document.getElementById('edit-modal-info').textContent = `${Math.round(texte.length/102.4)/10} Ko`;
+  } catch(e) {
+    document.getElementById('edit-modal-info').textContent = '';
+    document.getElementById('edit-textarea').placeholder = 'Erreur : ' + e.message;
+    toast('Erreur ouverture : ' + e.message, 'error');
+  }
+}
+
+async function doSaveEdit() {
+  if (!editState.id) return;
+  const btn = document.getElementById('edit-save-btn');
+  const statutEl = document.getElementById('edit-modal-statut');
+  btn.disabled = true; statutEl.textContent = 'Chiffrement…';
+  try {
+    const texte = document.getElementById('edit-textarea').value;
+    const file = new File([texte], editState.nom, { type: editState.mime || 'text/plain' });
+    const { blob } = await VEX.chiffrerFichier(file);
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const b64 = arrayBufferToBase64(bytes.buffer);
+    statutEl.textContent = 'Enregistrement…';
+    const r = await apiFetch('/api/fchier/edit_content', { id: editState.id, contenu_b64: b64 });
+    if (!r.success) throw new Error(r.error || 'Echec');
+    statutEl.textContent = 'Enregistré.';
+    toast('Fichier enregistré', 'ok');
+    loadData();
+  } catch(e) {
+    statutEl.textContent = '';
+    toast('Erreur enregistrement : ' + e.message, 'error');
+  }
+  btn.disabled = false;
+}
+
+// ══════════════════════════════════════════════════════════════════
 // CRUD
 // ══════════════════════════════════════════════════════════════════
 async function doCreateFolder() {
@@ -1491,8 +1595,9 @@ function openCtx(e, type, id, item) {
     document.getElementById('ctx-open-label').textContent = 'Ouvrir';
   }
   document.getElementById('ctx-download').style.display   = type === 'file'   ? 'flex' : 'none';
+  document.getElementById('ctx-edit').style.display       = (type === 'file' && estFichierTexte(item.nom || '')) ? 'flex' : 'none';
   document.getElementById('ctx-visibility').style.display = (type === 'page' || type === 'file') ? 'flex' : 'none';
-  document.getElementById('ctx-move').style.display       = (type === 'folder' || type === 'page') ? 'flex' : 'none';
+  document.getElementById('ctx-move').style.display       = (type === 'folder' || type === 'page' || type === 'file') ? 'flex' : 'none';
   document.getElementById('ctx-share').style.display      = type === 'file' || type === 'folder' ? 'flex' : 'none';
   document.getElementById('ctx-sendp2p').style.display    = type === 'file'   ? 'flex' : 'none';
   const menu = document.getElementById('contextMenu');
@@ -1515,6 +1620,7 @@ function handleAction(action) {
   if      (action === 'open'       && type === 'folder') { state.dossier = id; loadData(); }
   else if (action === 'open'       && type === 'page')   { window.open('/sitec?open=' + encodeURIComponent(id), '_blank'); }
   else if (action === 'download'   && type === 'file')   { downloadFile(item); }
+  else if (action === 'edit'        && type === 'file')   { openEditor(item); }
   else if (action === 'rename')     { document.getElementById('rename-input').value = name; openModal('renameModal'); }
   else if (action === 'share')      { document.getElementById('share-ids').value = item.partage || ''; openModal('shareModal'); }
   else if (action === 'send_p2p')   { document.getElementById('p2p-to-user').value=''; openModal('p2pModal'); }
