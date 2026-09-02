@@ -219,6 +219,7 @@ __NAV_HTML__
     <div class="sb-sep">Système</div>
     <div class="sb-a" data-sec="db"><img src="/static/img/solid/database.svg" alt=""> <span>Base de données</span></div>
     <div class="sb-a" data-sec="config"><img src="/static/img/solid/gear.svg" alt=""> <span>Configuration</span></div>
+    <div class="sb-a" data-sec="apps"><img src="/static/img/solid/cube.svg" alt=""> <span>Applications</span></div>
     <div class="sb-a" data-sec="extensions"><img src="/static/img/solid/puzzle-piece.svg" alt=""> <span>Extensions / Plugin</span></div>
     <div class="sb-a" data-sec="roles"><img src="/static/img/solid/id-badge.svg" alt=""> <span>Rôles &amp; Plans</span></div>
     <div class="sb-a" data-sec="server"><img src="/static/img/solid/server.svg" alt=""> <span>Serveur</span></div>
@@ -324,6 +325,12 @@ __NAV_HTML__
     <div class="sec" id="sec-config">
         <div class="pt"><img src="/static/img/solid/gear.svg" class="ico-accent" alt=""> Configuration <small>config.json</small></div>
         <div id="config-content"><div class="loading"><span class="spin"></span></div></div>
+    </div>
+
+    <!-- Applications de base -->
+    <div class="sec" id="sec-apps">
+        <div class="pt"><img src="/static/img/solid/cube.svg" class="ico-accent" alt=""> Applications</div>
+        <div id="apps-content"><div class="loading"><span class="spin"></span></div></div>
     </div>
 
     <!-- Extensions -->
@@ -441,7 +448,7 @@ function nav(sec){
     document.querySelectorAll('.sb-a[data-sec]').forEach(a=>a.classList.toggle('on',a.dataset.sec===sec));
     document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
     document.getElementById('sec-'+sec).classList.add('on');
-    ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,server:loadServer,logs:loadLogs,onlyoffice:loadEditor,p2p:loadP2p,extensions:loadExt,roles:loadRoles}[sec]||Function)();
+    ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,server:loadServer,logs:loadLogs,onlyoffice:loadEditor,p2p:loadP2p,apps:loadApps,extensions:loadExt,roles:loadRoles}[sec]||Function)();
     history.replaceState(null,'','?section='+sec);
 }
 function flash(msg,err=false){
@@ -788,20 +795,23 @@ function buildBanner(){
         <div id="build-log" style="display:none"><div class="lb" style="max-height:320px">${esc(bs.output||'(aucune sortie)')}</div></div>`;
 }
 function toggleBuildLog(){const el=document.getElementById('build-log');if(el)el.style.display=el.style.display==='none'?'':'none';}
+function refreshExtView(){S.section==='apps'?loadApps():loadExt();}
+
+async function loadApps(){
+    document.getElementById('apps-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const r=await api('/extensions');if(!r.success){flash(r.error,true);return;}
+    EXT_DATA=r.data;
+    const base=(EXT_DATA.extensions||[]).filter(e=>e.base_app);
+    document.getElementById('apps-content').innerHTML=base.length?base.map(extCard).join(''):'<div style="color:var(--text-m);font-size:.82rem;padding:12px">Aucune app de base configuree.</div>';
+}
 
 async function loadExt(){
     document.getElementById('ext-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
     const r=await api('/extensions');if(!r.success){flash(r.error,true);return;}
     EXT_DATA=r.data;
-    const exts=EXT_DATA.extensions||[];
-    const base=exts.filter(e=>e.base_app), autres=exts.filter(e=>!e.base_app);
+    const autres=(EXT_DATA.extensions||[]).filter(e=>!e.base_app);
 
     let html=buildBanner();
-
-    html+=`<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-m);margin-bottom:10px;display:flex;align-items:center;gap:8px"><img src="/static/img/solid/cube.svg" class="ico ico-accent" alt=""> Applications de base (${base.length})</div>`;
-    html+=base.length?base.map(extCard).join(''):'<div style="color:var(--text-m);font-size:.82rem;padding:12px">Aucune app de base configuree.</div>';
-
-    html+=`<div style="height:1px;background:var(--border);margin:20px 0"></div>`;
 
     html+=`<div class="card" style="margin-bottom:18px;border-left:3px solid var(--accent)"><div class="ch">
         <span><img src="/static/img/solid/store.svg" class="ico ico-accent" alt=""> Extensions / Plugin</span>
@@ -1045,7 +1055,7 @@ async function deleteExt(id){
 
 async function toggleExt(id,val){
     const r=await post('/extensions/permissions',{id,enabled:val});
-    if(r.success){flash('Extension '+(val==='true'?'activee':'desactivee')+'.');loadExt();}else flash(r.error,true);
+    if(r.success){flash('Extension '+(val==='true'?'activee':'desactivee')+'.');refreshExtView();}else flash(r.error,true);
 }
 
 async function saveExtMeta(id){
@@ -1064,7 +1074,7 @@ async function saveExtMeta(id){
         dashboard_tile:q('tile')?.value.trim()||'',
         admin_infos:q('infos')?.value.trim()||'',
     });
-    if(r.success){flash(r.message);loadExt();}else flash(r.error,true);
+    if(r.success){flash(r.message);refreshExtView();}else flash(r.error,true);
 }
 
 async function rebuildExt(){
