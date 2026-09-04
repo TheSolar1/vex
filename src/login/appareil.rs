@@ -398,14 +398,67 @@ const CHEMIN_EXE_CLOUDSYNC: &str = "static/downloads/vex-cloudsync.exe";
 // Doit rester identique a `BASE_URL_MARKER`/`BASE_URL_PAYLOAD_LEN` dans
 // clients/vex-cloudsync/src/main.rs.
 //
-// IMPORTANT : ceci sert un .exe SANS signature Authenticode valide.
-// `CHEMIN_EXE_CLOUDSYNC` doit pointer vers un build NON signe -- patcher
-// un fichier signe invalide sa signature de toute facon, donc le signer
-// avant patch n'aurait servi a rien. La copie SIGNEE (pour ceux qui
-// importent le certificat en confiance locale) reste distribuee separement
-// via la release GitHub, jamais patchee.
+// L'exe est patche (URL du serveur embarquee) PUIS signe a la volee via
+// osslsigncode -- patcher un fichier deja signe invaliderait sa signature,
+// donc l'ordre est impose : patch d'abord, signature ensuite, sur le
+// resultat final. `CHEMIN_EXE_CLOUDSYNC` doit donc pointer vers un build
+// NON signe (le patch le desynchroniserait de toute facon).
+//
+// SECURITE : la cle privee (keys/vex-codesign.pfx) vit sur CE serveur pour
+// permettre cette signature a la volee -- compromis explicitement valide
+// avec l'utilisateur (voir conversation). Si la cle ou le mot de passe
+// sont absents/invalides, on sert quand meme l'exe patche mais NON signe
+// plutot que de faire echouer tout le telechargement.
 const EXE_BASE_URL_MARKER: &[u8] = b"##VEXBASEURL##";
 const EXE_BASE_URL_PAYLOAD_LEN: usize = 240;
+const CHEMIN_CLE_SIGNATURE: &str = "keys/vex-codesign.pfx";
+const CHEMIN_MDP_SIGNATURE: &str = "keys/vex-codesign-password.txt";
+
+/// Signe `exe` avec osslsigncode + la cle stockee dans keys/. Retourne
+/// `None` (jamais une erreur bloquante) si la cle est absente ou si la
+/// signature echoue pour une raison quelconque -- le telechargement doit
+/// rester fonctionnel meme sans signature.
+fn signer_exe(exe: &[u8]) -> Option<Vec<u8>> {
+    let mdp = std::fs::read_to_string(CHEMIN_MDP_SIGNATURE).ok()?;
+    let mdp = mdp.trim();
+    if !std::path::Path::new(CHEMIN_CLE_SIGNATURE).exists() {
+        return None;
+    }
+
+    let horodatage = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let tmp_in = std::env::temp_dir().join(format!("vex-cloudsync-{horodatage}-in.exe"));
+    let tmp_out = std::env::temp_dir().join(format!("vex-cloudsync-{horodatage}-out.exe"));
+
+    if std::fs::write(&tmp_in, exe).is_err() {
+        return None;
+    }
+
+    let resultat = std::process::Command::new("osslsigncode")
+        .args([
+            "sign",
+            "-pkcs12", CHEMIN_CLE_SIGNATURE,
+            "-pass", mdp,
+            "-n", "VEX Cloud Sync",
+            "-t", "http://timestamp.digicert.com",
+            "-in",
+        ])
+        .arg(&tmp_in)
+        .arg("-out")
+        .arg(&tmp_out)
+        .output();
+
+    let signe = match resultat {
+        Ok(sortie) if sortie.status.success() => std::fs::read(&tmp_out).ok(),
+        _ => None,
+    };
+
+    let _ = std::fs::remove_file(&tmp_in);
+    let _ = std::fs::remove_file(&tmp_out);
+    signe
+}
 
 fn telecharger_bundle(
     pool: &DbPool,
@@ -462,6 +515,8 @@ fn telecharger_bundle(
     for (i, b) in exe[debut_payload..fin_payload].iter_mut().enumerate() {
         *b = base_url.as_bytes().get(i).copied().unwrap_or(b'#');
     }
+
+    let exe = signer_exe(&exe).unwrap_or(exe);
 
     Response::from_data(exe)
         .with_header(tiny_http::Header::from_bytes("Content-Type", "application/vnd.microsoft.portable-executable").unwrap())
