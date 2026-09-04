@@ -40,6 +40,42 @@ use vex_sync_client::api::VexClient;
 
 const PROVIDER_NAME: &str = "VEX";
 const DISPLAY_NAME: &str = "VEX";
+
+// ══════════════════════════════════════════════════════════════════
+// EMPLACEMENT DE CONFIGURATION EMBARQUE DANS LE BINAIRE
+// Le serveur (voir src/login/appareil.rs::telecharger_bundle) sert cet
+// .exe DIRECTEMENT (pas de zip / config.json a cote) en reecrivant ces
+// octets a la volee avec l'URL reelle du serveur, complete par des '#'
+// pour ne JAMAIS changer la taille du fichier (sinon tous les offsets du
+// binaire seraient decales et l'exe serait corrompu). Si l'exe est
+// compile normalement (jamais patche), l'emplacement reste rempli de
+// '#' -> on retombe alors sur la variable d'environnement VEX_BASE_URL.
+const BASE_URL_MARKER: &str = "##VEXBASEURL##";
+const BASE_URL_PAYLOAD_LEN: usize = 240;
+static BASE_URL_SLOT: [u8; BASE_URL_MARKER.len() + BASE_URL_PAYLOAD_LEN] = {
+    let mut buf = [b'#'; BASE_URL_MARKER.len() + BASE_URL_PAYLOAD_LEN];
+    let marqueur = BASE_URL_MARKER.as_bytes();
+    let mut i = 0;
+    while i < marqueur.len() {
+        buf[i] = marqueur[i];
+        i += 1;
+    }
+    buf
+};
+
+/// Lit l'URL du serveur embarquee dans le binaire par le serveur au moment
+/// du telechargement. `None` si l'exe n'a jamais ete patche (compile en
+/// local, par exemple) -- dans ce cas main() retombe sur VEX_BASE_URL.
+fn base_url_depuis_binaire() -> Option<String> {
+    let texte = std::str::from_utf8(&BASE_URL_SLOT).ok()?;
+    let apres_marqueur = texte.strip_prefix(BASE_URL_MARKER)?;
+    let url = apres_marqueur.trim_end_matches('#').trim();
+    if url.is_empty() {
+        None
+    } else {
+        Some(url.to_string())
+    }
+}
 /// Windows 10 version 1709 (Fall Creators Update) -- premiere version a
 /// exposer l'API Cloud Files. En dessous, l'enregistrement de la racine
 /// echoue de facon peu comprehensible ; on prefere le detecter avant et
@@ -380,7 +416,11 @@ fn nom_appareil() -> String {
 fn main() {
     verifier_compatibilite();
 
-    let base_url = env::var("VEX_BASE_URL").expect("VEX_BASE_URL requis").trim_end_matches('/').to_string();
+    let base_url = base_url_depuis_binaire()
+        .or_else(|| env::var("VEX_BASE_URL").ok())
+        .expect("VEX_BASE_URL requis (ou telecharge l'exe depuis Mon Compte > Synchronisation sur le site VEX, deja pre-configure)")
+        .trim_end_matches('/')
+        .to_string();
     // Le mot de passe reste necessaire EN LOCAL uniquement : il ne transite
     // jamais vers le serveur par ce chemin (voir device_auth.rs et
     // api.rs::Auth), mais la cle de chiffrement des fichiers en depend.

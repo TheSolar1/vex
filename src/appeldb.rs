@@ -505,6 +505,7 @@ pub fn lire_lignes_table(
     table: &str,
     limit: u64,
     offset: u64,
+    tri: Option<(&str, &str)>,
 ) -> Option<HashMap<String, Value>> {
     let tables_connues = lister_tables(pool);
     if !tables_connues.contains(&table.to_string()) {
@@ -512,15 +513,36 @@ pub fn lire_lignes_table(
     }
 
     let mut conn = pool.get_conn().ok()?;
-    let result: Vec<Row> = conn
-        .exec(
-            format!(
-                "SELECT * FROM `{}` LIMIT {} OFFSET {}",
-                table, limit, offset
-            ),
-            (),
-        )
-        .ok()?;
+
+    // Validation stricte AVANT interpolation dans le SQL : colonne de tri
+    // doit exister reellement dans la table (via DESCRIBE), direction
+    // limitee a ASC/DESC -- jamais de valeur utilisateur brute dans la
+    // requete (injection SQL sinon, meme si c'est l'admin qui la fournit).
+    let order_by = match tri {
+        Some((col, dir)) => {
+            let desc_rows: Vec<Row> = conn
+                .exec(format!("DESCRIBE `{}`", table), ())
+                .unwrap_or_default();
+            let colonnes_valides: Vec<String> = desc_rows
+                .into_iter()
+                .filter_map(|row| row.get::<String, _>("Field"))
+                .collect();
+            let dir_normalisee = if dir.eq_ignore_ascii_case("desc") { "DESC" } else { "ASC" };
+            if colonnes_valides.iter().any(|c| c == col) {
+                Some(format!("ORDER BY `{}` {}", col, dir_normalisee))
+            } else {
+                None
+            }
+        }
+        None => None,
+    };
+
+    let requete = match &order_by {
+        Some(clause) => format!("SELECT * FROM `{}` {} LIMIT {} OFFSET {}", table, clause, limit, offset),
+        None => format!("SELECT * FROM `{}` LIMIT {} OFFSET {}", table, limit, offset),
+    };
+
+    let result: Vec<Row> = conn.exec(requete, ()).ok()?;
 
     if result.is_empty() {
         let desc_rows: Vec<Row> = conn

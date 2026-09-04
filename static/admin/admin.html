@@ -601,7 +601,13 @@ async function delBlock(bid){if(!await confirmerDialogue('Supprimer ce blocage ?
 function toggleAllPages(){S.allChecked=!S.allChecked;document.querySelectorAll('#pages-grid input[type=checkbox]').forEach(c=>{c.checked=S.allChecked;c.closest('.page-chk').classList.toggle('checked',S.allChecked);});}
 
 /* ── Explorateur DB ── */
+function triDb(table,col){
+    if(S.dbSortCol===col){S.dbSortDir=S.dbSortDir==='desc'?'asc':'desc';}
+    else{S.dbSortCol=col;S.dbSortDir='asc';}
+    loadDb(table,S.dbPage);
+}
 async function loadDb(table=null,page=1){
+    if(table!==S.dbTable){S.dbSortCol=null;S.dbSortDir='asc';}
     S.dbTable=table;S.dbPage=page;
     document.getElementById('db-exec-view').style.display='none';
     document.getElementById('db-exec-view').classList.remove('on');
@@ -628,14 +634,17 @@ async function loadDb(table=null,page=1){
             <div class="card" style="margin-top:16px"><div class="ch"><span><img src="/static/img/solid/chart-bar.svg" class="ico ico-accent" alt=""> Taille des tables — coeur VEX</span></div><div style="overflow-x:auto"><table class="t"><thead><tr><th>Table</th><th>Lignes</th><th>Taille (KB)</th><th></th></tr></thead><tbody>${sizesBase.map(ligneTaille).join('')}</tbody></table></div></div>
             ${sizesExt.length?`<div class="card" style="margin-top:16px"><div class="ch"><span><img src="/static/img/solid/chart-bar.svg" class="ico ico-accent" alt=""> Taille des tables — extensions</span></div><div style="overflow-x:auto"><table class="t"><thead><tr><th>Table</th><th>Lignes</th><th>Taille (KB)</th><th></th></tr></thead><tbody>${sizesExt.map(ligneTaille).join('')}</tbody></table></div></div>`:''}`;
     }else{
-        const r=await api(`/db/table/${encodeURIComponent(table)}?page=${page}`);if(!r.success){flash(r.error,true);return;}
+        const sortCol=S.dbSortCol||'', sortDir=S.dbSortDir||'asc';
+        const sortQs=sortCol?`&sort_col=${encodeURIComponent(sortCol)}&sort_dir=${sortDir}`:'';
+        const r=await api(`/db/table/${encodeURIComponent(table)}?page=${page}${sortQs}`);if(!r.success){flash(r.error,true);return;}
         const d=r.data;IS_SUPER=d.is_super||false;DB_COLS=d.cols||[];
         document.getElementById('db-subtitle').textContent=`${d.table} — ${d.total} lignes`;
         document.getElementById('db-edit-bar').style.display=IS_SUPER?'':'none';
         let pgr='';
         if(d.total_pages>1){const pts=[];for(let p=Math.max(1,page-2);p<=Math.min(d.total_pages,page+2);p++)pts.push(`<button class="${p===page?'cur':''}" onclick="loadDb('${esc(table)}',${p})">${p}</button>`);pgr=`<div class="pgr">${page>1?`<button onclick="loadDb('${esc(table)}',${page-1})">&#9664;</button>`:''}${pts.join('')}${page<d.total_pages?`<button onclick="loadDb('${esc(table)}',${page+1})">&#9654;</button>`:''}</div>`;}
         const addBtn=IS_SUPER?`<button class="btn ba" onclick="showAddRow('${esc(table)}')"><img src="/static/img/solid/plus.svg" class="ico" style="filter:invert(1)" alt=""> Ajouter ligne</button>`:'';
-        const rows=d.rows.length===0?`<div style="padding:28px;text-align:center;color:var(--text-m)">Table vide</div>`:`<div style="overflow-x:auto"><table class="t"><thead><tr>${d.cols.map(c=>`<th>${esc(c)}</th>`).join('')}${IS_SUPER?'<th style="width:70px">Action</th>':''}</tr></thead><tbody>${d.rows.map(row=>`<tr>${d.cols.map(c=>{const val=String(row[c]??''),pk=String(row[d.cols[0]]??'');return IS_SUPER?`<td class="m cell-editable" onclick="editCell('${esc(table)}','${esc(c)}','${esc(val)}','${esc(d.cols[0])}','${esc(pk)}')" title="Cliquer pour modifier">${esc(val)}</td>`:`<td class="m">${esc(val)}</td>`;}).join('')}${IS_SUPER?`<td><button class="btn br2" onclick="delRow('${esc(table)}','${esc(d.cols[0])}','${esc(String(row[d.cols[0]]??''))}')"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Suppr.</button></td>`:''}</tr>`).join('')}</tbody></table></div>${pgr}`;
+        const flecheTri=c=>c!==sortCol?'':(sortDir==='desc'?' &#9660;':' &#9650;');
+        const rows=d.rows.length===0?`<div style="padding:28px;text-align:center;color:var(--text-m)">Table vide</div>`:`<div style="overflow-x:auto"><table class="t"><thead><tr>${d.cols.map(c=>`<th style="cursor:pointer;user-select:none" onclick="triDb('${esc(table)}','${esc(c)}')" title="Trier par ${esc(c)}">${esc(c)}${flecheTri(c)}</th>`).join('')}${IS_SUPER?'<th style="width:70px">Action</th>':''}</tr></thead><tbody>${d.rows.map(row=>`<tr>${d.cols.map(c=>{const val=String(row[c]??''),pk=String(row[d.cols[0]]??'');return IS_SUPER?`<td class="m cell-editable" onclick="editCell('${esc(table)}','${esc(c)}','${esc(val)}','${esc(d.cols[0])}','${esc(pk)}')" title="Cliquer pour modifier">${esc(val)}</td>`:`<td class="m">${esc(val)}</td>`;}).join('')}${IS_SUPER?`<td><button class="btn br2" onclick="delRow('${esc(table)}','${esc(d.cols[0])}','${esc(String(row[d.cols[0]]??''))}')"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Suppr.</button></td>`:''}</tr>`).join('')}</tbody></table></div>${pgr}`;
         document.getElementById('db-content').innerHTML=`<div style="margin-bottom:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn bg2" onclick="loadDb()"><img src="/static/img/solid/arrow-left.svg" class="ico ico-gray" alt=""> Toutes les tables</button>${addBtn}</div><div class="card"><div class="ch"><span><img src="/static/img/solid/table.svg" class="ico ico-accent" alt=""> <strong>${esc(table)}</strong></span><span style="color:var(--text-m);font-size:.78rem">${d.total.toLocaleString()} lignes — p.${d.page}</span></div>${rows}</div>`;
     }
 }

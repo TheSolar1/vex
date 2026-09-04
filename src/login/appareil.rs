@@ -395,6 +395,18 @@ fn api_revoquer(
 // ══════════════════════════════════════════════════════════════════
 const CHEMIN_EXE_CLOUDSYNC: &str = "static/downloads/vex-cloudsync.exe";
 
+// Doit rester identique a `BASE_URL_MARKER`/`BASE_URL_PAYLOAD_LEN` dans
+// clients/vex-cloudsync/src/main.rs.
+//
+// IMPORTANT : ceci sert un .exe SANS signature Authenticode valide.
+// `CHEMIN_EXE_CLOUDSYNC` doit pointer vers un build NON signe -- patcher
+// un fichier signe invalide sa signature de toute facon, donc le signer
+// avant patch n'aurait servi a rien. La copie SIGNEE (pour ceux qui
+// importent le certificat en confiance locale) reste distribuee separement
+// via la release GitHub, jamais patchee.
+const EXE_BASE_URL_MARKER: &[u8] = b"##VEXBASEURL##";
+const EXE_BASE_URL_PAYLOAD_LEN: usize = 240;
+
 fn telecharger_bundle(
     pool: &DbPool,
     request: &Request,
@@ -406,7 +418,7 @@ fn telecharger_bundle(
         return reponse_json(json!({"success": false, "error": "non authentifié"}), 401);
     }
 
-    let exe = match std::fs::read(CHEMIN_EXE_CLOUDSYNC) {
+    let mut exe = match std::fs::read(CHEMIN_EXE_CLOUDSYNC) {
         Ok(o) => o,
         Err(_) => {
             return reponse_json(
@@ -429,30 +441,34 @@ fn telecharger_bundle(
     // voir remarque remote_ip dans fchier.rs sur l'architecture derriere
     // Apache. On construit donc l'URL publique en HTTPS.
     let base_url = format!("https://{}", host);
-    let config = json!({"base_url": base_url}).to_string();
 
-    let mut buf = Vec::new();
-    {
-        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(&mut buf));
-        let options: zip::write::FileOptions<()> =
-            zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-
-        if zip.start_file("vex-cloudsync.exe", options).is_err()
-            || std::io::Write::write_all(&mut zip, &exe).is_err()
-            || zip.start_file("config.json", options).is_err()
-            || std::io::Write::write_all(&mut zip, config.as_bytes()).is_err()
-            || zip.finish().is_err()
-        {
-            return reponse_json(json!({"success": false, "error": "échec de génération de l'archive"}), 500);
-        }
+    if base_url.len() > EXE_BASE_URL_PAYLOAD_LEN {
+        return reponse_json(json!({"success": false, "error": "URL du serveur trop longue"}), 500);
     }
 
-    Response::from_data(buf)
-        .with_header(tiny_http::Header::from_bytes("Content-Type", "application/zip").unwrap())
+    let Some(pos) = exe
+        .windows(EXE_BASE_URL_MARKER.len())
+        .position(|w| w == EXE_BASE_URL_MARKER)
+    else {
+        return reponse_json(
+            json!({"success": false, "error": "vex-cloudsync.exe incompatible (emplacement de config introuvable)"}),
+            500,
+        );
+    };
+    let debut_payload = pos + EXE_BASE_URL_MARKER.len();
+    let fin_payload = debut_payload + EXE_BASE_URL_PAYLOAD_LEN;
+    // Reecrit l'URL puis complete par '#' -- la longueur totale du fichier
+    // ne change JAMAIS, seul le contenu de cet emplacement change.
+    for (i, b) in exe[debut_payload..fin_payload].iter_mut().enumerate() {
+        *b = base_url.as_bytes().get(i).copied().unwrap_or(b'#');
+    }
+
+    Response::from_data(exe)
+        .with_header(tiny_http::Header::from_bytes("Content-Type", "application/vnd.microsoft.portable-executable").unwrap())
         .with_header(
             tiny_http::Header::from_bytes(
                 "Content-Disposition",
-                "attachment; filename=\"vex-cloudsync.zip\"",
+                "attachment; filename=\"vex-cloudsync.exe\"",
             )
             .unwrap(),
         )

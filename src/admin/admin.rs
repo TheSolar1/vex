@@ -475,8 +475,11 @@ fn handle_api(
             let per_page = 30u64;
             let total = compter_lignes(pool, &table, &[]);
             let offset = (page - 1) * per_page;
+            let tri_col = query.get("sort_col").cloned();
+            let tri_dir = query.get("sort_dir").cloned().unwrap_or_else(|| "asc".into());
+            let tri = tri_col.as_deref().map(|c| (c, tri_dir.as_str()));
 
-            match lire_lignes_table(pool, &table, per_page, offset) {
+            match lire_lignes_table(pool, &table, per_page, offset, tri) {
                 Some(data) => json!({"success":true,"data":{
                     "table": table, "total": total,
                     "page": page,
