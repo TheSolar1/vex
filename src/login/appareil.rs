@@ -78,8 +78,8 @@ pub fn handle_request(mut request: Request, pool: &DbPool, remote_ip: &str) {
         ("POST", "/api/appareil/revoquer") => {
             api_revoquer(&mut request, pool, &cookie_val, remote_ip, &user_agent)
         }
-        ("GET", "/api/appareil/telecharger") => {
-            telecharger_bundle(pool, &cookie_val, remote_ip, &user_agent)
+        ("GET", "/api/appareil/telecharger") | ("HEAD", "/api/appareil/telecharger") => {
+            telecharger_bundle(pool, &methode, &cookie_val, remote_ip, &user_agent)
         }
         _ => reponse_json(json!({"success": false, "error": "route inconnue"}), 404),
     };
@@ -402,8 +402,17 @@ const CHEMIN_EXE_CLOUDSYNC: &str = "static/downloads/vex-cloudsync.exe";
 // ne signe plus rien a la volee -- la cle privee de signature ne doit
 // JAMAIS se trouver sur ce serveur (decide explicitement avec
 // l'utilisateur apres avoir pese le compromis de securite).
+// BUG CORRIGE (constate en pratique) : sans "Accept-Ranges: none", le
+// gestionnaire de telechargement d'Edge/Chrome declenche un telechargement
+// SEGMENTE en parallele (plusieurs requetes GET avec en-tete Range) pour
+// les fichiers de cette taille. tiny_http ignorait Range et renvoyait
+// l'exe COMPLET a chaque segment -> reassemblage corrompu cote navigateur
+// (fichier final a 0 Ko, plusieurs .part visibles). Declarer explicitement
+// qu'on ne supporte pas les requetes par plage force un telechargement
+// simple, sequentiel, fiable.
 fn telecharger_bundle(
     pool: &DbPool,
+    methode: &str,
     cookie_val: &str,
     remote_ip: &str,
     user_agent: &str,
@@ -422,7 +431,11 @@ fn telecharger_bundle(
         }
     };
 
-    Response::from_data(exe)
+    // HEAD : memes en-tetes, mais pas de corps (les navigateurs l'utilisent
+    // parfois pour sonder taille/support des plages avant de telecharger).
+    let corps = if methode == "HEAD" { Vec::new() } else { exe };
+
+    Response::from_data(corps)
         .with_header(tiny_http::Header::from_bytes("Content-Type", "application/vnd.microsoft.portable-executable").unwrap())
         .with_header(
             tiny_http::Header::from_bytes(
@@ -431,6 +444,7 @@ fn telecharger_bundle(
             )
             .unwrap(),
         )
+        .with_header(tiny_http::Header::from_bytes("Accept-Ranges", "none").unwrap())
 }
 
 // ══════════════════════════════════════════════════════════════════
