@@ -63,9 +63,20 @@ fn interroger_statut(agent: &ureq::Agent, base_url: &str, code: &str) -> Result<
 }
 
 fn ouvrir_navigateur(url: &str) {
-    // Meme technique que vex-sync-client (cmd /C start + CREATE_NO_WINDOW
-    // echouait silencieusement -- explorer.exe fonctionne de facon fiable).
-    let _ = std::process::Command::new("explorer").arg(url).spawn();
+    // ShellExecuteW (API Win32 officielle pour "ouvrir ce lien avec le
+    // gestionnaire par defaut") -- plus fiable qu'un sous-processus
+    // explorer.exe, qui peut reussir silencieusement en arriere-plan sans
+    // jamais passer au premier plan (l'utilisateur croit alors que rien ne
+    // s'est passe).
+    use windows::core::HSTRING;
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+
+    let url_w = HSTRING::from(url);
+    let verbe = HSTRING::from("open");
+    unsafe {
+        ShellExecuteW(None, &verbe, &url_w, None, None, SW_SHOWNORMAL);
+    }
 }
 
 /// Lance le flux complet : demande un code, ouvre le navigateur sur la

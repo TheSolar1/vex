@@ -2011,6 +2011,7 @@ dependencies = [
  "sha2",
  "ureq",
  "vex-sync-client",
+ "windows",
  "winresource",
 ]
 

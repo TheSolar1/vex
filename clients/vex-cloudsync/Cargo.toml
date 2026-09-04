@@ -33,5 +33,9 @@ getrandom = { version = "0.2", features = ["std"] }
 # pas de duplication.
 vex-sync-client = { path = "../vex-sync-client" }
 
+# ShellExecuteW pour ouvrir le navigateur -- plus fiable que lancer
+# explorer.exe en sous-processus (voir device_auth.rs::ouvrir_navigateur).
+windows = { version = "0.58", features = ["Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_Foundation"] }
+
 [build-dependencies]
 winresource = "0.1"
