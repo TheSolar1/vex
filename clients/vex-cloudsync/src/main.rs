@@ -413,7 +413,37 @@ fn nom_appareil() -> String {
     env::var("COMPUTERNAME").unwrap_or_else(|_| "Appareil Windows".to_string())
 }
 
+/// Attend que l'utilisateur appuie sur Entree avant de fermer la fenetre --
+/// sans ca, un lancement par double-clic depuis l'Explorateur ouvre une
+/// console qui se referme instantanement des qu'une erreur survient (ou
+/// meme a la fin normale), impossible a lire ("un cmd qui flashe").
+fn attendre_avant_fermeture() {
+    println!("\nAppuie sur Entree pour fermer cette fenetre...");
+    let mut buf = String::new();
+    let _ = std::io::stdin().read_line(&mut buf);
+}
+
+/// Demande le mot de passe de facon interactive si VEX_PASSWORD n'est pas
+/// deja fourni. Indispensable pour un lancement par double-clic (aucun
+/// moyen pour l'utilisateur de positionner une variable d'environnement
+/// dans ce cas) -- jamais envoye au serveur, voir device_auth.rs.
+fn demander_mot_de_passe() -> String {
+    println!("Mot de passe VEX (sert uniquement a chiffrer/dechiffrer tes fichiers en local, jamais envoye au serveur) :");
+    let mut buf = String::new();
+    std::io::stdin().read_line(&mut buf).expect("lecture du mot de passe impossible");
+    buf.trim().to_string()
+}
+
 fn main() {
+    // Toute panique (.expect() etc.) affiche son message normalement PUIS
+    // attend une touche -- sinon la fenetre se ferme avant que quiconque
+    // ait pu lire quoi que ce soit.
+    let hook_defaut = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        hook_defaut(info);
+        attendre_avant_fermeture();
+    }));
+
     verifier_compatibilite();
 
     let base_url = base_url_depuis_binaire()
@@ -424,9 +454,10 @@ fn main() {
     // Le mot de passe reste necessaire EN LOCAL uniquement : il ne transite
     // jamais vers le serveur par ce chemin (voir device_auth.rs et
     // api.rs::Auth), mais la cle de chiffrement des fichiers en depend.
-    let password = env::var("VEX_PASSWORD").expect(
-        "VEX_PASSWORD requis (sert uniquement au chiffrement local des fichiers, jamais envoye au serveur)",
-    );
+    let password = match env::var("VEX_PASSWORD") {
+        Ok(p) => p,
+        Err(_) => demander_mot_de_passe(),
+    };
     let client_path = get_client_path();
     // Deux icones distinctes (feedback utilisateur) : le dossier teinte VEX
     // pour la racine de synchro dans l'Explorateur (comme OneDrive/GDrive),
