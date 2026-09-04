@@ -42,39 +42,35 @@ const PROVIDER_NAME: &str = "VEX";
 const DISPLAY_NAME: &str = "VEX";
 
 // ══════════════════════════════════════════════════════════════════
-// EMPLACEMENT DE CONFIGURATION EMBARQUE DANS LE BINAIRE
-// Le serveur (voir src/login/appareil.rs::telecharger_bundle) sert cet
-// .exe DIRECTEMENT (pas de zip / config.json a cote) en reecrivant ces
-// octets a la volee avec l'URL reelle du serveur, complete par des '#'
-// pour ne JAMAIS changer la taille du fichier (sinon tous les offsets du
-// binaire seraient decales et l'exe serait corrompu). Si l'exe est
-// compile normalement (jamais patche), l'emplacement reste rempli de
-// '#' -> on retombe alors sur la variable d'environnement VEX_BASE_URL.
-const BASE_URL_MARKER: &str = "##VEXBASEURL##";
-const BASE_URL_PAYLOAD_LEN: usize = 240;
-static BASE_URL_SLOT: [u8; BASE_URL_MARKER.len() + BASE_URL_PAYLOAD_LEN] = {
-    let mut buf = [b'#'; BASE_URL_MARKER.len() + BASE_URL_PAYLOAD_LEN];
-    let marqueur = BASE_URL_MARKER.as_bytes();
-    let mut i = 0;
-    while i < marqueur.len() {
-        buf[i] = marqueur[i];
-        i += 1;
-    }
-    buf
-};
+// DETECTION ADAPTATIVE DE L'URL DU SERVEUR
+// L'exe est un fichier STATIQUE, signe une fois pour toutes en local (la
+// cle de signature ne quitte jamais le PC de dev -- voir conversation :
+// patcher un fichier signe casse sa signature, et signer a la volee cote
+// serveur exigerait d'y mettre la cle, refuse pour des raisons de
+// securite). L'"adaptatif" se fait donc cote CLIENT : au demarrage, on
+// essaie chaque URL candidate et on garde la premiere qui repond -- utile
+// tant que l'acces public (vex.hopto.org) et l'acces local (IP du Pi) ne
+// sont pas garantis fonctionner en meme temps (probleme de routeur en
+// cours, voir conversation).
+const BASE_URL_CANDIDATS: &[&str] = &["https://vex.hopto.org", "http://192.168.1.14:8080"];
 
-/// Lit l'URL du serveur embarquee dans le binaire par le serveur au moment
-/// du telechargement. `None` si l'exe n'a jamais ete patche (compile en
-/// local, par exemple) -- dans ce cas main() retombe sur VEX_BASE_URL.
-fn base_url_depuis_binaire() -> Option<String> {
-    let texte = std::str::from_utf8(&BASE_URL_SLOT).ok()?;
-    let apres_marqueur = texte.strip_prefix(BASE_URL_MARKER)?;
-    let url = apres_marqueur.trim_end_matches('#').trim();
-    if url.is_empty() {
-        None
-    } else {
-        Some(url.to_string())
+/// Essaie VEX_BASE_URL en priorite (utile pour les tests/dev), sinon
+/// interroge chaque candidat (timeout court) et garde le premier qui
+/// repond. Un endpoint sans auth et toujours 200 (meme pour un code
+/// inconnu) sert de "ping".
+fn detecter_base_url() -> Option<String> {
+    if let Ok(v) = env::var("VEX_BASE_URL") {
+        return Some(v);
     }
+    let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(4)).build();
+    for candidat in BASE_URL_CANDIDATS {
+        println!("Test de connexion a {candidat}...");
+        if agent.get(&format!("{candidat}/api/appareil/statut?code=ping")).call().is_ok() {
+            println!("-> {candidat} repond, utilise pour cette session.");
+            return Some(candidat.to_string());
+        }
+    }
+    None
 }
 /// Windows 10 version 1709 (Fall Creators Update) -- premiere version a
 /// exposer l'API Cloud Files. En dessous, l'enregistrement de la racine
@@ -446,9 +442,8 @@ fn main() {
 
     verifier_compatibilite();
 
-    let base_url = base_url_depuis_binaire()
-        .or_else(|| env::var("VEX_BASE_URL").ok())
-        .expect("VEX_BASE_URL requis (ou telecharge l'exe depuis Mon Compte > Synchronisation sur le site VEX, deja pre-configure)")
+    let base_url = detecter_base_url()
+        .expect("Impossible de joindre le serveur VEX (aucune des adresses connues ne repond -- verifie ta connexion).")
         .trim_end_matches('/')
         .to_string();
     // Le mot de passe reste necessaire EN LOCAL uniquement : il ne transite

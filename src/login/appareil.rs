@@ -79,7 +79,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, remote_ip: &str) {
             api_revoquer(&mut request, pool, &cookie_val, remote_ip, &user_agent)
         }
         ("GET", "/api/appareil/telecharger") => {
-            telecharger_bundle(pool, &request, &cookie_val, remote_ip, &user_agent)
+            telecharger_bundle(pool, &cookie_val, remote_ip, &user_agent)
         }
         _ => reponse_json(json!({"success": false, "error": "route inconnue"}), 404),
     };
@@ -395,74 +395,15 @@ fn api_revoquer(
 // ══════════════════════════════════════════════════════════════════
 const CHEMIN_EXE_CLOUDSYNC: &str = "static/downloads/vex-cloudsync.exe";
 
-// Doit rester identique a `BASE_URL_MARKER`/`BASE_URL_PAYLOAD_LEN` dans
-// clients/vex-cloudsync/src/main.rs.
-//
-// L'exe est patche (URL du serveur embarquee) PUIS signe a la volee via
-// osslsigncode -- patcher un fichier deja signe invaliderait sa signature,
-// donc l'ordre est impose : patch d'abord, signature ensuite, sur le
-// resultat final. `CHEMIN_EXE_CLOUDSYNC` doit donc pointer vers un build
-// NON signe (le patch le desynchroniserait de toute facon).
-//
-// SECURITE : la cle privee (keys/vex-codesign.pfx) vit sur CE serveur pour
-// permettre cette signature a la volee -- compromis explicitement valide
-// avec l'utilisateur (voir conversation). Si la cle ou le mot de passe
-// sont absents/invalides, on sert quand meme l'exe patche mais NON signe
-// plutot que de faire echouer tout le telechargement.
-const EXE_BASE_URL_MARKER: &[u8] = b"##VEXBASEURL##";
-const EXE_BASE_URL_PAYLOAD_LEN: usize = 240;
-const CHEMIN_CLE_SIGNATURE: &str = "keys/vex-codesign.pfx";
-const CHEMIN_MDP_SIGNATURE: &str = "keys/vex-codesign-password.txt";
-
-/// Signe `exe` avec osslsigncode + la cle stockee dans keys/. Retourne
-/// `None` (jamais une erreur bloquante) si la cle est absente ou si la
-/// signature echoue pour une raison quelconque -- le telechargement doit
-/// rester fonctionnel meme sans signature.
-fn signer_exe(exe: &[u8]) -> Option<Vec<u8>> {
-    let mdp = std::fs::read_to_string(CHEMIN_MDP_SIGNATURE).ok()?;
-    let mdp = mdp.trim();
-    if !std::path::Path::new(CHEMIN_CLE_SIGNATURE).exists() {
-        return None;
-    }
-
-    let horodatage = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    let tmp_in = std::env::temp_dir().join(format!("vex-cloudsync-{horodatage}-in.exe"));
-    let tmp_out = std::env::temp_dir().join(format!("vex-cloudsync-{horodatage}-out.exe"));
-
-    if std::fs::write(&tmp_in, exe).is_err() {
-        return None;
-    }
-
-    let resultat = std::process::Command::new("osslsigncode")
-        .args([
-            "sign",
-            "-pkcs12", CHEMIN_CLE_SIGNATURE,
-            "-pass", mdp,
-            "-n", "VEX Cloud Sync",
-            "-t", "http://timestamp.digicert.com",
-            "-in",
-        ])
-        .arg(&tmp_in)
-        .arg("-out")
-        .arg(&tmp_out)
-        .output();
-
-    let signe = match resultat {
-        Ok(sortie) if sortie.status.success() => std::fs::read(&tmp_out).ok(),
-        _ => None,
-    };
-
-    let _ = std::fs::remove_file(&tmp_in);
-    let _ = std::fs::remove_file(&tmp_out);
-    signe
-}
-
+// L'exe hebergee ici est un fichier STATIQUE : deja pre-configuree (essaie
+// plusieurs URLs connues au demarrage, voir BASE_URL_CANDIDATS dans
+// clients/vex-cloudsync/src/main.rs) et deja signee EN LOCAL par le
+// developpeur avant d'etre placee ici. Le serveur ne patche plus rien et
+// ne signe plus rien a la volee -- la cle privee de signature ne doit
+// JAMAIS se trouver sur ce serveur (decide explicitement avec
+// l'utilisateur apres avoir pese le compromis de securite).
 fn telecharger_bundle(
     pool: &DbPool,
-    request: &Request,
     cookie_val: &str,
     remote_ip: &str,
     user_agent: &str,
@@ -471,7 +412,7 @@ fn telecharger_bundle(
         return reponse_json(json!({"success": false, "error": "non authentifié"}), 401);
     }
 
-    let mut exe = match std::fs::read(CHEMIN_EXE_CLOUDSYNC) {
+    let exe = match std::fs::read(CHEMIN_EXE_CLOUDSYNC) {
         Ok(o) => o,
         Err(_) => {
             return reponse_json(
@@ -480,43 +421,6 @@ fn telecharger_bundle(
             )
         }
     };
-
-    let host = request
-        .headers()
-        .iter()
-        .find(|h| h.field.as_str().to_ascii_lowercase() == "host")
-        .map(|h| h.value.as_str().to_string())
-        .unwrap_or_default();
-    if host.is_empty() {
-        return reponse_json(json!({"success": false, "error": "en-tête Host manquant"}), 400);
-    }
-    // Le site n'est servi qu'en HTTPS en production (reverse proxy) --
-    // voir remarque remote_ip dans fchier.rs sur l'architecture derriere
-    // Apache. On construit donc l'URL publique en HTTPS.
-    let base_url = format!("https://{}", host);
-
-    if base_url.len() > EXE_BASE_URL_PAYLOAD_LEN {
-        return reponse_json(json!({"success": false, "error": "URL du serveur trop longue"}), 500);
-    }
-
-    let Some(pos) = exe
-        .windows(EXE_BASE_URL_MARKER.len())
-        .position(|w| w == EXE_BASE_URL_MARKER)
-    else {
-        return reponse_json(
-            json!({"success": false, "error": "vex-cloudsync.exe incompatible (emplacement de config introuvable)"}),
-            500,
-        );
-    };
-    let debut_payload = pos + EXE_BASE_URL_MARKER.len();
-    let fin_payload = debut_payload + EXE_BASE_URL_PAYLOAD_LEN;
-    // Reecrit l'URL puis complete par '#' -- la longueur totale du fichier
-    // ne change JAMAIS, seul le contenu de cet emplacement change.
-    for (i, b) in exe[debut_payload..fin_payload].iter_mut().enumerate() {
-        *b = base_url.as_bytes().get(i).copied().unwrap_or(b'#');
-    }
-
-    let exe = signer_exe(&exe).unwrap_or(exe);
 
     Response::from_data(exe)
         .with_header(tiny_http::Header::from_bytes("Content-Type", "application/vnd.microsoft.portable-executable").unwrap())
