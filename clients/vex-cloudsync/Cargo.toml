@@ -1,0 +1,37 @@
+[package]
+name = "vex-cloudsync"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "vex-cloudsync"
+path = "src/main.rs"
+
+[[bin]]
+name = "preptest"
+path = "src/bin/preptest.rs"
+
+[[bin]]
+name = "checkremote"
+path = "src/bin/checkremote.rs"
+
+[[bin]]
+name = "approuver_test"
+path = "src/bin/approuver_test.rs"
+
+[dependencies]
+cloud-filter = "0.0.6"
+ctrlc = "3"
+serde_json = "1"
+ureq = { version = "2", features = ["json", "tls"] }
+num-bigint = "0.4"
+num-traits = "0.2"
+sha2 = "0.10"
+getrandom = { version = "0.2", features = ["std"] }
+
+# Reutilise VexClient/filecrypto/srp deja ecrits et testes ce soir --
+# pas de duplication.
+vex-sync-client = { path = "../vex-sync-client" }
+
+[build-dependencies]
+winresource = "0.1"

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>VEX Sync</title>
+<style>
+  :root {
+    --bg:#0f1115; --surface:#171a21; --surface2:#1e222b; --border:#2a2f3a;
+    --text:#e7e9ee; --text-m:#9aa2b1; --accent:#4caf50; --accent-d:#2e7d32; --danger:#e5484d;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    display:flex; justify-content:center; padding:40px 16px;
+  }
+  .carte { width:100%; max-width:460px; background:var(--surface); border:1px solid var(--border);
+    border-radius:14px; padding:28px 26px; box-shadow:0 10px 40px rgba(0,0,0,.35); }
+  .entete { display:flex; align-items:center; gap:12px; margin-bottom:22px; }
+  .logo { width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,var(--accent),var(--accent-d));
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:18px; color:#fff; flex-shrink:0; }
+  .titre { font-size:17px; font-weight:700; }
+  .sous-titre { font-size:12px; color:var(--text-m); margin-top:2px; }
+  label { display:block; font-size:12px; color:var(--text-m); margin:14px 0 6px; font-weight:600; }
+  input[type=text], input[type=email], input[type=password], input[type=url] {
+    width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px;
+    background:var(--surface2); color:var(--text); font-size:13.5px; font-family:inherit;
+  }
+  input:focus { outline:none; border-color:var(--accent); }
+  .liste-dossiers { display:flex; flex-direction:column; gap:2px; margin-top:6px; }
+  .ligne-dossier { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; cursor:pointer; }
+  .ligne-dossier:hover { background:var(--surface2); }
+  .ligne-dossier input[type=checkbox] { width:16px; height:16px; accent-color:var(--accent); flex-shrink:0; }
+  .ligne-dossier .nom { font-size:13.5px; font-weight:600; }
+  .ligne-dossier .chemin { font-size:11px; color:var(--text-m); font-family:monospace; }
+  .perso-bar { display:flex; gap:8px; margin-top:10px; }
+  .perso-bar input { flex:1; }
+  button { font-family:inherit; cursor:pointer; border:none; border-radius:8px; font-size:13.5px; font-weight:600; }
+  .btn-secondaire { background:var(--surface2); color:var(--text); border:1px solid var(--border); padding:9px 14px; }
+  .btn-secondaire:hover { background:var(--border); }
+  .btn-principal { width:100%; margin-top:22px; padding:12px; background:var(--accent); color:#fff; font-size:14.5px; }
+  .btn-principal:hover { background:var(--accent-d); }
+  .btn-principal:disabled { opacity:.5; cursor:not-allowed; }
+  .msg { margin-top:14px; font-size:13px; padding:10px 12px; border-radius:8px; display:none; }
+  .msg.erreur { background:rgba(229,72,77,.12); color:#ff8b8e; display:block; }
+  .msg.ok { background:rgba(76,175,80,.12); color:#8fe08f; display:block; }
+  .deja-configure { font-size:12px; color:var(--text-m); background:var(--surface2); border:1px solid var(--border);
+    border-radius:8px; padding:10px 12px; margin-top:6px; line-height:1.6; }
+  .spin { display:inline-block; width:13px; height:13px; border:2px solid rgba(255,255,255,.4); border-top-color:#fff;
+    border-radius:50%; animation:tourne .7s linear infinite; vertical-align:-2px; margin-right:6px; }
+  @keyframes tourne { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="carte">
+  <div class="entete">
+    <div class="logo">V</div>
+    <div>
+      <div class="titre">VEX Sync</div>
+      <div class="sous-titre">Synchronisation de dossiers avec ton serveur VEX</div>
+    </div>
+  </div>
+
+  <div id="deja-configure-zone"></div>
+
+  <label for="url">Adresse du serveur</label>
+  <input type="url" id="url" placeholder="https://vex.hopto.org">
+
+  <label for="email">Email</label>
+  <input type="email" id="email" placeholder="toi@exemple.fr">
+
+  <label for="mdp">Mot de passe <span style="font-weight:400;color:var(--text-m)">(jamais enregistré)</span></label>
+  <input type="password" id="mdp" placeholder="••••••••">
+
+  <label>Dossiers à synchroniser</label>
+  <div class="liste-dossiers" id="liste-dossiers">
+    <div style="font-size:12px;color:var(--text-m);padding:8px">Chargement…</div>
+  </div>
+  <div class="perso-bar">
+    <input type="text" id="dossier-perso" placeholder="Dossier personnalisé…" readonly>
+    <button class="btn-secondaire" onclick="parcourir()">Parcourir…</button>
+  </div>
+
+  <button class="btn-principal" id="btn-connecter" onclick="connecter()">Se connecter et synchroniser</button>
+  <div class="msg" id="msg"></div>
+</div>
+
+<script>
+let DOSSIERS_STANDARDS = [];
+let DOSSIER_PERSO = null;
+
+async function charger() {
+  try {
+    const r = await fetch('/api/statut');
+    const d = await r.json();
+    document.getElementById('url').value = d.base_url || 'https://vex.hopto.org';
+    document.getElementById('email').value = d.email || '';
+    if (d.dossiers && d.dossiers.length) {
+      const zone = document.getElementById('deja-configure-zone');
+      zone.innerHTML = `<div class="deja-configure">Déjà configuré : <strong>${d.dossiers.map(x=>esc(x.nom)).join(', ')}</strong>.<br>Reconnecte-toi pour reprendre la synchronisation, ou change la sélection ci-dessous.</div>`;
+    }
+  } catch(e) {}
+
+  try {
+    const r = await fetch('/api/dossiers-standards');
+    DOSSIERS_STANDARDS = await r.json();
+  } catch(e) { DOSSIERS_STANDARDS = []; }
+  rendreListe();
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function rendreListe() {
+  const box = document.getElementById('liste-dossiers');
+  if (!DOSSIERS_STANDARDS.length) { box.innerHTML = '<div style="font-size:12px;color:var(--text-m);padding:8px">Aucun dossier standard détecté.</div>'; return; }
+  box.innerHTML = DOSSIERS_STANDARDS.map((d,i) => `
+    <label class="ligne-dossier">
+      <input type="checkbox" data-idx="${i}" ${d.recommande ? 'checked' : ''}>
+      <div>
+        <div class="nom">${esc(d.nom)}</div>
+        <div class="chemin">${esc(d.chemin)}</div>
+      </div>
+    </label>`).join('');
+}
+
+async function parcourir() {
+  try {
+    const r = await fetch('/api/parcourir', { method:'POST' });
+    const d = await r.json();
+    if (d.chemin) {
+      DOSSIER_PERSO = d.chemin;
+      document.getElementById('dossier-perso').value = d.chemin;
+    }
+  } catch(e) {}
+}
+
+function afficherMsg(texte, erreur) {
+  const el = document.getElementById('msg');
+  el.className = 'msg ' + (erreur ? 'erreur' : 'ok');
+  el.textContent = texte;
+}
+
+async function connecter() {
+  const btn = document.getElementById('btn-connecter');
+  const url = document.getElementById('url').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const mdp = document.getElementById('mdp').value;
+  if (!url || !email || !mdp) { afficherMsg('Remplis l\'adresse du serveur, l\'email et le mot de passe.', true); return; }
+
+  const dossiers = [];
+  document.querySelectorAll('#liste-dossiers input[type=checkbox]:checked').forEach(cb => {
+    const d = DOSSIERS_STANDARDS[Number(cb.dataset.idx)];
+    dossiers.push({ nom: d.nom, chemin: d.chemin });
+  });
+  if (DOSSIER_PERSO) dossiers.push({ nom: DOSSIER_PERSO.split(/[\\\/]/).pop() || 'Personnalise', chemin: DOSSIER_PERSO });
+  if (!dossiers.length) { afficherMsg('Choisis au moins un dossier à synchroniser.', true); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Connexion…';
+  try {
+    const r = await fetch('/api/connecter', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ base_url:url, email, password:mdp, dossiers }),
+    });
+    const d = await r.json();
+    if (d.success) {
+      afficherMsg('Connecté ! La synchronisation a démarré en arrière-plan. Tu peux fermer cet onglet.', false);
+      btn.innerHTML = 'Connecté';
+    } else {
+      afficherMsg(d.error || 'Erreur inconnue.', true);
+      btn.disabled = false; btn.textContent = 'Se connecter et synchroniser';
+    }
+  } catch(e) {
+    afficherMsg('Erreur réseau : ' + e.message, true);
+    btn.disabled = false; btn.textContent = 'Se connecter et synchroniser';
+  }
+}
+
+charger();
+</script>
+</body>
+</html>
