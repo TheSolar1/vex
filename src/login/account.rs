@@ -449,11 +449,16 @@ fn build_account_data(pool: &DbPool, config: &VexConfig, user_id: i64, user_emai
         pool,
         "autologin",
         &[("compteid", mysql::Value::from(user_id))],
-        &["compteid"],
+        &["compteid", "utilisations"],
         None,
         None,
     );
     let has_token = !tokens_rows.is_empty();
+    let utilisations = tokens_rows
+        .get(0)
+        .and_then(|r| r.get("utilisations"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
 
     json!({
         "success": true,
@@ -473,6 +478,7 @@ fn build_account_data(pool: &DbPool, config: &VexConfig, user_id: i64, user_emai
                 "token_length": token_length,
                 "max_tokens":   max_tokens,
                 "has_token":    has_token,
+                "utilisations": utilisations,
             }
         }
     })

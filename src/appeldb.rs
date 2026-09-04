@@ -101,6 +101,55 @@ pub fn verifier_connexion(
 }
 
 // ══════════════════════════════════════════════════════════════════
+// FONCTION 1a : hasher_jeton_appareil() / verifier_jeton_appareil()
+// Authentification alternative par jeton d'appareil (voir
+// login/appareil.rs) -- utilisée par les clients desktop (vex-cloudsync,
+// vex-sync-client) qui n'ont pas de cookie de session navigateur.
+// Un jeton valide donne les MÊMES droits qu'une session cookie normale
+// (c'est le principe du flux : l'utilisateur a explicitement approuvé
+// cet appareil comme s'il s'était connecté dessus).
+// ══════════════════════════════════════════════════════════════════
+pub fn hasher_jeton_appareil(jeton_brut: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(b"vex-appareil:");
+    h.update(jeton_brut.as_bytes());
+    format!("{:x}", h.finalize())
+}
+
+pub fn verifier_jeton_appareil(pool: &DbPool, jeton_brut: &str) -> Option<HashMap<String, Value>> {
+    if jeton_brut.is_empty() {
+        return None;
+    }
+    let jeton_hash = hasher_jeton_appareil(jeton_brut);
+    let mut conn = pool.get_conn().ok()?;
+
+    let row: mysql::Row = conn
+        .exec_first(
+            "SELECT user_id FROM appareil_jetons WHERE jeton_hash = ? AND statut = 'approuve'",
+            (&jeton_hash,),
+        )
+        .ok()??;
+    let user_id: i64 = row.get("user_id")?;
+
+    let user_row: mysql::Row = conn
+        .exec_first(
+            "SELECT id, nom, email, privilege, vip FROM login WHERE id = ? LIMIT 1",
+            (user_id,),
+        )
+        .ok()??;
+
+    let mut info = HashMap::new();
+    info.insert("connecte".into(), json!(true));
+    info.insert("id".into(), json!(user_row.get::<i64, _>("id")?));
+    info.insert("nom".into(), json!(user_row.get::<String, _>("nom").unwrap_or_default()));
+    info.insert("email".into(), json!(user_row.get::<String, _>("email")?));
+    info.insert("privilege".into(), json!(user_row.get::<i64, _>("privilege").unwrap_or(10)));
+    info.insert("vip".into(), json!(user_row.get::<i64, _>("vip").unwrap_or(0)));
+    Some(info)
+}
+
+// ══════════════════════════════════════════════════════════════════
 // FONCTION 1b : verifier_connexion_avec_expiration()
 // Même chose que verifier_connexion() mais filtre aussi sur la
 // durée de validité passée en paramètre (lue depuis config.json
@@ -732,6 +781,19 @@ pub fn executer_sql_admin(
         }
         Err(e) => json!({"success":false,"error":format!("Erreur SQL : {}", e)}),
     }
+}
+
+/// Incrémente le compteur d'utilisation d'un lien autologin.
+pub fn incrementer_utilisation_autologin(pool: &DbPool, compteid: i64) -> bool {
+    let mut conn = match pool.get_conn() {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    conn.exec_drop(
+        "UPDATE `autologin` SET `utilisations` = `utilisations` + 1 WHERE `compteid` = ?",
+        (compteid,),
+    )
+    .is_ok()
 }
 
 // ══════════════════════════════════════════════════════════════════

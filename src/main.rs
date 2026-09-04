@@ -23,6 +23,7 @@ mod admin {
 }
 mod login {
     pub mod account;
+    pub mod appareil;
     pub mod autologin;
     pub mod dashboard;
     pub mod first_setup;
@@ -652,6 +653,10 @@ fn main() {
             {
                 logger.info(&format!("Autologin depuis {}", remote));
                 login::autologin::handle_request(request, &pool, &config, &remote);
+            }
+
+            p if p.starts_with("/api/appareil") || p == "/autoriser-appareil" || p == "/autoriser-appareil/" => {
+                login::appareil::handle_request(request, &pool, &remote);
             }
 
             p if p.starts_with("/api/dashboard") => {

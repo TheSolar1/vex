@@ -33,6 +33,29 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
             UNIQUE KEY `compteid` (`compteid`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     )?;
+    // Migration : compteur d'utilisation du lien autologin
+    let _ = conn.query_drop(
+        "ALTER TABLE `autologin` ADD COLUMN `utilisations` INT NOT NULL DEFAULT 0",
+    );
+
+    // ── appareil_jetons (flux d'autorisation d'appareil, type
+    // "device flow" -- voir src/login/appareil.rs) ──────────────────
+    // `jeton_brut` n'est rempli que brievement entre l'approbation et la
+    // premiere recuperation par l'appareil (poll), puis efface -- seul
+    // `jeton_hash` (SHA-256(secret:jeton)) subsiste ensuite, meme logique
+    // que la table `autologin` existante.
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `appareil_jetons` (
+            `code`         VARCHAR(64)  NOT NULL,
+            `jeton_brut`   VARCHAR(128) DEFAULT NULL,
+            `jeton_hash`   VARCHAR(128) DEFAULT NULL,
+            `user_id`      INT          DEFAULT NULL,
+            `statut`       VARCHAR(20)  NOT NULL DEFAULT 'en_attente',
+            `nom_appareil` VARCHAR(191) DEFAULT NULL,
+            `created_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`code`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    )?;
 
     // ── bloqpage ──────────────────────────────────────────────────
     conn.query_drop(
@@ -91,6 +114,14 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
     // Migration LONGBLOB → LONGTEXT pour stocker base64
     let _ = conn.query_drop(
         "ALTER TABLE `fichiers` MODIFY `fichier` LONGTEXT NOT NULL"
+    );
+    // Migration DATE → DATETIME : `date` doit garder l'heure/minute/seconde
+    // (voir fchier.rs::api_upload / api_edit_content) pour qu'un client de
+    // synchronisation puisse detecter une modification survenue le meme
+    // jour que la precedente. Un DATE tronquerait silencieusement l'heure
+    // (ou rejetterait l'insertion en mode SQL strict).
+    let _ = conn.query_drop(
+        "ALTER TABLE `fichiers` MODIFY `date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
     );
 
     // ── FIX (migration SRP-6a) ──────────────────────────────────────

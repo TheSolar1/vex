@@ -168,6 +168,7 @@ __NAV_HTML__
       <a href="#preferences" class="sidebar-link" data-sec="preferences"><i class="fas fa-palette"></i><span>Préférences</span></a>
       <a href="#securite" class="sidebar-link" data-sec="securite"><i class="fas fa-lock"></i><span>Sécurité</span></a>
       <a href="#autologin" class="sidebar-link" data-sec="autologin"><i class="fas fa-link"></i><span>Autologin</span></a>
+      <a href="#sync" class="sidebar-link" data-sec="sync"><i class="fas fa-arrows-rotate"></i><span>Synchronisation</span></a>
       <a href="#notifications" class="sidebar-link" data-sec="notifications"><i class="fas fa-bell"></i><span>Notifications</span></a>
       <a href="/constiontu.html" class="sidebar-link"><i class="fas fa-shield-alt"></i><span>Confidentialité</span></a>
     </aside>
@@ -356,6 +357,16 @@ __NAV_HTML__
         </div>
       </div>
 
+      <div id="sync-section" class="section-content">
+        <div class="card">
+          <h2><i class="fas fa-arrows-rotate"></i> Synchronisation (Windows)</h2>
+          <p>Synchronise tes fichiers VEX avec un dossier sur ton PC Windows, comme OneDrive/Google Drive. Le programme se connecte via une autorisation que tu valides toi-même — ton mot de passe ne quitte jamais ton PC.</p>
+          <a class="btn btn-primary" href="/api/appareil/telecharger"><i class="fas fa-download"></i> Télécharger le synchronisateur</a>
+          <h3 style="margin-top:28px;"><i class="fas fa-laptop"></i> Appareils autorisés</h3>
+          <div id="sync-appareils-liste"><p style="color:var(--text-dim);">Chargement…</p></div>
+        </div>
+      </div>
+
       <div id="notifications-section" class="section-content">
         <div class="card">
           <h2><i class="fas fa-bell"></i> Notifications</h2>
@@ -461,7 +472,8 @@ __NAV_HTML__
     }
     info.className='autologin-box';
     if(a.has_token){
-      info.innerHTML='<h3 style="margin-top:0;margin-bottom:16px;color:var(--accent);"><i class="fas fa-check-circle"></i> Votre lien actif</h3><div>Un lien autologin existe déjà.</div>';
+      const nb=a.utilisations||0;
+      info.innerHTML='<h3 style="margin-top:0;margin-bottom:16px;color:var(--accent);"><i class="fas fa-check-circle"></i> Votre lien actif</h3><div>Un lien autologin existe déjà.</div><div style="margin-top:8px;color:var(--text-dim);font-size:13px;">Utilisé '+nb+' fois</div>';
       $('#btn-al-delete').disabled=false;
     }else{
       info.innerHTML='<div class="autologin-box-empty"><div class="al-icon"><i class="fas fa-plus-circle"></i></div><h3>Aucun lien autologin</h3><p>Vous n\'avez pas encore de lien.<br>Cliquez pour en générer un.</p></div>';
@@ -469,6 +481,48 @@ __NAV_HTML__
     }
     $('#btn-al-create').disabled=false;
     box.style.display='none';
+  }
+
+  function escapeHtmlSync(s){
+    return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  async function loadAppareilsSync(){
+    const zone=$('#sync-appareils-liste');
+    if(!zone) return;
+    const r=await j('/api/appareil/liste');
+    if(!r.success){
+      zone.innerHTML='<p style="color:var(--text-dim);">Impossible de charger la liste.</p>';
+      return;
+    }
+    const appareils=r.appareils||[];
+    if(appareils.length===0){
+      zone.innerHTML='<p style="color:var(--text-dim);">Aucun appareil autorisé pour l\'instant.</p>';
+      return;
+    }
+    zone.innerHTML=appareils.map(a=>{
+      const revoque=a.statut==='revoque';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--panel-border);">
+        <div>
+          <strong>${escapeHtmlSync(a.nom_appareil||'Appareil inconnu')}</strong>
+          <div style="font-size:12px;color:var(--text-dim);">${escapeHtmlSync(a.created_at||'')} — ${revoque?'révoqué':'autorisé'}</div>
+        </div>
+        ${revoque?'':`<button class="btn btn-danger" data-revoquer-code="${escapeHtmlSync(a.code)}"><i class="fas fa-ban"></i> Révoquer</button>`}
+      </div>`;
+    }).join('');
+    zone.querySelectorAll('[data-revoquer-code]').forEach(btn=>{
+      btn.addEventListener('click',()=>revoquerAppareilSync(btn.dataset.revoquerCode));
+    });
+  }
+
+  async function revoquerAppareilSync(code){
+    const r=await j('/api/appareil/revoquer',{
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'code='+encodeURIComponent(code),
+    });
+    if(r.success){ toast('Appareil révoqué.'); loadAppareilsSync(); }
+    else{ toast(r.error||'Erreur lors de la révocation',true); }
   }
 
   async function loadData(){
@@ -490,6 +544,7 @@ __NAV_HTML__
 
   function switchSection(sec){
     if(sec==='preferences'){ loadAffichage(); loadExtPrefs(); }
+    if(sec==='sync'){ loadAppareilsSync(); }
     document.querySelectorAll('.section-content').forEach(s=>s.classList.remove('active'));
     document.querySelectorAll('.sidebar-link').forEach(l=>l.classList.remove('active'));
     const target=$(`#${sec}-section`); if(target) target.classList.add('active');

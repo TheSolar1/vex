@@ -226,6 +226,7 @@ __NAV_HTML__
     <div class="sb-a" data-sec="logs"><img src="/static/img/solid/scroll.svg" alt=""> <span>Logs</span></div>
     <div class="sb-a" data-sec="onlyoffice"><img src="/static/img/solid/file-lines.svg" alt=""> <span>Éditeur en ligne</span><span class="sb-pill w" id="pill-oo" style="display:none">!</span></div>
     <div class="sb-a" id="sb-p2p" data-sec="p2p" style="display:none"><img src="/static/img/solid/network-wired.svg" alt=""> <span>P2P / AnonNet</span><span class="sb-pill" id="pill-p2p">0</span></div>
+    <div class="sb-a" id="sb-backup" data-sec="backup" style="display:none"><img src="/static/img/solid/box-archive.svg" alt=""> <span>Sauvegardes</span></div>
 </nav>
 
 <main class="main">
@@ -375,6 +376,30 @@ __NAV_HTML__
         <div id="server-content"><div class="loading"><span class="spin"></span></div></div>
     </div>
 
+    <!-- Sauvegardes -->
+    <div class="sec" id="sec-backup">
+        <div class="pt"><img src="/static/img/solid/box-archive.svg" class="ico-accent" alt=""> Sauvegardes <small>superadmin uniquement</small></div>
+        <div class="card" style="margin-bottom:16px;border-left:3px solid var(--accent)">
+            <div class="ch">
+                <span><img src="/static/img/solid/database.svg" class="ico ico-accent" alt=""> Dump complet de la base</span>
+                <button class="btn ba" onclick="creerBackup()"><img src="/static/img/solid/plus.svg" class="ico" style="filter:invert(1)" alt=""> Lancer une sauvegarde</button>
+            </div>
+            <div class="cb" style="font-size:.8rem;color:var(--text-m);line-height:1.6">
+                Sauvegarde <code>mysqldump</code> compressée (gzip) de toute la base — comptes, préférences, pages, et fichiers
+                (stockés en base64 dans la table <code>fichiers</code>, donc inclus automatiquement). Écrite sur le disque du
+                serveur dans <code>backups/</code> ; téléchargez-la ensuite pour la mettre en lieu sûr ailleurs.
+            </div>
+            <div id="backup-banner" style="padding:0 17px 14px"></div>
+        </div>
+        <div class="card">
+            <div class="ch">
+                <span><img src="/static/img/solid/scroll.svg" class="ico ico-accent" alt=""> Sauvegardes existantes</span>
+                <button class="btn bg2" onclick="loadBackups()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Rafraîchir</button>
+            </div>
+            <div style="padding:14px" id="backup-list"><div class="loading"><span class="spin"></span></div></div>
+        </div>
+    </div>
+
     <!-- Logs -->
     <div class="sec" id="sec-logs">
         <div class="pt"><img src="/static/img/solid/scroll.svg" class="ico-accent" alt=""> Logs serveur</div>
@@ -456,7 +481,7 @@ function nav(sec){
     document.querySelectorAll('.sb-a[data-sec]').forEach(a=>a.classList.toggle('on',a.dataset.sec===sec));
     document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
     document.getElementById('sec-'+sec).classList.add('on');
-    ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,server:loadServer,logs:loadLogs,onlyoffice:loadEditor,p2p:loadP2p,apps:loadApps,extensions:loadExt,roles:loadRoles}[sec]||Function)();
+    ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,server:loadServer,logs:loadLogs,onlyoffice:loadEditor,p2p:loadP2p,apps:loadApps,extensions:loadExt,roles:loadRoles,backup:loadBackups}[sec]||Function)();
     history.replaceState(null,'','?section='+sec);
 }
 function flash(msg,err=false){
@@ -497,7 +522,7 @@ function confirmerDialogue(message,opts={}){
 async function loadDash(){
     const r=await api('/dashboard');if(!r.success){flash(r.error,true);return;}
     const d=r.data;
-    if(d.is_super)document.getElementById('sb-p2p').style.display='';
+    if(d.is_super){document.getElementById('sb-p2p').style.display='';document.getElementById('sb-backup').style.display='';}
     IS_SUPER=d.is_super||false;
     document.getElementById('sql-zone').style.display=IS_SUPER?'':'none';
     const cfgR=await api('/config');
@@ -728,6 +753,8 @@ const EXT_TABLES = new Set(['vexia_audit']);
 let EXT_DATA={extensions:[],orphelins:[],build_cmd:'',build_status:{}};
 let EXT_FILE={name:'',b64:'',size:0};
 let BUILD_TIMER=null;
+let BACKUP_STATUS={};
+let BACKUP_TIMER=null;
 
 function extCard(e){
     const isBase=e.base_app, id=e.id;
@@ -1153,6 +1180,54 @@ function planifierStatutBuild(){
     },5000);
 }
 
+/* ── Sauvegardes ── */
+async function loadBackups(){
+    document.getElementById('backup-list').innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const [rs,rl]=await Promise.all([api('/backup/status'),api('/backup/list')]);
+    BACKUP_STATUS=rs.success?rs.data:{};
+    document.getElementById('backup-banner').innerHTML=backupBanner();
+    if(BACKUP_STATUS.running)planifierStatutBackup();
+    if(!rl.success){flash(rl.error,true);return;}
+    const items=rl.data||[];
+    document.getElementById('backup-list').innerHTML=items.length
+        ?`<table class="t"><thead><tr><th>Fichier</th><th>Taille</th><th>Date</th><th>Actions</th></tr></thead><tbody>${items.map(b=>
+            `<tr><td class="m">${esc(b.nom)}</td><td>${b.taille_mo} Mo</td><td>${esc(new Date(b.modifie*1000).toLocaleString())}</td>`
+            +`<td style="display:flex;gap:8px"><a class="btn bg2" href="/api/admin/backup/download?nom=${encodeURIComponent(b.nom)}"><img src="/static/img/solid/download.svg" class="ico ico-accent" alt=""> Télécharger</a>`
+            +`<button class="btn br2" onclick="supprimerBackup('${esc(b.nom)}')"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Suppr.</button></td></tr>`
+        ).join('')}</tbody></table>`
+        :'<div style="padding:20px;text-align:center;color:var(--text-m);background:var(--surface2);border:1px dashed var(--border);border-radius:var(--r);font-size:.84rem">Aucune sauvegarde. Cliquez sur « Lancer une sauvegarde » ci-dessus.</div>';
+}
+function backupBanner(){
+    const bs=BACKUP_STATUS||{};
+    if(bs.running)return `<div class="ob" style="background:rgba(245,158,11,.08);border-color:#f59e0b"><span class="spin"></span> <strong>Sauvegarde en cours…</strong> <span style="margin-left:auto;color:var(--text-m);font-size:.76rem">démarrée à ${esc(bs.started_at||'')}</span></div>`;
+    if(bs.jamais_lance||bs.success===undefined)return '';
+    return bs.success
+        ?`<div class="ob ok"><div class="od"></div><strong>Dernière sauvegarde réussie</strong> <span style="color:var(--text-m)">${esc(bs.finished_at||'')} — ${bs.taille_mo} Mo</span></div>`
+        :`<div class="ob nok"><div class="od"></div><strong>Dernière sauvegarde échouée</strong> <span style="color:var(--text-m)">${esc(bs.erreur||'')}</span></div>`;
+}
+function planifierStatutBackup(){
+    clearTimeout(BACKUP_TIMER);
+    BACKUP_TIMER=setTimeout(async()=>{
+        const r=await api('/backup/status');
+        if(r.success){
+            BACKUP_STATUS=r.data;
+            if(S.section==='backup')loadBackups();
+            else if(r.data.running)planifierStatutBackup();
+        }
+    },4000);
+}
+async function creerBackup(){
+    if(!await confirmerDialogue('Lancer une sauvegarde complète de la base maintenant ?\n\nLe dump tourne en arrière-plan (mysqldump | gzip) ; le serveur reste disponible pendant ce temps.',{titre:'Lancer une sauvegarde'}))return;
+    const r=await post('/backup/create');
+    if(!r.success){flash(r.error,true);return;}
+    flash(r.message);planifierStatutBackup();loadBackups();
+}
+async function supprimerBackup(nom){
+    if(!await confirmerDialogue(`Supprimer la sauvegarde ${nom} ?\n\nIrréversible — si c'est la seule copie, vous n'aurez plus aucune sauvegarde.`,{danger:true,titre:'Supprimer la sauvegarde'}))return;
+    const r=await post('/backup/delete',{nom});
+    if(r.success){flash(r.message);loadBackups();}else flash(r.error,true);
+}
+
 /* ── Roles & Plans ── */
 async function loadRoles(){
     const r=await api('/config');if(!r.success){flash(r.error,true);return;}
@@ -1207,11 +1282,14 @@ async function savePlans(){
 async function loadServer(){
     document.getElementById('server-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
     const r=await api('/server');if(!r.success){flash(r.error,true);return;}
-    const d=r.data,dk=d.disk,pct=dk.used_pct||0,cl=pct>80?'d':pct>60?'w':'';
+    const d=r.data;
+    const disks=(d.disks&&d.disks.length?d.disks:[{...d.disk,mount:'/'}]);
+    const disqueTuile=dk=>{const pct=dk.used_pct||0,cl=pct>80?'d':pct>60?'w':'';
+        return `<div class="sc" style="--si:${pct>80?'#ef4444':pct>60?'#f59e0b':'var(--accent)'}"><div class="sc-i"><img src="/static/img/solid/hard-drive.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1.1rem">${esc(String(dk.used_gb))} <span style="font-size:.6em;font-weight:400">/ ${esc(String(dk.total_gb))} GB</span></div><div class="sc-l" title="${esc(dk.mount)}">Disque ${esc(dk.mount)} (${pct}%)</div><div class="pg"><div class="pgb ${cl}" style="width:${pct}%"></div></div></div>`;};
     document.getElementById('server-content').innerHTML=`<div class="sg">
         <div class="sc" style="--si:#3b82f6"><div class="sc-i"><img src="/static/img/solid/code.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1rem">${esc(d.vex_version)}</div><div class="sc-l">Version VEX</div></div>
         <div class="sc" style="--si:#f59e0b"><div class="sc-i"><img src="/static/img/solid/laptop.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:.9rem">${esc(d.os)} / ${esc(d.arch)}</div><div class="sc-l">OS / Arch</div></div>
-        <div class="sc" style="--si:${pct>80?'#ef4444':pct>60?'#f59e0b':'var(--accent)'}"><div class="sc-i"><img src="/static/img/solid/hard-drive.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1.1rem">${esc(String(dk.used_gb))} <span style="font-size:.6em;font-weight:400">/ ${esc(String(dk.total_gb))} GB</span></div><div class="sc-l">Disque (${pct}%)</div><div class="pg"><div class="pgb ${cl}" style="width:${pct}%"></div></div></div>
+        ${disks.map(disqueTuile).join('')}
         <div class="sc" style="--si:#8b5cf6"><div class="sc-i"><img src="/static/img/solid/clock.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1.1rem">${esc(d.uptime_sec)}s</div><div class="sc-l">Uptime</div></div>
     </div>
     <div class="card" style="margin-top:16px">

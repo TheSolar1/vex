@@ -163,6 +163,39 @@ body {
 #edit-textarea:focus { outline:none; border-color:var(--accent); }
 .edit-meta { font-size:12px; color:var(--text-m); margin-bottom:8px; display:flex; justify-content:space-between; }
 
+/* ── Visualiseur de code (surlignage syntaxique maison, sans lib externe) ──
+   Technique : un <pre><code> surligne est cale exactement derriere le
+   textarea (memes police/marges/interligne/habillage), le texte du
+   textarea devient transparent (seul le curseur reste visible) -- on
+   VOIT le code colore au travers, tout en gardant l'edition normale
+   (selection, undo, raccourcis) puisque c'est le meme <textarea>. */
+.edit-code-wrap { position:relative; width:100%; height:52vh; min-height:280px; }
+.edit-code-wrap #edit-textarea, .edit-code-wrap #edit-highlight {
+  position:absolute; inset:0; margin:0; width:100%; height:100%; resize:none;
+  padding:12px 14px; border:1px solid var(--border); border-radius:8px;
+  font-family:var(--mono,monospace); font-size:13px; line-height:1.5;
+  white-space:pre-wrap; word-break:break-word; overflow:auto; box-sizing:border-box;
+}
+.edit-code-wrap #edit-textarea { background:transparent; color:transparent; caret-color:var(--text); z-index:2; }
+.edit-code-wrap #edit-highlight { background:var(--input); color:var(--text); z-index:1; pointer-events:none; }
+.edit-code-wrap #edit-highlight code { white-space:inherit; word-break:inherit; font:inherit; }
+/* Fichier non reconnu comme "code" (txt, md, csv, log...) : textarea normale, pas d'overlay. */
+.edit-code-wrap.plain { height:auto; }
+.edit-code-wrap.plain #edit-textarea { position:static; background:var(--input); color:var(--text); resize:vertical; height:52vh; min-height:280px; }
+.edit-code-wrap.plain #edit-highlight { display:none; }
+.tok-kw  { color:#d73a49; font-weight:600; }
+.tok-str { color:#22863a; }
+.tok-com { color:#6a737d; font-style:italic; }
+.tok-num { color:#005cc5; }
+.tok-tag { color:#22863a; font-weight:600; }
+.tok-attr{ color:#6f42c1; }
+[data-theme="dark"] .tok-kw  { color:#ff7b72; }
+[data-theme="dark"] .tok-str { color:#a5d6ff; }
+[data-theme="dark"] .tok-com { color:#8b949e; }
+[data-theme="dark"] .tok-num { color:#79c0ff; }
+[data-theme="dark"] .tok-tag { color:#7ee787; }
+[data-theme="dark"] .tok-attr{ color:#d2a8ff; }
+
 #oo-overlay{position:fixed;inset:0;background:#1c1e21;z-index:20000;display:none;flex-direction:column}
 #oo-overlay.active{display:flex}
 #oo-barre{height:48px;background:#2a2d31;color:#fff;display:flex;align-items:center;gap:12px;padding:0 16px;font-size:.86rem;flex-shrink:0}
@@ -293,6 +326,10 @@ __NAV_HTML__
       <button class="nav-item" id="nav-partage" onclick="switchTab(1)">
         <img class="ico ico-18 ico-muted" src="/static/img/solid/share-nodes.svg">
         <span>Partagé avec moi</span>
+      </button>
+      <button class="nav-item" id="nav-sync" onclick="window.location.href='/api/appareil/telecharger'" title="Synchroniser ce compte avec un dossier sur ton PC Windows">
+        <img class="ico ico-18 ico-muted" src="/static/img/solid/arrows-rotate.svg">
+        <span>Synchroniser (Windows)</span>
       </button>
     </nav>
     
@@ -485,7 +522,10 @@ __NAV_HTML__
       <span id="edit-modal-info"></span>
       <span id="edit-modal-statut"></span>
     </div>
-    <textarea id="edit-textarea" spellcheck="false" placeholder="Chargement…"></textarea>
+    <div class="edit-code-wrap" id="edit-code-wrap">
+      <pre id="edit-highlight" aria-hidden="true"><code id="edit-highlight-code"></code></pre>
+      <textarea id="edit-textarea" spellcheck="false" placeholder="Chargement…"></textarea>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('editModal')">Fermer</button>
       <button class="btn btn-primary" id="edit-save-btn" onclick="doSaveEdit()">
@@ -1467,10 +1507,183 @@ async function downloadFile(item) {
 // ══════════════════════════════════════════════════════════════════
 // VOIR / ÉDITER (fichiers texte)
 // ══════════════════════════════════════════════════════════════════
-const EXTENSIONS_TEXTE = ['txt','md','markdown','json','rs','js','ts','html','htm','css','csv','yml','yaml','toml','ini','xml','sh','py','log'];
+const EXTENSIONS_TEXTE = [
+  'txt','md','markdown','json','csv','yml','yaml','toml','ini','xml','log','env','gitignore','conf','cfg',
+  'rs','js','mjs','cjs','jsx','ts','tsx','html','htm','css','scss','sh','bash','zsh','py',
+  'cs','java','c','h','cpp','cc','hpp','go','php','rb','kt','kts','swift','sql','ps1','bat','cmd','lua','dart','r','pl','vue',
+];
 function estFichierTexte(nom) {
   const ext = (nom.split('.').pop() || '').toLowerCase();
   return EXTENSIONS_TEXTE.includes(ext);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// VISUALISEUR DE CODE — surlignage syntaxique maison (aucune lib
+// externe, aucun CDN). Un <pre><code> calé derriere le textarea rend
+// le texte colore ; le textarea lui-meme reste editable normalement
+// (voir CSS .edit-code-wrap plus haut et branchement dans openEditor).
+// ══════════════════════════════════════════════════════════════════
+
+// Extension -> "famille" de surlignage. Les extensions absentes de cette
+// table (txt, md, csv, log, ...) restent affichees en texte simple.
+const LANGUE_PAR_EXT = {
+  js:'js', mjs:'js', cjs:'js', jsx:'js',
+  ts:'ts', tsx:'ts',
+  rs:'rs',
+  py:'py',
+  sh:'sh', bash:'sh', zsh:'sh',
+  json:'json',
+  html:'html', htm:'html', xml:'html', vue:'html',
+  css:'css', scss:'css',
+  yml:'yaml', yaml:'yaml', toml:'yaml', ini:'yaml', env:'yaml', gitignore:'yaml', conf:'yaml', cfg:'yaml',
+  cs:'cs', java:'java',
+  c:'c', h:'c', cpp:'cpp', cc:'cpp', hpp:'cpp',
+  go:'go', php:'php', rb:'ruby', kt:'kotlin', kts:'kotlin', swift:'swift',
+  sql:'sql', ps1:'powershell', bat:'batch', cmd:'batch',
+  lua:'lua', dart:'dart', r:'r', pl:'perl',
+};
+
+function langueFichier(nom) {
+  const ext = (nom.split('.').pop() || '').toLowerCase();
+  return LANGUE_PAR_EXT[ext] || null;
+}
+
+const ECH_CODE = { '&':'&amp;', '<':'&lt;', '>':'&gt;' };
+function echapperHtml(s) { return s.replace(/[&<>]/g, c => ECH_CODE[c]); }
+
+/// Coeur commun : scanne `src` avec `re` (regex globale), et pour chaque
+/// portion NON reconnue par `re` (espaces, ponctuation...) comme pour
+/// chaque portion reconnue, echappe le HTML puis colore selon ce que
+/// renvoie `classifier(match)` (nom de classe "tok-xxx", ou falsy pour du
+/// texte normal). Construit ainsi la sortie caractere par caractere sans
+/// jamais perdre un fragment ni le laisser non echappe (contrairement a
+/// `String.replace`, qui laisse les portions non matchees telles quelles).
+function tokeniser(src, re, classifier) {
+  let out = '', dernier = 0, m;
+  re.lastIndex = 0;
+  while ((m = re.exec(src))) {
+    if (m.index > dernier) out += echapperHtml(src.slice(dernier, m.index));
+    const cls = classifier(m);
+    const morceau = echapperHtml(m[0]);
+    out += cls ? `<span class="tok-${cls}">${morceau}</span>` : morceau;
+    dernier = m.index + m[0].length;
+    if (m[0].length === 0) re.lastIndex++; // garde-fou anti boucle infinie
+  }
+  out += echapperHtml(src.slice(dernier));
+  return out;
+}
+
+function echapperRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+// ── Familles "mots-cles + chaines + commentaires + nombres" ─────────
+const MOTS_CLES = {
+  js: ['const','let','var','function','return','if','else','for','while','do','switch','case','default','break','continue','class','extends','new','this','typeof','instanceof','in','of','try','catch','finally','throw','async','await','yield','import','export','from','static','get','set','null','undefined','true','false','void','delete','super'],
+  ts: ['const','let','var','function','return','if','else','for','while','do','switch','case','default','break','continue','class','extends','implements','interface','type','new','this','typeof','instanceof','in','of','try','catch','finally','throw','async','await','yield','import','export','from','static','get','set','null','undefined','true','false','void','delete','super','public','private','protected','readonly','enum','namespace','as'],
+  rs: ['fn','let','mut','const','if','else','match','for','while','loop','break','continue','return','struct','enum','impl','trait','pub','use','mod','crate','self','Self','super','as','where','move','ref','dyn','unsafe','async','await','true','false','None','Some','Ok','Err','static','type','in'],
+  py: ['def','return','if','elif','else','for','while','break','continue','class','import','from','as','with','try','except','finally','raise','lambda','pass','global','nonlocal','yield','async','await','not','and','or','is','in','None','True','False','self'],
+  sh: ['if','then','else','elif','fi','for','while','do','done','case','esac','function','return','local','export','echo','exit','in'],
+  json: ['true','false','null'],
+  yaml: [],
+  cs:   ['class','public','private','protected','internal','static','void','new','return','if','else','for','foreach','while','do','switch','case','default','break','continue','try','catch','finally','throw','using','namespace','var','null','true','false','this','base','override','virtual','abstract','sealed','interface','struct','enum','get','set','async','await','int','string','bool','double','float','object'],
+  java: ['class','public','private','protected','static','void','new','return','if','else','for','while','do','switch','case','default','break','continue','try','catch','finally','throw','import','package','extends','implements','interface','enum','this','super','null','true','false','final','abstract','int','boolean','String','long','double','float'],
+  c:    ['if','else','for','while','do','switch','case','default','break','continue','return','struct','typedef','enum','union','int','char','float','double','void','const','static','unsigned','signed','sizeof','NULL'],
+  cpp:  ['class','public','private','protected','template','typename','namespace','using','new','delete','virtual','override','this','nullptr','true','false','try','catch','throw','if','else','for','while','do','switch','case','default','break','continue','return','struct','enum','int','char','float','double','void','const','static','auto'],
+  go:   ['func','package','import','return','if','else','for','range','switch','case','default','break','continue','struct','interface','type','var','const','defer','go','chan','select','map','true','false','nil'],
+  php:  ['function','return','if','else','elseif','endif','foreach','for','while','switch','case','default','break','continue','class','public','private','protected','static','new','echo','print','use','namespace','try','catch','finally','throw','true','false','null','this'],
+  ruby: ['def','end','class','module','if','elsif','else','unless','while','until','for','in','do','return','yield','begin','rescue','ensure','raise','true','false','nil','self','require','attr_accessor'],
+  kotlin: ['fun','val','var','if','else','for','while','when','return','class','object','interface','override','private','public','protected','internal','companion','null','true','false','this','import','package','try','catch','finally','throw'],
+  swift: ['func','var','let','if','else','for','while','switch','case','default','return','class','struct','enum','protocol','extension','import','guard','true','false','nil','self','try','catch','throw','override','private','public'],
+  sql: ['SELECT','FROM','WHERE','INSERT','INTO','VALUES','UPDATE','SET','DELETE','CREATE','TABLE','ALTER','DROP','JOIN','LEFT','RIGHT','INNER','OUTER','ON','GROUP','BY','ORDER','HAVING','AND','OR','NOT','NULL','AS','DISTINCT','LIMIT','PRIMARY','KEY','FOREIGN','REFERENCES','DEFAULT','UNIQUE','INDEX'],
+  powershell: ['function','param','if','else','elseif','foreach','for','while','switch','return','try','catch','finally','throw','true','false','null'],
+  batch: ['echo','if','else','goto','call','set','for','exit'],
+  lua: ['function','end','if','then','else','elseif','for','while','do','repeat','until','return','local','nil','true','false','and','or','not','break'],
+  dart: ['class','void','var','final','const','if','else','for','while','return','import','extends','implements','new','this','super','true','false','null','async','await','try','catch','finally','throw'],
+  r: ['function','if','else','for','while','repeat','break','next','return','TRUE','FALSE','NULL','NA','library','require'],
+  perl: ['my','our','local','sub','if','elsif','else','unless','while','until','for','foreach','return','use','package','print'],
+};
+const OPTS_LANGUE = {
+  js:   { comLine:'//', comBlock:true,  backtick:true  },
+  ts:   { comLine:'//', comBlock:true,  backtick:true  },
+  rs:   { comLine:'//', comBlock:true,  backtick:false },
+  py:   { comLine:'#',  comBlock:false, backtick:false },
+  sh:   { comLine:'#',  comBlock:false, backtick:false },
+  json: { comLine:null, comBlock:false, backtick:false },
+  yaml: { comLine:'#',  comBlock:false, backtick:false },
+  cs:   { comLine:'//', comBlock:true,  backtick:false },
+  java: { comLine:'//', comBlock:true,  backtick:false },
+  c:    { comLine:'//', comBlock:true,  backtick:false },
+  cpp:  { comLine:'//', comBlock:true,  backtick:false },
+  go:   { comLine:'//', comBlock:true,  backtick:false },
+  php:  { comLine:'//', comBlock:true,  backtick:false },
+  ruby: { comLine:'#',  comBlock:false, backtick:false },
+  kotlin:{ comLine:'//', comBlock:true, backtick:false },
+  swift:{ comLine:'//', comBlock:true,  backtick:false },
+  sql:  { comLine:'--', comBlock:true,  backtick:true  },
+  powershell:{ comLine:'#', comBlock:false, backtick:false },
+  batch:{ comLine:null, comBlock:false, backtick:false },
+  lua:  { comLine:'--', comBlock:false, backtick:false },
+  dart: { comLine:'//', comBlock:true,  backtick:false },
+  r:    { comLine:'#',  comBlock:false, backtick:false },
+  perl: { comLine:'#',  comBlock:false, backtick:false },
+};
+
+function regexCLike(opts) {
+  const alts = [];
+  if (opts.comBlock) alts.push('\\/\\*[\\s\\S]*?\\*\\/');
+  if (opts.comLine)  alts.push(echapperRegex(opts.comLine) + '[^\\n]*');
+  alts.push('"(?:\\\\.|[^"\\\\])*"');
+  alts.push("'(?:\\\\.|[^'\\\\])*'");
+  if (opts.backtick) alts.push('`(?:\\\\.|[^`\\\\])*`');
+  alts.push('\\b\\d+(?:\\.\\d+)?\\b');
+  alts.push('[A-Za-z_$][A-Za-z0-9_$]*');
+  return new RegExp(alts.join('|'), 'g');
+}
+function surlignerCLike(src, langue) {
+  const opts = OPTS_LANGUE[langue], kw = new Set(MOTS_CLES[langue] || []);
+  const re = regexCLike(opts);
+  return tokeniser(src, re, (m) => {
+    const t = m[0];
+    if (opts.comBlock && t.startsWith('/*')) return 'com';
+    if (opts.comLine && t.startsWith(opts.comLine)) return 'com';
+    if (t[0] === '"' || t[0] === "'" || t[0] === '`') return 'str';
+    if (t >= '0' && t <= '9') return 'num';
+    if (kw.has(t)) return 'kw';
+    return null;
+  });
+}
+
+// ── HTML / XML : commentaires, balises, attributs, valeurs ──────────
+const RE_HTML = /<!--[\s\S]*?-->|<\/?[A-Za-z][\w:-]*|\/?>|[A-Za-z_:][\w:.-]*(?=\s*=)|"[^"]*"|'[^']*'/g;
+function surlignerHtml(src) {
+  return tokeniser(src, RE_HTML, (m) => {
+    const t = m[0];
+    if (t.startsWith('<!--')) return 'com';
+    if (t[0] === '<') return 'tag';
+    if (t === '>' || t === '/>') return 'tag';
+    if (t[0] === '"' || t[0] === "'") return 'str';
+    return 'attr';
+  });
+}
+
+// ── CSS : commentaires, chaines, nombres/unites, couleurs hex ───────
+const RE_CSS = /\/\*[\s\S]*?\*\/|"[^"]*"|'[^']*'|#[0-9a-fA-F]{3,8}\b|\b\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|s|ms|deg)?\b/g;
+function surlignerCss(src) {
+  return tokeniser(src, RE_CSS, (m) => {
+    const t = m[0];
+    if (t.startsWith('/*')) return 'com';
+    if (t[0] === '"' || t[0] === "'") return 'str';
+    return 'num';
+  });
+}
+
+/// Point d'entree : renvoie du HTML pret a injecter dans <code>, ou null
+/// si l'extension n'est pas reconnue comme du "code" (texte simple).
+function surlignerCode(src, nomFichier) {
+  const langue = langueFichier(nomFichier);
+  if (!langue) return null;
+  if (langue === 'html') return surlignerHtml(src);
+  if (langue === 'css')  return surlignerCss(src);
+  return surlignerCLike(src, langue);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1613,15 +1826,32 @@ window.addEventListener('beforeunload', (e) => {
 
 let editState = { id: null, nom: '', mime: '' };
 
+function rafraichirSurlignage() {
+  const ta = document.getElementById('edit-textarea');
+  const html = surlignerCode(ta.value, editState.nom || '');
+  document.getElementById('edit-highlight-code').innerHTML = html === null ? '' : (html + '\n');
+}
+
 async function openEditor(item) {
   if (!requireCryptoSession()) return;
   editState = { id: item.id, nom: item.nom || '', mime: '' };
   document.getElementById('edit-modal-title').textContent = item.nom || 'Voir / Éditer';
   document.getElementById('edit-modal-info').textContent = 'Chargement…';
   document.getElementById('edit-modal-statut').textContent = '';
-  document.getElementById('edit-textarea').value = '';
-  document.getElementById('edit-textarea').disabled = true;
+  const ta = document.getElementById('edit-textarea');
+  ta.value = '';
+  ta.disabled = true;
   document.getElementById('edit-save-btn').disabled = true;
+  const wrap = document.getElementById('edit-code-wrap');
+  const estCode = langueFichier(item.nom || '') !== null;
+  wrap.classList.toggle('plain', !estCode);
+  document.getElementById('edit-highlight-code').innerHTML = '';
+  // Un seul jeu d'ecouteurs, reassigne a chaque ouverture (pas d'empilement).
+  ta.oninput = estCode ? rafraichirSurlignage : null;
+  ta.onscroll = estCode ? () => {
+    const hl = document.getElementById('edit-highlight');
+    hl.scrollTop = ta.scrollTop; hl.scrollLeft = ta.scrollLeft;
+  } : null;
   openModal('editModal');
   try {
     const r = await vexFetch(`/api/fchier/download?id=${item.id}`, { credentials:'include' });
@@ -1643,10 +1873,11 @@ async function openEditor(item) {
       throw new Error('Session expirée — reconnectez-vous pour ouvrir ce fichier chiffré');
     }
     const texte = await blob.text();
-    document.getElementById('edit-textarea').value = texte;
-    document.getElementById('edit-textarea').disabled = false;
+    ta.value = texte;
+    ta.disabled = false;
     document.getElementById('edit-save-btn').disabled = false;
     document.getElementById('edit-modal-info').textContent = `${Math.round(texte.length/102.4)/10} Ko`;
+    if (estCode) rafraichirSurlignage();
   } catch(e) {
     document.getElementById('edit-modal-info').textContent = '';
     document.getElementById('edit-textarea').placeholder = 'Erreur : ' + e.message;

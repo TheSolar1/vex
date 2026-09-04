@@ -3,6 +3,13 @@
 /dist/
 /log/
 
+# vex-cloudsync.exe compile a part (autre repo, binaire Windows) puis copie
+# ici a la main pour /api/appareil/telecharger -- jamais dans git.
+/static/downloads/
+
+# Sauvegardes DB (mysqldump) -- contiennent tout, jamais dans git
+/backups/
+
 # Secrets & config locale
 db.json
 config.json

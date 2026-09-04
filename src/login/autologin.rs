@@ -436,14 +436,27 @@ fn api_statut(
         "autologin",
         &[("compteid", mysql::Value::from(id_user))],
     );
+    let utilisations = selectionner(
+        pool,
+        "autologin",
+        &[("compteid", mysql::Value::from(id_user))],
+        &["utilisations"],
+        None,
+        Some(1),
+    )
+    .get(0)
+    .and_then(|r| r.get("utilisations"))
+    .and_then(|v| v.as_i64())
+    .unwrap_or(0);
 
     reponse_json(
         json!({
-            "ok":         true,
-            "a_token":    nb > 0,
-            "nb_tokens":  nb,
-            "max_tokens": al_cfg.max_tokens,
-            "peut_creer": nb < al_cfg.max_tokens,
+            "ok":           true,
+            "a_token":      nb > 0,
+            "nb_tokens":    nb,
+            "max_tokens":   al_cfg.max_tokens,
+            "peut_creer":   nb < al_cfg.max_tokens,
+            "utilisations": utilisations,
         }),
         200,
     )
@@ -518,6 +531,9 @@ fn api_connecter(
             403,
         );
     }
+
+    // ✅ Compteur d'utilisation du lien
+    crate::appeldb::incrementer_utilisation_autologin(pool, uid);
 
     // Récupère les infos utilisateur
     let user_rows = selectionner(

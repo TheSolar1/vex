@@ -243,8 +243,9 @@ fn handle_api(
         // pas seulement les siennes) est aussi sensible que les executer.
         "/vexia/audit",
     ];
-    let needs_super =
-        sub.starts_with("/p2p") || superadmin_routes.iter().any(|r| sub.starts_with(r));
+    let needs_super = sub.starts_with("/p2p")
+        || sub.starts_with("/backup")
+        || superadmin_routes.iter().any(|r| sub.starts_with(r));
     if needs_super && privilege > PRIVILEGE_SUPER {
         return respond_json(
             request,
@@ -307,7 +308,9 @@ fn handle_api(
                     "nom":       u.get("nom").and_then(|v| v.as_str()).unwrap_or(""),
                     "email":     u.get("email").and_then(|v| v.as_str()).unwrap_or(""),
                     "privilege": u.get("privilege").and_then(|v| v.as_i64()).unwrap_or(0),
-                    "vip":       u.get("vip").and_then(|v| v.as_i64()).unwrap_or(0),
+                    // Stocke en base "0"/"1" (voir /users/vip) ; le front attend
+                    // l'identifiant de plan "vip" pour presélectionner l'option.
+                    "vip":       u.get("vip").and_then(|v| v.as_str()).filter(|s| !s.is_empty() && *s != "0").map(|_| "vip").unwrap_or(""),
                 })).collect::<Vec<_>>(),
             }})
         }
@@ -334,7 +337,7 @@ fn handle_api(
                 "nom":       u.get("nom").and_then(|v| v.as_str()).unwrap_or(""),
                 "email":     u.get("email").and_then(|v| v.as_str()).unwrap_or(""),
                 "privilege": u.get("privilege").and_then(|v| v.as_i64()).unwrap_or(0),
-                "vip":       u.get("vip").and_then(|v| v.as_i64()).unwrap_or(0),
+                "vip":       u.get("vip").and_then(|v| v.as_str()).filter(|s| !s.is_empty() && *s != "0").map(|_| "vip").unwrap_or(""),
             })).collect::<Vec<_>>() })
         }
 
@@ -359,10 +362,13 @@ fn handle_api(
                 .get("uid")
                 .and_then(|v| v.parse::<i64>().ok())
                 .unwrap_or(0);
-            let vip = body
-                .get("vip")
-                .and_then(|v| v.parse::<i64>().ok())
-                .unwrap_or(0);
+            // La colonne `vip` (VARCHAR) n'est lue qu'en booleen partout
+            // ailleurs (i64 : 0=free, non-zero=vip) -- voir access_control::
+            // plan_autorise. Le formulaire admin envoie l'identifiant du plan
+            // choisi (ex: "vip"), pas un entier : on normalise ici pour rester
+            // compatible avec tout le code qui lit `vip` comme un i64.
+            let vip_brut = body.get("vip").map(|v| v.as_str()).unwrap_or("0");
+            let vip = if vip_brut.is_empty() || vip_brut == "0" { "0" } else { "1" };
             inserer_ou_modifier(
                 pool,
                 "login",
@@ -653,6 +659,7 @@ fn handle_api(
                 "arch":        std::env::consts::ARCH,
                 "uptime_sec":  uptime_sec(),
                 "disk": {"free_gb":free,"total_gb":total,"used_gb":used,"used_pct":pct},
+                "disks": disks_info(),
             }})
         }
 
@@ -661,6 +668,63 @@ fn handle_api(
         // via SSH une fois informe de ce qui est disponible).
         "/server/updates" => {
             json!({"success":true,"data":verifier_maj_systeme()})
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // SAUVEGARDES — dump complet de la base (fichiers inclus, ils
+        // sont stockes en base64 dans la table `fichiers`) via
+        // mysqldump | gzip. Reserve aux superadmins (voir
+        // needs_super plus haut) : un dump contient tout, mots de
+        // passe hashes/verifiers SRP compris.
+        // ══════════════════════════════════════════════════════════
+        "/backup/list" => {
+            json!({"success":true,"data":lister_backups()})
+        }
+
+        "/backup/status" => {
+            json!({"success":true,"data":lire_backup_status()})
+        }
+
+        "/backup/create" => {
+            let db = match crate::config_loader::load_db_config(config_path) {
+                Ok(d) => d,
+                Err(e) => return respond_json(request, json!({"success":false,"error":e})),
+            };
+            match lancer_backup(&db) {
+                Ok(_) => json!({"success":true,"message":"Sauvegarde lancée en arrière-plan."}),
+                Err(e) => json!({"success":false,"error":e}),
+            }
+        }
+
+        "/backup/delete" => {
+            let nom = body.get("nom").cloned().unwrap_or_default();
+            if !backup_nom_valide(&nom) {
+                json!({"success":false,"error":"Nom de fichier invalide."})
+            } else {
+                let _ = std::fs::remove_file(format!("{}/{}", BACKUP_DIR, nom));
+                json!({"success":true,"message":"Sauvegarde supprimée."})
+            }
+        }
+
+        "/backup/download" => {
+            let nom = query.get("nom").cloned().unwrap_or_default();
+            if !backup_nom_valide(&nom) {
+                return respond_json(request, json!({"success":false,"error":"Nom de fichier invalide."}));
+            }
+            let chemin = format!("{}/{}", BACKUP_DIR, nom);
+            match std::fs::read(&chemin) {
+                Ok(octets) => {
+                    let reponse = Response::from_data(octets)
+                        .with_header(tiny_http::Header::from_bytes("Content-Type", "application/gzip").unwrap())
+                        .with_header(tiny_http::Header::from_bytes(
+                            "Content-Disposition",
+                            format!("attachment; filename=\"{}\"", nom),
+                        ).unwrap());
+                    let _ = request.respond(reponse);
+                    return;
+                }
+                Err(_) => return respond_json(request, json!({"success":false,"error":"Fichier introuvable."})),
+            }
         }
 
         "/logs" => {
@@ -1768,36 +1832,70 @@ fn run_shell_command(cmd: &str) -> (bool, String) {
     }
 }
 
+/// Ancien point d'entree (disque racine uniquement), conserve pour
+/// compatibilite -- utilise disks_info() en interne.
 fn disk_info() -> (f64, f64, f64, u64) {
+    disks_info()
+        .into_iter()
+        .find(|d| d.get("mount").and_then(|v| v.as_str()) == Some("/"))
+        .map(|d| {
+            (
+                d.get("free_gb").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                d.get("total_gb").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                d.get("used_gb").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                d.get("used_pct").and_then(|v| v.as_u64()).unwrap_or(0),
+            )
+        })
+        .unwrap_or((0.0, 0.0, 0.0, 0))
+}
+
+/// Liste tous les disques "reels" montes (exclut tmpfs/devtmpfs et les
+/// petites partitions systeme type /boot) -- un Pi avec un disque externe
+/// branche (ex: /media/.../E) doit voir les deux dans le dashboard, pas
+/// seulement la racine.
+fn disks_info() -> Vec<Value> {
     #[cfg(unix)]
     {
-        if let Ok(out) = std::process::Command::new("df").args(["-B1", "/"]).output() {
+        if let Ok(out) = std::process::Command::new("df")
+            .args(["-B1", "--output=fstype,size,used,avail,target"])
+            .output()
+        {
             let s = String::from_utf8_lossy(&out.stdout);
-            let p: Vec<&str> = s.lines().nth(1).unwrap_or("").split_whitespace().collect();
-            if p.len() >= 4 {
-                let t = p[1].parse::<u64>().unwrap_or(0);
-                let u = p[2].parse::<u64>().unwrap_or(0);
-                let f = p[3].parse::<u64>().unwrap_or(0);
-                return (
-                    f as f64 / 1e9,
-                    t as f64 / 1e9,
-                    u as f64 / 1e9,
-                    if t > 0 { u * 100 / t } else { 0 },
-                );
+            let mut disks = Vec::new();
+            for line in s.lines().skip(1) {
+                let p: Vec<&str> = line.split_whitespace().collect();
+                if p.len() < 5 {
+                    continue;
+                }
+                let fstype = p[0];
+                if matches!(fstype, "tmpfs" | "devtmpfs" | "overlay" | "squashfs") {
+                    continue;
+                }
+                let t: u64 = p[1].parse().unwrap_or(0);
+                let u: u64 = p[2].parse().unwrap_or(0);
+                let f: u64 = p[3].parse().unwrap_or(0);
+                let mount = p[4..].join(" ");
+                // Ignore les petites partitions systeme (ex: /boot/firmware, ~500 Mo)
+                if t < 5_000_000_000 {
+                    continue;
+                }
+                disks.push(json!({
+                    "mount": mount,
+                    "free_gb": (f as f64 / 1e9 * 10.0).round() / 10.0,
+                    "total_gb": (t as f64 / 1e9 * 10.0).round() / 10.0,
+                    "used_gb": (u as f64 / 1e9 * 10.0).round() / 10.0,
+                    "used_pct": if t > 0 { u * 100 / t } else { 0 },
+                }));
+            }
+            if !disks.is_empty() {
+                return disks;
             }
         }
     }
     #[cfg(windows)]
     {
         if let Ok(out) = std::process::Command::new("wmic")
-            .args([
-                "logicaldisk",
-                "where",
-                "DeviceID='C:'",
-                "get",
-                "Size,FreeSpace",
-                "/format:csv",
-            ])
+            .args(["logicaldisk", "where", "DeviceID='C:'", "get", "Size,FreeSpace", "/format:csv"])
             .output()
         {
             let s = String::from_utf8_lossy(&out.stdout);
@@ -1807,17 +1905,18 @@ fn disk_info() -> (f64, f64, f64, u64) {
                     let f = p[1].trim().parse::<u64>().unwrap_or(0);
                     let t = p[2].trim().parse::<u64>().unwrap_or(0);
                     let u = t.saturating_sub(f);
-                    return (
-                        f as f64 / 1e9,
-                        t as f64 / 1e9,
-                        u as f64 / 1e9,
-                        if t > 0 { u * 100 / t } else { 0 },
-                    );
+                    return vec![json!({
+                        "mount": "C:",
+                        "free_gb": f as f64 / 1e9,
+                        "total_gb": t as f64 / 1e9,
+                        "used_gb": u as f64 / 1e9,
+                        "used_pct": if t > 0 { u * 100 / t } else { 0 },
+                    })];
                 }
             }
         }
     }
-    (0.0, 0.0, 0.0, 0)
+    vec![json!({"mount": "/", "free_gb": 0.0, "total_gb": 0.0, "used_gb": 0.0, "used_pct": 0})]
 }
 
 fn uptime_sec() -> u64 {
@@ -2186,6 +2285,142 @@ fn ext_lancer_build(cmd: &str) -> Result<(), String> {
             "output": out_court,
         }));
         BUILD_EN_COURS.store(false, Ordering::SeqCst);
+    });
+    Ok(())
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SAUVEGARDES — mysqldump | gzip vers backups/, dans un thread (meme
+// raison que ext_lancer_build : serveur HTTP mono-thread).
+// ══════════════════════════════════════════════════════════════════
+const BACKUP_DIR: &str = "backups";
+const BACKUP_STATUS_PATH: &str = "log/backup_status.json";
+static BACKUP_EN_COURS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn ecrire_backup_status(v: Value) {
+    let _ = std::fs::create_dir_all(log_dir());
+    let _ = std::fs::write(
+        BACKUP_STATUS_PATH,
+        serde_json::to_string_pretty(&v).unwrap_or_default(),
+    );
+}
+
+fn lire_backup_status() -> Value {
+    std::fs::read_to_string(BACKUP_STATUS_PATH)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or(json!({ "running": false, "jamais_lance": true }))
+}
+
+/// Whitelist stricte : seuls les noms au format attendu sont acceptes,
+/// pour /backup/delete et /backup/download (pas de traversee de chemin).
+fn backup_nom_valide(nom: &str) -> bool {
+    nom.len() < 100
+        && nom.starts_with("vex-backup-")
+        && nom.ends_with(".sql.gz")
+        && nom.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.' || c == '_')
+}
+
+fn lister_backups() -> Vec<Value> {
+    let _ = std::fs::create_dir_all(BACKUP_DIR);
+    let mut fichiers: Vec<Value> = std::fs::read_dir(BACKUP_DIR)
+        .map(|it| {
+            it.filter_map(Result::ok)
+                .filter_map(|e| {
+                    let nom = e.file_name().to_str()?.to_string();
+                    if !backup_nom_valide(&nom) {
+                        return None;
+                    }
+                    let meta = e.metadata().ok()?;
+                    let modifie = meta
+                        .modified()
+                        .ok()
+                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0);
+                    Some(json!({
+                        "nom": nom,
+                        "taille_mo": (meta.len() as f64 / 1_048_576.0 * 100.0).round() / 100.0,
+                        "modifie": modifie,
+                    }))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    fichiers.sort_by(|a, b| {
+        b["modifie"].as_u64().unwrap_or(0).cmp(&a["modifie"].as_u64().unwrap_or(0))
+    });
+    fichiers
+}
+
+/// Lance un dump complet (structure + donnees, fichiers inclus car
+/// stockes en base64 dans `fichiers`) dans un thread separe.
+fn lancer_backup(db: &crate::config_loader::DbConfig) -> Result<(), String> {
+    use std::process::Stdio;
+    use std::sync::atomic::Ordering;
+    if BACKUP_EN_COURS.swap(true, Ordering::SeqCst) {
+        return Err("Une sauvegarde est déjà en cours.".into());
+    }
+    let _ = std::fs::create_dir_all(BACKUP_DIR);
+    let horodatage = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+    let nom = format!("vex-backup-{}.sql.gz", horodatage);
+    let chemin = format!("{}/{}", BACKUP_DIR, nom);
+    let db = db.clone();
+    ecrire_backup_status(json!({"running": true, "started_at": maintenant(), "fichier": nom}));
+
+    std::thread::spawn(move || {
+        let resultat: Result<u64, String> = (|| {
+            let mut dump = Command::new("mysqldump")
+                .args([
+                    "--single-transaction",
+                    "--quick",
+                    "-h", &db.host,
+                    "-P", &db.port.to_string(),
+                    "-u", &db.user,
+                    &db.dbname,
+                ])
+                .env("MYSQL_PWD", &db.password)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .map_err(|e| format!("mysqldump introuvable : {e}"))?;
+            let dump_out = dump.stdout.take().ok_or("pipe mysqldump indisponible")?;
+            let fichier = std::fs::File::create(&chemin)
+                .map_err(|e| format!("Création du fichier de sauvegarde : {e}"))?;
+            let gzip_status = Command::new("gzip")
+                .arg("-c")
+                .stdin(Stdio::from(dump_out))
+                .stdout(Stdio::from(fichier))
+                .status()
+                .map_err(|e| format!("gzip introuvable : {e}"))?;
+            let dump_status = dump.wait().map_err(|e| format!("{e}"))?;
+            if !dump_status.success() {
+                let mut err = String::new();
+                if let Some(mut s) = dump.stderr.take() {
+                    let _ = std::io::Read::read_to_string(&mut s, &mut err);
+                }
+                return Err(format!("mysqldump a échoué : {}", err.trim()));
+            }
+            if !gzip_status.success() {
+                return Err("gzip a échoué.".into());
+            }
+            std::fs::metadata(&chemin).map(|m| m.len()).map_err(|e| format!("{e}"))
+        })();
+
+        match resultat {
+            Ok(taille) => ecrire_backup_status(json!({
+                "running": false, "success": true, "finished_at": maintenant(),
+                "fichier": nom, "taille_mo": (taille as f64 / 1_048_576.0 * 100.0).round() / 100.0,
+            })),
+            Err(e) => {
+                let _ = std::fs::remove_file(&chemin);
+                ecrire_backup_status(json!({
+                    "running": false, "success": false, "finished_at": maintenant(),
+                    "fichier": nom, "erreur": e,
+                }));
+            }
+        }
+        BACKUP_EN_COURS.store(false, Ordering::SeqCst);
     });
     Ok(())
 }

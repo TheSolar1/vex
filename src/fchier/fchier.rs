@@ -62,7 +62,21 @@ fn user_agent(req: &Request) -> String {
 fn verifier_session(pool: &DbPool, req: &Request) -> Option<HashMap<String, Value>> {
     let cookie = get_cookie(req, "connexion_cookie");
     let ip = crate::utils::strip_port(&remote_ip(req));
-    crate::appeldb::verifier_connexion(pool, &cookie, &ip, &user_agent(req))
+    if let Some(info) = crate::appeldb::verifier_connexion(pool, &cookie, &ip, &user_agent(req)) {
+        return Some(info);
+    }
+    // Auth alternative pour les clients desktop (vex-cloudsync, vex-sync-client)
+    // sans cookie de navigateur : jeton d'appareil approuvé via le flux
+    // login/appareil.rs, envoyé en "Authorization: Bearer <jeton>".
+    let jeton = req
+        .headers()
+        .iter()
+        .find(|h| h.field.as_str().as_str().eq_ignore_ascii_case("Authorization"))
+        .and_then(|h| h.value.as_str().strip_prefix("Bearer ").map(|s| s.trim().to_string()));
+    match jeton {
+        Some(j) if !j.is_empty() => crate::appeldb::verifier_jeton_appareil(pool, &j),
+        _ => None,
+    }
 }
 
 fn json_response(status: u16, body: Value) -> Response<std::io::Cursor<Vec<u8>>> {
@@ -784,7 +798,10 @@ fn api_upload(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
         return json_response(400, json!({"error": format!("Extension .{} non autorisée", ext)}));
     }
 
-    let now = chrono::Local::now().format("%Y-%m-%d").to_string();
+    // Horodatage a la seconde pres (et non au jour pres) : necessaire pour
+    // qu'un client de synchronisation puisse detecter une modification
+    // survenue le meme jour que la precedente (voir aussi api_edit_content).
+    let now = chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string();
     // Taille réelle depuis le base64 si non fournie
     let taille_reelle = if taille > 0 {
         taille
@@ -1361,12 +1378,19 @@ fn api_edit_content(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std:
         return json_response(400, json!({"error":"Contenu invalide (base64 attendu)."}));
     }
     let taille_reelle = contenu_b64.len() as i64 * 3 / 4;
+    // La colonne `date` doit refleter la derniere modification du CONTENU,
+    // pas seulement la creation -- sans ca, un client de sync (ou tout
+    // consommateur de l'API) ne peut pas distinguer un fichier inchange
+    // d'un fichier edite via cet endpoint (voir aussi le format horodate
+    // a la seconde pres, meme raison, dans api_upload ci-dessus).
+    let maintenant = chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string();
     let res = inserer_ou_modifier(
         pool,
         "fichiers",
         &[
             ("fichier", mysql::Value::from(contenu_b64)),
             ("taille", mysql::Value::from(taille_reelle)),
+            ("date", mysql::Value::from(maintenant.as_str())),
         ],
         &[
             ("id", mysql::Value::from(item_id)),
