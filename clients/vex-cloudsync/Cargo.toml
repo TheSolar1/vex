@@ -29,6 +29,11 @@ num-traits = "0.2"
 sha2 = "0.10"
 getrandom = { version = "0.2", features = ["std"] }
 
+# Page de configuration locale stylee (remplace le cmd -- meme pattern que
+# vex-sync-client) + icone dans la barre des taches.
+tiny_http = "0.12"
+tray-item = "0.10"
+
 # Reutilise VexClient/filecrypto/srp deja ecrits et testes ce soir --
 # pas de duplication.
 vex-sync-client = { path = "../vex-sync-client" }

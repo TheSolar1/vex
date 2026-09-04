@@ -62,7 +62,7 @@ fn interroger_statut(agent: &ureq::Agent, base_url: &str, code: &str) -> Result<
     })
 }
 
-fn ouvrir_navigateur(url: &str) {
+pub fn ouvrir_navigateur(url: &str) {
     // ShellExecuteW (API Win32 officielle pour "ouvrir ce lien avec le
     // gestionnaire par defaut") -- plus fiable qu'un sous-processus
     // explorer.exe, qui peut reussir silencieusement en arriere-plan sans

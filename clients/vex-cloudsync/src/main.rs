@@ -1,3 +1,9 @@
+// Pas de fenetre de commande : plus aucune interaction en cmd (jugee
+// "moche" et peu rassurante -- retour utilisateur direct). Toute
+// l'interaction passe par une page web locale stylee (assets/setup.html,
+// meme pattern que vex-sync-client) + une icone dans la barre des taches.
+#![windows_subsystem = "windows"]
+
 // ══════════════════════════════════════════════════════════════════
 // vex-cloudsync — premiere ebauche de synchro VEX via l'API Windows
 // Cloud Files (fichiers-fantomes, colonne "Statut" automatique dans
@@ -21,10 +27,12 @@
 // ══════════════════════════════════════════════════════════════════
 
 mod device_auth;
+use device_auth::ouvrir_navigateur;
 
+use std::collections::VecDeque;
 use std::env;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, Mutex};
 
 use cloud_filter::{
     error::{CResult, CloudErrorKind},
@@ -93,21 +101,22 @@ fn build_windows() -> Result<u32, String> {
         .ok_or_else(|| "impossible de lire le numero de build Windows dans le registre".to_string())
 }
 
-fn verifier_compatibilite() {
+/// Retourne Err si Windows est trop ancien pour l'API Cloud Files -- pas de
+/// process::exit ici, plus de console pour l'afficher (voir `main`, le
+/// message doit remonter sur la page locale a la place).
+fn verifier_compatibilite(etat: &EtatPartage) -> Result<(), String> {
     match build_windows() {
         Ok(build) if build >= BUILD_MINIMUM => {
-            println!("Windows build {build} : compatible (>= {BUILD_MINIMUM} requis).");
+            journaliser(etat, format!("Windows build {build} : compatible."));
+            Ok(())
         }
-        Ok(build) => {
-            eprintln!(
-                "Windows build {build} detecte -- l'API Cloud Files necessite au moins le \
-                 build {BUILD_MINIMUM} (Windows 10 version 1709 / \"Fall Creators Update\" ou \
-                 plus recent). Impossible de continuer sur ce systeme."
-            );
-            std::process::exit(1);
-        }
+        Ok(build) => Err(format!(
+            "Windows build {build} detecte -- l'API Cloud Files necessite au moins le \
+             build {BUILD_MINIMUM} (Windows 10 version 1709 ou plus recent)."
+        )),
         Err(e) => {
-            eprintln!("Avertissement : verification de la version Windows impossible ({e}) -- on continue quand meme.");
+            journaliser(etat, format!("Avertissement : verification de version Windows impossible ({e}) -- on continue quand meme."));
+            Ok(())
         }
     }
 }
@@ -409,50 +418,97 @@ fn nom_appareil() -> String {
     env::var("COMPUTERNAME").unwrap_or_else(|_| "Appareil Windows".to_string())
 }
 
-/// Attend que l'utilisateur appuie sur Entree avant de fermer la fenetre --
-/// sans ca, un lancement par double-clic depuis l'Explorateur ouvre une
-/// console qui se referme instantanement des qu'une erreur survient (ou
-/// meme a la fin normale), impossible a lire ("un cmd qui flashe").
-fn attendre_avant_fermeture() {
-    println!("\nAppuie sur Entree pour fermer cette fenetre...");
-    let mut buf = String::new();
-    let _ = std::io::stdin().read_line(&mut buf);
+// ══════════════════════════════════════════════════════════════════
+// ETAT PARTAGE + PAGE LOCALE (remplace le cmd)
+// ══════════════════════════════════════════════════════════════════
+#[derive(Default)]
+struct EtatUi {
+    lignes: VecDeque<String>,
+    erreur: Option<String>,
+    termine: bool,
+    dossier: Option<String>,
+}
+type EtatPartage = Arc<Mutex<EtatUi>>;
+
+fn journaliser(etat: &EtatPartage, msg: impl Into<String>) {
+    let mut e = etat.lock().unwrap();
+    e.lignes.push_back(msg.into());
+    if e.lignes.len() > 200 {
+        e.lignes.pop_front();
+    }
 }
 
-/// Demande le mot de passe de facon interactive si VEX_PASSWORD n'est pas
-/// deja fourni. Indispensable pour un lancement par double-clic (aucun
-/// moyen pour l'utilisateur de positionner une variable d'environnement
-/// dans ce cas) -- jamais envoye au serveur, voir device_auth.rs.
-fn demander_mot_de_passe() -> String {
-    println!("Mot de passe VEX (sert uniquement a chiffrer/dechiffrer tes fichiers en local, jamais envoye au serveur) :");
-    let mut buf = String::new();
-    std::io::stdin().read_line(&mut buf).expect("lecture du mot de passe impossible");
-    buf.trim().to_string()
+fn signaler_erreur(etat: &EtatPartage, msg: impl Into<String>) {
+    etat.lock().unwrap().erreur = Some(msg.into());
 }
 
-fn main() {
-    // Toute panique (.expect() etc.) affiche son message normalement PUIS
-    // attend une touche -- sinon la fenetre se ferme avant que quiconque
-    // ait pu lire quoi que ce soit.
-    let hook_defaut = std::panic::take_hook();
-    std::panic::set_hook(Box::new(move |info| {
-        hook_defaut(info);
-        attendre_avant_fermeture();
-    }));
+fn reponse_html(s: &str) -> tiny_http::Response<std::io::Cursor<Vec<u8>>> {
+    tiny_http::Response::from_string(s)
+        .with_header(tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap())
+}
+fn reponse_json(v: serde_json::Value) -> tiny_http::Response<std::io::Cursor<Vec<u8>>> {
+    tiny_http::Response::from_string(v.to_string())
+        .with_header(tiny_http::Header::from_bytes("Content-Type", "application/json").unwrap())
+}
+fn json_statut(etat: &EtatPartage) -> serde_json::Value {
+    let e = etat.lock().unwrap();
+    serde_json::json!({
+        "lignes": e.lignes.iter().cloned().collect::<Vec<_>>(),
+        "erreur": e.erreur,
+        "termine": e.termine,
+        "dossier": e.dossier,
+    })
+}
 
-    verifier_compatibilite();
-
-    let base_url = detecter_base_url()
-        .expect("Impossible de joindre le serveur VEX (aucune des adresses connues ne repond -- verifie ta connexion).")
-        .trim_end_matches('/')
-        .to_string();
-    // Le mot de passe reste necessaire EN LOCAL uniquement : il ne transite
-    // jamais vers le serveur par ce chemin (voir device_auth.rs et
-    // api.rs::Auth), mais la cle de chiffrement des fichiers en depend.
-    let password = match env::var("VEX_PASSWORD") {
-        Ok(p) => p,
-        Err(_) => demander_mot_de_passe(),
+fn lancer_serveur_local(etat: EtatPartage, tx_password: mpsc::Sender<String>) -> String {
+    let server = tiny_http::Server::http("127.0.0.1:0").expect("impossible de demarrer le serveur local");
+    let port = match server.server_addr() {
+        tiny_http::ListenAddr::IP(addr) => addr.port(),
     };
+    let url = format!("http://127.0.0.1:{port}/");
+    std::thread::spawn(move || {
+        for mut req in server.incoming_requests() {
+            let methode = req.method().as_str().to_string();
+            let chemin = req.url().split('?').next().unwrap_or("").to_string();
+            let reponse = match (methode.as_str(), chemin.as_str()) {
+                ("GET", "/") => reponse_html(include_str!("../assets/setup.html")),
+                ("GET", "/api/statut") => reponse_json(json_statut(&etat)),
+                ("POST", "/api/password") => {
+                    let mut corps = String::new();
+                    let _ = std::io::Read::read_to_string(req.as_reader(), &mut corps);
+                    let _ = tx_password.send(corps);
+                    reponse_json(serde_json::json!({"ok": true}))
+                }
+                _ => reponse_json(serde_json::json!({"error": "introuvable"})),
+            };
+            let _ = req.respond(reponse);
+        }
+    });
+    url
+}
+
+/// Deroule tout le flux (compatibilite, detection serveur, autorisation,
+/// enregistrement de la racine de synchro, connexion Cloud Filter) en
+/// journalisant chaque etape sur `etat` (affiche sur la page locale, plus
+/// de console). Bloque en fin de fonction jusqu'a reception d'un signal
+/// d'arret (clic "Quitter" dans la barre des taches), pour garder la
+/// session Cloud Filter vivante tout du long.
+fn executer_synchro(password: String, etat: EtatPartage, rx_quitter: mpsc::Receiver<()>) {
+    if let Err(e) = verifier_compatibilite(&etat) {
+        signaler_erreur(&etat, e);
+        return;
+    }
+
+    journaliser(&etat, "Recherche du serveur VEX...");
+    let base_url = match detecter_base_url() {
+        Some(u) => u.trim_end_matches('/').to_string(),
+        None => {
+            signaler_erreur(&etat, "Impossible de joindre le serveur VEX (aucune adresse connue ne repond -- verifie ta connexion).");
+            return;
+        }
+    };
+    journaliser(&etat, format!("Serveur trouve : {base_url}"));
+
     let client_path = get_client_path();
     // Deux icones distinctes (feedback utilisateur) : le dossier teinte VEX
     // pour la racine de synchro dans l'Explorateur (comme OneDrive/GDrive),
@@ -467,66 +523,149 @@ fn main() {
 
     let jeton = match charger_jeton(&base_url) {
         Some(j) => {
-            println!("Appareil deja autorise pour {base_url}, reutilisation du jeton local.");
+            journaliser(&etat, "Appareil deja autorise, reutilisation du jeton local.");
             j
         }
         None => {
-            println!("Aucun appareil autorise pour {base_url} -- lancement du flux d'autorisation...");
-            let j = device_auth::attendre_approbation(&base_url, &nom_appareil())
-                .expect("echec du flux d'autorisation d'appareil");
-            sauver_jeton(&base_url, &j);
-            j
+            journaliser(&etat, "Aucun appareil autorise -- verifie ton navigateur pour autoriser cet appareil...");
+            match device_auth::attendre_approbation(&base_url, &nom_appareil()) {
+                Ok(j) => {
+                    sauver_jeton(&base_url, &j);
+                    j
+                }
+                Err(e) => {
+                    signaler_erreur(&etat, format!("Autorisation echouee : {e}"));
+                    return;
+                }
+            }
         }
     };
+    journaliser(&etat, "Appareil autorise.");
 
     let client = VexClient::depuis_jeton(&base_url, &jeton, &password);
 
-    std::fs::create_dir_all(&client_path).expect("impossible de creer le dossier local");
+    if let Err(e) = std::fs::create_dir_all(&client_path) {
+        signaler_erreur(&etat, format!("Impossible de creer le dossier local : {e}"));
+        return;
+    }
 
     let sync_root_id = SyncRootIdBuilder::new(PROVIDER_NAME)
         .user_security_id(SecurityId::current_user().unwrap())
         .build();
 
-    if !sync_root_id.is_registered().unwrap() {
-        sync_root_id
-            .register(
-                SyncRootInfo::default()
-                    .with_display_name(DISPLAY_NAME)
-                    .with_hydration_type(HydrationType::Full)
-                    .with_population_type(PopulationType::Full)
-                    .with_icon(&icone)
-                    .with_version(env!("CARGO_PKG_VERSION"))
-                    .with_path(Path::new(&client_path))
-                    .unwrap(),
-            )
-            .expect("echec d'enregistrement de la racine de synchro");
-        println!("Racine de synchro enregistree : {client_path}");
+    let deja_enregistree = sync_root_id.is_registered().unwrap_or(false);
+    if !deja_enregistree {
+        let enregistrement = SyncRootInfo::default()
+            .with_display_name(DISPLAY_NAME)
+            .with_hydration_type(HydrationType::Full)
+            .with_population_type(PopulationType::Full)
+            .with_icon(&icone)
+            .with_version(env!("CARGO_PKG_VERSION"))
+            .with_path(Path::new(&client_path));
+        let enregistrement = match enregistrement {
+            Ok(e) => e,
+            Err(e) => {
+                signaler_erreur(&etat, format!("Chemin de synchro invalide : {e:?}"));
+                return;
+            }
+        };
+        if let Err(e) = sync_root_id.register(enregistrement) {
+            signaler_erreur(&etat, format!("Echec d'enregistrement de la racine de synchro : {e:?}"));
+            return;
+        }
+        journaliser(&etat, "Racine de synchro enregistree.");
     } else {
-        println!("Racine de synchro deja enregistree : {client_path}");
+        journaliser(&etat, "Racine de synchro deja enregistree.");
     }
 
     creer_raccourci_bureau(&client_path, &icone_raccourci);
 
-    println!("Marquage des fichiers locaux deja presents comme synchronises...");
+    journaliser(&etat, "Marquage des fichiers locaux deja presents comme synchronises...");
     mark_in_sync(Path::new(&client_path), &client, 0);
 
-    let connection = Session::new()
-        .connect(&client_path, Filter { client })
-        .expect("echec de connexion de la session Cloud Filter");
+    let connection = match Session::new().connect(&client_path, Filter { client }) {
+        Ok(c) => c,
+        Err(e) => {
+            signaler_erreur(&etat, format!("Echec de connexion de la session Cloud Filter : {e:?}"));
+            return;
+        }
+    };
 
-    println!("En ligne. Ctrl+C pour arreter (desinscrit la racine de synchro a l'arret).");
-    wait_for_ctrlc();
+    {
+        let mut e = etat.lock().unwrap();
+        e.termine = true;
+        e.dossier = Some(client_path.clone());
+    }
+
+    // Garde la session vivante jusqu'au signal "Quitter" (barre des taches).
+    let _ = rx_quitter.recv();
 
     drop(connection);
-    sync_root_id.unregister().expect("echec de desinscription");
-    println!("Racine de synchro desinscrite. Arret propre.");
+    let _ = sync_root_id.unregister();
 }
 
-fn wait_for_ctrlc() {
-    let (tx, rx) = mpsc::channel();
-    ctrlc::set_handler(move || {
-        let _ = tx.send(());
-    })
-    .expect("erreur d'installation du gestionnaire Ctrl-C");
-    rx.recv().unwrap();
+enum EvenementTray {
+    Ouvrir,
+    Quitter,
+}
+
+fn main() {
+    let etat: EtatPartage = Arc::new(Mutex::new(EtatUi::default()));
+    let (tx_password, rx_password) = mpsc::channel::<String>();
+    let url_locale = lancer_serveur_local(etat.clone(), tx_password);
+    ouvrir_navigateur(&url_locale);
+
+    let (tx_evt, rx_evt) = mpsc::channel::<EvenementTray>();
+    let mut tray = tray_item::TrayItem::new("VEX Cloud Sync", tray_item::IconSource::Resource("")).ok();
+    if let Some(t) = tray.as_mut() {
+        let tx1 = tx_evt.clone();
+        let _ = t.add_menu_item("Ouvrir VEX Cloud Sync", move || {
+            let _ = tx1.send(EvenementTray::Ouvrir);
+        });
+        let tx2 = tx_evt.clone();
+        let _ = t.add_menu_item("Quitter", move || {
+            let _ = tx2.send(EvenementTray::Quitter);
+        });
+    }
+
+    let (tx_quitter_worker, rx_quitter_worker) = mpsc::channel::<()>();
+    let mut rx_quitter_worker = Some(rx_quitter_worker);
+    let (tx_worker_termine, rx_worker_termine) = mpsc::channel::<()>();
+    let mut worker_lance = false;
+
+    loop {
+        if !worker_lance {
+            if let Ok(mdp) = rx_password.try_recv() {
+                if let Some(rx_q) = rx_quitter_worker.take() {
+                    worker_lance = true;
+                    let etat2 = etat.clone();
+                    let tx_t = tx_worker_termine.clone();
+                    std::thread::spawn(move || {
+                        if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                            executer_synchro(mdp, etat2.clone(), rx_q);
+                        }))
+                        .is_err()
+                        {
+                            signaler_erreur(&etat2, "Erreur interne inattendue -- relance l'application.");
+                        }
+                        let _ = tx_t.send(());
+                    });
+                }
+            }
+        }
+
+        match rx_evt.try_recv() {
+            Ok(EvenementTray::Ouvrir) => ouvrir_navigateur(&url_locale),
+            Ok(EvenementTray::Quitter) => {
+                let _ = tx_quitter_worker.send(());
+                if worker_lance {
+                    let _ = rx_worker_termine.recv_timeout(std::time::Duration::from_secs(10));
+                }
+                break;
+            }
+            Err(_) => {}
+        }
+
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    }
 }

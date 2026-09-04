@@ -2009,6 +2009,8 @@ dependencies = [
  "num-traits",
  "serde_json",
  "sha2",
+ "tiny_http",
+ "tray-item",
  "ureq",
  "vex-sync-client",
  "windows",
