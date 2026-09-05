@@ -402,14 +402,22 @@ const CHEMIN_EXE_CLOUDSYNC: &str = "static/downloads/vex-cloudsync.exe";
 // ne signe plus rien a la volee -- la cle privee de signature ne doit
 // JAMAIS se trouver sur ce serveur (decide explicitement avec
 // l'utilisateur apres avoir pese le compromis de securite).
-// BUG CORRIGE (constate en pratique) : sans "Accept-Ranges: none", le
-// gestionnaire de telechargement d'Edge/Chrome declenche un telechargement
-// SEGMENTE en parallele (plusieurs requetes GET avec en-tete Range) pour
-// les fichiers de cette taille. tiny_http ignorait Range et renvoyait
-// l'exe COMPLET a chaque segment -> reassemblage corrompu cote navigateur
-// (fichier final a 0 Ko, plusieurs .part visibles). Declarer explicitement
-// qu'on ne supporte pas les requetes par plage force un telechargement
-// simple, sequentiel, fiable.
+// BUGS CORRIGES (constates en pratique, l'un cachait l'autre) :
+//  1. Sans "Accept-Ranges: none", Edge/Chrome declenchent un
+//     telechargement SEGMENTE en parallele pour les fichiers de cette
+//     taille -- tiny_http ignorait Range et renvoyait l'exe COMPLET a
+//     chaque segment.
+//  2. tiny_http bascule AUTOMATIQUEMENT en Transfer-Encoding: chunked
+//     (RFC 7230) des qu'une reponse depasse son "chunked_threshold" par
+//     defaut (32 768 octets -- voir tiny_http::Response::chunked_threshold),
+//     meme quand la taille exacte est deja connue (from_data). Un exe de
+//     plusieurs Mo passe donc systematiquement en chunked. Ce mode passe
+//     mal a travers Apache (reverse proxy devant ce serveur) pour un
+//     transfert binaire de cette taille -- constate : fichier final a
+//     0 Ko cote navigateur alors que le flux chunked recu (verifie via un
+//     client de test independant) contenait bien tous les octets. Fixer
+//     un seuil de bascule chunked superieur a la taille du fichier force
+//     un Content-Length classique, fiable a travers n'importe quel proxy.
 fn telecharger_bundle(
     pool: &DbPool,
     methode: &str,
@@ -430,12 +438,19 @@ fn telecharger_bundle(
             )
         }
     };
+    let taille = exe.len();
 
-    // HEAD : memes en-tetes, mais pas de corps (les navigateurs l'utilisent
-    // parfois pour sonder taille/support des plages avant de telecharger).
+    // HEAD : memes en-tetes (dont Content-Length reel), mais pas de corps
+    // (les navigateurs l'utilisent parfois pour sonder la taille avant de
+    // telecharger).
     let corps = if methode == "HEAD" { Vec::new() } else { exe };
+    let mut reponse = Response::from_data(corps);
+    if methode == "HEAD" {
+        reponse = reponse.with_data(std::io::Cursor::new(Vec::new()), Some(taille));
+    }
 
-    Response::from_data(corps)
+    reponse
+        .with_chunked_threshold(usize::MAX)
         .with_header(tiny_http::Header::from_bytes("Content-Type", "application/vnd.microsoft.portable-executable").unwrap())
         .with_header(
             tiny_http::Header::from_bytes(
