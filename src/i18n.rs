@@ -1094,9 +1094,9 @@ pub enum Cle {
     SitecAnimationBounce,
     SitecAnimationRotate,
     SitecAnimationPulse,
-    SitecBlocCode,
-    SitecBlocCodePlaceholder,
-    SitecBlocCodeHint,
+    SitecModifierPage,
+    SitecErreurFichierTropGros,
+    SitecErreurTypeFichierInvalide,
 }
 
 pub fn t(langue: &str, cle: Cle) -> &'static str {
@@ -2106,9 +2106,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         (_, SitecAnimationBounce) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Rebond",
         (_, SitecAnimationRotate) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Rotation",
         (_, SitecAnimationPulse) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Pulsation",
-        (_, SitecBlocCode) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Code",
-        (_, SitecBlocCodePlaceholder) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Collez votre HTML / CSS / JS ici…",
-        (_, SitecBlocCodeHint) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Inséré tel quel sur la page publiée, sans filtre — à réserver aux utilisateurs à l'aise avec le code.",
+        (_, SitecModifierPage) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Modifier",
+        (_, SitecErreurFichierTropGros) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Fichier trop volumineux (5 Mo maximum).",
+        (_, SitecErreurTypeFichierInvalide) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Type d'image non autorisé (jpg, png, gif, webp uniquement).",
 
         // ────────────────────────────────────────────── English ──
         ("en", LoginTitreOnglet) => "Login - VEX",
@@ -3088,9 +3088,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("en", SitecAnimationBounce) => "Bounce",
         ("en", SitecAnimationRotate) => "Rotate",
         ("en", SitecAnimationPulse) => "Pulse",
-        ("en", SitecBlocCode) => "Code",
-        ("en", SitecBlocCodePlaceholder) => "Paste your HTML / CSS / JS here…",
-        ("en", SitecBlocCodeHint) => "Inserted as-is on the published page, unfiltered — for users comfortable with code.",
+        ("en", SitecModifierPage) => "Edit",
+        ("en", SitecErreurFichierTropGros) => "File too large (5 MB maximum).",
+        ("en", SitecErreurTypeFichierInvalide) => "Image type not allowed (jpg, png, gif, webp only).",
 
         // ────────────────────────────────────────────── Español ──
         ("es", LoginTitreOnglet) => "Iniciar sesion - VEX",
@@ -4070,9 +4070,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("es", SitecAnimationBounce) => "Rebote",
         ("es", SitecAnimationRotate) => "Rotacion",
         ("es", SitecAnimationPulse) => "Pulso",
-        ("es", SitecBlocCode) => "Codigo",
-        ("es", SitecBlocCodePlaceholder) => "Pega tu HTML / CSS / JS aqui…",
-        ("es", SitecBlocCodeHint) => "Se inserta tal cual en la pagina publicada, sin filtrar — reservado a usuarios comodos con el codigo.",
+        ("es", SitecModifierPage) => "Editar",
+        ("es", SitecErreurFichierTropGros) => "Archivo demasiado grande (5 MB maximo).",
+        ("es", SitecErreurTypeFichierInvalide) => "Tipo de imagen no permitido (solo jpg, png, gif, webp).",
 
         // ─────────────────────────────────────────────── Deutsch ──
         ("de", LoginTitreOnglet) => "Anmeldung - VEX",
@@ -5052,9 +5052,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("de", SitecAnimationBounce) => "Abprallen",
         ("de", SitecAnimationRotate) => "Drehen",
         ("de", SitecAnimationPulse) => "Pulsieren",
-        ("de", SitecBlocCode) => "Code",
-        ("de", SitecBlocCodePlaceholder) => "Füge hier dein HTML / CSS / JS ein…",
-        ("de", SitecBlocCodeHint) => "Wird unverändert und ungefiltert auf der veröffentlichten Seite eingefügt — nur für Nutzer, die sich mit Code auskennen.",
+        ("de", SitecModifierPage) => "Bearbeiten",
+        ("de", SitecErreurFichierTropGros) => "Datei zu groß (maximal 5 MB).",
+        ("de", SitecErreurTypeFichierInvalide) => "Bildtyp nicht erlaubt (nur jpg, png, gif, webp).",
 
         // ─────────────────────────────────────────────── Italiano ──
         ("it", LoginTitreOnglet) => "Accesso - VEX",
@@ -6034,9 +6034,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("it", SitecAnimationBounce) => "Rimbalzo",
         ("it", SitecAnimationRotate) => "Rotazione",
         ("it", SitecAnimationPulse) => "Pulsazione",
-        ("it", SitecBlocCode) => "Codice",
-        ("it", SitecBlocCodePlaceholder) => "Incolla qui il tuo HTML / CSS / JS…",
-        ("it", SitecBlocCodeHint) => "Inserito cosi com'e nella pagina pubblicata, senza filtri — riservato a chi sa programmare.",
+        ("it", SitecModifierPage) => "Modifica",
+        ("it", SitecErreurFichierTropGros) => "File troppo grande (5 MB massimo).",
+        ("it", SitecErreurTypeFichierInvalide) => "Tipo di immagine non consentito (solo jpg, png, gif, webp).",
 
         // ──────────────────────────────────────────── Português ──
         ("pt", LoginTitreOnglet) => "Login - VEX",
@@ -7016,9 +7016,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("pt", SitecAnimationBounce) => "Ressalto",
         ("pt", SitecAnimationRotate) => "Rotacao",
         ("pt", SitecAnimationPulse) => "Pulsacao",
-        ("pt", SitecBlocCode) => "Codigo",
-        ("pt", SitecBlocCodePlaceholder) => "Cola aqui o teu HTML / CSS / JS…",
-        ("pt", SitecBlocCodeHint) => "Inserido tal como esta na pagina publicada, sem filtro — reservado a quem esta a vontade com codigo.",
+        ("pt", SitecModifierPage) => "Editar",
+        ("pt", SitecErreurFichierTropGros) => "Ficheiro demasiado grande (5 MB no maximo).",
+        ("pt", SitecErreurTypeFichierInvalide) => "Tipo de imagem nao permitido (apenas jpg, png, gif, webp).",
 
         // ──────────────────────────────────────────────── Русский ──
         ("ru", LoginTitreOnglet) => "Вход - VEX",
@@ -7998,9 +7998,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("ru", SitecAnimationBounce) => "Отскок",
         ("ru", SitecAnimationRotate) => "Поворот",
         ("ru", SitecAnimationPulse) => "Пульсация",
-        ("ru", SitecBlocCode) => "Код",
-        ("ru", SitecBlocCodePlaceholder) => "Вставьте сюда ваш HTML / CSS / JS…",
-        ("ru", SitecBlocCodeHint) => "Вставляется на опубликованную страницу как есть, без фильтрации — только для тех, кто уверенно работает с кодом.",
+        ("ru", SitecModifierPage) => "Редактировать",
+        ("ru", SitecErreurFichierTropGros) => "Файл слишком большой (максимум 5 МБ).",
+        ("ru", SitecErreurTypeFichierInvalide) => "Недопустимый тип изображения (только jpg, png, gif, webp).",
 
         // ────────────────────────────────────────────────── 中文 ──
         ("zh", LoginTitreOnglet) => "登录 - VEX",
@@ -8980,9 +8980,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("zh", SitecAnimationBounce) => "弹跳",
         ("zh", SitecAnimationRotate) => "旋转",
         ("zh", SitecAnimationPulse) => "脉动",
-        ("zh", SitecBlocCode) => "代码",
-        ("zh", SitecBlocCodePlaceholder) => "在此粘贴你的 HTML / CSS / JS……",
-        ("zh", SitecBlocCodeHint) => "将原样插入已发布的页面，不做任何过滤——仅供熟悉代码的用户使用。",
+        ("zh", SitecModifierPage) => "编辑",
+        ("zh", SitecErreurFichierTropGros) => "文件过大（最大 5 MB）。",
+        ("zh", SitecErreurTypeFichierInvalide) => "不支持的图片类型（仅限 jpg、png、gif、webp）。",
 
         // ────────────────────────────────────────────────── 日本語 ──
         ("ja", LoginTitreOnglet) => "ログイン - VEX",
@@ -9962,9 +9962,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("ja", SitecAnimationBounce) => "バウンド",
         ("ja", SitecAnimationRotate) => "回転",
         ("ja", SitecAnimationPulse) => "パルス",
-        ("ja", SitecBlocCode) => "コード",
-        ("ja", SitecBlocCodePlaceholder) => "ここにHTML / CSS / JSを貼り付けてください…",
-        ("ja", SitecBlocCodeHint) => "公開ページにそのまま、フィルタなしで挿入されます——コードに詳しい方向けです。",
+        ("ja", SitecModifierPage) => "編集",
+        ("ja", SitecErreurFichierTropGros) => "ファイルが大きすぎます（最大5MB）。",
+        ("ja", SitecErreurTypeFichierInvalide) => "許可されていない画像形式です（jpg、png、gif、webpのみ）。",
 
         // ──────────────────────────────────────────────── العربية ──
         ("ar", LoginTitreOnglet) => "تسجيل الدخول - VEX",
@@ -10944,9 +10944,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("ar", SitecAnimationBounce) => "ارتداد",
         ("ar", SitecAnimationRotate) => "دوران",
         ("ar", SitecAnimationPulse) => "نبض",
-        ("ar", SitecBlocCode) => "الكود",
-        ("ar", SitecBlocCodePlaceholder) => "الصق HTML / CSS / JS الخاص بك هنا…",
-        ("ar", SitecBlocCodeHint) => "يتم إدراجه كما هو في الصفحة المنشورة، دون تصفية — مخصص لمن يجيد البرمجة.",
+        ("ar", SitecModifierPage) => "تعديل",
+        ("ar", SitecErreurFichierTropGros) => "الملف كبير جدًا (الحد الأقصى 5 ميغابايت).",
+        ("ar", SitecErreurTypeFichierInvalide) => "نوع الصورة غير مسموح به (jpg وpng وgif وwebp فقط).",
 
         // Repli sur le francais pour toute combinaison non listee (ne
         // devrait pas arriver, toutes les langues supportees sont listees).

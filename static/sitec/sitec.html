@@ -133,39 +133,100 @@ body {
 .link-row a { color:var(--accent); font-weight:600; text-decoration:none; display:flex; align-items:center; gap:5px; flex-shrink:0; }
 
 .blocs-hint { font-size:12px; color:var(--text-dim); margin-bottom:14px; }
-.blocs-list { display:flex; flex-direction:column; gap:12px; margin-bottom:16px; }
-.bloc-item { border:1px solid var(--border); border-radius:8px; padding:14px; background:var(--sidebar-hover); }
-.bloc-item-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-.bloc-item-type { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-dim); display:flex; align-items:center; gap:7px; }
-.bloc-item-actions { display:flex; gap:4px; }
+.editor-card.wide { max-width:1180px; }
+
+.blocs-editor-layout { display:flex; gap:20px; align-items:flex-start; }
+.blocs-palette {
+  width:220px; flex-shrink:0; border:1px solid var(--border); border-radius:8px; background:var(--sidebar-hover);
+  max-height:74vh; overflow-y:auto; padding:10px;
+}
+.blocs-palette-cat { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-dim); margin:12px 4px 6px; }
+.blocs-palette-cat:first-child { margin-top:2px; }
+.blocs-palette-item {
+  display:flex; align-items:center; gap:8px; padding:8px 9px; border-radius:6px; cursor:grab; font-size:12.5px;
+  border:1px solid transparent; user-select:none;
+}
+.blocs-palette-item:hover { background:var(--surface); border-color:var(--border); }
+.blocs-palette-item.dragging { opacity:.4; }
+.blocs-palette-item i { width:16px; text-align:center; color:var(--accent); flex-shrink:0; }
+.blocs-canvas { flex:1; min-width:0; }
+.blocs-canvas.drop-over { background:var(--alt); border-radius:8px; }
+.blocs-drop-indicator { height:3px; background:var(--accent); border-radius:2px; margin:4px 0; }
+
+.blocs-list { display:flex; flex-direction:column; gap:10px; margin-bottom:16px; min-height:60px; }
+.bloc-item { border:1px solid var(--border); border-radius:8px; background:var(--sidebar-hover); }
+.bloc-item.dragging { opacity:.4; }
+.bloc-item-hdr { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; cursor:pointer; gap:8px; }
+.bloc-item-type { font-size:12.5px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:8px; overflow:hidden; }
+.bloc-item-type .bloc-drag-handle { cursor:grab; color:var(--text-dim); flex-shrink:0; }
+.bloc-item-type i.bloc-type-ico { color:var(--accent); flex-shrink:0; }
+.bloc-item-summary { font-weight:400; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bloc-item-actions { display:flex; gap:4px; flex-shrink:0; }
 .bloc-act {
-  width:28px; height:28px; border-radius:6px; border:1px solid var(--border); background:var(--surface);
-  color:var(--text-dim); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:12px;
+  width:26px; height:26px; border-radius:6px; border:1px solid var(--border); background:var(--surface);
+  color:var(--text-dim); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:11px;
   transition:all .15s;
 }
 .bloc-act:hover { background:var(--accent); color:var(--surface); border-color:var(--accent); }
-.bloc-act:disabled { opacity:.35; cursor:not-allowed; }
-.bloc-act:disabled:hover { background:var(--surface); color:var(--text-dim); border-color:var(--border); }
 .bloc-act-danger:hover { background:var(--danger); border-color:var(--danger); }
-.bloc-item-body { display:flex; flex-direction:column; gap:8px; }
-.bloc-item-body input[type=text], .bloc-item-body textarea {
+.bloc-item-body { display:none; flex-direction:column; gap:10px; padding:0 12px 14px; }
+.bloc-item.open .bloc-item-body { display:flex; }
+.bloc-item.open .bloc-item-hdr { border-bottom:1px solid var(--border); }
+.bloc-item-body input[type=text], .bloc-item-body input[type=number], .bloc-item-body input[type=datetime-local],
+.bloc-item-body textarea, .bloc-item-body select {
   width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:6px;
   font-size:13px; outline:none; background:var(--input); color:var(--text); font-family:inherit;
 }
-.bloc-item-body textarea { min-height:80px; resize:vertical; line-height:1.5; }
-.bloc-item-body textarea.code { font-family:'SF Mono',Consolas,monospace; font-size:12px; min-height:180px; }
-.bloc-item-body input:focus, .bloc-item-body textarea:focus { border-color:var(--accent); }
-.bloc-preview-img { max-width:220px; max-height:140px; border-radius:6px; margin-top:4px; display:block; }
+.bloc-item-body textarea { min-height:70px; resize:vertical; line-height:1.5; }
+.bloc-item-body input:focus, .bloc-item-body textarea:focus, .bloc-item-body select:focus { border-color:var(--accent); }
+.champ-label { font-size:11px; font-weight:600; color:var(--text-dim); margin-bottom:3px; display:block; }
 .bloc-anim-row {
   display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-dim); margin-top:2px;
 }
 .bloc-anim-select {
   padding:6px 8px; border-radius:6px; border:1px solid var(--border); background:var(--input);
-  color:var(--text); font-size:12px; font-family:inherit; outline:none;
+  color:var(--text); font-size:12px; font-family:inherit; outline:none; max-width:220px;
 }
 .bloc-anim-select:focus { border-color:var(--accent); }
 .blocs-empty { text-align:center; padding:24px 14px; color:var(--text-dim); font-size:13px; border:1px dashed var(--border); border-radius:8px; margin-bottom:16px; }
 .blocs-add-row { display:flex; gap:8px; flex-wrap:wrap; }
+
+.champ-image-preview { margin-bottom:6px; }
+.champ-image-preview img { max-width:220px; max-height:130px; border-radius:6px; display:block; }
+.champ-image-actions { display:flex; gap:8px; }
+.btn-xs { padding:6px 10px; font-size:12px; }
+
+.champ-items-list { display:flex; flex-direction:column; gap:8px; }
+.champ-item-row { border:1px solid var(--border); border-radius:6px; padding:8px; background:var(--surface); }
+.champ-item-row-hdr { display:flex; justify-content:flex-end; gap:4px; margin-bottom:6px; }
+.champ-item-fields { display:flex; flex-direction:column; gap:6px; }
+.champ-items-empty { font-size:12px; color:var(--text-dim); padding:6px 0; }
+.champ-checkgroup { display:flex; flex-wrap:wrap; gap:12px; }
+.champ-checkgroup label { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:400; cursor:pointer; }
+
+.img-picker-overlay {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:6000;
+  align-items:center; justify-content:center;
+}
+.img-picker-modal { background:var(--surface); border-radius:10px; width:520px; max-width:92vw; max-height:82vh; display:flex; flex-direction:column; overflow:hidden; }
+.img-picker-hdr { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid var(--border); }
+.img-picker-close { background:none; border:none; font-size:18px; cursor:pointer; color:var(--text-dim); }
+.img-picker-tabs { display:flex; gap:6px; padding:10px 16px 0; }
+.img-picker-tab { padding:8px 14px; border:none; background:none; cursor:pointer; font-weight:600; font-size:13px; color:var(--text-dim); border-bottom:2px solid transparent; }
+.img-picker-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+.img-picker-body { padding:16px; overflow-y:auto; flex:1; }
+.img-picker-pane { display:none; }
+.img-picker-pane.active { display:block; }
+.img-picker-url-row { display:flex; gap:8px; }
+.img-picker-url-row input { flex:1; padding:9px 10px; border:1px solid var(--border); border-radius:6px; background:var(--input); color:var(--text); font-size:13px; }
+.mes-images-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px; }
+.mes-images-item { cursor:pointer; border:2px solid transparent; border-radius:6px; overflow:hidden; height:80px; background:var(--sidebar-hover); }
+.mes-images-item:hover { border-color:var(--accent); }
+.mes-images-item img { width:100%; height:100%; object-fit:cover; display:block; }
+.upload-drop-zone {
+  border:2px dashed var(--border); border-radius:8px; padding:30px; text-align:center; cursor:pointer; color:var(--text-dim);
+}
+.upload-drop-zone:hover { border-color:var(--accent); }
 
 .spinner-wrap { display:flex; align-items:center; justify-content:center; padding:40px; }
 .spinner { border:3px solid var(--border); border-top:3px solid var(--accent); border-radius:50%; width:32px; height:32px; animation:ico-spin .8s linear infinite; }
@@ -202,6 +263,38 @@ body {
 </div>
 
 <div id="toast-area"></div>
+
+<div class="img-picker-overlay" id="imgPickerOverlay">
+  <div class="img-picker-modal">
+    <div class="img-picker-hdr">
+      <strong>Choisir une image</strong>
+      <button type="button" class="img-picker-close" id="imgPickerCloseBtn">&times;</button>
+    </div>
+    <div class="img-picker-tabs">
+      <button type="button" class="img-picker-tab active" data-tab="url">URL</button>
+      <button type="button" class="img-picker-tab" data-tab="upload">Télécharger</button>
+      <button type="button" class="img-picker-tab" data-tab="mesfichiers">Mes fichiers</button>
+    </div>
+    <div class="img-picker-body">
+      <div class="img-picker-pane active" data-pane="url">
+        <div class="img-picker-url-row">
+          <input type="text" id="imgPickerUrlInput" placeholder="https://exemple.com/image.jpg">
+          <button type="button" class="btn btn-primary" id="imgPickerUrlBtn">Utiliser</button>
+        </div>
+      </div>
+      <div class="img-picker-pane" data-pane="upload">
+        <div class="upload-drop-zone" id="uploadDropZone">
+          <i class="fas fa-cloud-arrow-up ico-lg"></i>
+          <p>Cliquez pour choisir une image (5 Mo max — jpg, png, gif, webp)</p>
+        </div>
+        <input type="file" id="uploadFileInput" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none">
+      </div>
+      <div class="img-picker-pane" data-pane="mesfichiers">
+        <div class="mes-images-grid" id="mesImagesGrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 {{I18N_JS}}
@@ -300,59 +393,199 @@ async function createPage() {
   } catch(e) { if (e.message !== 'Session expirée') toast(I18N.ERREUR_CREATION, 'err'); }
 }
 
-// ── Rendu éditeur ─────────────────────────────────────────────────
-const BLOC_TYPES = ['texte', 'image', 'bouton', 'video', 'code'];
-const BLOC_ICONES = { texte:'align-left', image:'image', bouton:'hand-pointer', video:'video', code:'code' };
-const ANIMATIONS = ['', 'fade', 'slide-up', 'slide-left', 'slide-right', 'zoom-in', 'bounce', 'rotate', 'pulse'];
-let blocs = [];
+// ── Rendu éditeur : bibliothèque de blocs ──────────────────────────
+// NB : les libellés/placeholders de cette bibliothèque de blocs sont en
+// français uniquement (contrairement au reste de l'éditeur, traduit via
+// I18N) -- périmètre volontairement limité vu le nombre de types de blocs.
+const ANIMATIONS = [
+  '', 'fade', 'fade-down', 'slide-up', 'slide-down', 'slide-left', 'slide-right',
+  'zoom-in', 'zoom-out', 'bounce', 'rotate', 'rotate-in', 'flip-x', 'flip-y',
+  'roll-in', 'blur-in', 'pulse', 'shake', 'swing', 'tada', 'jello', 'flash',
+  'rubber-band', 'wobble', 'heartbeat',
+];
+const ANIMATION_LABELS = {
+  '': 'Aucune', 'fade':'Fondu', 'fade-down':'Fondu (haut)', 'slide-up':'Glisse (bas→haut)',
+  'slide-down':'Glisse (haut→bas)', 'slide-left':'Glisse (droite→gauche)', 'slide-right':'Glisse (gauche→droite)',
+  'zoom-in':'Zoom avant', 'zoom-out':'Zoom arrière', 'bounce':'Rebond', 'rotate':'Rotation',
+  'rotate-in':'Rotation large', 'flip-x':'Bascule horizontale', 'flip-y':'Bascule verticale',
+  'roll-in':'Roulé', 'blur-in':'Flou → net', 'pulse':'Pulsation (continue)', 'shake':'Tremblement',
+  'swing':'Balancement', 'tada':'Tada !', 'jello':'Gélatine', 'flash':'Flash', 'rubber-band':'Élastique',
+  'wobble':'Vacillement', 'heartbeat':'Battement de cœur',
+};
 
-function blocLabel(type) {
-  return { texte:I18N.BLOC_TEXTE, image:I18N.BLOC_IMAGE, bouton:I18N.BLOC_BOUTON, video:I18N.BLOC_VIDEO, code:I18N.BLOC_CODE }[type] || type;
+const CATEGORIES = [
+  { nom:'Texte', types:['titre','texte','citation','liste','badge','icone_texte'] },
+  { nom:'Média', types:['image','galerie','carousel','video','audio','logos'] },
+  { nom:'Actions', types:['bouton','groupe_boutons','appel_action','partage_social','retour_haut'] },
+  { nom:'Mise en page', types:['separateur','espace','carte','cartes_grille','banniere_hero'] },
+  { nom:'Interactif', types:['accordeon','onglets','temoignage','membre_equipe'] },
+  { nom:'Données', types:['barre_progression','compteur','stats_grille','compte_rebours','chronologie','tarifs'] },
+  { nom:'Réseaux', types:['reseaux_sociaux','carte_google_maps'] },
+];
+
+const BLOC_ICONES = {
+  titre:'heading', texte:'align-left', citation:'quote-right', liste:'list-ul', badge:'tag', icone_texte:'icons',
+  image:'image', galerie:'images', carousel:'film', video:'video', audio:'headphones-simple', logos:'building',
+  bouton:'hand-pointer', groupe_boutons:'grip-lines', appel_action:'bullhorn', partage_social:'arrow-up-from-bracket', retour_haut:'arrow-up',
+  separateur:'minus', espace:'arrows-up-down', carte:'id-card', cartes_grille:'table-cells-large', banniere_hero:'rectangle-ad',
+  accordeon:'chevron-down', onglets:'table-columns', temoignage:'comment', membre_equipe:'user',
+  barre_progression:'bars-progress', compteur:'hashtag', stats_grille:'chart-simple', compte_rebours:'hourglass-half',
+  chronologie:'route', tarifs:'tags', reseaux_sociaux:'share-nodes', carte_google_maps:'map-location-dot',
+};
+
+const BLOC_LABELS = {
+  titre:'Titre', texte:'Texte', citation:'Citation', liste:'Liste', badge:'Badge', icone_texte:'Icône + texte',
+  image:'Image', galerie:'Galerie', carousel:'Carrousel', video:'Vidéo', audio:'Audio', logos:'Logos',
+  bouton:'Bouton', groupe_boutons:'Groupe de boutons', appel_action:"Appel à l'action", partage_social:'Partage social', retour_haut:'Retour en haut',
+  separateur:'Séparateur', espace:'Espacement', carte:'Carte', cartes_grille:'Grille de cartes', banniere_hero:'Bannière hero',
+  accordeon:'Accordéon (FAQ)', onglets:'Onglets', temoignage:'Témoignage', membre_equipe:'Membre équipe',
+  barre_progression:'Barre de progression', compteur:'Compteur animé', stats_grille:'Grille de stats', compte_rebours:'Compte à rebours',
+  chronologie:'Chronologie', tarifs:'Tarif', reseaux_sociaux:'Réseaux sociaux', carte_google_maps:'Carte Google Maps',
+};
+
+// Spécification déclarative des champs de chaque type de bloc -- pilote à
+// la fois le rendu du formulaire d'édition et les valeurs par défaut.
+// Types de champ : text, textarea, number, select, datetime, image,
+// checkgroup, items (liste de sous-blocs, eux-mêmes définis par sousChamps).
+const BLOC_SPECS = {
+  titre: [ {k:'niveau', type:'select', label:'Niveau', options:[['h1','Titre XL'],['h2','Titre L'],['h3','Titre M'],['h4','Titre S']], defaut:'h2'},
+           {k:'texte', type:'text', label:'Texte', placeholder:'Votre titre'} ],
+  texte: [ {k:'texte', type:'textarea', label:'Texte', placeholder:'Votre texte…'} ],
+  citation: [ {k:'texte', type:'textarea', label:'Citation', placeholder:'Citation…'}, {k:'auteur', type:'text', label:'Auteur', placeholder:'Auteur'} ],
+  liste: [ {k:'style', type:'select', label:'Style', options:[['puce','À puces'],['numero','Numérotée']], defaut:'puce'},
+           {k:'items', type:'items', label:'Éléments', sousChamps:[{k:'texte',type:'text',placeholder:'Élément'}]} ],
+  badge: [ {k:'texte', type:'text', label:'Texte', placeholder:'Texte du badge'},
+           {k:'couleur', type:'select', label:'Couleur', options:[['vert','Vert'],['bleu','Bleu'],['rouge','Rouge'],['jaune','Jaune'],['gris','Gris'],['violet','Violet']], defaut:'vert'} ],
+  icone_texte: [ {k:'icone', type:'text', label:'Icône (emoji)', placeholder:'🚀'}, {k:'titre', type:'text', label:'Titre', placeholder:'Titre'},
+           {k:'texte', type:'textarea', label:'Texte', placeholder:'Texte'} ],
+  image: [ {k:'url', type:'image', label:'Image'}, {k:'alt', type:'text', label:'Texte alternatif', placeholder:'Description de l’image'},
+           {k:'legende', type:'text', label:'Légende', placeholder:'Légende (optionnel)'} ],
+  galerie: [ {k:'colonnes', type:'select', label:'Colonnes', options:[['2','2 colonnes'],['3','3 colonnes'],['4','4 colonnes']], defaut:'3'},
+           {k:'items', type:'items', label:'Images', sousChamps:[{k:'url',type:'image',label:'Image'},{k:'alt',type:'text',placeholder:'Texte alternatif'}]} ],
+  carousel: [ {k:'items', type:'items', label:'Images', sousChamps:[{k:'url',type:'image',label:'Image'},{k:'alt',type:'text',placeholder:'Texte alternatif'}]} ],
+  video: [ {k:'url', type:'text', label:'URL', placeholder:'URL YouTube / Vimeo / .mp4…'} ],
+  audio: [ {k:'url', type:'text', label:'URL', placeholder:'URL du fichier audio (.mp3…)'} ],
+  logos: [ {k:'items', type:'items', label:'Logos', sousChamps:[{k:'url',type:'image',label:'Logo'}]} ],
+  bouton: [ {k:'texte', type:'text', label:'Texte', placeholder:'Texte du bouton'}, {k:'url', type:'text', label:'Lien', placeholder:'https://…'} ],
+  groupe_boutons: [ {k:'items', type:'items', label:'Boutons', sousChamps:[{k:'texte',type:'text',placeholder:'Texte'},{k:'url',type:'text',placeholder:'https://…'}]} ],
+  appel_action: [ {k:'titre', type:'text', label:'Titre', placeholder:'Titre'}, {k:'texte', type:'textarea', label:'Texte', placeholder:'Texte'},
+           {k:'bouton_texte', type:'text', label:'Texte du bouton', placeholder:'En savoir plus'}, {k:'bouton_url', type:'text', label:'Lien du bouton', placeholder:'https://…'} ],
+  partage_social: [ {k:'reseaux', type:'checkgroup', label:'Réseaux affichés',
+           options:[['facebook','Facebook'],['twitter','Twitter / X'],['linkedin','LinkedIn'],['whatsapp','WhatsApp'],['email','Email']],
+           defaut:['facebook','twitter','linkedin','whatsapp','email']} ],
+  retour_haut: [],
+  separateur: [],
+  espace: [ {k:'hauteur', type:'select', label:'Hauteur', options:[['s','Petit'],['m','Moyen'],['l','Grand'],['xl','Très grand']], defaut:'m'} ],
+  carte: [ {k:'url_image', type:'image', label:'Image'}, {k:'titre', type:'text', label:'Titre', placeholder:'Titre'},
+           {k:'texte', type:'textarea', label:'Texte', placeholder:'Texte'}, {k:'bouton_texte', type:'text', label:'Texte du bouton', placeholder:'En savoir plus'},
+           {k:'bouton_url', type:'text', label:'Lien du bouton', placeholder:'https://…'} ],
+  cartes_grille: [ {k:'colonnes', type:'select', label:'Colonnes', options:[['2','2 colonnes'],['3','3 colonnes'],['4','4 colonnes']], defaut:'3'},
+           {k:'items', type:'items', label:'Cartes', sousChamps:[{k:'url_image',type:'image',label:'Image'},{k:'titre',type:'text',placeholder:'Titre'},{k:'texte',type:'textarea',placeholder:'Texte'}]} ],
+  banniere_hero: [ {k:'url_image', type:'image', label:'Image de fond'}, {k:'titre', type:'text', label:'Titre', placeholder:'Titre'},
+           {k:'soustitre', type:'textarea', label:'Sous-titre', placeholder:'Sous-titre'}, {k:'bouton_texte', type:'text', label:'Texte du bouton', placeholder:'Découvrir'},
+           {k:'bouton_url', type:'text', label:'Lien du bouton', placeholder:'https://…'} ],
+  accordeon: [ {k:'items', type:'items', label:'Questions', sousChamps:[{k:'question',type:'text',placeholder:'Question'},{k:'reponse',type:'textarea',placeholder:'Réponse'}]} ],
+  onglets: [ {k:'items', type:'items', label:'Onglets', sousChamps:[{k:'titre',type:'text',placeholder:'Titre de l’onglet'},{k:'contenu',type:'textarea',placeholder:'Contenu'}]} ],
+  temoignage: [ {k:'avatar_url', type:'image', label:'Photo'}, {k:'texte', type:'textarea', label:'Témoignage', placeholder:'Témoignage…'},
+           {k:'nom', type:'text', label:'Nom', placeholder:'Nom'}, {k:'role', type:'text', label:'Rôle', placeholder:'Rôle / entreprise'} ],
+  membre_equipe: [ {k:'avatar_url', type:'image', label:'Photo'}, {k:'nom', type:'text', label:'Nom', placeholder:'Nom'},
+           {k:'role', type:'text', label:'Rôle', placeholder:'Rôle'}, {k:'bio', type:'textarea', label:'Bio', placeholder:'Bio'} ],
+  barre_progression: [ {k:'label', type:'text', label:'Label', placeholder:'Label'}, {k:'pourcentage', type:'number', label:'Pourcentage', defaut:50, min:0, max:100} ],
+  compteur: [ {k:'valeur', type:'number', label:'Valeur', defaut:0}, {k:'suffixe', type:'text', label:'Suffixe', placeholder:'ex: +, %, k'},
+           {k:'label', type:'text', label:'Label', placeholder:'Label'} ],
+  stats_grille: [ {k:'items', type:'items', label:'Statistiques', sousChamps:[{k:'valeur',type:'text',placeholder:'Valeur'},{k:'suffixe',type:'text',placeholder:'Suffixe'},{k:'label',type:'text',placeholder:'Label'}]} ],
+  compte_rebours: [ {k:'date_cible', type:'datetime', label:'Date cible'}, {k:'label', type:'text', label:'Label', placeholder:'Label'} ],
+  chronologie: [ {k:'items', type:'items', label:'Étapes', sousChamps:[{k:'date',type:'text',placeholder:'Date'},{k:'titre',type:'text',placeholder:'Titre'},{k:'texte',type:'textarea',placeholder:'Texte'}]} ],
+  tarifs: [ {k:'titre', type:'text', label:'Nom de l’offre', placeholder:'Offre'}, {k:'prix', type:'text', label:'Prix', placeholder:'19€'},
+           {k:'periode', type:'text', label:'Période', placeholder:'/mois'},
+           {k:'items', type:'items', label:'Avantages', sousChamps:[{k:'texte',type:'text',placeholder:'Avantage'}]},
+           {k:'bouton_texte', type:'text', label:'Texte du bouton', placeholder:'Choisir'}, {k:'bouton_url', type:'text', label:'Lien du bouton', placeholder:'https://…'} ],
+  reseaux_sociaux: ['facebook','twitter','instagram','youtube','linkedin','github','tiktok'].map(p => ({k:p, type:'text', label:p[0].toUpperCase()+p.slice(1), placeholder:'https://…'})),
+  carte_google_maps: [ {k:'adresse', type:'text', label:'Adresse', placeholder:'12 rue de la Paix, Paris'} ],
+};
+
+let blocs = [];
+let blocsExpanded = new Set();
+let dragState = null; // { fromPalette:bool, type?, fromIdx? }
+
+function blocDefaut(type) {
+  const base = { type, animation: '' };
+  (BLOC_SPECS[type] || []).forEach(champ => {
+    if (champ.type === 'items') base[champ.k] = [];
+    else if (champ.type === 'checkgroup') base[champ.k] = champ.defaut ? [...champ.defaut] : [];
+    else base[champ.k] = champ.defaut !== undefined ? champ.defaut : '';
+  });
+  return base;
 }
 
-function animationLabel(a) {
-  return {
-    '': I18N.ANIMATION_AUCUNE, 'fade': I18N.ANIMATION_FADE, 'slide-up': I18N.ANIMATION_SLIDE_UP,
-    'slide-left': I18N.ANIMATION_SLIDE_LEFT, 'slide-right': I18N.ANIMATION_SLIDE_RIGHT,
-    'zoom-in': I18N.ANIMATION_ZOOM_IN, 'bounce': I18N.ANIMATION_BOUNCE, 'rotate': I18N.ANIMATION_ROTATE,
-    'pulse': I18N.ANIMATION_PULSE,
-  }[a] ?? a;
+function blocSummary(b) {
+  const spec = BLOC_SPECS[b.type] || [];
+  const texteChamp = spec.find(c => ['text','textarea'].includes(c.type) && b[c.k]);
+  if (texteChamp) return String(b[texteChamp.k]).slice(0, 40);
+  const itemsChamp = spec.find(c => c.type === 'items');
+  if (itemsChamp && (b[itemsChamp.k] || []).length) return `${b[itemsChamp.k].length} élément(s)`;
+  return '';
 }
 
 function animationSelectHtml(b) {
-  const opts = ANIMATIONS.map(a => `<option value="${a}"${(b.animation||'')===a?' selected':''}>${escAttr(animationLabel(a))}</option>`).join('');
+  const opts = ANIMATIONS.map(a => `<option value="${a}"${(b.animation||'')===a?' selected':''}>${escAttr(ANIMATION_LABELS[a])}</option>`).join('');
   return `<label class="bloc-anim-row"><i class="fas fa-wand-magic-sparkles"></i> ${escAttr(I18N.ANIMATION_LABEL)}
     <select data-field="animation" class="bloc-anim-select">${opts}</select></label>`;
 }
 
-function blocItemBodyHtml(b, i) {
-  if (b.type === 'texte') {
-    return `<textarea data-field="texte" placeholder="${escAttr(I18N.BLOC_TEXTE_PLACEHOLDER)}">${esc(b.texte||'')}</textarea>${animationSelectHtml(b)}`;
+function champHtml(valeur, champ) {
+  const v = valeur ?? champ.defaut ?? '';
+  if (champ.type === 'text') return `<input type="text" data-field="${champ.k}" placeholder="${escAttr(champ.placeholder||'')}" value="${escAttr(v)}">`;
+  if (champ.type === 'textarea') return `<textarea data-field="${champ.k}" placeholder="${escAttr(champ.placeholder||'')}">${esc(v)}</textarea>`;
+  if (champ.type === 'number') return `<input type="number" data-field="${champ.k}" min="${champ.min??''}" max="${champ.max??''}" value="${esc(v)}">`;
+  if (champ.type === 'datetime') return `<input type="datetime-local" data-field="${champ.k}" value="${escAttr(v)}">`;
+  if (champ.type === 'select') return `<select data-field="${champ.k}">${champ.options.map(([val,lbl]) => `<option value="${val}"${String(v)===String(val)?' selected':''}>${escAttr(lbl)}</option>`).join('')}</select>`;
+  if (champ.type === 'checkgroup') {
+    const arr = Array.isArray(v) ? v : [];
+    return `<div class="champ-checkgroup" data-checkgroup="${champ.k}">${champ.options.map(([val,lbl]) => `
+      <label><input type="checkbox" value="${val}" ${arr.includes(val)?'checked':''}> ${escAttr(lbl)}</label>`).join('')}</div>`;
   }
-  if (b.type === 'image') {
-    return `<input type="text" data-field="url" placeholder="${escAttr(I18N.BLOC_IMAGE_URL_PLACEHOLDER)}" value="${escAttr(b.url||'')}">
-      <input type="text" data-field="alt" placeholder="${escAttr(I18N.BLOC_IMAGE_ALT_PLACEHOLDER)}" value="${escAttr(b.alt||'')}">
-      <input type="text" data-field="legende" placeholder="${escAttr(I18N.BLOC_IMAGE_LEGENDE_PLACEHOLDER)}" value="${escAttr(b.legende||'')}">
-      ${b.url ? `<img class="bloc-preview-img" data-preview="${i}" src="${escAttr(b.url)}" alt="" onerror="this.style.display='none'">` : ''}
-      ${animationSelectHtml(b)}`;
-  }
-  if (b.type === 'bouton') {
-    return `<input type="text" data-field="texte" placeholder="${escAttr(I18N.BLOC_BOUTON_TEXTE_PLACEHOLDER)}" value="${escAttr(b.texte||'')}">
-      <input type="text" data-field="url" placeholder="${escAttr(I18N.BLOC_BOUTON_URL_PLACEHOLDER)}" value="${escAttr(b.url||'')}">
-      ${animationSelectHtml(b)}`;
-  }
-  if (b.type === 'video') {
-    return `<input type="text" data-field="url" placeholder="${escAttr(I18N.BLOC_VIDEO_URL_PLACEHOLDER)}" value="${escAttr(b.url||'')}">
-      ${animationSelectHtml(b)}`;
-  }
-  if (b.type === 'code') {
-    return `<textarea class="code" data-field="code" placeholder="${escAttr(I18N.BLOC_CODE_PLACEHOLDER)}">${esc(b.code||'')}</textarea>
-      <div class="hint">${I18N.BLOC_CODE_HINT}</div>
-      ${animationSelectHtml(b)}`;
+  if (champ.type === 'image') {
+    return `<div class="champ-image" data-field="${champ.k}">
+      <div class="champ-image-preview">${v ? `<img src="${escAttr(v)}" alt="" onerror="this.parentElement.innerHTML=''">` : ''}</div>
+      <div class="champ-image-actions">
+        <button type="button" class="btn btn-secondary btn-xs" data-img-pick="${champ.k}"><i class="fas fa-file-image"></i> Choisir une image</button>
+        ${v ? `<button type="button" class="btn btn-secondary btn-xs" data-img-clear="${champ.k}"><i class="fas fa-xmark"></i> Retirer</button>` : ''}
+      </div>
+    </div>`;
   }
   return '';
 }
 
+function champItemsHtml(bloc, champ) {
+  const items = bloc[champ.k] || [];
+  const rows = items.map((it, j) => `
+    <div class="champ-item-row" data-subidx="${j}">
+      <div class="champ-item-row-hdr">
+        <button type="button" class="bloc-act" data-subact="up" ${j===0?'disabled':''} title="Monter"><i class="fas fa-arrow-up"></i></button>
+        <button type="button" class="bloc-act" data-subact="down" ${j===items.length-1?'disabled':''} title="Descendre"><i class="fas fa-arrow-down"></i></button>
+        <button type="button" class="bloc-act bloc-act-danger" data-subact="del" title="Supprimer"><i class="fas fa-trash"></i></button>
+      </div>
+      <div class="champ-item-fields">
+        ${champ.sousChamps.map(sc => `${sc.label?`<span class="champ-label">${escAttr(sc.label)}</span>`:''}${champHtml(it[sc.k], {...sc, k:sc.k})}`).join('')}
+      </div>
+    </div>`).join('');
+  return `<div class="champ-items" data-field="${champ.k}">
+    <div class="champ-items-list">${rows || `<div class="champ-items-empty">Aucun élément — cliquez sur « Ajouter » ci-dessous.</div>`}</div>
+    <button type="button" class="btn btn-secondary btn-xs" data-add-item="${champ.k}" style="margin-top:8px"><i class="fas fa-plus"></i> Ajouter</button>
+  </div>`;
+}
+
+function blocItemBodyHtml(b) {
+  const spec = BLOC_SPECS[b.type] || [];
+  const champs = spec.map(champ => {
+    const inner = champ.type === 'items' ? champItemsHtml(b, champ) : champHtml(b[champ.k], champ);
+    return champ.label && champ.type !== 'items' ? `<div><span class="champ-label">${escAttr(champ.label)}</span>${inner}</div>` : `<div>${champ.label?`<span class="champ-label">${escAttr(champ.label)}</span>`:''}${inner}</div>`;
+  }).join('');
+  return `${champs}${animationSelectHtml(b)}`;
+}
+
+// ── Rendu de la liste des blocs + accordéon + glisser-déposer ──────
 function renderBlocsList() {
   const list = document.getElementById('blocsList');
   if (!list) return;
@@ -361,60 +594,280 @@ function renderBlocsList() {
     return;
   }
   list.innerHTML = blocs.map((b, i) => `
-    <div class="bloc-item" data-idx="${i}">
+    <div class="bloc-item${blocsExpanded.has(i)?' open':''}" data-idx="${i}" draggable="true">
       <div class="bloc-item-hdr">
-        <span class="bloc-item-type"><i class="fas fa-${BLOC_ICONES[b.type]||'cube'}"></i> ${blocLabel(b.type)}</span>
+        <span class="bloc-item-type">
+          <i class="fas fa-grip-vertical bloc-drag-handle"></i>
+          <i class="fas fa-${BLOC_ICONES[b.type]||'cube'} bloc-type-ico"></i>
+          ${escAttr(BLOC_LABELS[b.type]||b.type)}
+          ${blocSummary(b) ? `<span class="bloc-item-summary">— ${escAttr(blocSummary(b))}</span>` : ''}
+        </span>
         <div class="bloc-item-actions">
           <button type="button" class="bloc-act" data-act="up" ${i===0?'disabled':''} title="${escAttr(I18N.BLOC_MONTER_TITLE)}"><i class="fas fa-arrow-up"></i></button>
           <button type="button" class="bloc-act" data-act="down" ${i===blocs.length-1?'disabled':''} title="${escAttr(I18N.BLOC_DESCENDRE_TITLE)}"><i class="fas fa-arrow-down"></i></button>
           <button type="button" class="bloc-act bloc-act-danger" data-act="del" title="${escAttr(I18N.BLOC_SUPPRIMER_TITLE)}"><i class="fas fa-trash"></i></button>
         </div>
       </div>
-      <div class="bloc-item-body">${blocItemBodyHtml(b, i)}</div>
+      <div class="bloc-item-body">${blocsExpanded.has(i) ? blocItemBodyHtml(b) : ''}</div>
     </div>`).join('');
 
   list.querySelectorAll('.bloc-item').forEach(item => {
     const idx = Number(item.dataset.idx);
-    item.querySelectorAll('[data-field]').forEach(field => {
-      field.oninput = () => { blocs[idx][field.dataset.field] = field.value; markDirty(); };
-      if (field.dataset.field === 'url' && blocs[idx].type === 'image') {
-        field.onchange = () => renderBlocsList();
-      }
+
+    item.querySelector('.bloc-item-hdr').addEventListener('click', (e) => {
+      if (e.target.closest('.bloc-act')) return;
+      if (blocsExpanded.has(idx)) blocsExpanded.delete(idx); else blocsExpanded.add(idx);
+      renderBlocsList();
     });
-    item.querySelectorAll('.bloc-act').forEach(btn => {
-      btn.onclick = () => {
-        const act = btn.dataset.act;
-        if (act === 'up' && idx > 0) { [blocs[idx-1], blocs[idx]] = [blocs[idx], blocs[idx-1]]; }
-        if (act === 'down' && idx < blocs.length-1) { [blocs[idx+1], blocs[idx]] = [blocs[idx], blocs[idx+1]]; }
-        if (act === 'del') { blocs.splice(idx, 1); }
+
+    item.addEventListener('dragstart', (e) => {
+      dragState = { fromIdx: idx };
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', 'reorder');
+    });
+    item.addEventListener('dragend', () => { item.classList.remove('dragging'); dragState = null; });
+
+    // Champs simples (hors items / checkgroup / image, gérés à part)
+    item.querySelectorAll(':scope > .bloc-item-body [data-field]').forEach(field => {
+      if (field.closest('.champ-image') || field.closest('.champ-items')) return;
+      field.addEventListener('input', () => { blocs[idx][field.dataset.field] = field.value; markDirty(); });
+    });
+
+    // Checkgroups (partage_social)
+    item.querySelectorAll('[data-checkgroup]').forEach(group => {
+      group.querySelectorAll('input[type=checkbox]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const key = group.dataset.checkgroup;
+          blocs[idx][key] = Array.from(group.querySelectorAll('input:checked')).map(c => c.value);
+          markDirty();
+        });
+      });
+    });
+
+    // Champs image (ouvre le sélecteur) -- hors sous-listes, gérées plus bas
+    item.querySelectorAll('[data-img-pick]').forEach(btn => {
+      if (btn.closest('.champ-items')) return;
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.imgPick;
+        ouvrirSelecteurImage(url => { blocs[idx][key] = url; markDirty(); renderBlocsList(); });
+      });
+    });
+    item.querySelectorAll('[data-img-clear]').forEach(btn => {
+      if (btn.closest('.champ-items')) return;
+      btn.addEventListener('click', () => { blocs[idx][btn.dataset.imgClear] = ''; markDirty(); renderBlocsList(); });
+    });
+
+    // Sous-listes (items)
+    item.querySelectorAll('.champ-items').forEach(wrap => {
+      const key = wrap.dataset.field;
+      const champ = (BLOC_SPECS[blocs[idx].type] || []).find(c => c.k === key);
+      wrap.querySelectorAll('.champ-item-row').forEach(row => {
+        const j = Number(row.dataset.subidx);
+        row.querySelectorAll('[data-field]').forEach(field => {
+          if (field.closest('.champ-image')) return;
+          field.addEventListener('input', () => { blocs[idx][key][j][field.dataset.field] = field.value; markDirty(); });
+        });
+        row.querySelectorAll('[data-img-pick]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const fk = btn.dataset.imgPick;
+            ouvrirSelecteurImage(url => { blocs[idx][key][j][fk] = url; markDirty(); renderBlocsList(); });
+          });
+        });
+        row.querySelectorAll('[data-img-clear]').forEach(btn => {
+          btn.addEventListener('click', () => { blocs[idx][key][j][btn.dataset.imgClear] = ''; markDirty(); renderBlocsList(); });
+        });
+        row.querySelectorAll('[data-subact]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const items = blocs[idx][key];
+            if (btn.dataset.subact === 'up' && j > 0) [items[j-1], items[j]] = [items[j], items[j-1]];
+            if (btn.dataset.subact === 'down' && j < items.length-1) [items[j+1], items[j]] = [items[j], items[j+1]];
+            if (btn.dataset.subact === 'del') items.splice(j, 1);
+            markDirty();
+            renderBlocsList();
+          });
+        });
+      });
+      const addBtn = wrap.querySelector('[data-add-item]');
+      if (addBtn) addBtn.addEventListener('click', () => {
+        const nouvel = {};
+        champ.sousChamps.forEach(sc => { nouvel[sc.k] = ''; });
+        blocs[idx][key].push(nouvel);
         markDirty();
         renderBlocsList();
-      };
+      });
+    });
+
+    item.querySelectorAll(':scope > .bloc-item-hdr .bloc-act').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const act = btn.dataset.act;
+        if (act === 'up' && idx > 0) { [blocs[idx-1], blocs[idx]] = [blocs[idx], blocs[idx-1]]; reindexExpanded(idx-1, idx); }
+        if (act === 'down' && idx < blocs.length-1) { [blocs[idx+1], blocs[idx]] = [blocs[idx], blocs[idx+1]]; reindexExpanded(idx, idx+1); }
+        if (act === 'del') { blocs.splice(idx, 1); blocsExpanded.delete(idx); }
+        markDirty();
+        renderBlocsList();
+      });
     });
   });
+
+  // Glisser-déposer sur le canevas (réordonner ou insérer depuis la palette)
+  const canvas = document.getElementById('blocsList');
+  canvas.ondragover = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = dragState && dragState.type ? 'copy' : 'move';
+  };
+  canvas.ondrop = (e) => {
+    e.preventDefault();
+    const after = trouverPositionDepot(canvas, e.clientY);
+    if (dragState && dragState.type) {
+      ajouterBloc(dragState.type, after);
+    } else if (dragState && dragState.fromIdx !== undefined) {
+      const [moved] = blocs.splice(dragState.fromIdx, 1);
+      let dest = after;
+      if (dragState.fromIdx < after) dest -= 1;
+      blocs.splice(dest + 1, 0, moved);
+      markDirty();
+      renderBlocsList();
+    }
+    dragState = null;
+  };
 }
 
-function ajouterBloc(type) {
-  const base = { type };
-  if (type === 'texte') base.texte = '';
-  if (type === 'image') { base.url = ''; base.alt = ''; base.legende = ''; }
-  if (type === 'bouton') { base.texte = ''; base.url = ''; }
-  if (type === 'video') base.url = '';
-  if (type === 'code') base.code = '';
-  base.animation = '';
-  blocs.push(base);
+function reindexExpanded(a, b) {
+  const ha = blocsExpanded.has(a), hb = blocsExpanded.has(b);
+  blocsExpanded.delete(a); blocsExpanded.delete(b);
+  if (ha) blocsExpanded.add(b);
+  if (hb) blocsExpanded.add(a);
+}
+
+function trouverPositionDepot(canvas, clientY) {
+  const items = Array.from(canvas.querySelectorAll('.bloc-item'));
+  let after = items.length - 1;
+  for (let i = 0; i < items.length; i++) {
+    const rect = items[i].getBoundingClientRect();
+    if (clientY < rect.top + rect.height / 2) { after = i - 1; break; }
+  }
+  return after;
+}
+
+function ajouterBloc(type, apres) {
+  const bloc = blocDefaut(type);
+  if (apres === undefined || apres >= blocs.length - 1) {
+    blocs.push(bloc);
+    blocsExpanded.add(blocs.length - 1);
+  } else {
+    blocs.splice(apres + 1, 0, bloc);
+    blocsExpanded = new Set([...blocsExpanded].map(i => i > apres ? i + 1 : i));
+    blocsExpanded.add(apres + 1);
+  }
   markDirty();
   renderBlocsList();
 }
+
+function renderPalette() {
+  const el = document.getElementById('blocsPalette');
+  if (!el) return;
+  el.innerHTML = CATEGORIES.map(cat => `
+    <div class="blocs-palette-cat">${escAttr(cat.nom)}</div>
+    ${cat.types.map(type => `
+      <div class="blocs-palette-item" draggable="true" data-type="${type}">
+        <i class="fas fa-${BLOC_ICONES[type]||'cube'}"></i> ${escAttr(BLOC_LABELS[type]||type)}
+      </div>`).join('')}
+  `).join('');
+
+  el.querySelectorAll('.blocs-palette-item').forEach(item => {
+    item.addEventListener('dragstart', (e) => {
+      dragState = { type: item.dataset.type };
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'copy';
+      e.dataTransfer.setData('text/plain', 'nouveau-bloc');
+    });
+    item.addEventListener('dragend', () => item.classList.remove('dragging'));
+    item.addEventListener('click', () => ajouterBloc(item.dataset.type));
+  });
+}
+
+// ── Sélecteur d'image (URL / téléchargement / mes fichiers) ────────
+let imgPickerCallback = null;
+
+function ouvrirSelecteurImage(onChoisi) {
+  imgPickerCallback = onChoisi;
+  document.getElementById('imgPickerOverlay').style.display = 'flex';
+  document.getElementById('imgPickerUrlInput').value = '';
+  activerOngletImgPicker('url');
+}
+function fermerSelecteurImage() {
+  document.getElementById('imgPickerOverlay').style.display = 'none';
+  imgPickerCallback = null;
+}
+function activerOngletImgPicker(tab) {
+  document.querySelectorAll('.img-picker-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.img-picker-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === tab));
+  if (tab === 'mesfichiers') chargerMesImages();
+}
+async function chargerMesImages() {
+  const el = document.getElementById('mesImagesGrid');
+  el.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  try {
+    const r = await apiFetch(`${API}/mes_images`);
+    const data = await r.json();
+    const fichiers = data.fichiers || [];
+    if (!fichiers.length) { el.innerHTML = `<div class="champ-items-empty">Aucune image dans vos fichiers.</div>`; return; }
+    el.innerHTML = fichiers.map(f => `<div class="mes-images-item" data-id="${f.id}" title="${escAttr(f.nom)}"><img src="${API}/fichier_thumb?id=${f.id}" loading="lazy"></div>`).join('');
+    el.querySelectorAll('.mes-images-item').forEach(item => item.onclick = () => importerFichier(Number(item.dataset.id)));
+  } catch(e) { el.innerHTML = `<div class="champ-items-empty">Erreur de chargement.</div>`; }
+}
+async function importerFichier(id) {
+  try {
+    const r = await apiFetch(`${API}/import_fichier`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({fichier_id:id}) });
+    const data = await r.json();
+    if (data.success) { if (imgPickerCallback) imgPickerCallback(data.url); fermerSelecteurImage(); }
+    else toast(data.error || I18N.ERREUR, 'err');
+  } catch(e) { if (e.message !== 'Session expirée') toast(I18N.ERREUR, 'err'); }
+}
+function validerUrlImage() {
+  const url = document.getElementById('imgPickerUrlInput').value.trim();
+  if (!url) return;
+  if (imgPickerCallback) imgPickerCallback(url);
+  fermerSelecteurImage();
+}
+function gererUploadImage(file) {
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { toast('Fichier trop volumineux (5 Mo maximum).', 'err'); return; }
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const b64 = String(reader.result).split(',')[1] || '';
+    try {
+      const r = await apiFetch(`${API}/media_upload`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({file_b64:b64, mime_type:file.type, file_name:file.name}),
+      });
+      const data = await r.json();
+      if (data.success) { if (imgPickerCallback) imgPickerCallback(data.url); fermerSelecteurImage(); }
+      else toast(data.error || I18N.ERREUR, 'err');
+    } catch(e) { if (e.message !== 'Session expirée') toast(I18N.ERREUR, 'err'); }
+  };
+  reader.readAsDataURL(file);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('imgPickerCloseBtn').onclick = fermerSelecteurImage;
+  document.getElementById('imgPickerOverlay').addEventListener('click', (e) => { if (e.target.id === 'imgPickerOverlay') fermerSelecteurImage(); });
+  document.querySelectorAll('.img-picker-tab').forEach(t => t.onclick = () => activerOngletImgPicker(t.dataset.tab));
+  document.getElementById('imgPickerUrlBtn').onclick = validerUrlImage;
+  document.getElementById('uploadDropZone').onclick = () => document.getElementById('uploadFileInput').click();
+  document.getElementById('uploadFileInput').onchange = (e) => gererUploadImage(e.target.files[0]);
+});
 
 function renderEditor() {
   const p = current;
   const viewUrl = `${window.location.origin}/page/${p.id}`;
   const pageMode = (p.mode === 'brut' || p.mode === 'blocs') ? p.mode : 'simple';
   blocs = Array.isArray(p.contenu_blocs) ? p.contenu_blocs.map(b => ({...b})) : [];
+  blocsExpanded = new Set();
 
   document.getElementById('main').innerHTML = `
-    <div class="editor-card">
+    <div class="editor-card${pageMode==='blocs'?' wide':''}" id="editorCard">
       <div class="editor-hdr">
         <input type="text" class="titre-input" id="titreInput" value="${escAttr(p.titre)}" placeholder="${I18N.TITRE_DE_LA_PAGE}">
         <div class="editor-actions">
@@ -483,14 +936,12 @@ function renderEditor() {
       </div>
 
       <div id="blocsFields" style="display:${pageMode==='blocs'?'block':'none'}">
-        <p class="blocs-hint">${I18N.BLOCS_HINT}</p>
-        <div class="blocs-list" id="blocsList"></div>
-        <div class="blocs-add-row">
-          <button type="button" class="btn btn-secondary" data-add-bloc="texte"><i class="fas fa-align-left"></i> ${I18N.BLOC_TEXTE}</button>
-          <button type="button" class="btn btn-secondary" data-add-bloc="image"><i class="fas fa-image"></i> ${I18N.BLOC_IMAGE}</button>
-          <button type="button" class="btn btn-secondary" data-add-bloc="bouton"><i class="fas fa-hand-pointer"></i> ${I18N.BLOC_BOUTON}</button>
-          <button type="button" class="btn btn-secondary" data-add-bloc="video"><i class="fas fa-video"></i> ${I18N.BLOC_VIDEO}</button>
-          <button type="button" class="btn btn-secondary" data-add-bloc="code"><i class="fas fa-code"></i> ${I18N.BLOC_CODE}</button>
+        <p class="blocs-hint">${I18N.BLOCS_HINT} Glissez un bloc de la palette dans la page, ou cliquez dessus pour l'ajouter à la fin.</p>
+        <div class="blocs-editor-layout">
+          <div class="blocs-palette" id="blocsPalette"></div>
+          <div class="blocs-canvas">
+            <div class="blocs-list" id="blocsList"></div>
+          </div>
         </div>
       </div>
 
@@ -503,6 +954,7 @@ function renderEditor() {
       </div>
     </div>`;
 
+  renderPalette();
   renderBlocsList();
 
   // ── Listeners ──
@@ -514,6 +966,7 @@ function renderEditor() {
       document.getElementById('simpleFields').style.display = mode==='simple' ? 'block' : 'none';
       document.getElementById('blocsFields').style.display  = mode==='blocs'  ? 'block' : 'none';
       document.getElementById('brutFields').style.display   = mode==='brut'   ? 'block' : 'none';
+      document.getElementById('editorCard').classList.toggle('wide', mode==='blocs');
       markDirty();
     };
   });

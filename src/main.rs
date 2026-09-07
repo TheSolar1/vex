@@ -859,9 +859,13 @@ fn serve_static(request: tiny_http::Request, path: &str) {
     let file_path = format!(".{}", path);
     match std::fs::read(&file_path) {
         Ok(data) => {
-            let _ = request.respond(Response::from_data(data).with_header(
-                tiny_http::Header::from_bytes("Content-Type", guess_mime(path)).unwrap(),
-            ));
+            // with_chunked_threshold : voir appareil.rs -- tiny_http bascule en
+            // Transfer-Encoding chunked au-dela de 32 Ko par defaut, ce qui
+            // passe mal a travers Apache (fichiers tronques/corrompus).
+            let resp = Response::from_data(data)
+                .with_header(tiny_http::Header::from_bytes("Content-Type", guess_mime(path)).unwrap())
+                .with_chunked_threshold(usize::MAX);
+            let _ = request.respond(resp);
         }
         Err(_) => {
             let _ = request.respond(Response::from_string("404").with_status_code(404));
@@ -875,6 +879,9 @@ fn guess_mime(path: &str) -> &'static str {
     else if path.ends_with(".js")    { "application/javascript" }
     else if path.ends_with(".json")  { "application/json" }
     else if path.ends_with(".png")   { "image/png" }
+    else if path.ends_with(".jpg") || path.ends_with(".jpeg") { "image/jpeg" }
+    else if path.ends_with(".gif")   { "image/gif" }
+    else if path.ends_with(".webp")  { "image/webp" }
     else if path.ends_with(".ico")   { "image/x-icon" }
     else if path.ends_with(".svg")   { "image/svg+xml" }
     else if path.ends_with(".woff2") { "font/woff2" }
