@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gestionnaire — Exodrive</title>
+  <title>{{T_TITRE_ONGLET}}</title>
   <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
   <link rel="stylesheet" href="/static/css/theme.css">
   <style>
@@ -297,35 +297,35 @@ __NAV_HTML__
     <div class="create-btn-wrap" id="createBtnWrap">
       <button class="create-btn" id="createBtn" onclick="toggleCreateDropdown(event)">
         <img class="ico ico-sm ico-white" src="/static/img/solid/plus.svg">
-        <span>Nouveau</span>
+        <span>{{T_NOUVEAU}}</span>
       </button>
       <div class="create-dropdown" id="createDropdown">
         <button class="dd-item" onclick="openFolderModalFromDD()">
           <img class="ico ico-18 ico-primary" src="/static/img/solid/folder-plus.svg">
-          <span>Nouveau dossier</span>
+          <span>{{T_NOUVEAU_DOSSIER}}</span>
         </button>
         <button class="dd-item" onclick="createPageFromDD()">
           <img class="ico ico-18 ico-primary" src="/static/img/solid/globe.svg">
-          <span>Nouvelle page web</span>
+          <span>{{T_NOUVELLE_PAGE_WEB}}</span>
         </button>
         <button class="dd-item" onclick="openUploadModalFromDD()">
           <img class="ico ico-18 ico-primary" src="/static/img/solid/arrow-up-from-bracket.svg">
-          <span>Importer des fichiers</span>
+          <span>{{T_IMPORTER_FICHIERS}}</span>
         </button>
         <button class="dd-item" onclick="openUploadFolderFromDD()">
           <img class="ico ico-18 ico-primary" src="/static/img/solid/folder-open.svg">
-          <span>Importer un dossier</span>
+          <span>{{T_IMPORTER_DOSSIER}}</span>
         </button>
       </div>
     </div>
     <nav>
       <button class="nav-item active" id="nav-mes" onclick="switchTab(0)">
         <img class="ico ico-18 ico-muted" src="/static/img/solid/folder.svg">
-        <span>Mes fichiers</span>
+        <span>{{T_MES_FICHIERS}}</span>
       </button>
       <button class="nav-item" id="nav-partage" onclick="switchTab(1)">
         <img class="ico ico-18 ico-muted" src="/static/img/solid/share-nodes.svg">
-        <span>Partagé avec moi</span>
+        <span>{{T_PARTAGE_AVEC_MOI}}</span>
       </button>
     </nav>
     
@@ -336,28 +336,28 @@ __NAV_HTML__
       <div>
         <div class="breadcrumb" id="breadcrumb">
           <span class="bc-link" onclick="navTo(0)">
-            <img class="ico ico-sm ico-primary" src="/static/img/solid/house.svg"> Accueil
+            <img class="ico ico-sm ico-primary" src="/static/img/solid/house.svg"> {{T_ACCUEIL}}
           </span>
         </div>
-        <h1 class="content-title" id="content-title">Mes fichiers</h1>
+        <h1 class="content-title" id="content-title">{{T_MES_FICHIERS}}</h1>
       </div>
       <div style="display:flex;gap:10px;align-items:center;">
         <select id="filterType" class="filter-select" onchange="filterItems()">
-          <option value="all">Tous les types</option>
-          <option value="folder">Dossiers</option>
-          <option value="page">Pages web</option>
-          <option value="file">Fichiers</option>
-          <option value="image">Images</option>
-          <option value="video">Vidéos</option>
-          <option value="document">Documents</option>
-          <option value="code">Code</option>
+          <option value="all">{{T_TOUS_TYPES}}</option>
+          <option value="folder">{{T_DOSSIERS}}</option>
+          <option value="page">{{T_PAGES_WEB}}</option>
+          <option value="file">{{T_FICHIERS}}</option>
+          <option value="image">{{T_IMAGES}}</option>
+          <option value="video">{{T_VIDEOS}}</option>
+          <option value="document">{{T_DOCUMENTS}}</option>
+          <option value="code">{{T_CODE}}</option>
         </select>
-        <input type="text" id="searchBox" class="search-box" placeholder="Rechercher…" oninput="searchItems()">
+        <input type="text" id="searchBox" class="search-box" placeholder="{{T_RECHERCHE_PLACEHOLDER}}" oninput="searchItems()">
         <div class="view-toggle">
-          <button class="view-btn active" id="btn-grid" onclick="setView('grid')" title="Grille">
+          <button class="view-btn active" id="btn-grid" onclick="setView('grid')" title="{{T_GRILLE}}">
             <img class="ico ico-sm" src="/static/img/solid/table-cells.svg">
           </button>
-          <button class="view-btn" id="btn-list" onclick="setView('list')" title="Liste">
+          <button class="view-btn" id="btn-list" onclick="setView('list')" title="{{T_LISTE}}">
             <img class="ico ico-sm" src="/static/img/solid/list.svg">
           </button>
         </div>
@@ -372,7 +372,7 @@ __NAV_HTML__
 
     <div class="files-list" id="list-view">
       <div class="list-header">
-        <span>Nom</span><span>Type</span><span>Date</span><span></span>
+        <span>{{T_COL_NOM}}</span><span>{{T_COL_TYPE}}</span><span>{{T_COL_DATE}}</span><span></span>
       </div>
       <div id="list-body"></div>
     </div>
@@ -382,50 +382,50 @@ __NAV_HTML__
 <!-- Context menu -->
 <div class="context-menu" id="contextMenu">
   <div class="context-menu-item" id="ctx-open" onclick="handleAction('open')">
-    <img class="ico ico-18 ico-muted" id="ctx-open-icon" src="/static/img/solid/folder-open.svg"> <span id="ctx-open-label">Ouvrir</span>
+    <img class="ico ico-18 ico-muted" id="ctx-open-icon" src="/static/img/solid/folder-open.svg"> <span id="ctx-open-label">{{T_OUVRIR}}</span>
   </div>
   <div class="context-menu-item" id="ctx-download" onclick="handleAction('download')">
-    <img class="ico ico-18 ico-muted" src="/static/img/solid/download.svg"> Télécharger
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/download.svg"> {{T_TELECHARGER}}
   </div>
   <div class="context-menu-item" id="ctx-edit" onclick="handleAction('edit')">
-    <img class="ico ico-18 ico-muted" src="/static/img/solid/file-lines.svg"> Voir / Éditer
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/file-lines.svg"> {{T_VOIR_EDITER}}
   </div>
   <div class="context-menu-item" id="ctx-edit-office" onclick="handleAction('edit_office')">
-    <img class="ico ico-18 ico-muted" src="/static/img/solid/file-word.svg"> Éditer (OnlyOffice)
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/file-word.svg"> {{T_EDITER_OFFICE}}
   </div>
   <div class="context-menu-item" onclick="handleAction('rename')">
-    <img class="ico ico-18 ico-muted" src="/static/img/solid/pen-to-square.svg"> Renommer
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/pen-to-square.svg"> {{T_RENOMMER}}
   </div>
   <div class="context-menu-item" id="ctx-visibility" onclick="handleAction('visibility')">
-    <img class="ico ico-18 ico-muted" src="/static/img/solid/eye.svg"> Visibilité
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/eye.svg"> {{T_VISIBILITE}}
   </div>
   <div class="context-menu-item" id="ctx-move" onclick="handleAction('move')">
-    <img class="ico ico-18 ico-muted" src="/static/img/solid/arrows-up-down-left-right.svg"> Déplacer
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/arrows-up-down-left-right.svg"> {{T_DEPLACER}}
   </div>
   <div class="context-menu-item" id="ctx-share" onclick="handleAction('share')">
-    <img class="ico ico-18 ico-muted" src="/static/img/solid/share-nodes.svg"> Partager
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/share-nodes.svg"> {{T_PARTAGER}}
   </div>
   <div class="context-menu-item" id="ctx-sendp2p" onclick="handleAction('send_p2p')">
-    <img class="ico ico-18 ico-muted" src="/static/img/solid/paper-plane.svg"> Envoyer P2P
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/paper-plane.svg"> {{T_ENVOYER_P2P}}
   </div>
   <div class="context-menu-item delete" onclick="handleAction('delete')">
-    <img class="ico ico-18 ico-red" src="/static/img/solid/trash.svg"> Supprimer
+    <img class="ico ico-18 ico-red" src="/static/img/solid/trash.svg"> {{T_SUPPRIMER}}
   </div>
 </div>
 
 <!-- Menu contextuel clic droit dans le vide (crée dans le dossier courant) -->
 <div class="context-menu" id="emptyContextMenu">
   <div class="context-menu-item" onclick="closeEmptyCtx();openFolderModalFromDD()">
-    <img class="ico ico-18 ico-primary" src="/static/img/solid/folder-plus.svg"> Nouveau dossier
+    <img class="ico ico-18 ico-primary" src="/static/img/solid/folder-plus.svg"> {{T_NOUVEAU_DOSSIER}}
   </div>
   <div class="context-menu-item" onclick="closeEmptyCtx();createPageFromDD()">
-    <img class="ico ico-18 ico-primary" src="/static/img/solid/globe.svg"> Nouvelle page web
+    <img class="ico ico-18 ico-primary" src="/static/img/solid/globe.svg"> {{T_NOUVELLE_PAGE_WEB}}
   </div>
   <div class="context-menu-item" onclick="closeEmptyCtx();openUploadModalFromDD()">
-    <img class="ico ico-18 ico-primary" src="/static/img/solid/arrow-up-from-bracket.svg"> Importer des fichiers
+    <img class="ico ico-18 ico-primary" src="/static/img/solid/arrow-up-from-bracket.svg"> {{T_IMPORTER_FICHIERS}}
   </div>
   <div class="context-menu-item" onclick="closeEmptyCtx();openUploadFolderFromDD()">
-    <img class="ico ico-18 ico-primary" src="/static/img/solid/folder-open.svg"> Importer un dossier
+    <img class="ico ico-18 ico-primary" src="/static/img/solid/folder-open.svg"> {{T_IMPORTER_DOSSIER}}
   </div>
 </div>
 
@@ -434,36 +434,36 @@ __NAV_HTML__
   <div class="modal-content" style="max-width:500px;">
     <div class="modal-header">
       <img class="ico ico-20 ico-primary" src="/static/img/solid/arrow-up-from-bracket.svg">
-      <span id="upload-modal-title">Importer des fichiers</span>
+      <span id="upload-modal-title">{{T_IMPORTER_FICHIERS}}</span>
     </div>
     <div class="form-group">
-      <label id="upload-drop-label">Sélectionner des fichiers</label>
+      <label id="upload-drop-label">{{T_SELECTIONNER_FICHIERS}}</label>
       <input type="file" id="fileInput" multiple style="display:none;" onchange="handleFileSelect(event)">
       <input type="file" id="folderInput" multiple webkitdirectory style="display:none;" onchange="handleFolderSelect(event)">
       <label for="fileInput" id="uploadDropZone" class="file-input-label">
         <img src="/static/img/solid/cloud-arrow-up.svg" style="width:40px;height:40px;display:block;margin:0 auto 8px;opacity:.6;">
-        <span id="fileUploadText">Cliquez ou glissez des fichiers ici</span>
+        <span id="fileUploadText">{{T_CLIC_OU_GLISSEZ}}</span>
       </label>
       <div class="selected-files-list" id="selectedFilesList" style="display:none;"></div>
       <!-- Prévisualisation arbre dossier -->
       <div class="folder-tree" id="folderTree" style="display:none;"></div>
     </div>
     <div class="form-group">
-      <label>Visibilité</label>
+      <label>{{T_VISIBILITE}}</label>
       <select id="upload-visble">
-        <option value="1">Privé</option>
-        <option value="0">Public</option>
+        <option value="1">{{T_PRIVE}}</option>
+        <option value="0">{{T_PUBLIC}}</option>
       </select>
     </div>
     <div class="upload-progress-wrap" id="upload-progress">
       <div class="progress-bar"><div class="progress-fill" id="upload-fill"></div></div>
-      <div class="progress-label" id="upload-progress-label">Préparation…</div>
+      <div class="progress-label" id="upload-progress-label">{{T_PREPARATION}}</div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('uploadModal')">Annuler</button>
+      <button class="btn btn-secondary" onclick="closeModal('uploadModal')">{{T_ANNULER}}</button>
       <button class="btn btn-primary" id="btn-do-upload" onclick="doUpload()" disabled>
         <img class="ico ico-sm ico-white" src="/static/img/solid/arrow-up-from-bracket.svg">
-        <span id="btn-upload-label">Uploader</span>
+        <span id="btn-upload-label">{{T_UPLOADER}}</span>
       </button>
     </div>
   </div>
@@ -473,17 +473,17 @@ __NAV_HTML__
 <div class="modal" id="folderModal">
   <div class="modal-content">
     <div class="modal-header">
-      <img class="ico ico-20 ico-primary" src="/static/img/solid/folder-plus.svg"> Nouveau dossier
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/folder-plus.svg"> {{T_NOUVEAU_DOSSIER}}
     </div>
     <div class="form-group">
-      <label>Nom du dossier</label>
-      <input type="text" id="folder-name" placeholder="Mon dossier" maxlength="100"
+      <label>{{T_NOM_DOSSIER}}</label>
+      <input type="text" id="folder-name" placeholder="{{T_PLACEHOLDER_MON_DOSSIER}}" maxlength="100"
              onkeydown="if(event.key==='Enter') doCreateFolder()">
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('folderModal')">Annuler</button>
+      <button class="btn btn-secondary" onclick="closeModal('folderModal')">{{T_ANNULER}}</button>
       <button class="btn btn-primary" onclick="doCreateFolder()">
-        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> Créer
+        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> {{T_CREER}}
       </button>
     </div>
   </div>
@@ -493,16 +493,16 @@ __NAV_HTML__
 <div class="modal" id="renameModal">
   <div class="modal-content">
     <div class="modal-header">
-      <img class="ico ico-20 ico-primary" src="/static/img/solid/pen-to-square.svg"> Renommer
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/pen-to-square.svg"> {{T_RENOMMER}}
     </div>
     <div class="form-group">
-      <label>Nouveau nom</label>
+      <label>{{T_NOUVEAU_NOM}}</label>
       <input type="text" id="rename-input" maxlength="255" onkeydown="if(event.key==='Enter') doRename()">
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('renameModal')">Annuler</button>
+      <button class="btn btn-secondary" onclick="closeModal('renameModal')">{{T_ANNULER}}</button>
       <button class="btn btn-primary" onclick="doRename()">
-        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> Renommer
+        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> {{T_RENOMMER}}
       </button>
     </div>
   </div>
@@ -512,7 +512,7 @@ __NAV_HTML__
 <div class="modal" id="editModal">
   <div class="modal-content wide">
     <div class="modal-header">
-      <img class="ico ico-20 ico-primary" src="/static/img/solid/file-lines.svg"> <span id="edit-modal-title">Voir / Éditer</span>
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/file-lines.svg"> <span id="edit-modal-title">{{T_VOIR_EDITER}}</span>
     </div>
     <div class="edit-meta">
       <span id="edit-modal-info"></span>
@@ -520,12 +520,12 @@ __NAV_HTML__
     </div>
     <div class="edit-code-wrap" id="edit-code-wrap">
       <pre id="edit-highlight" aria-hidden="true"><code id="edit-highlight-code"></code></pre>
-      <textarea id="edit-textarea" spellcheck="false" placeholder="Chargement…"></textarea>
+      <textarea id="edit-textarea" spellcheck="false" placeholder="{{T_CHARGEMENT}}"></textarea>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('editModal')">Fermer</button>
+      <button class="btn btn-secondary" onclick="closeModal('editModal')">{{T_FERMER}}</button>
       <button class="btn btn-primary" id="edit-save-btn" onclick="doSaveEdit()">
-        <img class="ico ico-sm ico-white" src="/static/img/solid/floppy-disk.svg"> Enregistrer
+        <img class="ico ico-sm ico-white" src="/static/img/solid/floppy-disk.svg"> {{T_ENREGISTRER_BTN}}
       </button>
     </div>
   </div>
@@ -535,19 +535,19 @@ __NAV_HTML__
 <div class="modal" id="visibilityModal">
   <div class="modal-content">
     <div class="modal-header">
-      <img class="ico ico-20 ico-primary" src="/static/img/solid/eye.svg"> Visibilité
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/eye.svg"> {{T_VISIBILITE}}
     </div>
     <div class="form-group">
-      <label>Visibilité</label>
+      <label>{{T_VISIBILITE}}</label>
       <select id="visibility-value">
-        <option value="1">Privé</option>
-        <option value="0">Public</option>
+        <option value="1">{{T_PRIVE}}</option>
+        <option value="0">{{T_PUBLIC}}</option>
       </select>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('visibilityModal')">Annuler</button>
+      <button class="btn btn-secondary" onclick="closeModal('visibilityModal')">{{T_ANNULER}}</button>
       <button class="btn btn-primary" onclick="doChangeVisibility()">
-        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> Appliquer
+        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> {{T_APPLIQUER}}
       </button>
     </div>
   </div>
@@ -557,16 +557,16 @@ __NAV_HTML__
 <div class="modal" id="p2pModal">
   <div class="modal-content" style="max-width:420px;">
     <div class="modal-header">
-      <img class="ico ico-20 ico-primary" src="/static/img/solid/paper-plane.svg"> Envoyer via P2P
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/paper-plane.svg"> {{T_ENVOYER_VIA_P2P}}
     </div>
     <div class="form-group">
-      <label>ID utilisateur destinataire (to_user)</label>
+      <label>{{T_ID_DESTINATAIRE}}</label>
       <input type="number" id="p2p-to-user" placeholder="ex: 42" min="1" onkeydown="if(event.key==='Enter') doSendP2p()">
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('p2pModal')">Annuler</button>
+      <button class="btn btn-secondary" onclick="closeModal('p2pModal')">{{T_ANNULER}}</button>
       <button class="btn btn-primary" onclick="doSendP2p()">
-        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> Envoyer
+        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> {{T_ENVOYER}}
       </button>
     </div>
   </div>
@@ -576,16 +576,16 @@ __NAV_HTML__
 <div class="modal" id="moveModal">
   <div class="modal-content">
     <div class="modal-header">
-      <img class="ico ico-20 ico-primary" src="/static/img/solid/arrows-up-down-left-right.svg"> Déplacer vers…
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/arrows-up-down-left-right.svg"> {{T_DEPLACER_VERS}}
     </div>
     <div class="form-group">
-      <label>Dossier de destination</label>
-      <select id="move-target"><option value="0">Racine</option></select>
+      <label>{{T_DOSSIER_DESTINATION}}</label>
+      <select id="move-target"><option value="0">{{T_RACINE}}</option></select>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('moveModal')">Annuler</button>
+      <button class="btn btn-secondary" onclick="closeModal('moveModal')">{{T_ANNULER}}</button>
       <button class="btn btn-primary" onclick="doMove()">
-        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> Déplacer
+        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> {{T_DEPLACER}}
       </button>
     </div>
   </div>
@@ -594,39 +594,39 @@ __NAV_HTML__
 <!-- Supprimer -->
 <div class="modal" id="confirmModal">
   <div class="modal-content">
-    <div class="modal-header"><img class="ico ico-20 ico-primary" id="confirm-modal-icon" src="/static/img/solid/circle-question.svg"> <span id="confirm-modal-titre">Confirmer</span></div>
+    <div class="modal-header"><img class="ico ico-20 ico-primary" id="confirm-modal-icon" src="/static/img/solid/circle-question.svg"> <span id="confirm-modal-titre">{{T_CONFIRMER}}</span></div>
     <div class="modal-body"><p id="confirm-modal-msg" style="white-space:pre-wrap"></p></div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" id="confirm-modal-annuler">Annuler</button>
-      <button class="btn btn-primary" id="confirm-modal-ok">Confirmer</button>
+      <button class="btn btn-secondary" id="confirm-modal-annuler">{{T_ANNULER}}</button>
+      <button class="btn btn-primary" id="confirm-modal-ok">{{T_CONFIRMER}}</button>
     </div>
   </div>
 </div>
 
 <div id="oo-overlay">
   <div id="oo-barre">
-    <button id="oo-btn-retour" onclick="fermerOnlyOffice()" style="background:#3d4148">← Retour</button>
-    <span class="oo-nom" id="oo-nom-fichier">Chargement…</span>
+    <button id="oo-btn-retour" onclick="fermerOnlyOffice()" style="background:#3d4148">{{T_RETOUR}}</button>
+    <span class="oo-nom" id="oo-nom-fichier">{{T_CHARGEMENT}}</span>
     <span class="oo-statut" id="oo-statut"></span>
-    <button id="oo-btn-finir" onclick="terminerOnlyOffice()" disabled>Enregistrer et fermer</button>
+    <button id="oo-btn-finir" onclick="terminerOnlyOffice()" disabled>{{T_ENREGISTRER_ET_FERMER}}</button>
   </div>
   <div id="oo-placeholder">
-    <div id="oo-etat"><div class="oo-spin"></div><div>Chargement du document…</div></div>
+    <div id="oo-etat"><div class="oo-spin"></div><div>{{T_CHARGEMENT_DOCUMENT}}</div></div>
   </div>
 </div>
 
 <div class="modal" id="deleteModal">
   <div class="modal-content">
     <div class="modal-header">
-      <img class="ico ico-20 ico-red" src="/static/img/solid/trash.svg"> Confirmer la suppression
+      <img class="ico ico-20 ico-red" src="/static/img/solid/trash.svg"> {{T_CONFIRMER_SUPPRESSION}}
     </div>
     <div class="modal-body">
-      <p>Êtes-vous sûr de vouloir supprimer <strong id="delete-name"></strong> ?</p>
+      <p id="delete-modal-msg"></p>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('deleteModal')">Annuler</button>
+      <button class="btn btn-secondary" onclick="closeModal('deleteModal')">{{T_ANNULER}}</button>
       <button class="btn btn-primary" style="background:var(--danger);" onclick="doDelete()">
-        <img class="ico ico-sm ico-white" src="/static/img/solid/trash.svg"> Supprimer
+        <img class="ico ico-sm ico-white" src="/static/img/solid/trash.svg"> {{T_SUPPRIMER}}
       </button>
     </div>
   </div>
@@ -636,19 +636,19 @@ __NAV_HTML__
 <div class="modal" id="shareModal">
   <div class="modal-content" style="max-width:480px;">
     <div class="modal-header">
-      <img class="ico ico-20 ico-primary" src="/static/img/solid/share-nodes.svg"> Partager
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/share-nodes.svg"> {{T_PARTAGER}}
     </div>
     <div class="form-group">
-      <label>IDs des utilisateurs (séparés par des virgules)</label>
+      <label>{{T_IDS_UTILISATEURS}}</label>
       <input type="text" id="share-ids" placeholder="12, 45, 78">
       <div style="font-size:11px;color:var(--text-dim);margin-top:6px;">
-        Laisser vide pour révoquer tous les partages.
+        {{T_LAISSER_VIDE_POUR_REVOQUER}}
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('shareModal')">Annuler</button>
+      <button class="btn btn-secondary" onclick="closeModal('shareModal')">{{T_ANNULER}}</button>
       <button class="btn btn-primary" onclick="doShare()">
-        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> Enregistrer
+        <img class="ico ico-sm ico-white" src="/static/img/solid/check.svg"> {{T_ENREGISTRER_BTN}}
       </button>
     </div>
   </div>
@@ -668,6 +668,7 @@ __NAV_HTML__
 
 <script src="/static/crypto.js"></script>
 <script>
+{{I18N_JS}}
 'use strict';
 const ICO = '/static/img/solid/';
 const THEMES = ['light','dark','solarized','rose']; // index = colonne `teme` en DB — identique à mess.html
@@ -776,18 +777,18 @@ async function createPageFromDD() {
   closeCreateDropdown();
   try {
     const r = await apiFetch('/api/fchier/create_page', { parent_id: state.dossier });
-    if (!r.success) throw new Error(r.error || 'Erreur');
-    toast('Page créée', 'ok');
+    if (!r.success) throw new Error(r.error || I18N.ERREUR);
+    toast(I18N.PAGE_CREE, 'ok');
     loadData();
-  } catch(e) { toast('Erreur : ' + e.message, 'error'); }
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
 }
 
 function openUploadModalFromDD() {
   closeCreateDropdown();
   state.uploadMode = 'files';
-  document.getElementById('upload-modal-title').textContent = 'Importer des fichiers';
-  document.getElementById('upload-drop-label').textContent  = 'Sélectionner des fichiers';
-  document.getElementById('fileUploadText').textContent     = 'Cliquez ou glissez des fichiers ici';
+  document.getElementById('upload-modal-title').textContent = I18N.IMPORTER_FICHIERS;
+  document.getElementById('upload-drop-label').textContent  = I18N.SELECTIONNER_FICHIERS;
+  document.getElementById('fileUploadText').textContent     = I18N.CLIC_OU_GLISSEZ;
   document.getElementById('uploadDropZone').setAttribute('for', 'fileInput');
   document.getElementById('folderTree').style.display = 'none';
   resetUpload();
@@ -796,9 +797,9 @@ function openUploadModalFromDD() {
 function openUploadFolderFromDD() {
   closeCreateDropdown();
   state.uploadMode = 'folder';
-  document.getElementById('upload-modal-title').textContent = 'Importer un dossier';
-  document.getElementById('upload-drop-label').textContent  = 'Sélectionner un dossier';
-  document.getElementById('fileUploadText').textContent     = 'Cliquez pour choisir un dossier';
+  document.getElementById('upload-modal-title').textContent = I18N.IMPORTER_DOSSIER;
+  document.getElementById('upload-drop-label').textContent  = I18N.SELECTIONNER_DOSSIER;
+  document.getElementById('fileUploadText').textContent     = I18N.CLIQUEZ_CHOISIR_DOSSIER;
   document.getElementById('uploadDropZone').setAttribute('for', 'folderInput');
   document.getElementById('folderTree').style.display = 'none';
   resetUpload();
@@ -855,7 +856,7 @@ function handleFolderSelect(e) {
     document.getElementById('btn-do-upload').disabled = false;
     const total = files.length;
     document.getElementById('fileUploadText').textContent =
-      `${total} fichier${total > 1 ? 's' : ''} dans le dossier`;
+      (total > 1 ? I18N.FICHIER_DANS_DOSSIER_PLUR : I18N.FICHIER_DANS_DOSSIER_SING).replace('{n}', total);
   }
   e.target.value = '';
 }
@@ -867,7 +868,7 @@ function addFilesToUpload(files) {
   document.getElementById('btn-do-upload').disabled = false;
   const total = state.uploadFiles.length;
   document.getElementById('fileUploadText').textContent =
-    total === 1 ? '1 fichier sélectionné' : `${total} fichiers sélectionnés`;
+    total === 1 ? I18N.UN_FICHIER_SELECTIONNE : I18N.N_FICHIERS_SELECTIONNES.replace('{n}', total);
 }
 
 function renderSelectedFiles() {
@@ -878,7 +879,7 @@ function renderSelectedFiles() {
     <div class="selected-file-item">
       <span class="file-item-name" title="${escHtml(f.name)}">${escHtml(f.name)}</span>
       <span class="file-item-size">${formatSize(f.size)}</span>
-      <span class="file-item-remove" onclick="removeUploadFile(${i})" title="Retirer">×</span>
+      <span class="file-item-remove" onclick="removeUploadFile(${i})" title="${I18N.RETIRER}">×</span>
     </div>`).join('');
 }
 
@@ -916,19 +917,19 @@ function removeUploadFile(idx) {
   if (!state.uploadFiles.length) {
     document.getElementById('btn-do-upload').disabled = true;
     document.getElementById('fileUploadText').textContent =
-      state.uploadMode === 'folder' ? 'Cliquez pour choisir un dossier' : 'Cliquez ou glissez des fichiers ici';
+      state.uploadMode === 'folder' ? I18N.CLIQUEZ_CHOISIR_DOSSIER : I18N.CLIC_OU_GLISSEZ;
   } else {
     const total = state.uploadFiles.length;
     document.getElementById('fileUploadText').textContent =
-      total === 1 ? '1 fichier sélectionné' : `${total} fichiers sélectionnés`;
+      total === 1 ? I18N.UN_FICHIER_SELECTIONNE : I18N.N_FICHIERS_SELECTIONNES.replace('{n}', total);
   }
 }
 
 function formatSize(bytes) {
-  if (bytes < 1024)       return bytes + ' o';
-  if (bytes < 1048576)    return (bytes / 1024).toFixed(1) + ' Ko';
-  if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' Mo';
-  return (bytes / 1073741824).toFixed(2) + ' Go';
+  if (bytes < 1024)       return bytes + ' ' + I18N.UNITE_OCTET;
+  if (bytes < 1048576)    return (bytes / 1024).toFixed(1) + ' ' + I18N.UNITE_KO;
+  if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' ' + I18N.UNITE_MO;
+  return (bytes / 1073741824).toFixed(2) + ' ' + I18N.UNITE_GO;
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -955,7 +956,7 @@ async function doUploadFiles() {
   const files    = [...state.uploadFiles];
   const total    = files.length;
   btn.disabled = true;
-  document.getElementById('btn-upload-label').textContent = 'Upload…';
+  document.getElementById('btn-upload-label').textContent = I18N.UPLOAD_EN_COURS;
   progWrap.style.display = '';
 
   let done = 0, errors = 0;
@@ -963,7 +964,7 @@ async function doUploadFiles() {
     label.textContent = `${done + 1} / ${total} — ${escHtml(file.name)}`;
     fill.style.width  = Math.round((done / total) * 100) + '%';
     try {
-      label.textContent = `Chiffrement — ${escHtml(file.name)}`;
+      label.textContent = I18N.CHIFFREMENT_NOM.replace('{nom}', escHtml(file.name));
       const { blob } = await VEX.chiffrerFichier(file);
       const fileBytes = new Uint8Array(await blob.arrayBuffer());
       const b64 = arrayBufferToBase64(fileBytes.buffer);
@@ -978,16 +979,17 @@ async function doUploadFiles() {
         }),
       });
       const d = await r.json();
-      if (!r.ok || !d.success) throw new Error(d.error || 'Upload échoué');
+      if (!r.ok || !d.success) throw new Error(d.error || I18N.ECHEC);
       done++;
-    } catch(e) { errors++; toast(`Erreur : ${file.name} — ${e.message}`, 'error'); }
+    } catch(e) { errors++; toast(`${I18N.ERREUR_PREFIX}${file.name} — ${e.message}`, 'error'); }
   }
 
   fill.style.width = '100%';
-  label.textContent = errors ? `Terminé (${errors} erreur(s))` : 'Terminé !';
+  label.textContent = errors ? I18N.TERMINE_AVEC_ERREURS.replace('{n}', errors) : I18N.TERMINE;
   setTimeout(() => {
     closeModal('uploadModal'); resetUpload();
-    toast(errors ? `${done} uploadé(s), ${errors} erreur(s)` : `${done} fichier(s) uploadé(s)`,
+    toast(errors ? I18N.UPLOADES_ERREURS.replace('{done}', done).replace('{errors}', errors)
+                 : I18N.N_FICHIERS_UPLOADES.replace('{n}', done),
           errors ? 'error' : 'ok');
     loadData();
   }, 700);
@@ -1005,9 +1007,9 @@ async function doUploadFolder() {
   const total    = files.length;
 
   btn.disabled = true;
-  document.getElementById('btn-upload-label').textContent = 'Upload…';
+  document.getElementById('btn-upload-label').textContent = I18N.UPLOAD_EN_COURS;
   progWrap.style.display = '';
-  label.textContent = 'Analyse de l\'arborescence…';
+  label.textContent = I18N.ANALYSE_ARBORESCENCE;
   fill.style.width = '5%';
 
   // ── 1. Construire l'arbre des dossiers à créer
@@ -1035,7 +1037,7 @@ async function doUploadFolder() {
 
   for (const path of sortedPaths) {
     step++;
-    label.textContent = `Création dossiers… ${step}/${sortedPaths.length}`;
+    label.textContent = I18N.CREATION_DOSSIERS_PROGRESS.replace('{step}', step).replace('{total}', sortedPaths.length);
     fill.style.width  = Math.round((step / (sortedPaths.length + total)) * 100) + '%';
 
     const parts    = path.split('/');
@@ -1053,11 +1055,11 @@ async function doUploadFolder() {
       if (d.success && d.id) {
         pathToId[path] = d.id;
       } else {
-        toast(`Impossible de créer le dossier : ${name}`, 'error');
+        toast(I18N.IMPOSSIBLE_CREER_DOSSIER.replace('{nom}', name), 'error');
         pathToId[path] = parentId; // fallback
       }
     } catch(e) {
-      toast(`Erreur dossier : ${name}`, 'error');
+      toast(I18N.ERREUR_DOSSIER_NOM.replace('{nom}', name), 'error');
       pathToId[path] = parentId;
     }
   }
@@ -1071,11 +1073,11 @@ async function doUploadFolder() {
     const folderId   = pathToId[folderPath] ?? state.dossier;
     const fileName   = parts[parts.length - 1];
 
-    label.textContent = `Fichiers ${done + 1}/${total} — ${escHtml(fileName)}`;
+    label.textContent = I18N.FICHIERS_PROGRESS.replace('{done}', done + 1).replace('{total}', total).replace('{nom}', escHtml(fileName));
     fill.style.width  = Math.round((step / (sortedPaths.length + total)) * 100) + '%';
 
     try {
-      label.textContent = `Chiffrement — ${escHtml(fileName)}`;
+      label.textContent = I18N.CHIFFREMENT_NOM.replace('{nom}', escHtml(fileName));
       const { blob } = await VEX.chiffrerFichier(file);
       const bytes = new Uint8Array(await blob.arrayBuffer());
       const b64 = arrayBufferToBase64(bytes.buffer);
@@ -1091,19 +1093,19 @@ async function doUploadFolder() {
         }),
       });
       const d = await r.json();
-      if (!r.ok || !d.success) throw new Error(d.error || 'Upload échoué');
+      if (!r.ok || !d.success) throw new Error(d.error || I18N.ECHEC);
       done++;
-    } catch(e) { errors++; toast(`Erreur : ${file.name} — ${e.message}`, 'error'); }
+    } catch(e) { errors++; toast(`${I18N.ERREUR_PREFIX}${file.name} — ${e.message}`, 'error'); }
   }
 
   fill.style.width = '100%';
-  label.textContent = errors ? `Terminé (${errors} erreur(s))` : 'Terminé !';
+  label.textContent = errors ? I18N.TERMINE_AVEC_ERREURS.replace('{n}', errors) : I18N.TERMINE;
   setTimeout(() => {
     closeModal('uploadModal'); resetUpload();
     toast(
       errors
-        ? `${done} fichier(s) uploadé(s), ${errors} erreur(s)`
-        : `Dossier importé : ${done} fichier(s)`,
+        ? I18N.FICHIERS_UPLOADES_ERREURS.replace('{done}', done).replace('{errors}', errors)
+        : I18N.DOSSIER_IMPORTE.replace('{n}', done),
       errors ? 'error' : 'ok'
     );
     loadData();
@@ -1113,9 +1115,9 @@ async function doUploadFolder() {
 function resetUpload() {
   state.uploadFiles = [];
   document.getElementById('fileUploadText').textContent =
-    state.uploadMode === 'folder' ? 'Cliquez pour choisir un dossier' : 'Cliquez ou glissez des fichiers ici';
+    state.uploadMode === 'folder' ? I18N.CLIQUEZ_CHOISIR_DOSSIER : I18N.CLIC_OU_GLISSEZ;
   document.getElementById('btn-do-upload').disabled = true;
-  document.getElementById('btn-upload-label').textContent = 'Uploader';
+  document.getElementById('btn-upload-label').textContent = I18N.UPLOADER;
   document.getElementById('upload-progress').style.display = 'none';
   document.getElementById('upload-fill').style.width = '0%';
   document.getElementById('upload-progress-label').textContent = '';
@@ -1141,7 +1143,7 @@ async function loadData() {
     populateMoveSelect(state.data.all_folders || []);
   } catch(e) {
     showError(e.message);
-    toast('Erreur : ' + e.message, 'error');
+    toast(I18N.ERREUR_PREFIX + e.message, 'error');
   }
 }
 function showLoading() {
@@ -1149,7 +1151,7 @@ function showLoading() {
   document.getElementById('list-body').innerHTML = '';
 }
 function showError(msg) {
-  document.getElementById('grid-view').innerHTML = `<div class="empty-state"><p style="color:var(--danger);">Erreur : ${escHtml(msg)}</p></div>`;
+  document.getElementById('grid-view').innerHTML = `<div class="empty-state"><p style="color:var(--danger);">${I18N.ERREUR_PREFIX}${escHtml(msg)}</p></div>`;
 }
 function renderAll() {
   const d = state.data;
@@ -1159,7 +1161,7 @@ function renderAll() {
   renderFolderTreeSidebar();
   const chemin = d.chemin || [];
   const last   = chemin[chemin.length - 1];
-  document.getElementById('content-title').textContent = last ? last.nom : 'Mes fichiers';
+  document.getElementById('content-title').textContent = last ? last.nom : I18N.MES_FICHIERS;
 }
 
 function renderGrid(dossiers, fichiers, pages) {
@@ -1168,7 +1170,7 @@ function renderGrid(dossiers, fichiers, pages) {
   if (!dossiers.length && !fichiers.length && !pages.length) {
     grid.innerHTML = `<div class="empty-state">
       <img class="ico ico-64 ico-muted" src="${ICO}folder-open.svg" style="display:block;margin:0 auto;">
-      <h3>Aucun fichier</h3><p>Créez votre premier document</p></div>`;
+      <h3>${I18N.AUCUN_FICHIER}</h3><p>${I18N.CREEZ_PREMIER_DOCUMENT}</p></div>`;
     return;
   }
   dossiers.forEach(f => grid.appendChild(makeFolderCard(f)));
@@ -1186,7 +1188,7 @@ function makeFolderCard(f) {
     </div>
     <div class="folder-icon"><img class="ico ico-lg ico-orange" src="${ICO}folder.svg"></div>
     <div class="folder-name">${escHtml(f.nom || '')}</div>
-    <div class="file-date">Dossier</div>`;
+    <div class="file-date">${I18N.DOSSIER_LABEL}</div>`;
   div.addEventListener('click', () => { if (justDragged()) return; state.dossier = f.id; loadData(); });
   div.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'folder', f.id, f); });
   enableDrag(div, f.id, 'folder');
@@ -1207,7 +1209,7 @@ function makePageCard(p) {
     </div>
     <div class="page-icon"><img class="ico ico-lg ico-blue" src="${ICO}globe.svg"></div>
     <div class="page-name">${escHtml(p.nom || '')}</div>
-    <div class="file-date">Page web</div>`;
+    <div class="file-date">${I18N.PAGE_WEB_LABEL}</div>`;
   // Double-clic = aperçu public (/page/id). Pour éditer : "..." > Modifier.
   div.addEventListener('click', () => { if (justDragged()) return; window.open('/page/' + encodeURIComponent(pid), '_blank'); });
   div.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'page', pid, p); });
@@ -1283,8 +1285,8 @@ function enableDropTarget(el, folderId) {
     try {
       const r = await apiFetch('/api/fchier/move', { item_id: id, item_type: type, target_folder: folderId });
       if (!r.success) throw new Error(r.error);
-      toast('Déplacé', 'ok'); loadData();
-    } catch(err) { toast('Erreur : ' + err.message, 'error'); }
+      toast(I18N.DEPLACE, 'ok'); loadData();
+    } catch(err) { toast(I18N.ERREUR_PREFIX + err.message, 'error'); }
   });
 }
 
@@ -1294,7 +1296,7 @@ function renderList(dossiers, fichiers, pages) {
   dossiers.forEach(f => {
     const row = document.createElement('div');
     row.className = 'list-item'; row.dataset.type = 'folder'; row.dataset.name = f.nom || '';
-    row.innerHTML = `<div class="list-item-name"><img class="ico ico-18 ico-orange" src="${ICO}folder.svg"><span>${escHtml(f.nom||'')}</span></div><div>Dossier</div><div>—</div>
+    row.innerHTML = `<div class="list-item-name"><img class="ico ico-18 ico-orange" src="${ICO}folder.svg"><span>${escHtml(f.nom||'')}</span></div><div>${I18N.DOSSIER_LABEL}</div><div>—</div>
       <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'folder',${f.id},${JSON.stringify(f).replace(/"/g,'&quot;')})"><img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg"></div>`;
     row.addEventListener('click', () => { if (justDragged()) return; state.dossier = f.id; loadData(); });
     row.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'folder', f.id, f); });
@@ -1306,7 +1308,7 @@ function renderList(dossiers, fichiers, pages) {
     const pid = String(p.id || '');
     const row = document.createElement('div');
     row.className = 'list-item'; row.dataset.type = 'page'; row.dataset.name = p.nom || '';
-    row.innerHTML = `<div class="list-item-name"><img class="ico ico-18 ico-blue" src="${ICO}globe.svg"><span>${escHtml(p.nom||'')}</span></div><div>Page web</div><div>—</div>
+    row.innerHTML = `<div class="list-item-name"><img class="ico ico-18 ico-blue" src="${ICO}globe.svg"><span>${escHtml(p.nom||'')}</span></div><div>${I18N.PAGE_WEB_LABEL}</div><div>—</div>
       <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'page','${pid}',${JSON.stringify(p).replace(/"/g,'&quot;')})"><img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg"></div>`;
     // Double-clic = aperçu public (/page/id). Pour éditer : "..." > Modifier.
     row.addEventListener('click', () => { if (justDragged()) return; window.open('/page/' + encodeURIComponent(pid), '_blank'); });
@@ -1336,7 +1338,7 @@ function renderBreadcrumb(chemin) {
     if (i === 0) {
       const home = document.createElement('span');
       home.className = 'bc-home';
-      home.innerHTML = `<img class="ico ico-sm" src="${ICO}house.svg"> ${escHtml(seg.nom || 'Accueil')}`;
+      home.innerHTML = `<img class="ico ico-sm" src="${ICO}house.svg"> ${escHtml(seg.nom || I18N.ACCUEIL)}`;
       home.onclick = () => navTo(seg.id || 0);
       enableDropTarget(home, seg.id || 0);
       bc.appendChild(home);
@@ -1457,7 +1459,7 @@ function searchItems() {
 
 function populateMoveSelect(folders) {
   const sel = document.getElementById('move-target');
-  sel.innerHTML = '<option value="0">Racine</option>';
+  sel.innerHTML = `<option value="0">${I18N.RACINE}</option>`;
   folders.forEach(f => {
     const opt = document.createElement('option');
     opt.value = f.id; opt.textContent = f.nom || '';
@@ -1470,12 +1472,12 @@ function populateMoveSelect(folders) {
 // ══════════════════════════════════════════════════════════════════
 async function downloadFile(item) {
   if (!requireCryptoSession()) return;
-  toast(`Téléchargement de ${item.nom}…`, 'info');
+  toast(I18N.TELECHARGEMENT_DE.replace('{nom}', item.nom), 'info');
   try {
     const r = await vexFetch(`/api/fchier/download?id=${item.id}`, { credentials:'include' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
-    if (!data.success) throw new Error(data.error || 'Erreur');
+    if (!data.success) throw new Error(data.error || I18N.ERREUR);
 
     let blob;
     const bytes = VEX.fromBase64(data.contenu);
@@ -1488,7 +1490,7 @@ async function downloadFile(item) {
         blob = new Blob([bytes], { type: data.mime || 'application/octet-stream' });
       }
     } else {
-      throw new Error('Session expirée — reconnectez-vous pour télécharger ce fichier chiffré');
+      throw new Error(I18N.SESSION_EXPIREE_TELECHARGER);
     }
 
     const url = URL.createObjectURL(blob);
@@ -1496,8 +1498,8 @@ async function downloadFile(item) {
     a.href = url; a.download = data.nom;
     document.body.appendChild(a); a.click();
     setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-    toast(`${data.nom} téléchargé`, 'ok');
-  } catch(e) { toast('Erreur téléchargement : ' + e.message, 'error'); }
+    toast(I18N.NOM_TELECHARGE.replace('{nom}', data.nom), 'ok');
+  } catch(e) { toast(I18N.ERREUR_TELECHARGEMENT_PREFIX + e.message, 'error'); }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1699,8 +1701,8 @@ let OO = { token: null, fileId: null, nom: '', mime: '', termine: false };
 async function ouvrirOnlyOffice(item) {
   if (!requireCryptoSession()) return;
   const ok = await confirmerFchier(
-    `Ouvrir "${item.nom}" dans OnlyOffice ?\n\nPendant l'edition, ce document sera temporairement dechiffre sur le serveur (necessaire pour qu'OnlyOffice puisse le lire). Il est re-chiffre et le fichier temporaire supprime des que vous terminez l'edition.`,
-    { titre: 'Éditer avec OnlyOffice', icone: '/static/img/solid/triangle-exclamation.svg' }
+    I18N.CONFIRM_OUVRIR_ONLYOFFICE.replace('{nom}', item.nom),
+    { titre: I18N.EDITER_AVEC_ONLYOFFICE, icone: '/static/img/solid/triangle-exclamation.svg' }
   );
   if (!ok) return;
 
@@ -1710,7 +1712,7 @@ async function ouvrirOnlyOffice(item) {
   document.getElementById('oo-statut').textContent = '';
   document.getElementById('oo-btn-finir').disabled = true;
   etat.style.display = '';
-  etat.innerHTML = '<div class="oo-spin"></div><div>Préparation du document…</div>';
+  etat.innerHTML = `<div class="oo-spin"></div><div>${I18N.PREPARATION_DOCUMENT}</div>`;
   document.getElementById('oo-placeholder').querySelectorAll(':scope > *:not(#oo-etat)').forEach(n => n.remove());
   overlay.classList.add('active');
   OO = { token: null, fileId: item.id, nom: item.nom, mime: '', termine: false };
@@ -1719,7 +1721,7 @@ async function ouvrirOnlyOffice(item) {
     const r = await vexFetch(`/api/fchier/download?id=${item.id}`, { credentials:'include' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
-    if (!data.success) throw new Error(data.error || 'Erreur');
+    if (!data.success) throw new Error(data.error || I18N.ERREUR);
     OO.mime = data.mime;
 
     const bytes = VEX.fromBase64(data.contenu);
@@ -1732,7 +1734,7 @@ async function ouvrirOnlyOffice(item) {
         blob = new Blob([bytes], { type: data.mime });
       }
     } else {
-      throw new Error('Session expirée — reconnectez-vous');
+      throw new Error(I18N.SESSION_EXPIREE_RECONNECTEZ);
     }
 
     const plainBytes = new Uint8Array(await blob.arrayBuffer());
@@ -1740,7 +1742,7 @@ async function ouvrirOnlyOffice(item) {
     const rp = await apiFetch('/api/fchier/onlyoffice/prepare', {
       id: item.id, ext, contenu_plain_b64: arrayBufferToBase64(plainBytes.buffer),
     });
-    if (!rp.success) throw new Error(rp.error || 'Preparation impossible');
+    if (!rp.success) throw new Error(rp.error || I18N.ECHEC);
     OO.token = rp.token;
 
     const script = document.createElement('script');
@@ -1751,14 +1753,14 @@ async function ouvrirOnlyOffice(item) {
       const config = Object.assign({}, rp.config, {
         width: '100%', height: '100%',
         events: {
-          onDocumentReady: () => { document.getElementById('oo-statut').textContent = 'Prêt.'; },
-          onError: (e) => { console.error(e); document.getElementById('oo-statut').textContent = 'Erreur OnlyOffice.'; },
+          onDocumentReady: () => { document.getElementById('oo-statut').textContent = I18N.PRET; },
+          onError: (e) => { console.error(e); document.getElementById('oo-statut').textContent = I18N.ERREUR_ONLYOFFICE; },
         },
       });
       new DocsAPI.DocEditor('oo-placeholder', config);
       document.getElementById('oo-btn-finir').disabled = false;
     };
-    script.onerror = () => { etat.innerHTML = '<div style="color:#f87171">Impossible de charger OnlyOffice (serveur hors ligne ?).</div>'; };
+    script.onerror = () => { etat.innerHTML = `<div style="color:#f87171">${I18N.IMPOSSIBLE_CHARGER_ONLYOFFICE}</div>`; };
     document.head.appendChild(script);
   } catch(e) {
     etat.innerHTML = `<div style="color:#f87171;max-width:400px">${escHtml(e.message)}</div>`;
@@ -1767,8 +1769,8 @@ async function ouvrirOnlyOffice(item) {
 
 async function fermerOnlyOffice() {
   const ok = await confirmerFchier(
-    'Fermer sans enregistrer ?\n\nLes modifications faites dans OnlyOffice depuis la derniere sauvegarde automatique seront perdues.',
-    { titre: 'Fermer sans enregistrer', icone: '/static/img/solid/triangle-exclamation.svg' }
+    I18N.CONFIRM_FERMER_SANS_ENREGISTRER,
+    { titre: I18N.FERMER_SANS_ENREGISTRER, icone: '/static/img/solid/triangle-exclamation.svg' }
   );
   if (!ok) return;
   OO.termine = true;
@@ -1783,33 +1785,33 @@ async function terminerOnlyOffice() {
   const btn = document.getElementById('oo-btn-finir');
   const statutEl = document.getElementById('oo-statut');
   btn.disabled = true;
-  statutEl.textContent = 'Sauvegarde en cours dans OnlyOffice…';
+  statutEl.textContent = I18N.SAUVEGARDE_EN_COURS_OO;
   try {
     await new Promise(r => setTimeout(r, 1500));
 
-    statutEl.textContent = 'Récupération du contenu…';
+    statutEl.textContent = I18N.RECUPERATION_CONTENU;
     const rf = await apiFetch('/api/fchier/onlyoffice/finish', { token: OO.token });
-    if (!rf.success) throw new Error(rf.error || 'Echec de la récupération.');
+    if (!rf.success) throw new Error(rf.error || I18N.ECHEC_RECUPERATION);
 
-    statutEl.textContent = 'Chiffrement…';
+    statutEl.textContent = I18N.CHIFFREMENT_EN_COURS;
     const bytes = VEX.fromBase64(rf.contenu_plain_b64);
     const file = new File([bytes], OO.nom, { type: OO.mime || 'application/octet-stream' });
     const { blob } = await VEX.chiffrerFichier(file);
     const cipherBytes = new Uint8Array(await blob.arrayBuffer());
     const b64 = arrayBufferToBase64(cipherBytes.buffer);
 
-    statutEl.textContent = 'Enregistrement…';
+    statutEl.textContent = I18N.ENREGISTREMENT_EN_COURS;
     const re = await apiFetch('/api/fchier/edit_content', { id: rf.file_id, contenu_b64: b64 });
-    if (!re.success) throw new Error(re.error || 'Echec de l\'enregistrement.');
+    if (!re.success) throw new Error(re.error || I18N.ECHEC_ENREGISTREMENT_PT);
 
     OO.termine = true;
     document.getElementById('oo-overlay').classList.remove('active');
     const script = document.getElementById('oo-api-script');
     if (script) script.remove();
-    toast('Document enregistré.', 'ok');
+    toast(I18N.DOCUMENT_ENREGISTRE, 'ok');
     loadData();
   } catch(e) {
-    statutEl.textContent = 'Erreur : ' + e.message;
+    statutEl.textContent = I18N.ERREUR_PREFIX + e.message;
     btn.disabled = false;
   }
 }
@@ -1831,8 +1833,8 @@ function rafraichirSurlignage() {
 async function openEditor(item) {
   if (!requireCryptoSession()) return;
   editState = { id: item.id, nom: item.nom || '', mime: '' };
-  document.getElementById('edit-modal-title').textContent = item.nom || 'Voir / Éditer';
-  document.getElementById('edit-modal-info').textContent = 'Chargement…';
+  document.getElementById('edit-modal-title').textContent = item.nom || I18N.VOIR_EDITER;
+  document.getElementById('edit-modal-info').textContent = I18N.CHARGEMENT;
   document.getElementById('edit-modal-statut').textContent = '';
   const ta = document.getElementById('edit-textarea');
   ta.value = '';
@@ -1853,7 +1855,7 @@ async function openEditor(item) {
     const r = await vexFetch(`/api/fchier/download?id=${item.id}`, { credentials:'include' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
-    if (!data.success) throw new Error(data.error || 'Erreur');
+    if (!data.success) throw new Error(data.error || I18N.ERREUR);
     editState.mime = data.mime || 'text/plain';
 
     const bytes = VEX.fromBase64(data.contenu);
@@ -1866,18 +1868,18 @@ async function openEditor(item) {
         blob = new Blob([bytes], { type: editState.mime });
       }
     } else {
-      throw new Error('Session expirée — reconnectez-vous pour ouvrir ce fichier chiffré');
+      throw new Error(I18N.SESSION_EXPIREE_OUVRIR);
     }
     const texte = await blob.text();
     ta.value = texte;
     ta.disabled = false;
     document.getElementById('edit-save-btn').disabled = false;
-    document.getElementById('edit-modal-info').textContent = `${Math.round(texte.length/102.4)/10} Ko`;
+    document.getElementById('edit-modal-info').textContent = `${Math.round(texte.length/102.4)/10} ${I18N.UNITE_KO}`;
     if (estCode) rafraichirSurlignage();
   } catch(e) {
     document.getElementById('edit-modal-info').textContent = '';
-    document.getElementById('edit-textarea').placeholder = 'Erreur : ' + e.message;
-    toast('Erreur ouverture : ' + e.message, 'error');
+    document.getElementById('edit-textarea').placeholder = I18N.ERREUR_PREFIX + e.message;
+    toast(I18N.ERREUR_OUVERTURE_PREFIX + e.message, 'error');
   }
 }
 
@@ -1885,22 +1887,22 @@ async function doSaveEdit() {
   if (!editState.id) return;
   const btn = document.getElementById('edit-save-btn');
   const statutEl = document.getElementById('edit-modal-statut');
-  btn.disabled = true; statutEl.textContent = 'Chiffrement…';
+  btn.disabled = true; statutEl.textContent = I18N.CHIFFREMENT_EN_COURS;
   try {
     const texte = document.getElementById('edit-textarea').value;
     const file = new File([texte], editState.nom, { type: editState.mime || 'text/plain' });
     const { blob } = await VEX.chiffrerFichier(file);
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const b64 = arrayBufferToBase64(bytes.buffer);
-    statutEl.textContent = 'Enregistrement…';
+    statutEl.textContent = I18N.ENREGISTREMENT_EN_COURS;
     const r = await apiFetch('/api/fchier/edit_content', { id: editState.id, contenu_b64: b64 });
-    if (!r.success) throw new Error(r.error || 'Echec');
-    statutEl.textContent = 'Enregistré.';
-    toast('Fichier enregistré', 'ok');
+    if (!r.success) throw new Error(r.error || I18N.ECHEC);
+    statutEl.textContent = I18N.ENREGISTRE_PT;
+    toast(I18N.FICHIER_ENREGISTRE, 'ok');
     loadData();
   } catch(e) {
     statutEl.textContent = '';
-    toast('Erreur enregistrement : ' + e.message, 'error');
+    toast(I18N.ERREUR_ENREGISTREMENT_PREFIX + e.message, 'error');
   }
   btn.disabled = false;
 }
@@ -1916,8 +1918,8 @@ async function doCreateFolder() {
     if (!r.success) throw new Error(r.error);
     closeModal('folderModal');
     document.getElementById('folder-name').value = '';
-    toast(`Dossier "${name}" créé`, 'ok'); loadData();
-  } catch(e) { toast('Erreur : ' + e.message, 'error'); }
+    toast(I18N.DOSSIER_CREE.replace('{nom}', name), 'ok'); loadData();
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
 }
 
 async function doRename() {
@@ -1927,8 +1929,8 @@ async function doRename() {
   try {
     const r = await apiFetch('/api/fchier/rename', { item_id: state.ctx.id, item_type: state.ctx.type, new_name: newName });
     if (!r.success) throw new Error(r.error);
-    closeModal('renameModal'); toast('Renommé', 'ok'); loadData();
-  } catch(e) { toast('Erreur : ' + e.message, 'error'); }
+    closeModal('renameModal'); toast(I18N.RENOMME, 'ok'); loadData();
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
 }
 
 async function doShare() {
@@ -1937,8 +1939,8 @@ async function doShare() {
   try {
     const r = await apiFetch('/api/fchier/share', { item_id: state.ctx.id, item_type: state.ctx.type, share_data: ids });
     if (!r.success) throw new Error(r.error);
-    closeModal('shareModal'); toast('Partage mis à jour', 'ok'); loadData();
-  } catch(e) { toast('Erreur : ' + e.message, 'error'); }
+    closeModal('shareModal'); toast(I18N.PARTAGE_MIS_A_JOUR, 'ok'); loadData();
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
 }
 
 async function doChangeVisibility() {
@@ -1947,20 +1949,20 @@ async function doChangeVisibility() {
   try {
     const r = await apiFetch('/api/fchier/change_visibility', { page_id: state.ctx.id, item_type: state.ctx.type, new_visibility: vis });
     if (!r.success) throw new Error(r.error);
-    closeModal('visibilityModal'); toast('Visibilité mise à jour', 'ok'); loadData();
-  } catch(e) { toast('Erreur : ' + e.message, 'error'); }
+    closeModal('visibilityModal'); toast(I18N.VISIBILITE_MISE_A_JOUR, 'ok'); loadData();
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
 }
 
 async function doSendP2p() {
   if (!state.ctx || state.ctx.type !== 'file') return;
   const toUser = Number(document.getElementById('p2p-to-user').value || 0);
-  if (!toUser) { toast('ID destinataire requis', 'error'); return; }
+  if (!toUser) { toast(I18N.ID_DESTINATAIRE_REQUIS, 'error'); return; }
   try {
     const r = await apiFetch('/api/fchier/send_p2p', { file_id: state.ctx.id, to_user: toUser });
-    if (!r.success) throw new Error(r.error || 'Envoi échoué');
+    if (!r.success) throw new Error(r.error || I18N.ENVOI_ECHOUE);
     closeModal('p2pModal');
-    toast(`Envoi P2P lancé (transfer_id: ${r.transfer_id||'…'})`, 'ok');
-  } catch(e) { toast('Erreur envoi P2P : ' + e.message, 'error'); }
+    toast(I18N.ENVOI_P2P_LANCE.replace('{id}', r.transfer_id||'…'), 'ok');
+  } catch(e) { toast(I18N.ERREUR_ENVOI_P2P_PREFIX + e.message, 'error'); }
 }
 
 async function doMove() {
@@ -1969,8 +1971,8 @@ async function doMove() {
   try {
     const r = await apiFetch('/api/fchier/move', { item_id: state.ctx.id, item_type: state.ctx.type, target_folder: target });
     if (!r.success) throw new Error(r.error);
-    closeModal('moveModal'); toast('Déplacé', 'ok'); loadData();
-  } catch(e) { toast('Erreur : ' + e.message, 'error'); }
+    closeModal('moveModal'); toast(I18N.DEPLACE, 'ok'); loadData();
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
 }
 
 async function doDelete() {
@@ -1978,8 +1980,8 @@ async function doDelete() {
   try {
     const r = await apiFetch('/api/fchier/delete', { item_id: state.ctx.id, item_type: state.ctx.type });
     if (!r.success) throw new Error(r.error);
-    closeModal('deleteModal'); toast('Supprimé', 'ok'); loadData();
-  } catch(e) { toast('Erreur : ' + e.message, 'error'); }
+    closeModal('deleteModal'); toast(I18N.SUPPRIME, 'ok'); loadData();
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
 }
 
 // ── Context menu
@@ -1992,10 +1994,10 @@ function openCtx(e, type, id, item) {
   document.getElementById('ctx-open').style.display       = (type === 'folder' || type === 'page') ? 'flex' : 'none';
   if (type === 'page') {
     document.getElementById('ctx-open-icon').src = ICO + 'globe.svg';
-    document.getElementById('ctx-open-label').textContent = 'Modifier';
+    document.getElementById('ctx-open-label').textContent = I18N.MODIFIER;
   } else {
     document.getElementById('ctx-open-icon').src = ICO + 'folder-open.svg';
-    document.getElementById('ctx-open-label').textContent = 'Ouvrir';
+    document.getElementById('ctx-open-label').textContent = I18N.OUVRIR;
   }
   document.getElementById('ctx-download').style.display   = type === 'file'   ? 'flex' : 'none';
   document.getElementById('ctx-edit').style.display       = (type === 'file' && estFichierTexte(item.nom || '')) ? 'flex' : 'none';
@@ -2031,7 +2033,7 @@ function handleAction(action) {
   else if (action === 'send_p2p')   { document.getElementById('p2p-to-user').value=''; openModal('p2pModal'); }
   else if (action === 'visibility') { document.getElementById('visibility-value').value = item.visble || item.prob || '1'; openModal('visibilityModal'); }
   else if (action === 'move')       { openModal('moveModal'); }
-  else if (action === 'delete')     { document.getElementById('delete-name').textContent = name || 'cet élément'; openModal('deleteModal'); }
+  else if (action === 'delete')     { document.getElementById('delete-modal-msg').innerHTML = escHtml(I18N.CONFIRMER_SUPPRESSION_MSG).replace('{nom}', `<strong>${escHtml(name || I18N.CET_ELEMENT)}</strong>`); openModal('deleteModal'); }
 }
 
 document.addEventListener('click', e => {
@@ -2046,7 +2048,7 @@ function closeModal(id) { document.getElementById(id).classList.remove('active')
 
 /* Dialogue de confirmation reutilisable (remplace confirm() natif) */
 function confirmerFchier(message, opts = {}) {
-  const { titre = 'Confirmer', icone = '/static/img/solid/circle-question.svg' } = opts;
+  const { titre = I18N.CONFIRMER, icone = '/static/img/solid/circle-question.svg' } = opts;
   return new Promise(resolve => {
     document.getElementById('confirm-modal-titre').textContent = titre;
     document.getElementById('confirm-modal-icon').src = icone;
@@ -2088,11 +2090,11 @@ async function apiFetch(url, body) {
 }
 
 async function vexFetch(url, options = {}) {
-  if (!requireCryptoSession()) throw new Error('Session crypto invalide');
+  if (!requireCryptoSession()) throw new Error(I18N.SESSION_EXPIREE_RECONNECTEZ);
   const r = await fetch(url, { credentials:'include', ...options });
   if (r.status === 401) {
     redirectLogin();
-    throw new Error('Session expirée');
+    throw new Error(I18N.SESSION_EXPIREE_RECONNECTEZ);
   }
   return r;
 }
@@ -2129,10 +2131,10 @@ function fileCategory(nom, mime) {
 function formatDate(d) {
   if (!d) return '';
   const diff = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
-  if (diff < 86400)  return "Aujourd'hui";
-  if (diff < 172800) return "Hier";
-  if (diff < 604800) return Math.ceil(diff/86400) + " jours";
-  return new Date(d).toLocaleDateString('fr-FR');
+  if (diff < 86400)  return I18N.AUJOURDHUI;
+  if (diff < 172800) return I18N.HIER;
+  if (diff < 604800) return I18N.N_JOURS.replace('{n}', Math.ceil(diff/86400));
+  return new Date(d).toLocaleDateString(I18N.LOCALE_DATE);
 }
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');

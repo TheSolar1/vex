@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Administration - VEX</title>
+<title>{{T_TITRE_ONGLET}}</title>
 <link rel="icon" href="/static/img/favicon.ico" type="image/svg+xml">
 <link rel="stylesheet" href="/static/css/theme.css">
 <style>
@@ -210,23 +210,23 @@ __NAV_HTML__
 <nav class="sb">
     <div class="sb-top">
         <div class="sb-ico"><img src="/static/img/solid/shield-halved.svg" alt=""></div>
-        <div><div class="sb-name">Admin Panel</div><div class="sb-sub" id="vex-ver">VEX</div></div>
+        <div><div class="sb-name">{{T_SB_ADMIN_PANEL}}</div><div class="sb-sub" id="vex-ver">VEX</div></div>
     </div>
-    <div class="sb-sep">Principal</div>
-    <div class="sb-a on" data-sec="dashboard"><img src="/static/img/solid/chart-pie.svg" alt=""> <span>Dashboard</span></div>
-    <div class="sb-a" data-sec="users"><img src="/static/img/solid/users.svg" alt=""> <span>Utilisateurs</span><span class="sb-pill" id="pill-users">…</span></div>
-    <div class="sb-a" data-sec="blocks"><img src="/static/img/solid/ban.svg" alt=""> <span>Blocages</span><span class="sb-pill" id="pill-blocks">…</span></div>
-    <div class="sb-sep">Système</div>
-    <div class="sb-a" data-sec="db"><img src="/static/img/solid/database.svg" alt=""> <span>Base de données</span></div>
-    <div class="sb-a" data-sec="config"><img src="/static/img/solid/gear.svg" alt=""> <span>Configuration</span></div>
-    <div class="sb-a" data-sec="apps"><img src="/static/img/solid/cube.svg" alt=""> <span>Applications</span></div>
-    <div class="sb-a" data-sec="extensions"><img src="/static/img/solid/puzzle-piece.svg" alt=""> <span>Extensions / Plugin</span></div>
-    <div class="sb-a" data-sec="roles"><img src="/static/img/solid/id-badge.svg" alt=""> <span>Rôles &amp; Plans</span></div>
-    <div class="sb-a" data-sec="server"><img src="/static/img/solid/server.svg" alt=""> <span>Serveur</span></div>
-    <div class="sb-a" data-sec="logs"><img src="/static/img/solid/scroll.svg" alt=""> <span>Logs</span></div>
-    <div class="sb-a" data-sec="onlyoffice"><img src="/static/img/solid/file-lines.svg" alt=""> <span>Éditeur en ligne</span><span class="sb-pill w" id="pill-oo" style="display:none">!</span></div>
-    <div class="sb-a" id="sb-p2p" data-sec="p2p" style="display:none"><img src="/static/img/solid/network-wired.svg" alt=""> <span>P2P / AnonNet</span><span class="sb-pill" id="pill-p2p">0</span></div>
-    <div class="sb-a" id="sb-backup" data-sec="backup" style="display:none"><img src="/static/img/solid/box-archive.svg" alt=""> <span>Sauvegardes</span></div>
+    <div class="sb-sep">{{T_SB_PRINCIPAL}}</div>
+    <div class="sb-a on" data-sec="dashboard"><img src="/static/img/solid/chart-pie.svg" alt=""> <span>{{T_SB_DASHBOARD}}</span></div>
+    <div class="sb-a" data-sec="users"><img src="/static/img/solid/users.svg" alt=""> <span>{{T_SB_UTILISATEURS}}</span><span class="sb-pill" id="pill-users">…</span></div>
+    <div class="sb-a" data-sec="blocks"><img src="/static/img/solid/ban.svg" alt=""> <span>{{T_SB_BLOCAGES}}</span><span class="sb-pill" id="pill-blocks">…</span></div>
+    <div class="sb-sep">{{T_SB_SYSTEME}}</div>
+    <div class="sb-a" data-sec="db"><img src="/static/img/solid/database.svg" alt=""> <span>{{T_SB_BASE_DE_DONNEES}}</span></div>
+    <div class="sb-a" data-sec="config"><img src="/static/img/solid/gear.svg" alt=""> <span>{{T_SB_CONFIGURATION}}</span></div>
+    <div class="sb-a" data-sec="apps"><img src="/static/img/solid/cube.svg" alt=""> <span>{{T_SB_APPLICATIONS}}</span></div>
+    <div class="sb-a" data-sec="extensions"><img src="/static/img/solid/puzzle-piece.svg" alt=""> <span>{{T_SB_EXTENSIONS_PLUGIN}}</span></div>
+    <div class="sb-a" data-sec="roles"><img src="/static/img/solid/id-badge.svg" alt=""> <span>{{T_SB_ROLES_PLANS}}</span></div>
+    <div class="sb-a" data-sec="server"><img src="/static/img/solid/server.svg" alt=""> <span>{{T_SB_SERVEUR}}</span></div>
+    <div class="sb-a" data-sec="logs"><img src="/static/img/solid/scroll.svg" alt=""> <span>{{T_SB_LOGS}}</span></div>
+    <div class="sb-a" data-sec="onlyoffice"><img src="/static/img/solid/file-lines.svg" alt=""> <span>{{T_SB_EDITEUR_EN_LIGNE}}</span><span class="sb-pill w" id="pill-oo" style="display:none">!</span></div>
+    <div class="sb-a" id="sb-p2p" data-sec="p2p" style="display:none"><img src="/static/img/solid/network-wired.svg" alt=""> <span>{{T_SB_P2P_ANONNET}}</span><span class="sb-pill" id="pill-p2p">0</span></div>
+    <div class="sb-a" id="sb-backup" data-sec="backup" style="display:none"><img src="/static/img/solid/box-archive.svg" alt=""> <span>{{T_SB_SAUVEGARDES}}</span></div>
 </nav>
 
 <main class="main">
@@ -235,20 +235,20 @@ __NAV_HTML__
     <!-- Dashboard -->
     <div class="sec on" id="sec-dashboard">
         <div class="pt"><img src="/static/img/solid/chart-pie.svg" class="ico-accent" alt=""> Dashboard</div>
-        <div class="sg" id="dash-stats"><div class="loading"><span class="spin"></span> Chargement…</div></div>
+        <div class="sg" id="dash-stats"><div class="loading"><span class="spin"></span> {{T_CHARGEMENT}}</div></div>
         <div class="card">
-            <div class="ch"><span><img src="/static/img/solid/clock.svg" class="ico ico-accent" alt=""> Derniers inscrits</span></div>
+            <div class="ch"><span><img src="/static/img/solid/clock.svg" class="ico ico-accent" alt=""> {{T_DASH_DERNIERS_INSCRITS}}</span></div>
             <div style="overflow-x:auto"><div id="dash-last-users"><div class="loading"><span class="spin"></span></div></div></div>
         </div>
     </div>
 
     <!-- Utilisateurs -->
     <div class="sec" id="sec-users">
-        <div class="pt"><img src="/static/img/solid/users.svg" class="ico-accent" alt=""> Utilisateurs <small id="users-count">…</small></div>
+        <div class="pt"><img src="/static/img/solid/users.svg" class="ico-accent" alt=""> {{T_SB_UTILISATEURS}} <small id="users-count">…</small></div>
         <div class="card">
             <div class="ch">
-                <span><img src="/static/img/solid/list.svg" class="ico ico-accent" alt=""> Tous les comptes</span>
-                <input type="text" placeholder="Rechercher…" id="user-search"
+                <span><img src="/static/img/solid/list.svg" class="ico ico-accent" alt=""> {{T_USERS_TOUS_LES_COMPTES}}</span>
+                <input type="text" placeholder="{{T_RECHERCHE_PLACEHOLDER}}" id="user-search"
                     style="padding:5px 10px;border:1px solid var(--border);border-radius:7px;background:var(--input);color:var(--text);font-size:.81rem;width:190px"
                     oninput="filterUsers(this.value)">
             </div>
@@ -258,13 +258,13 @@ __NAV_HTML__
 
     <!-- Blocages -->
     <div class="sec" id="sec-blocks">
-        <div class="pt"><img src="/static/img/solid/ban.svg" class="ico-accent" alt=""> Blocages de pages <small>table <code>bloqpage</code></small></div>
+        <div class="pt"><img src="/static/img/solid/ban.svg" class="ico-accent" alt=""> {{T_SB_BLOCAGES}} <small>table <code>bloqpage</code></small></div>
         <div class="card">
-            <div class="ch"><span><img src="/static/img/solid/plus.svg" class="ico ico-accent" alt=""> Ajouter un blocage</span></div>
+            <div class="ch"><span><img src="/static/img/solid/plus.svg" class="ico ico-accent" alt=""> {{T_BLOCKS_AJOUTER_BLOCAGE}}</span></div>
             <div class="cb">
                 <div class="fr" style="margin-bottom:12px">
-                    <div class="f"><label>Cible</label><select id="block-uid"><option value="all">— Tous —</option></select></div>
-                    <div class="f"><label>Bloquer si privilege &gt;</label>
+                    <div class="f"><label>{{T_BLOCKS_CIBLE}}</label><select id="block-uid"><option value="all">{{T_BLOCKS_TOUS_OPTION}}</option></select></div>
+                    <div class="f"><label>{{T_BLOCKS_BLOQUER_SI_PRIVILEGE}}</label>
                         <select id="block-priv">
                             <option value="2">2</option><option value="3">3</option><option value="4">4</option>
                             <option value="5">5</option><option value="6">6</option><option value="7">7</option>
@@ -273,27 +273,27 @@ __NAV_HTML__
                         </select>
                     </div>
                 </div>
-                <div class="f"><label>Pages bloquées</label><div class="pages-grid" id="pages-grid"></div></div>
+                <div class="f"><label>{{T_BLOCKS_PAGES_BLOQUEES}}</label><div class="pages-grid" id="pages-grid"></div></div>
                 <div style="display:flex;gap:10px;margin-top:14px;align-items:center">
-                    <button class="btn ba" onclick="submitAddBlock()"><img src="/static/img/solid/shield-halved.svg" class="ico" style="filter:invert(1)" alt=""> Ajouter le blocage</button>
-                    <button class="btn bg2" onclick="toggleAllPages()"><img src="/static/img/solid/check-double.svg" class="ico ico-accent" alt=""> Tout cocher</button>
+                    <button class="btn ba" onclick="submitAddBlock()"><img src="/static/img/solid/shield-halved.svg" class="ico" style="filter:invert(1)" alt=""> {{T_BLOCKS_AJOUTER_LE_BLOCAGE}}</button>
+                    <button class="btn bg2" onclick="toggleAllPages()"><img src="/static/img/solid/check-double.svg" class="ico ico-accent" alt=""> {{T_BLOCKS_TOUT_COCHER}}</button>
                 </div>
             </div>
         </div>
         <div class="card">
-            <div class="ch"><span><img src="/static/img/solid/list.svg" class="ico ico-accent" alt=""> Blocages actifs (<span id="blocks-count">…</span>)</span></div>
+            <div class="ch"><span><img src="/static/img/solid/list.svg" class="ico ico-accent" alt=""> {{T_BLOCKS_ACTIFS}} (<span id="blocks-count">…</span>)</span></div>
             <div style="overflow-x:auto"><div id="blocks-table"><div class="loading"><span class="spin"></span></div></div></div>
         </div>
     </div>
 
     <!-- Base de données -->
     <div class="sec" id="sec-db">
-        <div class="pt"><img src="/static/img/solid/database.svg" class="ico-accent" alt=""> Explorateur DB <small id="db-subtitle">…</small></div>
+        <div class="pt"><img src="/static/img/solid/database.svg" class="ico-accent" alt=""> {{T_SB_BASE_DE_DONNEES}} <small id="db-subtitle">…</small></div>
         <div id="sql-zone" style="display:none">
             <div class="sqle">
                 <div class="sqle-head">
-                    <div class="sqle-title"><img src="/static/img/solid/terminal.svg" class="ico-accent" alt="">Requête SQL<span class="sqle-badge"><img src="/static/img/solid/star.svg" style="width:10px;height:10px;filter:invert(60%) sepia(1) saturate(3) hue-rotate(10deg)" alt="">Superadmin</span></div>
-                    <span class="sqle-meta">SELECT, INSERT, UPDATE, DELETE, CREATE, DROP… · Colonnes sensibles masquées</span>
+                    <div class="sqle-title"><img src="/static/img/solid/terminal.svg" class="ico-accent" alt="">{{T_SQL_REQUETE}}<span class="sqle-badge"><img src="/static/img/solid/star.svg" style="width:10px;height:10px;filter:invert(60%) sepia(1) saturate(3) hue-rotate(10deg)" alt="">{{T_SQL_SUPERADMIN}}</span></div>
+                    <span class="sqle-meta">{{T_SQL_META_TEXT}}</span>
                 </div>
                 <div class="sqle-body">
                     <div class="sqle-nums" id="sql-nums"><span>1</span></div>
@@ -303,19 +303,19 @@ __NAV_HTML__
                     </div>
                 </div>
                 <div class="sqle-foot">
-                    <button class="btn ba" id="sql-btn" onclick="runSql()"><img src="/static/img/solid/play.svg" class="ico" style="filter:invert(1)" alt=""> Exécuter</button>
-                    <button class="btn bg2" onclick="sqlClear()"><img src="/static/img/solid/xmark.svg" class="ico ico-gray" alt=""> Effacer</button>
+                    <button class="btn ba" id="sql-btn" onclick="runSql()"><img src="/static/img/solid/play.svg" class="ico" style="filter:invert(1)" alt=""> {{T_SQL_EXECUTER}}</button>
+                    <button class="btn bg2" onclick="sqlClear()"><img src="/static/img/solid/xmark.svg" class="ico ico-gray" alt=""> {{T_SQL_EFFACER}}</button>
                     <span class="sqle-hint"><span class="kbd">Ctrl</span>+<span class="kbd">↵</span></span>
                 </div>
             </div>
         </div>
         <div id="db-edit-bar" style="display:none;margin-bottom:12px;padding:10px 14px;background:var(--alt);border:1px solid var(--aglow);border-radius:8px;font-size:.83rem;color:var(--accent)">
-            <img src="/static/img/solid/pen-to-square.svg" class="ico ico-accent" alt=""> <strong>Mode édition actif</strong> — Cliquez sur une cellule pour la modifier.
+            <img src="/static/img/solid/pen-to-square.svg" class="ico ico-accent" alt=""> <strong>{{T_DB_MODE_EDITION_ACTIF}}</strong> — {{T_DB_CLIQUEZ_POUR_MODIFIER}}
         </div>
         <div id="db-content"><div class="loading"><span class="spin"></span></div></div>
         <div id="db-exec-view">
             <div id="sql-back-bar" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
-                <button class="btn bg2" onclick="sqlBack()"><img src="/static/img/solid/arrow-left.svg" class="ico ico-gray" alt=""> Retour à l'explorateur</button>
+                <button class="btn bg2" onclick="sqlBack()"><img src="/static/img/solid/arrow-left.svg" class="ico ico-gray" alt=""> {{T_SQL_RETOUR_EXPLORATEUR}}</button>
                 <code id="sql-exec-label" style="font-size:.76rem;color:var(--text-m);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"></code>
             </div>
             <div id="sql-result"></div>
@@ -324,28 +324,28 @@ __NAV_HTML__
 
     <!-- Config -->
     <div class="sec" id="sec-config">
-        <div class="pt"><img src="/static/img/solid/gear.svg" class="ico-accent" alt=""> Configuration <small>config.json</small></div>
+        <div class="pt"><img src="/static/img/solid/gear.svg" class="ico-accent" alt=""> {{T_SB_CONFIGURATION}} <small>config.json</small></div>
         <div id="config-content"><div class="loading"><span class="spin"></span></div></div>
     </div>
 
     <!-- Applications de base -->
     <div class="sec" id="sec-apps">
-        <div class="pt"><img src="/static/img/solid/cube.svg" class="ico-accent" alt=""> Applications</div>
+        <div class="pt"><img src="/static/img/solid/cube.svg" class="ico-accent" alt=""> {{T_SB_APPLICATIONS}}</div>
         <div id="apps-content"><div class="loading"><span class="spin"></span></div></div>
     </div>
 
     <!-- Extensions -->
     <div class="sec" id="sec-extensions">
-        <div class="pt"><img src="/static/img/solid/puzzle-piece.svg" class="ico-accent" alt=""> Extensions &amp; Plugin</div>
+        <div class="pt"><img src="/static/img/solid/puzzle-piece.svg" class="ico-accent" alt=""> {{T_SB_EXTENSIONS_PLUGIN}}</div>
         <div style="padding:13px 17px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:18px;font-size:.82rem;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
             <div style="flex:1;min-width:220px">
-                <div style="font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:7px"><img src="/static/img/solid/folder-open.svg" class="ico ico-accent" alt=""> Structure attendue</div>
-                <code style="display:block;font-size:.75rem;line-height:1.9;background:var(--surface2);padding:10px 13px;border-radius:7px;border:1px solid var(--border)">src/extensions/mon_ext/<br>&nbsp;&nbsp;mod.rs &nbsp;<span style="opacity:.6">← le fichier uploade</span><br>static/extensions/mon_ext/<br>&nbsp;&nbsp;index.html / *.js / *.css</code>
+                <div style="font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:7px"><img src="/static/img/solid/folder-open.svg" class="ico ico-accent" alt=""> {{T_EXT_STRUCTURE_ATTENDUE}}</div>
+                <code style="display:block;font-size:.75rem;line-height:1.9;background:var(--surface2);padding:10px 13px;border-radius:7px;border:1px solid var(--border)">src/extensions/mon_ext/<br>&nbsp;&nbsp;mod.rs &nbsp;<span style="opacity:.6">{{T_EXT_FICHIER_UPLOADE_COMMENT}}</span><br>static/extensions/mon_ext/<br>&nbsp;&nbsp;index.html / *.js / *.css</code>
             </div>
             <div style="flex:1;min-width:200px;color:var(--text-m);font-size:.78rem;line-height:1.7;padding-top:4px">
-                <strong style="color:var(--text)">Convention</strong> : l'ID = nom du dossier dans src/extensions/ et static/extensions/. Les dossiers sont crees automatiquement a l'upload.<br><br>
-                <span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:5px;background:var(--alt);color:var(--accent);font-size:.72rem;font-weight:700">APP DE BASE</span> integree au binaire, non suppressible.<br><br>
-                <span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:5px;background:rgba(59,130,246,.1);color:#3b82f6;font-size:.72rem;font-weight:700">EXTENSION</span> ajoutee manuellement, configurable.
+                <strong style="color:var(--text)">{{T_EXT_CONVENTION}}</strong>{{T_EXT_CONVENTION_DESC}}<br><br>
+                <span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:5px;background:var(--alt);color:var(--accent);font-size:.72rem;font-weight:700">{{T_EXT_APP_DE_BASE_BADGE}}</span> {{T_EXT_APP_DE_BASE_DESC}}<br><br>
+                <span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:5px;background:rgba(59,130,246,.1);color:#3b82f6;font-size:.72rem;font-weight:700">{{T_EXT_EXTENSION_BADGE}}</span> {{T_EXT_EXTENSION_DESC}}
             </div>
         </div>
         <div id="ext-content"><div class="loading"><span class="spin"></span></div></div>
@@ -353,18 +353,18 @@ __NAV_HTML__
 
     <!-- Roles & Plans -->
     <div class="sec" id="sec-roles">
-        <div class="pt"><img src="/static/img/solid/id-badge.svg" class="ico-accent" alt=""> Rôles &amp; Plans</div>
+        <div class="pt"><img src="/static/img/solid/id-badge.svg" class="ico-accent" alt=""> {{T_SB_ROLES_PLANS}}</div>
         <div class="card" style="margin-bottom:16px">
-            <div class="ch"><span><img src="/static/img/solid/tags.svg" class="ico ico-accent" alt=""> Noms des rôles</span></div>
+            <div class="ch"><span><img src="/static/img/solid/tags.svg" class="ico ico-accent" alt=""> {{T_ROLES_NOMS_ROLES}}</span></div>
             <div class="cb">
                 <div class="cgr" id="roles-labels-grid"></div>
-                <button class="btn ba" style="margin-top:14px" onclick="saveRoleLabels()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> Sauvegarder les noms</button>
+                <button class="btn ba" style="margin-top:14px" onclick="saveRoleLabels()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> {{T_ROLES_SAUVEGARDER_NOMS}}</button>
             </div>
         </div>
         <div class="card">
             <div class="ch">
-                <span><img src="/static/img/solid/credit-card.svg" class="ico ico-accent" alt=""> Plans tarifaires</span>
-                <button class="btn ba" onclick="addPlan()"><img src="/static/img/solid/plus.svg" class="ico" style="filter:invert(1)" alt=""> Nouveau plan</button>
+                <span><img src="/static/img/solid/credit-card.svg" class="ico ico-accent" alt=""> {{T_ROLES_PLANS_TARIFAIRES}}</span>
+                <button class="btn ba" onclick="addPlan()"><img src="/static/img/solid/plus.svg" class="ico" style="filter:invert(1)" alt=""> {{T_ROLES_NOUVEAU_PLAN}}</button>
             </div>
             <div class="cb" id="plans-content"></div>
         </div>
@@ -372,29 +372,27 @@ __NAV_HTML__
 
     <!-- Serveur -->
     <div class="sec" id="sec-server">
-        <div class="pt"><img src="/static/img/solid/server.svg" class="ico-accent" alt=""> Monitoring serveur</div>
+        <div class="pt"><img src="/static/img/solid/server.svg" class="ico-accent" alt=""> {{T_SERVER_MONITORING}}</div>
         <div id="server-content"><div class="loading"><span class="spin"></span></div></div>
     </div>
 
     <!-- Sauvegardes -->
     <div class="sec" id="sec-backup">
-        <div class="pt"><img src="/static/img/solid/box-archive.svg" class="ico-accent" alt=""> Sauvegardes <small>superadmin uniquement</small></div>
+        <div class="pt"><img src="/static/img/solid/box-archive.svg" class="ico-accent" alt=""> {{T_SB_SAUVEGARDES}} <small>{{T_BACKUP_SUPERADMIN_UNIQUEMENT}}</small></div>
         <div class="card" style="margin-bottom:16px;border-left:3px solid var(--accent)">
             <div class="ch">
-                <span><img src="/static/img/solid/database.svg" class="ico ico-accent" alt=""> Dump complet de la base</span>
-                <button class="btn ba" onclick="creerBackup()"><img src="/static/img/solid/plus.svg" class="ico" style="filter:invert(1)" alt=""> Lancer une sauvegarde</button>
+                <span><img src="/static/img/solid/database.svg" class="ico ico-accent" alt=""> {{T_BACKUP_DUMP_COMPLET}}</span>
+                <button class="btn ba" onclick="creerBackup()"><img src="/static/img/solid/plus.svg" class="ico" style="filter:invert(1)" alt=""> {{T_BACKUP_LANCER_SAUVEGARDE}}</button>
             </div>
             <div class="cb" style="font-size:.8rem;color:var(--text-m);line-height:1.6">
-                Sauvegarde <code>mysqldump</code> compressée (gzip) de toute la base — comptes, préférences, pages, et fichiers
-                (stockés en base64 dans la table <code>fichiers</code>, donc inclus automatiquement). Écrite sur le disque du
-                serveur dans <code>backups/</code> ; téléchargez-la ensuite pour la mettre en lieu sûr ailleurs.
+                {{T_BACKUP_DESCRIPTION_TEXT}}
             </div>
             <div id="backup-banner" style="padding:0 17px 14px"></div>
         </div>
         <div class="card">
             <div class="ch">
-                <span><img src="/static/img/solid/scroll.svg" class="ico ico-accent" alt=""> Sauvegardes existantes</span>
-                <button class="btn bg2" onclick="loadBackups()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Rafraîchir</button>
+                <span><img src="/static/img/solid/scroll.svg" class="ico ico-accent" alt=""> {{T_BACKUP_SAUVEGARDES_EXISTANTES}}</span>
+                <button class="btn bg2" onclick="loadBackups()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> {{T_RAFRAICHIR}}</button>
             </div>
             <div style="padding:14px" id="backup-list"><div class="loading"><span class="spin"></span></div></div>
         </div>
@@ -402,13 +400,13 @@ __NAV_HTML__
 
     <!-- Logs -->
     <div class="sec" id="sec-logs">
-        <div class="pt"><img src="/static/img/solid/scroll.svg" class="ico-accent" alt=""> Logs serveur</div>
+        <div class="pt"><img src="/static/img/solid/scroll.svg" class="ico-accent" alt=""> {{T_LOGS_SERVEUR}}</div>
         <div class="card">
             <div class="ch">
-                <span><img src="/static/img/solid/file-lines.svg" class="ico ico-accent" alt=""> Logs VEX </span>
+                <span><img src="/static/img/solid/file-lines.svg" class="ico ico-accent" alt=""> {{T_LOGS_VEX_TITRE}} </span>
                 <div style="display:flex;gap:8px">
-                    <button class="btn br2" onclick="clearLogs()"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Vider</button>
-                    <button class="btn bg2" onclick="scrollLogs()"><img src="/static/img/solid/arrow-down.svg" class="ico ico-accent" alt=""> Bas</button>
+                    <button class="btn br2" onclick="clearLogs()"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> {{T_LOGS_VIDER}}</button>
+                    <button class="btn bg2" onclick="scrollLogs()"><img src="/static/img/solid/arrow-down.svg" class="ico ico-accent" alt=""> {{T_LOGS_BAS}}</button>
                 </div>
             </div>
             <div style="padding:14px"><div id="log-content"><div class="loading"><span class="spin"></span></div></div></div>
@@ -416,8 +414,8 @@ __NAV_HTML__
 
         <div class="card" style="margin-top:16px">
             <div class="ch">
-                <span><img src="/static/img/solid/robot.svg" class="ico ico-accent" alt=""> Actions VexIA <small>outils executes, tous utilisateurs</small></span>
-                <button class="btn bg2" onclick="loadVexiaAudit()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Rafraîchir</button>
+                <span><img src="/static/img/solid/robot.svg" class="ico ico-accent" alt=""> {{T_LOGS_ACTIONS_VEXIA}} <small>{{T_LOGS_OUTILS_EXECUTES}}</small></span>
+                <button class="btn bg2" onclick="loadVexiaAudit()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> {{T_RAFRAICHIR}}</button>
             </div>
             <div style="padding:14px" id="vexia-audit-content"><div class="loading"><span class="spin"></span></div></div>
         </div>
@@ -425,51 +423,52 @@ __NAV_HTML__
 
     <!-- OnlyOffice -->
     <div class="sec" id="sec-onlyoffice">
-        <div class="pt"><img src="/static/img/solid/file-lines.svg" class="ico-accent" alt=""> Éditeur en ligne <small>choix de la suite bureautique</small></div>
+        <div class="pt"><img src="/static/img/solid/file-lines.svg" class="ico-accent" alt=""> {{T_SB_EDITEUR_EN_LIGNE}} <small>{{T_ED_CHOIX_SUITE}}</small></div>
         <div id="oo-content"><div class="loading"><span class="spin"></span></div></div>
     </div>
 
     <!-- P2P -->
     <div class="sec" id="sec-p2p">
-        <div class="pt"><img src="/static/img/solid/network-wired.svg" class="ico-accent" alt=""> P2P / AnonNet <small>superadmin uniquement</small></div>
+        <div class="pt"><img src="/static/img/solid/network-wired.svg" class="ico-accent" alt=""> {{T_SB_P2P_ANONNET}} <small>{{T_BACKUP_SUPERADMIN_UNIQUEMENT}}</small></div>
         <div id="p2p-node-info" style="display:none;margin-bottom:16px;padding:14px 17px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);font-size:.82rem">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:6px;font-weight:700"><img src="/static/img/solid/circle-nodes.svg" class="ico ico-accent" alt=""><span id="p2p-node-id" style="font-family:var(--mono);font-size:.77rem;color:var(--accent)"></span></div>
                 <span style="color:var(--text-m)">|</span>
                 <span id="p2p-node-url" style="color:var(--text-m);font-family:var(--mono);font-size:.76rem"></span>
-                <span id="p2p-tor-badge" style="display:none" class="b bb">Tor actif</span>
+                <span id="p2p-tor-badge" style="display:none" class="b bb">{{T_P2P_TOR_ACTIF}}</span>
                 <div style="margin-left:auto;display:flex;gap:8px">
-                    <button class="btn bg2" onclick="p2pSyncNow()" id="p2p-sync-btn"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Sync bootstrap</button>
-                    <button class="btn bg2" onclick="loadP2p()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-gray" alt=""> Rafraîchir</button>
+                    <button class="btn bg2" onclick="p2pSyncNow()" id="p2p-sync-btn"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> {{T_P2P_SYNC_BOOTSTRAP}}</button>
+                    <button class="btn bg2" onclick="loadP2p()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-gray" alt=""> {{T_RAFRAICHIR}}</button>
                 </div>
             </div>
             <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                <span style="color:var(--text-m);font-size:.73rem">Clé publique :</span>
+                <span style="color:var(--text-m);font-size:.73rem">{{T_P2P_CLE_PUBLIQUE}}</span>
                 <code id="p2p-pub-key" style="font-size:.7rem;word-break:break-all;color:var(--text-m)"></code>
             </div>
             <div style="margin-top:6px;display:flex;gap:16px;font-size:.75rem;color:var(--text-m)">
-                <span>Bootstrap : <code id="p2p-bootstrap" style="font-size:.73rem"></code></span>
-                <span>Chunk : <code id="p2p-chunk-size" style="font-size:.73rem"></code></span>
+                <span>{{T_P2P_BOOTSTRAP_LABEL}} <code id="p2p-bootstrap" style="font-size:.73rem"></code></span>
+                <span>{{T_P2P_CHUNK_LABEL}} <code id="p2p-chunk-size" style="font-size:.73rem"></code></span>
             </div>
         </div>
         <div style="display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:0">
-            <button class="p2p-tab on" data-tab="peers" onclick="p2pTab('peers')"><img src="/static/img/solid/diagram-project.svg" class="ico" alt=""> Noeuds <span class="sb-pill" id="p2p-tab-peers-cnt" style="margin-left:4px">…</span></button>
-            <button class="p2p-tab" data-tab="users" onclick="p2pTab('users')"><img src="/static/img/solid/users.svg" class="ico" alt=""> Utilisateurs P2P <span class="sb-pill" id="p2p-tab-users-cnt" style="margin-left:4px">…</span></button>
-            <button class="p2p-tab" data-tab="transfers" onclick="p2pTab('transfers')"><img src="/static/img/solid/arrow-right-arrow-left.svg" class="ico" alt=""> Transferts</button>
-            <button class="p2p-tab" data-tab="annuaire" onclick="p2pTab('annuaire')"><img src="/static/img/solid/file-lines.svg" class="ico" alt=""> Annuaire</button>
+            <button class="p2p-tab on" data-tab="peers" onclick="p2pTab('peers')"><img src="/static/img/solid/diagram-project.svg" class="ico" alt=""> {{T_P2P_NOEUDS}} <span class="sb-pill" id="p2p-tab-peers-cnt" style="margin-left:4px">…</span></button>
+            <button class="p2p-tab" data-tab="users" onclick="p2pTab('users')"><img src="/static/img/solid/users.svg" class="ico" alt=""> {{T_P2P_UTILISATEURS_P2P}} <span class="sb-pill" id="p2p-tab-users-cnt" style="margin-left:4px">…</span></button>
+            <button class="p2p-tab" data-tab="transfers" onclick="p2pTab('transfers')"><img src="/static/img/solid/arrow-right-arrow-left.svg" class="ico" alt=""> {{T_P2P_TRANSFERTS}}</button>
+            <button class="p2p-tab" data-tab="annuaire" onclick="p2pTab('annuaire')"><img src="/static/img/solid/file-lines.svg" class="ico" alt=""> {{T_P2P_ANNUAIRE}}</button>
         </div>
         <div class="sg" id="p2p-stats" style="margin-bottom:14px"></div>
-        <div id="p2p-tab-peers"><div class="card"><div class="ch"><span><img src="/static/img/solid/diagram-project.svg" class="ico ico-accent" alt=""> Noeuds connus</span></div><div style="overflow-x:auto"><div id="p2p-table"><div class="loading"><span class="spin"></span></div></div></div></div></div>
-        <div id="p2p-tab-users" style="display:none"><div class="card"><div class="ch"><span><img src="/static/img/solid/users.svg" class="ico ico-accent" alt=""> Utilisateurs P2P connus</span></div><div style="overflow-x:auto"><div id="p2p-users-table"><div class="loading"><span class="spin"></span></div></div></div></div></div>
-        <div id="p2p-tab-transfers" style="display:none"><div class="card"><div class="ch"><span><img src="/static/img/solid/arrow-right-arrow-left.svg" class="ico ico-accent" alt=""> Transferts</span><button class="btn bg2" onclick="loadP2pTransfers()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Rafraichir</button></div><div style="overflow-x:auto"><div id="p2p-transfers-table"><div class="loading"><span class="spin"></span></div></div></div></div></div>
-        <div id="p2p-tab-annuaire" style="display:none"><div class="card"><div class="ch"><span><img src="/static/img/solid/file-lines.svg" class="ico ico-accent" alt=""> Annuaire</span><div style="display:flex;gap:8px"><button class="btn bg2" onclick="loadP2pAnnuaire()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Rafraichir</button><button class="btn bg2" onclick="copyAnnuaire()"><img src="/static/img/solid/copy.svg" class="ico ico-gray" alt=""> Copier</button></div></div><div style="padding:14px"><div id="p2p-annuaire-content"><div class="loading"><span class="spin"></span></div></div></div></div></div>
+        <div id="p2p-tab-peers"><div class="card"><div class="ch"><span><img src="/static/img/solid/diagram-project.svg" class="ico ico-accent" alt=""> {{T_P2P_NOEUDS_CONNUS}}</span></div><div style="overflow-x:auto"><div id="p2p-table"><div class="loading"><span class="spin"></span></div></div></div></div></div>
+        <div id="p2p-tab-users" style="display:none"><div class="card"><div class="ch"><span><img src="/static/img/solid/users.svg" class="ico ico-accent" alt=""> {{T_P2P_UTILISATEURS_P2P_CONNUS}}</span></div><div style="overflow-x:auto"><div id="p2p-users-table"><div class="loading"><span class="spin"></span></div></div></div></div></div>
+        <div id="p2p-tab-transfers" style="display:none"><div class="card"><div class="ch"><span><img src="/static/img/solid/arrow-right-arrow-left.svg" class="ico ico-accent" alt=""> {{T_P2P_TRANSFERTS}}</span><button class="btn bg2" onclick="loadP2pTransfers()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> {{T_RAFRAICHIR}}</button></div><div style="overflow-x:auto"><div id="p2p-transfers-table"><div class="loading"><span class="spin"></span></div></div></div></div></div>
+        <div id="p2p-tab-annuaire" style="display:none"><div class="card"><div class="ch"><span><img src="/static/img/solid/file-lines.svg" class="ico ico-accent" alt=""> {{T_P2P_ANNUAIRE}}</span><div style="display:flex;gap:8px"><button class="btn bg2" onclick="loadP2pAnnuaire()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> {{T_RAFRAICHIR}}</button><button class="btn bg2" onclick="copyAnnuaire()"><img src="/static/img/solid/copy.svg" class="ico ico-gray" alt=""> {{T_P2P_COPIER}}</button></div></div><div style="padding:14px"><div id="p2p-annuaire-content"><div class="loading"><span class="spin"></span></div></div></div></div></div>
     </div>
 </main>
 </div>
 
 <script>
+{{I18N_JS}}
 /* ── Constantes ── */
-const PRIVILEGES={1:{nom:'fondateur',c:'fona'},2:{nom:'super admin',c:'#6d0000'},3:{nom:'admin',c:'#d30000'},4:{nom:'verificateur',c:'#4169e1'},5:{nom:'super-moderateur',c:'#4169e1'},6:{nom:'moderateur',c:'#006400'},7:{nom:'',c:'#32cd32'},8:{nom:'utilisateur certifie',c:'#4b4b4b'},9:{nom:'beta-testeur',c:'#20012a'},10:{nom:'aucun',c:'#000'},11:{nom:'ban',c:'#000'},12:{nom:'ban',c:'#000'}};
+const PRIVILEGES={1:{nom:I18N.PRIV_FONDATEUR,c:'fona'},2:{nom:I18N.PRIV_SUPER_ADMIN,c:'#6d0000'},3:{nom:I18N.PRIV_ADMIN,c:'#d30000'},4:{nom:I18N.PRIV_VERIFICATEUR,c:'#4169e1'},5:{nom:I18N.PRIV_SUPER_MODERATEUR,c:'#4169e1'},6:{nom:I18N.PRIV_MODERATEUR,c:'#006400'},7:{nom:'',c:'#32cd32'},8:{nom:I18N.PRIV_UTILISATEUR_CERTIFIE,c:'#4b4b4b'},9:{nom:I18N.PRIV_BETA_TESTEUR,c:'#20012a'},10:{nom:I18N.PRIV_AUCUN,c:'#000'},11:{nom:I18N.PRIV_BAN,c:'#000'},12:{nom:I18N.PRIV_BAN,c:'#000'}};
 const pNom=p=>(S.configData?.privilege_labels?.[String(p)])||PRIVILEGES[p]?.nom||('niveau '+p);
 const pCol=p=>PRIVILEGES[p]?.c||'#888';
 const S={section:'dashboard',users:[],blocks:[],vex_pages:[],dbTable:null,dbPage:1,configData:null,allChecked:false,vipTypes:[]};
@@ -495,7 +494,7 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 
 /* ── Dialogue de confirmation (remplace confirm() natif) ── */
 function confirmerDialogue(message,opts={}){
-    const {danger=false,titre='Confirmer',ok='Confirmer',annuler='Annuler'}=opts;
+    const {danger=false,titre=I18N.CONFIRMER,ok=I18N.CONFIRMER,annuler=I18N.ANNULER}=opts;
     return new Promise(resolve=>{
         document.getElementById('confirm-modal')?.remove();
         const m=document.createElement('div');m.id='confirm-modal';m.className='modal-bg';
@@ -532,17 +531,17 @@ async function loadDash(){
     }
     if(!S.vipTypes.length)S.vipTypes=[{id:'vip',label:'VIP'}];
     const stats=[
-        {ico:'users',val:d.nb_users,label:'Utilisateurs',sec:'users',color:'var(--accent)'},
-        {ico:'folder-open',val:d.nb_fichiers,label:'Fichiers',sec:'db',color:'#3b82f6'},
-        {ico:'cookie',val:d.nb_sessions,label:'Sessions actives',sec:'db',color:'#f59e0b'},
-        {ico:'globe',val:d.nb_pages,label:'Pages Sitec',sec:'db',color:'#8b5cf6'},
-        {ico:'database',val:d.db_size_mb+' MB',label:'Base de donnees',sec:'db',color:'#ef4444'},
-        {ico:(d.editor||d.onlyoffice).online?'circle-check':'circle-xmark',val:(d.editor||d.onlyoffice).online?'En ligne':'Hors ligne',label:((d.editor&&d.editor.name)||'Editeur')+' '+(d.editor||d.onlyoffice).ms+'ms',sec:'onlyoffice',color:(d.editor||d.onlyoffice).online?'var(--accent)':'#ef4444'},
+        {ico:'users',val:d.nb_users,label:I18N.SB_UTILISATEURS,sec:'users',color:'var(--accent)'},
+        {ico:'folder-open',val:d.nb_fichiers,label:I18N.STAT_FICHIERS,sec:'db',color:'#3b82f6'},
+        {ico:'cookie',val:d.nb_sessions,label:I18N.STAT_SESSIONS,sec:'db',color:'#f59e0b'},
+        {ico:'globe',val:d.nb_pages,label:I18N.STAT_PAGES_SITEC,sec:'db',color:'#8b5cf6'},
+        {ico:'database',val:d.db_size_mb+' MB',label:I18N.STAT_BASE_DONNEES,sec:'db',color:'#ef4444'},
+        {ico:(d.editor||d.onlyoffice).online?'circle-check':'circle-xmark',val:(d.editor||d.onlyoffice).online?I18N.EN_LIGNE:I18N.HORS_LIGNE,label:((d.editor&&d.editor.name)||I18N.EDITEUR_DEFAULT)+' '+(d.editor||d.onlyoffice).ms+'ms',sec:'onlyoffice',color:(d.editor||d.onlyoffice).online?'var(--accent)':'#ef4444'},
     ];
     document.getElementById('dash-stats').innerHTML=stats.map(s=>`<div class="sc" style="--si:${s.color}" onclick="nav('${s.sec}')"><div class="sc-i"><img src="/static/img/solid/${s.ico}.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="${String(s.val).length>6?'font-size:1.1rem':''}">${esc(String(s.val))}</div><div class="sc-l">${esc(s.label)}</div></div>`).join('');
-    document.getElementById('dash-last-users').innerHTML=`<table class="t"><thead><tr><th>#</th><th>Nom</th><th>Email</th><th>Role</th><th>VIP</th></tr></thead><tbody>${d.last_users.map(u=>{
+    document.getElementById('dash-last-users').innerHTML=`<table class="t"><thead><tr><th>#</th><th>${I18N.NOM}</th><th>${I18N.EMAIL}</th><th>${I18N.DASH_COL_ROLE}</th><th>${I18N.DASH_COL_VIP}</th></tr></thead><tbody>${d.last_users.map(u=>{
         const rH=`<span class="b bx" style="color:${pCol(u.privilege)}">${esc(pNom(u.privilege))}</span>`;
-        return`<tr><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${rH}</td><td>${u.vip?`<span class="b bgd"><img src="/static/img/solid/star.svg" class="ico-sm" style="filter:invert(60%) sepia(1) saturate(3) hue-rotate(10deg)" alt=""> ${esc(String(u.vip))}</span>`:'<span class="b bx">Free</span>'}</td></tr>`;
+        return`<tr><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${rH}</td><td>${u.vip?`<span class="b bgd"><img src="/static/img/solid/star.svg" class="ico-sm" style="filter:invert(60%) sepia(1) saturate(3) hue-rotate(10deg)" alt=""> ${esc(String(u.vip))}</span>`:`<span class="b bx">${I18N.FREE}</span>`}</td></tr>`;
     }).join('')}</tbody></table>`;
     document.getElementById('pill-users').textContent=d.nb_users;
     if(!(d.editor||d.onlyoffice).online)document.getElementById('pill-oo').style.display='';
@@ -553,25 +552,25 @@ async function loadUsers(){
     document.getElementById('users-table').innerHTML='<div class="loading"><span class="spin"></span></div>';
     const r=await api('/users');if(!r.success){flash(r.error,true);return;}
     S.users=r.data;
-    document.getElementById('users-count').textContent=S.users.length+' comptes';
+    document.getElementById('users-count').textContent=I18N.USERS_N_COMPTES.replace('{n}',S.users.length);
     document.getElementById('pill-users').textContent=S.users.length;
     renderUsers(S.users);
     const sel=document.getElementById('block-uid');
-    sel.innerHTML='<option value="all">— Tous les utilisateurs —</option>'+S.users.map(u=>`<option value="${u.id}">#${u.id} — ${esc(u.nom)}</option>`).join('');
+    sel.innerHTML=`<option value="all">${I18N.TOUS_LES_UTILISATEURS_OPTION}</option>`+S.users.map(u=>`<option value="${u.id}">#${u.id} — ${esc(u.nom)}</option>`).join('');
 }
-function vipOpts(v){return[`<option value="0" ${!v?'selected':''}>— Free —</option>`,...S.vipTypes.map(t=>`<option value="${esc(String(t.id))}" ${v==t.id?'selected':''}>${esc(t.label)}</option>`)].join('');}
+function vipOpts(v){return[`<option value="0" ${!v?'selected':''}>${I18N.VIP_FREE_OPTION}</option>`,...S.vipTypes.map(t=>`<option value="${esc(String(t.id))}" ${v==t.id?'selected':''}>${esc(t.label)}</option>`)].join('');}
 function renderUsers(users){
-    document.getElementById('users-table').innerHTML=`<table class="t" id="utbl"><thead><tr><th>#</th><th>Nom</th><th>Email</th><th>Rôle actuel</th><th>Changer rôle</th><th>VIP</th><th>Actions</th></tr></thead><tbody>${users.map(u=>{
+    document.getElementById('users-table').innerHTML=`<table class="t" id="utbl"><thead><tr><th>#</th><th>${I18N.NOM}</th><th>${I18N.EMAIL}</th><th>${I18N.USERS_ROLE_ACTUEL}</th><th>${I18N.USERS_CHANGER_ROLE}</th><th>VIP</th><th>${I18N.ACTIONS}</th></tr></thead><tbody>${users.map(u=>{
         const options=u.privilege===1?[1,...[2,3,4,5,6,7,8,9,10,11,12]]:[2,3,4,5,6,7,8,9,10,11,12];
         const po=options.map(p=>`<option value="${p}" ${u.privilege==p?'selected':''} ${p===1?'disabled':''}>${p} — ${pNom(p)}</option>`).join('');
         const badge=`<span class="b bx" style="color:${pCol(u.privilege)};border:1px solid ${pCol(u.privilege)}44">${u.privilege} — ${esc(pNom(u.privilege))}</span>`;
-        return`<tr data-s="${(u.nom+u.email).toLowerCase()}"><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${badge}</td><td><select class="isel" style="color:${pCol(u.privilege)};font-weight:600" onchange="setPriv(${u.id},this.value)">${po}</select></td><td><select class="vip-sel" onchange="setVip(${u.id},this.value)">${vipOpts(u.vip)}</select></td><td><button class="btn br2" onclick="delUser(${u.id},'${esc(u.nom)}')"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Suppr.</button></td></tr>`;
+        return`<tr data-s="${(u.nom+u.email).toLowerCase()}"><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${badge}</td><td><select class="isel" style="color:${pCol(u.privilege)};font-weight:600" onchange="setPriv(${u.id},this.value)">${po}</select></td><td><select class="vip-sel" onchange="setVip(${u.id},this.value)">${vipOpts(u.vip)}</select></td><td><button class="btn br2" onclick="delUser(${u.id},'${esc(u.nom)}')"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SUPPRIMER}</button></td></tr>`;
     }).join('')}</tbody></table>`;
 }
 function filterUsers(q){document.querySelectorAll('#utbl tbody tr').forEach(r=>{r.style.display=r.dataset.s.includes(q.toLowerCase())?'':'none';});}
 async function setPriv(uid,priv){const r=await post('/users/privilege',{uid,privilege:priv});flash(r.success?r.message:r.error,!r.success);}
 async function setVip(uid,vip){const r=await post('/users/vip',{uid,vip});flash(r.success?r.message:r.error,!r.success);}
-async function delUser(uid,nom){if(!await confirmerDialogue(`Supprimer ${nom} ?`,{danger:true,titre:'Supprimer l\'utilisateur'}))return;const r=await post('/users/delete',{uid});if(r.success){flash(r.message);loadUsers();}else flash(r.error,true);}
+async function delUser(uid,nom){if(!await confirmerDialogue(I18N.CONFIRMER_SUPPRIMER_UTILISATEUR.replace('{nom}',nom),{danger:true,titre:I18N.TITRE_SUPPRIMER_UTILISATEUR}))return;const r=await post('/users/delete',{uid});if(r.success){flash(r.message);loadUsers();}else flash(r.error,true);}
 
 /* ── Blocages ── */
 async function loadBlocks(){
@@ -583,21 +582,21 @@ async function loadBlocks(){
 }
 function renderPages(){document.getElementById('pages-grid').innerHTML=S.vex_pages.map(([p,l])=>`<label class="page-chk"><input type="checkbox" value="${esc(p)}"><span><strong>${esc(l)}</strong><br><code style="font-size:.71rem;opacity:.65">${esc(p)}</code></span></label>`).join('');document.querySelectorAll('#pages-grid input[type=checkbox]').forEach(c=>{c.addEventListener('change',function(){this.closest('.page-chk').classList.toggle('checked',this.checked);});});}
 function renderBlocks(){
-    if(!S.blocks.length){document.getElementById('blocks-table').innerHTML='<div style="padding:30px;text-align:center;color:var(--text-m)"><img src="/static/img/solid/circle-check.svg" class="ico ico-accent" alt=""> Aucun blocage actif</div>';return;}
-    const um={all:'— Tous —'};S.users.forEach(u=>um[String(u.id)]=u.nom);
-    document.getElementById('blocks-table').innerHTML=`<table class="t"><thead><tr><th>#</th><th>Cible</th><th>Privilege &gt;</th><th>Pose par</th><th>Pages</th><th>Action</th></tr></thead><tbody>${S.blocks.map(bl=>{
+    if(!S.blocks.length){document.getElementById('blocks-table').innerHTML=`<div style="padding:30px;text-align:center;color:var(--text-m)"><img src="/static/img/solid/circle-check.svg" class="ico ico-accent" alt=""> ${I18N.BLOCKS_AUCUN_BLOCAGE}</div>`;return;}
+    const um={all:I18N.BLOCKS_TOUS_OPTION};S.users.forEach(u=>um[String(u.id)]=u.nom);
+    document.getElementById('blocks-table').innerHTML=`<table class="t"><thead><tr><th>#</th><th>${I18N.BLOCKS_CIBLE}</th><th>${I18N.BLOCKS_COL_PRIVILEGE}</th><th>${I18N.BLOCKS_POSE_PAR}</th><th>${I18N.BLOCKS_COL_PAGES}</th><th>${I18N.ACTION}</th></tr></thead><tbody>${S.blocks.map(bl=>{
         const pages=String(bl.pageb).split(',').filter(Boolean);
-        return`<tr><td><span class="b bx">#${bl.id}</span></td><td>${bl.iduserb==='all'?'<span class="b br">Tous</span>':`<strong>${esc(um[String(bl.iduserb)]||'User #'+bl.iduserb)}</strong>`}</td><td><span class="b bx">&gt; ${bl.priviautro}</span></td><td>${esc(um[String(bl.iduserquiab)]||'Admin #'+bl.iduserquiab)}</td><td><div class="blk-pages">${pages.map(p=>`<span class="blk-page-tag">${esc(p)}</span>`).join('')}</div></td><td><button class="btn br2" onclick="delBlock(${bl.id})"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Suppr.</button></td></tr>`;
+        return`<tr><td><span class="b bx">#${bl.id}</span></td><td>${bl.iduserb==='all'?`<span class="b br">${I18N.BLOCKS_TOUS_BADGE}</span>`:`<strong>${esc(um[String(bl.iduserb)]||I18N.USER_HASH_FALLBACK.replace('{id}',bl.iduserb))}</strong>`}</td><td><span class="b bx">&gt; ${bl.priviautro}</span></td><td>${esc(um[String(bl.iduserquiab)]||I18N.ADMIN_HASH_FALLBACK.replace('{id}',bl.iduserquiab))}</td><td><div class="blk-pages">${pages.map(p=>`<span class="blk-page-tag">${esc(p)}</span>`).join('')}</div></td><td><button class="btn br2" onclick="delBlock(${bl.id})"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SUPPRIMER}</button></td></tr>`;
     }).join('')}</tbody></table>`;
 }
 async function submitAddBlock(){
     const uid=document.getElementById('block-uid').value,priv=document.getElementById('block-priv').value;
     const pages=Array.from(document.querySelectorAll('#pages-grid input:checked')).map(c=>c.value);
-    if(!pages.length){flash('Selectionne au moins une page',true);return;}
+    if(!pages.length){flash(I18N.ERREUR_SELECTIONNER_PAGE,true);return;}
     const r=await post('/blocks/add',{iduserb:uid,priviautro:priv,pageb:pages.join(',')});
     if(r.success){flash(r.message);loadBlocks();}else flash(r.error,true);
 }
-async function delBlock(bid){if(!await confirmerDialogue('Supprimer ce blocage ?',{danger:true}))return;const r=await post('/blocks/delete',{bid});if(r.success){flash(r.message);loadBlocks();}else flash(r.error,true);}
+async function delBlock(bid){if(!await confirmerDialogue(I18N.CONFIRMER_SUPPRIMER_BLOCAGE,{danger:true}))return;const r=await post('/blocks/delete',{bid});if(r.success){flash(r.message);loadBlocks();}else flash(r.error,true);}
 function toggleAllPages(){S.allChecked=!S.allChecked;document.querySelectorAll('#pages-grid input[type=checkbox]').forEach(c=>{c.checked=S.allChecked;c.closest('.page-chk').classList.toggle('checked',S.allChecked);});}
 
 /* ── Explorateur DB ── */
@@ -616,7 +615,7 @@ async function loadDb(table=null,page=1){
     if(!table){
         const r=await api('/db/tables');if(!r.success){flash(r.error,true);return;}
         const{tables,sizes}=r.data;
-        document.getElementById('db-subtitle').textContent=`${tables.length} tables`;
+        document.getElementById('db-subtitle').textContent=I18N.DB_N_TABLES.replace('{n}',tables.length);
         document.getElementById('db-edit-bar').style.display='none';DB_COLS=[];
         // Seuils absolus (Ko) -- une base perso reste petite, un simple "plus
         // grosse table du lot" n'a pas de sens pour un jeu de tables toutes
@@ -629,39 +628,39 @@ async function loadDb(table=null,page=1){
         const tablesBase=tables.filter(t=>!EXT_TABLES.has(t)), tablesExt=tables.filter(t=>EXT_TABLES.has(t));
         const sizesBase=sizes.filter(s=>!EXT_TABLES.has(s.table_name)), sizesExt=sizes.filter(s=>EXT_TABLES.has(s.table_name));
         document.getElementById('db-content').innerHTML=`
-            <div class="card"><div class="ch"><span><img src="/static/img/solid/table-list.svg" class="ico ico-accent" alt=""> Tables du coeur VEX (${tablesBase.length})</span></div><div class="cb"><div class="tgr">${listeTables(tablesBase)}</div></div></div>
-            ${tablesExt.length?`<div class="card" style="margin-top:16px"><div class="ch"><span><img src="/static/img/solid/puzzle-piece.svg" class="ico ico-accent" alt=""> Tables des extensions (${tablesExt.length})</span></div><div class="cb"><div class="tgr">${listeTables(tablesExt)}</div></div></div>`:''}
-            <div class="card" style="margin-top:16px"><div class="ch"><span><img src="/static/img/solid/chart-bar.svg" class="ico ico-accent" alt=""> Taille des tables — coeur VEX</span></div><div style="overflow-x:auto"><table class="t"><thead><tr><th>Table</th><th>Lignes</th><th>Taille (KB)</th><th></th></tr></thead><tbody>${sizesBase.map(ligneTaille).join('')}</tbody></table></div></div>
-            ${sizesExt.length?`<div class="card" style="margin-top:16px"><div class="ch"><span><img src="/static/img/solid/chart-bar.svg" class="ico ico-accent" alt=""> Taille des tables — extensions</span></div><div style="overflow-x:auto"><table class="t"><thead><tr><th>Table</th><th>Lignes</th><th>Taille (KB)</th><th></th></tr></thead><tbody>${sizesExt.map(ligneTaille).join('')}</tbody></table></div></div>`:''}`;
+            <div class="card"><div class="ch"><span><img src="/static/img/solid/table-list.svg" class="ico ico-accent" alt=""> ${I18N.DB_TABLES_COEUR.replace('{n}',tablesBase.length)}</span></div><div class="cb"><div class="tgr">${listeTables(tablesBase)}</div></div></div>
+            ${tablesExt.length?`<div class="card" style="margin-top:16px"><div class="ch"><span><img src="/static/img/solid/puzzle-piece.svg" class="ico ico-accent" alt=""> ${I18N.DB_TABLES_EXTENSIONS.replace('{n}',tablesExt.length)}</span></div><div class="cb"><div class="tgr">${listeTables(tablesExt)}</div></div></div>`:''}
+            <div class="card" style="margin-top:16px"><div class="ch"><span><img src="/static/img/solid/chart-bar.svg" class="ico ico-accent" alt=""> ${I18N.DB_TAILLE_TABLES_COEUR}</span></div><div style="overflow-x:auto"><table class="t"><thead><tr><th>${I18N.DB_COL_TABLE}</th><th>${I18N.DB_COL_LIGNES}</th><th>${I18N.DB_COL_TAILLE_KB}</th><th></th></tr></thead><tbody>${sizesBase.map(ligneTaille).join('')}</tbody></table></div></div>
+            ${sizesExt.length?`<div class="card" style="margin-top:16px"><div class="ch"><span><img src="/static/img/solid/chart-bar.svg" class="ico ico-accent" alt=""> ${I18N.DB_TAILLE_TABLES_EXT}</span></div><div style="overflow-x:auto"><table class="t"><thead><tr><th>${I18N.DB_COL_TABLE}</th><th>${I18N.DB_COL_LIGNES}</th><th>${I18N.DB_COL_TAILLE_KB}</th><th></th></tr></thead><tbody>${sizesExt.map(ligneTaille).join('')}</tbody></table></div></div>`:''}`;
     }else{
         const sortCol=S.dbSortCol||'', sortDir=S.dbSortDir||'asc';
         const sortQs=sortCol?`&sort_col=${encodeURIComponent(sortCol)}&sort_dir=${sortDir}`:'';
         const r=await api(`/db/table/${encodeURIComponent(table)}?page=${page}${sortQs}`);if(!r.success){flash(r.error,true);return;}
         const d=r.data;IS_SUPER=d.is_super||false;DB_COLS=d.cols||[];
-        document.getElementById('db-subtitle').textContent=`${d.table} — ${d.total} lignes`;
+        document.getElementById('db-subtitle').textContent=`${d.table} — ${I18N.N_LIGNES.replace('{n}',d.total)}`;
         document.getElementById('db-edit-bar').style.display=IS_SUPER?'':'none';
         let pgr='';
         if(d.total_pages>1){const pts=[];for(let p=Math.max(1,page-2);p<=Math.min(d.total_pages,page+2);p++)pts.push(`<button class="${p===page?'cur':''}" onclick="loadDb('${esc(table)}',${p})">${p}</button>`);pgr=`<div class="pgr">${page>1?`<button onclick="loadDb('${esc(table)}',${page-1})">&#9664;</button>`:''}${pts.join('')}${page<d.total_pages?`<button onclick="loadDb('${esc(table)}',${page+1})">&#9654;</button>`:''}</div>`;}
-        const addBtn=IS_SUPER?`<button class="btn ba" onclick="showAddRow('${esc(table)}')"><img src="/static/img/solid/plus.svg" class="ico" style="filter:invert(1)" alt=""> Ajouter ligne</button>`:'';
+        const addBtn=IS_SUPER?`<button class="btn ba" onclick="showAddRow('${esc(table)}')"><img src="/static/img/solid/plus.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.DB_AJOUTER_LIGNE}</button>`:'';
         const flecheTri=c=>c!==sortCol?'':(sortDir==='desc'?' &#9660;':' &#9650;');
-        const rows=d.rows.length===0?`<div style="padding:28px;text-align:center;color:var(--text-m)">Table vide</div>`:`<div style="overflow-x:auto"><table class="t"><thead><tr>${d.cols.map(c=>`<th style="cursor:pointer;user-select:none" onclick="triDb('${esc(table)}','${esc(c)}')" title="Trier par ${esc(c)}">${esc(c)}${flecheTri(c)}</th>`).join('')}${IS_SUPER?'<th style="width:70px">Action</th>':''}</tr></thead><tbody>${d.rows.map(row=>`<tr>${d.cols.map(c=>{const val=String(row[c]??''),pk=String(row[d.cols[0]]??'');return IS_SUPER?`<td class="m cell-editable" onclick="editCell('${esc(table)}','${esc(c)}','${esc(val)}','${esc(d.cols[0])}','${esc(pk)}')" title="Cliquer pour modifier">${esc(val)}</td>`:`<td class="m">${esc(val)}</td>`;}).join('')}${IS_SUPER?`<td><button class="btn br2" onclick="delRow('${esc(table)}','${esc(d.cols[0])}','${esc(String(row[d.cols[0]]??''))}')"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Suppr.</button></td>`:''}</tr>`).join('')}</tbody></table></div>${pgr}`;
-        document.getElementById('db-content').innerHTML=`<div style="margin-bottom:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn bg2" onclick="loadDb()"><img src="/static/img/solid/arrow-left.svg" class="ico ico-gray" alt=""> Toutes les tables</button>${addBtn}</div><div class="card"><div class="ch"><span><img src="/static/img/solid/table.svg" class="ico ico-accent" alt=""> <strong>${esc(table)}</strong></span><span style="color:var(--text-m);font-size:.78rem">${d.total.toLocaleString()} lignes — p.${d.page}</span></div>${rows}</div>`;
+        const rows=d.rows.length===0?`<div style="padding:28px;text-align:center;color:var(--text-m)">${I18N.DB_TABLE_VIDE}</div>`:`<div style="overflow-x:auto"><table class="t"><thead><tr>${d.cols.map(c=>`<th style="cursor:pointer;user-select:none" onclick="triDb('${esc(table)}','${esc(c)}')" title="${I18N.DB_TRIER_PAR_COL.replace('{c}',esc(c))}">${esc(c)}${flecheTri(c)}</th>`).join('')}${IS_SUPER?`<th style="width:70px">${I18N.ACTION}</th>`:''}</tr></thead><tbody>${d.rows.map(row=>`<tr>${d.cols.map(c=>{const val=String(row[c]??''),pk=String(row[d.cols[0]]??'');return IS_SUPER?`<td class="m cell-editable" onclick="editCell('${esc(table)}','${esc(c)}','${esc(val)}','${esc(d.cols[0])}','${esc(pk)}')" title="${I18N.DB_CLIQUEZ_POUR_MODIFIER}">${esc(val)}</td>`:`<td class="m">${esc(val)}</td>`;}).join('')}${IS_SUPER?`<td><button class="btn br2" onclick="delRow('${esc(table)}','${esc(d.cols[0])}','${esc(String(row[d.cols[0]]??''))}')"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SUPPRIMER}</button></td>`:''}</tr>`).join('')}</tbody></table></div>${pgr}`;
+        document.getElementById('db-content').innerHTML=`<div style="margin-bottom:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn bg2" onclick="loadDb()"><img src="/static/img/solid/arrow-left.svg" class="ico ico-gray" alt=""> ${I18N.DB_TOUTES_LES_TABLES}</button>${addBtn}</div><div class="card"><div class="ch"><span><img src="/static/img/solid/table.svg" class="ico ico-accent" alt=""> <strong>${esc(table)}</strong></span><span style="color:var(--text-m);font-size:.78rem">${I18N.N_LIGNES.replace('{n}',d.total.toLocaleString())} — p.${d.page}</span></div>${rows}</div>`;
     }
 }
-function editCell(t,c,v,pk,pkv){const n=prompt(`Modifier "${c}" (${pk}=${pkv}) :`,v);if(n===null||n===v)return;post('/db/cell/edit',{table:t,col:c,val:n,pk_col:pk,pk_val:pkv}).then(r=>{flash(r.success?r.message:r.error,!r.success);if(r.success)loadDb(t,S.dbPage);});}
-function delRow(t,pk,pkv){confirmerDialogue(`Supprimer ${pk}=${pkv} dans "${t}" ?`,{danger:true}).then(ok=>{if(!ok)return;post('/db/row/delete',{table:t,pk_col:pk,pk_val:pkv}).then(r=>{flash(r.success?r.message:r.error,!r.success);if(r.success)loadDb(t,S.dbPage);});});}
+function editCell(t,c,v,pk,pkv){const n=prompt(I18N.DB_MODIFIER_CELL_PROMPT.replace('{c}',c).replace('{pk}',pk).replace('{pkv}',pkv),v);if(n===null||n===v)return;post('/db/cell/edit',{table:t,col:c,val:n,pk_col:pk,pk_val:pkv}).then(r=>{flash(r.success?r.message:r.error,!r.success);if(r.success)loadDb(t,S.dbPage);});}
+function delRow(t,pk,pkv){confirmerDialogue(I18N.DB_CONFIRMER_SUPPRIMER_LIGNE.replace('{pk}',pk).replace('{pkv}',pkv).replace('{t}',t),{danger:true}).then(ok=>{if(!ok)return;post('/db/row/delete',{table:t,pk_col:pk,pk_val:pkv}).then(r=>{flash(r.success?r.message:r.error,!r.success);if(r.success)loadDb(t,S.dbPage);});});}
 async function showAddRow(table){
     if(!DB_COLS.length){const r=await api(`/db/table/${encodeURIComponent(table)}?page=1`);if(r.success){DB_COLS=r.data.cols||[];IS_SUPER=r.data.is_super||false;}}
-    const cols=DB_COLS.filter(c=>c!=='id');if(!cols.length){flash('Impossible de recuperer la structure.',true);return;}
+    const cols=DB_COLS.filter(c=>c!=='id');if(!cols.length){flash(I18N.DB_IMPOSSIBLE_RECUPERER_STRUCTURE,true);return;}
     document.getElementById('add-row-modal')?.remove();
     const m=document.createElement('div');m.id='add-row-modal';m.className='modal-bg';
-    m.innerHTML=`<div class="modal-box"><div style="font-weight:800;font-size:1.1rem;margin-bottom:16px;display:flex;align-items:center;gap:8px"><img src="/static/img/solid/plus.svg" class="ico ico-accent" alt=""> Ajouter dans <code>${esc(table)}</code></div>${cols.map(c=>`<div class="f"><label>${esc(c)}</label><input type="text" data-col="${esc(c)}" placeholder="${esc(c)}"></div>`).join('')}<div style="display:flex;gap:10px;margin-top:16px"><button class="btn ba" id="addRowBtn"><img src="/static/img/solid/check.svg" class="ico" style="filter:invert(1)" alt=""> Ajouter</button><button class="btn bg2" onclick="document.getElementById('add-row-modal').remove()"><img src="/static/img/solid/xmark.svg" class="ico ico-gray" alt=""> Annuler</button></div></div>`;
+    m.innerHTML=`<div class="modal-box"><div style="font-weight:800;font-size:1.1rem;margin-bottom:16px;display:flex;align-items:center;gap:8px"><img src="/static/img/solid/plus.svg" class="ico ico-accent" alt=""> ${I18N.DB_AJOUTER_DANS.replace('{table}','<code>'+esc(table)+'</code>')}</div>${cols.map(c=>`<div class="f"><label>${esc(c)}</label><input type="text" data-col="${esc(c)}" placeholder="${esc(c)}"></div>`).join('')}<div style="display:flex;gap:10px;margin-top:16px"><button class="btn ba" id="addRowBtn"><img src="/static/img/solid/check.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.AJOUTER}</button><button class="btn bg2" onclick="document.getElementById('add-row-modal').remove()"><img src="/static/img/solid/xmark.svg" class="ico ico-gray" alt=""> ${I18N.ANNULER}</button></div></div>`;
     document.body.appendChild(m);document.getElementById('addRowBtn').addEventListener('click',()=>submitAddRow(table));
 }
 async function submitAddRow(table){
     const cols=DB_COLS.filter(c=>c!=='id'),m=document.getElementById('add-row-modal');if(!m)return;
     const vals=cols.map(c=>{const el=m.querySelector(`input[data-col="${c.replace(/\\/g,'\\\\').replace(/"/g,'\\"')}"]`);return el?el.value:'';});
-    if(table==='login'){const i=cols.indexOf('privilege');if(i!==-1&&Number(vals[i])<2){flash('Privilege 1 interdit.',true);return;}}
+    if(table==='login'){const i=cols.indexOf('privilege');if(i!==-1&&Number(vals[i])<2){flash(I18N.DB_ERR_COLONNES_VALEURS_INVALIDES_JS,true);return;}}
     const r=await post('/db/row/add',{table,cols:JSON.stringify(cols),vals:JSON.stringify(vals)});
     flash(r.success?r.message:r.error,!r.success);if(r.success){m.remove();loadDb(table,S.dbPage);}
 }
@@ -693,33 +692,33 @@ function cellClass(val,col){if(val===null||val===undefined)return'cv-null';if(va
 function cellDisp(val){if(val===null||val===undefined)return'<em>NULL</em>';if(val==='***')return'&bull; &bull; &bull;';return esc(String(val));}
 function isSqlSelect(sql){return sql.trim().toUpperCase().startsWith('SELECT');}
 async function runSql(){
-    const sql=document.getElementById('sql-ta').value.trim();if(!sql){flash('Requete vide',true);return;}
-    const btn=document.getElementById('sql-btn');btn.disabled=true;btn.innerHTML='<span class="spin"></span> Execution…';
+    const sql=document.getElementById('sql-ta').value.trim();if(!sql){flash(I18N.SQL_REQUETE_VIDE,true);return;}
+    const btn=document.getElementById('sql-btn');btn.disabled=true;btn.innerHTML=`<span class="spin"></span> ${I18N.SQL_EXECUTION_EN_COURS}`;
     const t0=Date.now();const r=await post('/db/sql',{sql});const ms=Date.now()-t0;
-    btn.disabled=false;btn.innerHTML='<img src="/static/img/solid/play.svg" class="ico" style="filter:invert(1)" alt=""> Executer';
+    btn.disabled=false;btn.innerHTML=`<img src="/static/img/solid/play.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SQL_EXECUTER}`;
     document.getElementById('db-content').style.display='none';
     const ev=document.getElementById('db-exec-view');ev.style.display='block';ev.classList.add('on');
     document.getElementById('sql-exec-label').textContent=sql.replace(/\s+/g,' ').substring(0,110)+(sql.length>110?'…':'');
     const res=document.getElementById('sql-result');
-    if(!r.success){res.innerHTML=`<div class="res-err"><img src="/static/img/solid/circle-xmark.svg" class="ico ico-red" style="flex-shrink:0;margin-top:1px" alt=""><div><strong>Erreur SQL</strong><br>${esc(r.error)}</div></div>`;ev.scrollIntoView({behavior:'smooth',block:'start'});return;}
+    if(!r.success){res.innerHTML=`<div class="res-err"><img src="/static/img/solid/circle-xmark.svg" class="ico ico-red" style="flex-shrink:0;margin-top:1px" alt=""><div><strong>${I18N.SQL_ERREUR_TITRE}</strong><br>${esc(r.error)}</div></div>`;ev.scrollIntoView({behavior:'smooth',block:'start'});return;}
     const d=r.data;
-    if(!isSqlSelect(sql)){const affected=d.affected_rows??0;res.innerHTML=`<div class="res-affect"><img src="/static/img/solid/circle-check.svg" alt=""><div><div style="display:flex;align-items:baseline;gap:10px"><span class="res-affect-rows">${affected}</span><span>ligne${affected!==1?'s':''} affectee${affected!==1?'s':''}</span></div><div class="res-affect-detail">${ms} ms &nbsp;&middot;&nbsp; ${esc(sql.trim().split(/\s+/)[0].toUpperCase())}</div></div></div>`;ev.scrollIntoView({behavior:'smooth',block:'start'});return;}
-    if(!d.cols||!d.cols.length){res.innerHTML=`<div class="res-head"><img src="/static/img/solid/circle-check.svg" alt=""><span class="res-stat">Aucun resultat</span><span class="res-time">${ms} ms</span></div><div class="res-empty">La requete n'a retourne aucune ligne.</div>`;ev.scrollIntoView({behavior:'smooth',block:'start'});return;}
+    if(!isSqlSelect(sql)){const affected=d.affected_rows??0;res.innerHTML=`<div class="res-affect"><img src="/static/img/solid/circle-check.svg" alt=""><div><div style="display:flex;align-items:baseline;gap:10px"><span class="res-affect-rows">${affected}</span><span>${affected!==1?I18N.SQL_LIGNE_AFFECTEE_PLUR:I18N.SQL_LIGNE_AFFECTEE_SING}</span></div><div class="res-affect-detail">${ms} ms &nbsp;&middot;&nbsp; ${esc(sql.trim().split(/\s+/)[0].toUpperCase())}</div></div></div>`;ev.scrollIntoView({behavior:'smooth',block:'start'});return;}
+    if(!d.cols||!d.cols.length){res.innerHTML=`<div class="res-head"><img src="/static/img/solid/circle-check.svg" alt=""><span class="res-stat">${I18N.SQL_AUCUN_RESULTAT}</span><span class="res-time">${ms} ms</span></div><div class="res-empty">${I18N.SQL_REQUETE_AUCUNE_LIGNE}</div>`;ev.scrollIntoView({behavior:'smooth',block:'start'});return;}
     const th=`<thead><tr><th class="rt-n">#</th>${d.cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead>`;
     const tb=`<tbody>${d.rows.map((row,i)=>`<tr><td class="rt-n">${i+1}</td>${d.cols.map(c=>{const v=row[c],cl=cellClass(v,c);return`<td class="${cl}" title="${v===null?'NULL':esc(String(v??''))}">${cellDisp(v)}</td>`;}).join('')}</tr>`).join('')}</tbody>`;
-    res.innerHTML=`<div class="res-wrap"><div class="res-head"><img src="/static/img/solid/circle-check.svg" alt=""><span class="res-stat">${d.count} ligne${d.count>1?'s':''} retournee${d.count>1?'s':''}</span><span class="res-time">${ms} ms &nbsp;&middot;&nbsp; ${d.cols.length} colonne${d.cols.length>1?'s':''}</span>${d.count>=200?'<span class="b bo" style="margin-left:auto">Limite 200 atteinte</span>':''}</div><div class="res-scroll"><table class="rt">${th}${tb}</table></div>${d.count>=200?'<div class="res-warn"><img src="/static/img/solid/triangle-exclamation.svg" class="ico" style="filter:invert(60%) sepia(1) saturate(2) hue-rotate(10deg)" alt=""> Limite de 200 lignes atteinte.</div>':''}</div>`;
+    res.innerHTML=`<div class="res-wrap"><div class="res-head"><img src="/static/img/solid/circle-check.svg" alt=""><span class="res-stat">${d.count} ${d.count>1?I18N.SQL_LIGNE_RETOURNEE_PLUR:I18N.SQL_LIGNE_RETOURNEE_SING}</span><span class="res-time">${ms} ms &nbsp;&middot;&nbsp; ${d.cols.length} ${d.cols.length>1?I18N.SQL_COLONNE_PLUR:I18N.SQL_COLONNE_SING}</span>${d.count>=200?`<span class="b bo" style="margin-left:auto">${I18N.SQL_LIMITE_ATTEINTE}</span>`:''}</div><div class="res-scroll"><table class="rt">${th}${tb}</table></div>${d.count>=200?`<div class="res-warn"><img src="/static/img/solid/triangle-exclamation.svg" class="ico" style="filter:invert(60%) sepia(1) saturate(2) hue-rotate(10deg)" alt=""> ${I18N.SQL_LIMITE_ATTEINTE_MSG}</div>`:''}</div>`;
     ev.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 /* ── Config ── */
 const P2P_DEFAULTS={bootstrap_url:'https://vex.hopto.org/neut',use_tor:false,tor_addr:'',port:7700,chunk_size_bytes:1048576,sync_interval_secs:1800,chunks_dir:'/tmp/vex_chunks',output_dir:'/tmp/vex_received'};
 const CFG_DEFS=[
-    {icon:'cube',title:'Application',sec:'app',fields:[['name','Nom','text'],['version','Version','text'],['default_language','Langue par defaut','select',['fr','en','es','de']],['maintenance_mode','Maintenance','bool'],['debug_mode','Debug','bool']]},
-    {icon:'users',title:'Utilisateurs',sec:'users',fields:[['max_users','Nb max','number'],['registration_mode','Inscription','select',['open','invitation','closed']],['activation_key','Cle activation','text'],['session_expiration_minutes','Duree session (min)','number'],['activation_key_required','Cle requise','bool']]},
-    {icon:'lock',title:'Securite',sec:'security',fields:[['password_min_length','Longueur min MDP','number'],['max_login_attempts','Tentatives max','number'],['lockout_duration_minutes','Verrouillage (min)','number'],['password_require_uppercase','Majuscule','bool'],['password_require_number','Chiffre','bool']]},
-    {icon:'hard-drive',title:'Stockage',sec:'storage',fields:[['max_file_size_mb','Taille max (MB)','number'],['file_retention_days','Retention (j)','number']]},
-    {icon:'file-pen',title:'Editeur de documents',sec:'editor',fields:[['provider','Service edition','select',['onlyoffice','collabora','none']],['collaborative_editing','Edition collaborative','bool'],['online_editing_enabled','Edition en ligne activee','bool'],['supported_formats','Formats supportes (virgule)','text']]},
-    {icon:'network-wired',title:'P2P',sec:'p2p',fields:[['bootstrap_url','Bootstrap URL','text'],['use_tor','Utiliser Tor','bool'],['tor_addr','Adresse .onion','text'],['port','Port P2P','number'],['chunk_size_bytes','Chunk (bytes)','number'],['sync_interval_secs','Sync interval (s)','number'],['chunks_dir','Dossier chunks','text'],['output_dir','Dossier sortie','text']]},
+    {icon:'cube',title:I18N.CFG_APPLICATION,sec:'app',fields:[['name',I18N.CFG_NOM,'text'],['version',I18N.CFG_VERSION,'text'],['default_language',I18N.CFG_LANGUE_DEFAUT,'select',['fr','en','es','de']],['maintenance_mode',I18N.CFG_MAINTENANCE,'bool'],['debug_mode',I18N.CFG_DEBUG,'bool']]},
+    {icon:'users',title:I18N.SB_UTILISATEURS,sec:'users',fields:[['max_users',I18N.CFG_NB_MAX,'number'],['registration_mode',I18N.CFG_INSCRIPTION,'select',['open','invitation','closed']],['activation_key',I18N.CFG_CLE_ACTIVATION,'text'],['session_expiration_minutes',I18N.CFG_DUREE_SESSION,'number'],['activation_key_required',I18N.CFG_CLE_REQUISE,'bool']]},
+    {icon:'lock',title:I18N.CFG_SECURITE,sec:'security',fields:[['password_min_length',I18N.CFG_LONGUEUR_MIN_MDP,'number'],['max_login_attempts',I18N.CFG_TENTATIVES_MAX,'number'],['lockout_duration_minutes',I18N.CFG_VERROUILLAGE,'number'],['password_require_uppercase',I18N.CFG_MAJUSCULE,'bool'],['password_require_number',I18N.CFG_CHIFFRE,'bool']]},
+    {icon:'hard-drive',title:I18N.CFG_STOCKAGE,sec:'storage',fields:[['max_file_size_mb',I18N.CFG_TAILLE_MAX_MB,'number'],['file_retention_days',I18N.CFG_RETENTION_J,'number']]},
+    {icon:'file-pen',title:I18N.CFG_EDITEUR_DOCUMENTS,sec:'editor',fields:[['provider',I18N.CFG_SERVICE_EDITION,'select',['onlyoffice','collabora','none']],['collaborative_editing',I18N.CFG_EDITION_COLLABORATIVE,'bool'],['online_editing_enabled',I18N.CFG_EDITION_LIGNE_ACTIVEE,'bool'],['supported_formats',I18N.CFG_FORMATS_SUPPORTES,'text']]},
+    {icon:'network-wired',title:'P2P',sec:'p2p',fields:[['bootstrap_url',I18N.CFG_BOOTSTRAP_URL,'text'],['use_tor',I18N.CFG_UTILISER_TOR,'bool'],['tor_addr',I18N.CFG_ADRESSE_ONION,'text'],['port',I18N.CFG_PORT_P2P,'number'],['chunk_size_bytes',I18N.CFG_CHUNK_BYTES,'number'],['sync_interval_secs',I18N.CFG_SYNC_INTERVAL,'number'],['chunks_dir',I18N.CFG_DOSSIER_CHUNKS,'text'],['output_dir',I18N.CFG_DOSSIER_SORTIE,'text']]},
 ];
 async function loadCfg(){
     document.getElementById('config-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
@@ -735,11 +734,11 @@ function renderCfg(){
     const cfg=S.configData;let html='';
     CFG_DEFS.forEach(({icon,title,sec,fields})=>{const d=cfg[sec]||{};
         html+=`<div class="card" style="margin-bottom:14px"><div class="ch"><span><img src="/static/img/solid/${icon}.svg" class="ico ico-accent" alt=""> ${title}</span></div><div class="cb"><div class="cgr">${fields.map(([k,l,t,o])=>{const v=d[k]??'';let inp;
-            if(t==='bool')inp=`<select class="ci" data-sec="${sec}" data-key="${k}"><option value="true" ${v===true||v==='true'?'selected':''}>true — Active</option><option value="false" ${!v||v==='false'?'selected':''}>false — Desactive</option></select>`;
+            if(t==='bool')inp=`<select class="ci" data-sec="${sec}" data-key="${k}"><option value="true" ${v===true||v==='true'?'selected':''}>${I18N.CFG_OPTION_ACTIVE}</option><option value="false" ${!v||v==='false'?'selected':''}>${I18N.CFG_OPTION_DESACTIVE}</option></select>`;
             else if(t==='select')inp=`<select class="ci" data-sec="${sec}" data-key="${k}">${(o||[]).map(x=>`<option value="${x}" ${v===x?'selected':''}>${x}</option>`).join('')}</select>`;
             else inp=`<input type="${t==='number'?'number':'text'}" class="ci" data-sec="${sec}" data-key="${k}" value="${esc(String(v))}">`;
             return`<div><label class="cl">${l}<small>${sec}.${k}</small></label>${inp}</div>`;}).join('')}</div></div></div>`;});
-    html+=`<button class="btn ba" style="padding:10px 26px;font-size:.9rem" onclick="saveCfg()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> Sauvegarder</button>`;
+    html+=`<button class="btn ba" style="padding:10px 26px;font-size:.9rem" onclick="saveCfg()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SAUVEGARDER}</button>`;
     document.getElementById('config-content').innerHTML=html;
 }
 async function saveCfg(){
@@ -768,19 +767,19 @@ let BACKUP_TIMER=null;
 function extCard(e){
     const isBase=e.base_app, id=e.id;
     const badge = isBase
-        ? `<span style="padding:2px 8px;border-radius:5px;background:var(--alt);color:var(--accent);font-size:.68rem;font-weight:700">APP DE BASE</span>`
-        : `<span style="padding:2px 8px;border-radius:5px;background:rgba(59,130,243,.1);color:#3b82f6;font-size:.68rem;font-weight:700">PLUGIN</span>`;
+        ? `<span style="padding:2px 8px;border-radius:5px;background:var(--alt);color:var(--accent);font-size:.68rem;font-weight:700">${I18N.EXT_APP_DE_BASE_BADGE}</span>`
+        : `<span style="padding:2px 8px;border-radius:5px;background:rgba(59,130,243,.1);color:#3b82f6;font-size:.68rem;font-weight:700">${I18N.EXT_EXTENSION_BADGE}</span>`;
     const d=e.disque||{};
     let etat='';
     if(!isBase){
-        if(e.compiled) etat=`<span class="b bg" title="Compilee dans le binaire en cours d'execution">compilee</span>`;
-        else if(d.src_existe) etat=`<span class="b bo" title="Compilation en attente — l'extension repond deja via son dossier statique">statique (compilation en attente)</span>`;
-        else etat=`<span class="b br" title="Aucun fichier src/extensions/${esc(id)}/mod.rs">source absente</span>`;
+        if(e.compiled) etat=`<span class="b bg" title="${I18N.EXT_COMPILEE_TITLE}">${I18N.EXT_COMPILEE_BADGE}</span>`;
+        else if(d.src_existe) etat=`<span class="b bo" title="${I18N.EXT_STATIQUE_TITLE}">${I18N.EXT_STATIQUE_BADGE}</span>`;
+        else etat=`<span class="b br" title="${I18N.EXT_SOURCE_ABSENTE_TITLE.replace('{id}',esc(id))}">${I18N.EXT_SOURCE_ABSENTE_BADGE}</span>`;
     }
-    const delBtn = isBase ? '' : `<button class="btn br2" onclick="deleteExt('${esc(id)}')" style="height:28px;font-size:.75rem"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Supprimer</button>`;
-    const upBtn = isBase ? '' : `<button class="btn bg2" onclick="showUploadExt('${esc(id)}')" style="height:28px;font-size:.75rem"><img src="/static/img/solid/arrow-up.svg" class="ico ico-accent" alt=""> Remplacer le .rs</button>`;
+    const delBtn = isBase ? '' : `<button class="btn br2" onclick="deleteExt('${esc(id)}')" style="height:28px;font-size:.75rem"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SUPPRIMER_FULL}</button>`;
+    const upBtn = isBase ? '' : `<button class="btn bg2" onclick="showUploadExt('${esc(id)}')" style="height:28px;font-size:.75rem"><img src="/static/img/solid/arrow-up.svg" class="ico ico-accent" alt=""> ${I18N.EXT_REMPLACER_RS}</button>`;
     const chemin = d.src_existe
-        ? `<div style="font-size:.72rem;color:var(--text-m);margin-top:8px;font-family:var(--mono)">${esc(d.src_path||'')} — ${Math.round((d.src_taille||0)/102.4)/10} Ko${d.static_existe?' · statique OK':''}</div>`
+        ? `<div style="font-size:.72rem;color:var(--text-m);margin-top:8px;font-family:var(--mono)">${esc(d.src_path||'')} — ${Math.round((d.src_taille||0)/102.4)/10} Ko${d.static_existe?' · '+I18N.EXT_STATIQUE_OK:''}</div>`
         : '';
     return `<div class="card" style="margin-bottom:10px;border-left:3px solid ${isBase?'var(--accent)':'#3b82f6'}">
         <div class="ch">
@@ -794,35 +793,35 @@ function extCard(e){
             <div style="display:flex;align-items:center;gap:8px">
                 ${upBtn}${delBtn}
                 <select class="isel" onchange="toggleExt('${esc(id)}',this.value)">
-                    <option value="true" ${e.enabled?'selected':''}>Active</option>
-                    <option value="false" ${!e.enabled?'selected':''}>Desactive</option>
+                    <option value="true" ${e.enabled?'selected':''}>${I18N.ACTIF}</option>
+                    <option value="false" ${!e.enabled?'selected':''}>${I18N.DESACTIF}</option>
                 </select>
             </div>
         </div>
         <div class="cb">
             <div class="cgr">
-                <div><label class="cl">Version</label><input type="text" class="ci" data-ext-ver="${esc(id)}" value="${esc(e.version||'0.1')}"></div>
-                <div><label class="cl">Privilege min requis<small>1 = fondateur, 12 = tout le monde</small></label><input type="number" class="ci" data-ext-priv="${esc(id)}" value="${e.privilege_min??10}" min="1" max="12"></div>
-                <div><label class="cl">Plans autorises (virgule)<small>vide ou * = tous</small></label><input type="text" class="ci" data-ext-plans="${esc(id)}" value="${esc((e.plans_autorises||[]).join(', '))}"></div>
+                <div><label class="cl">${I18N.CFG_VERSION}</label><input type="text" class="ci" data-ext-ver="${esc(id)}" value="${esc(e.version||'0.1')}"></div>
+                <div><label class="cl">${I18N.EXT_PRIVILEGE_MIN_REQUIS}<small>${I18N.EXT_PRIVILEGE_MIN_SUB}</small></label><input type="number" class="ci" data-ext-priv="${esc(id)}" value="${e.privilege_min??10}" min="1" max="12"></div>
+                <div><label class="cl">${I18N.EXT_PLANS_AUTORISES}<small>${I18N.EXT_PLANS_AUTORISES_SUB}</small></label><input type="text" class="ci" data-ext-plans="${esc(id)}" value="${esc((e.plans_autorises||[]).join(', '))}"></div>
             </div>
             <div style="margin-top:14px">
                 <label class="cl" style="display:flex;align-items:center;justify-content:space-between">
-                    <span>Autorisations internes a l'extension<small>action par action, verifiees par l'extension elle-meme</small></span>
-                    <button class="btn bg2" style="height:26px;font-size:.72rem" onclick="addPermRow('${esc(id)}')"><img src="/static/img/solid/plus.svg" class="ico ico-accent" alt=""> Action</button>
+                    <span>${I18N.EXT_AUTORISATIONS_INTERNES}<small>${I18N.EXT_AUTORISATIONS_SUB}</small></span>
+                    <button class="btn bg2" style="height:26px;font-size:.72rem" onclick="addPermRow('${esc(id)}')"><img src="/static/img/solid/plus.svg" class="ico ico-accent" alt=""> ${I18N.EXT_ACTION_BTN}</button>
                 </label>
                 <div data-ext-perms="${esc(id)}">${permRows(id,e.permissions||{})}</div>
             </div>
             <div class="cgr" style="margin-top:14px">
-                <div><label class="cl">App du menu (JSON)<small>{"icone":"comments","label":"Chat","url":"/ext/id"}</small></label>
+                <div><label class="cl">${I18N.EXT_APP_DU_MENU}<small>{"icone":"comments","label":"Chat","url":"/ext/id"}</small></label>
                     <textarea class="ci" data-ext-navapp="${esc(id)}" rows="2" style="font-family:var(--mono);font-size:.72rem">${e.nav_app?esc(JSON.stringify(e.nav_app)):''}</textarea></div>
-                <div><label class="cl">Tuile dashboard (JSON)<small>{"titre":"Chat","icone":"comments","couleur":"#3b82f6","lignes":[]}</small></label>
+                <div><label class="cl">${I18N.EXT_TUILE_DASHBOARD}<small>{"titre":"Chat","icone":"comments","couleur":"#3b82f6","lignes":[]}</small></label>
                     <textarea class="ci" data-ext-tile="${esc(id)}" rows="2" style="font-family:var(--mono);font-size:.72rem">${e.dashboard_tile?esc(JSON.stringify(e.dashboard_tile)):''}</textarea></div>
-                <div><label class="cl">Infos tuile Admin (JSON)<small>[{"label":"Salons","valeur":"3","niveau":"info"}]</small></label>
+                <div><label class="cl">${I18N.EXT_INFOS_TUILE_ADMIN}<small>[{"label":"Salons","valeur":"3","niveau":"info"}]</small></label>
                     <textarea class="ci" data-ext-infos="${esc(id)}" rows="2" style="font-family:var(--mono);font-size:.72rem">${e.admin_infos?esc(JSON.stringify(e.admin_infos)):''}</textarea></div>
             </div>
-            <div style="margin-top:10px"><label class="cl">Parametres (JSON)</label>
+            <div style="margin-top:10px"><label class="cl">${I18N.EXT_PARAMETRES_JSON}</label>
                 <textarea class="ci" data-ext-params="${esc(id)}" rows="3" style="font-family:var(--mono);font-size:.75rem">${esc(JSON.stringify(e.params||{},null,1))}</textarea></div>
-            <button class="btn bg2" style="margin-top:12px" onclick="saveExtMeta('${esc(id)}')"><img src="/static/img/solid/floppy-disk.svg" class="ico ico-accent" alt=""> Sauver les permissions</button>
+            <button class="btn bg2" style="margin-top:12px" onclick="saveExtMeta('${esc(id)}')"><img src="/static/img/solid/floppy-disk.svg" class="ico ico-accent" alt=""> ${I18N.EXT_SAUVER_PERMISSIONS}</button>
             ${chemin}
         </div>
     </div>`;
@@ -832,15 +831,15 @@ function extCard(e){
 function permRow(id,action,regle){
     regle=regle||{};
     return `<div class="permrow">
-        <div><label class="cl">Action</label><input type="text" class="ci" data-pa value="${esc(action||'')}" placeholder="ex: moderer"></div>
-        <div><label class="cl">Privilege max</label><input type="number" class="ci" data-pp value="${regle.privilege_min??10}" min="1" max="12"></div>
-        <div><label class="cl">Plans (virgule)</label><input type="text" class="ci" data-pl value="${esc((regle.plans_autorises||[]).join(', '))}" placeholder="vide = tous"></div>
+        <div><label class="cl">${I18N.EXT_ACTION_BTN}</label><input type="text" class="ci" data-pa value="${esc(action||'')}" placeholder="${I18N.EXT_PLACEHOLDER_ACTION}"></div>
+        <div><label class="cl">${I18N.EXT_PRIVILEGE_MAX}</label><input type="number" class="ci" data-pp value="${regle.privilege_min??10}" min="1" max="12"></div>
+        <div><label class="cl">${I18N.EXT_PLANS_VIRGULE}</label><input type="text" class="ci" data-pl value="${esc((regle.plans_autorises||[]).join(', '))}" placeholder="${I18N.EXT_PLACEHOLDER_VIDE_TOUS}"></div>
         <button class="btn br2" style="height:34px" onclick="this.closest('.permrow').remove()"><img src="/static/img/solid/xmark.svg" class="ico" style="filter:invert(1)" alt=""></button>
     </div>`;
 }
 function permRows(id,perms){
     const cles=Object.keys(perms||{});
-    if(!cles.length)return `<div style="font-size:.76rem;color:var(--text-m);padding:4px 0">Aucune action declaree — l'extension n'applique que le privilege et le plan globaux ci-dessus.</div>`;
+    if(!cles.length)return `<div style="font-size:.76rem;color:var(--text-m);padding:4px 0">${I18N.EXT_AUCUNE_ACTION_DECLAREE}</div>`;
     return cles.map(a=>permRow(id,a,perms[a])).join('');
 }
 function addPermRow(id){
@@ -868,16 +867,16 @@ function buildBanner(){
     const bs=EXT_DATA.build_status||{};
     if(bs.running){
         return `<div class="ob" style="background:rgba(245,158,11,.08);border-color:#f59e0b"><span class="spin"></span>
-            <strong>Compilation en cours…</strong> <code style="font-size:.73rem">${esc(bs.cmd||'')}</code>
-            <span style="margin-left:auto;color:var(--text-m);font-size:.76rem">demarree a ${esc(bs.started_at||'')}</span></div>`;
+            <strong>${I18N.EXT_COMPILATION_EN_COURS}</strong> <code style="font-size:.73rem">${esc(bs.cmd||'')}</code>
+            <span style="margin-left:auto;color:var(--text-m);font-size:.76rem">${I18N.EXT_DEMARREE_A.replace('{date}',esc(bs.started_at||''))}</span></div>`;
     }
     if(bs.jamais_lance) return '';
     const ok=bs.success;
     return `<div class="ob ${ok?'ok':'nok'}"><div class="od"></div>
-        <strong>Derniere compilation : ${ok?'reussie':'echouee'}</strong>
+        <strong>${I18N.EXT_DERNIERE_COMPILATION.replace('{statut}',ok?I18N.EXT_REUSSIE:I18N.EXT_ECHOUEE)}</strong>
         <span style="color:var(--text-m)">${esc(bs.finished_at||'')}</span>
-        <button class="btn bg2" style="margin-left:auto" onclick="toggleBuildLog()"><img src="/static/img/solid/scroll.svg" class="ico ico-accent" alt=""> Sortie</button></div>
-        <div id="build-log" style="display:none"><div class="lb" style="max-height:320px">${esc(bs.output||'(aucune sortie)')}</div></div>`;
+        <button class="btn bg2" style="margin-left:auto" onclick="toggleBuildLog()"><img src="/static/img/solid/scroll.svg" class="ico ico-accent" alt=""> ${I18N.EXT_SORTIE}</button></div>
+        <div id="build-log" style="display:none"><div class="lb" style="max-height:320px">${esc(bs.output||I18N.EXT_AUCUNE_SORTIE)}</div></div>`;
 }
 function toggleBuildLog(){const el=document.getElementById('build-log');if(el)el.style.display=el.style.display==='none'?'':'none';}
 function refreshExtView(){S.section==='apps'?loadApps():loadExt();}
@@ -899,52 +898,51 @@ async function loadExt(){
     let html=buildBanner();
 
     html+=`<div class="card" style="margin-bottom:18px;border-left:3px solid var(--accent)"><div class="ch">
-        <span><img src="/static/img/solid/store.svg" class="ico ico-accent" alt=""> Extensions / Plugin</span>
+        <span><img src="/static/img/solid/store.svg" class="ico ico-accent" alt=""> ${I18N.SB_EXTENSIONS_PLUGIN}</span>
         <a href="#" id="mk-source" target="_blank" style="font-size:.73rem;font-family:var(--mono)"></a>
         </div>
         <div class="cb">
             <div class="mk-bar">
                 <div class="mk-search">
                     <img src="/static/img/solid/magnifying-glass.svg" alt="">
-                    <input type="text" id="mk-q" placeholder="Rechercher une extension a installer…" autocomplete="off">
+                    <input type="text" id="mk-q" placeholder="${I18N.EXT_RECHERCHER_INSTALLER}" autocomplete="off">
                 </div>
-                <button class="btn bg2" onclick="loadMarket(true)"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Actualiser</button>
+                <button class="btn bg2" onclick="loadMarket(true)"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> ${I18N.EXT_ACTUALISER}</button>
             </div>
-            <div id="mk-res"><div class="mk-vide">Chargement du catalogue…</div></div>
+            <div id="mk-res"><div class="mk-vide">${I18N.EXT_CHARGEMENT_CATALOGUE}</div></div>
             <div class="mk-bar" style="margin-top:12px">
                 <div class="mk-search" style="min-width:260px">
                     <img src="/static/img/solid/link.svg" alt="">
                     <input type="text" id="mk-src" placeholder="https://github.com/&lt;compte&gt;/&lt;depot&gt;/releases/tag/&lt;tag&gt;">
                 </div>
-                <button class="btn bg2" onclick="mkSource()"><img src="/static/img/solid/floppy-disk.svg" class="ico ico-accent" alt=""> Changer de catalogue</button>
+                <button class="btn bg2" onclick="mkSource()"><img src="/static/img/solid/floppy-disk.svg" class="ico ico-accent" alt=""> ${I18N.EXT_CHANGER_CATALOGUE}</button>
             </div>
         </div></div>`;
 
     html+=`<div class="card" style="margin-bottom:18px;border-left:3px solid #3b82f6"><div class="ch">
-        <span><img src="/static/img/solid/arrow-up.svg" class="ico" style="filter:invert(30%) sepia(90%) saturate(400%) hue-rotate(200deg)" alt=""> Installer une extension depuis un fichier .rs</span>
+        <span><img src="/static/img/solid/arrow-up.svg" class="ico" style="filter:invert(30%) sepia(90%) saturate(400%) hue-rotate(200deg)" alt=""> ${I18N.EXT_INSTALLER_DEPUIS_FICHIER}</span>
         <div style="display:flex;gap:8px">
-            <button class="btn bg2" onclick="dlTemplate()" style="height:28px;font-size:.75rem"><img src="/static/img/solid/download.svg" class="ico ico-accent" alt=""> Modele .rs</button>
-            <button class="btn ba" onclick="showUploadExt()" style="height:28px;font-size:.75rem"><img src="/static/img/solid/plus.svg" class="ico" style="filter:invert(1)" alt=""> Uploader</button>
+            <button class="btn bg2" onclick="dlTemplate()" style="height:28px;font-size:.75rem"><img src="/static/img/solid/download.svg" class="ico ico-accent" alt=""> ${I18N.EXT_MODELE_RS}</button>
+            <button class="btn ba" onclick="showUploadExt()" style="height:28px;font-size:.75rem"><img src="/static/img/solid/plus.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.EXT_UPLOADER}</button>
         </div></div>
         <div class="cb" style="font-size:.8rem;color:var(--text-m);line-height:1.7">
-            Le fichier est ecrit dans <code>${esc(EXT_DATA.src_root)}/&lt;id&gt;/mod.rs</code>, enregistre dans config.json avec ses permissions,
-            et ajoute au registre compilable. <strong style="color:var(--text)">Utilisable immediatement</strong> via son dossier statique ; la compilation du code Rust est lancee automatiquement en arriere-plan et prend le relais au redemarrage.
+            ${I18N.EXT_FICHIER_ECRIT_DESC.replace(/\{root\}/g,'<code>'+esc(EXT_DATA.src_root)+'</code>')}
             <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                <button class="btn bg2" onclick="updateExt()" ${EXT_DATA.is_super?'':'disabled title="Superadmin uniquement"'}><img src="/static/img/solid/cloud-arrow-down.svg" class="ico ico-accent" alt=""> Mettre à jour depuis GitHub</button>
-                <button class="btn ba" onclick="rebuildExt()" ${EXT_DATA.is_super?'':'disabled title="Superadmin uniquement"'}><img src="/static/img/solid/hammer.svg" class="ico" style="filter:invert(1)" alt=""> Recompiler VEX</button>
+                <button class="btn bg2" onclick="updateExt()" ${EXT_DATA.is_super?'':'disabled title="'+I18N.EXT_SUPERADMIN_UNIQUEMENT_TITLE+'"'}><img src="/static/img/solid/cloud-arrow-down.svg" class="ico ico-accent" alt=""> ${I18N.EXT_METTRE_A_JOUR_GITHUB}</button>
+                <button class="btn ba" onclick="rebuildExt()" ${EXT_DATA.is_super?'':'disabled title="'+I18N.EXT_SUPERADMIN_UNIQUEMENT_TITLE+'"'}><img src="/static/img/solid/hammer.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.EXT_RECOMPILER_VEX}</button>
                 <code style="font-size:.73rem">${esc(EXT_DATA.build_cmd||'')}</code>
             </div>
-            <div style="margin-top:6px;font-size:.72rem;color:var(--text-m)">"Mettre à jour" fait <code>git pull</code> puis relance la compilation. En cas de conflit git (fichiers modifies localement, ex. via une reinstallation marketplace), la sortie l'indiquera — resolution manuelle par SSH necessaire dans ce cas.</div>
+            <div style="margin-top:6px;font-size:.72rem;color:var(--text-m)">${I18N.EXT_METTRE_A_JOUR_DESC}</div>
         </div></div>`;
 
     if((EXT_DATA.orphelins||[]).length){
-        html+=`<div class="ob nok" style="margin-bottom:14px"><div class="od"></div><strong>Sources non enregistrees :</strong>
+        html+=`<div class="ob nok" style="margin-bottom:14px"><div class="od"></div><strong>${I18N.EXT_SOURCES_NON_ENREGISTREES}</strong>
             ${EXT_DATA.orphelins.map(o=>`<code style="margin-left:6px">${esc(o)}</code>`).join('')}
-            <span style="color:var(--text-m);margin-left:8px;font-size:.78rem">— re-uploadez le fichier pour leur donner des permissions.</span></div>`;
+            <span style="color:var(--text-m);margin-left:8px;font-size:.78rem">${I18N.EXT_REUPLOADEZ_DESC}</span></div>`;
     }
 
-    html+=`<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-m);margin-bottom:10px;display:flex;align-items:center;gap:8px"><img src="/static/img/solid/puzzle-piece.svg" style="width:14px;height:14px;filter:invert(30%) sepia(90%) saturate(400%) hue-rotate(200deg)" alt=""> Extensions installees (${autres.length})</div>`;
-    html+=autres.length?autres.map(extCard).join(''):`<div style="padding:20px;text-align:center;color:var(--text-m);background:var(--surface2);border:1px dashed var(--border);border-radius:var(--r);font-size:.84rem">Aucune extension. Cliquez sur <strong>Uploader</strong> pour en installer une.</div>`;
+    html+=`<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-m);margin-bottom:10px;display:flex;align-items:center;gap:8px"><img src="/static/img/solid/puzzle-piece.svg" style="width:14px;height:14px;filter:invert(30%) sepia(90%) saturate(400%) hue-rotate(200deg)" alt=""> ${I18N.EXT_EXTENSIONS_INSTALLEES.replace('{n}',autres.length)}</div>`;
+    html+=autres.length?autres.map(extCard).join(''):`<div style="padding:20px;text-align:center;color:var(--text-m);background:var(--surface2);border:1px dashed var(--border);border-radius:var(--r);font-size:.84rem">${I18N.EXT_AUCUNE_EXTENSION}</div>`;
 
     document.getElementById('ext-content').innerHTML=html;
     loadMarket(false);
@@ -960,19 +958,19 @@ function mkTaille(o){
 }
 function mkCarte(x){
     let etat='';
-    if(x.compilee)      etat='<span class="b bg">installee</span>';
-    else if(x.installee)etat='<span class="b bo">a compiler</span>';
-    const type={manifeste:'extension complete',archive:'archive',fichier:'fichier .rs'}[x.forme]||'fichier';
+    if(x.compilee)      etat=`<span class="b bg">${I18N.MK_INSTALLEE_BADGE}</span>`;
+    else if(x.installee)etat=`<span class="b bo">${I18N.MK_A_COMPILER_BADGE}</span>`;
+    const type={manifeste:I18N.MK_TYPE_EXTENSION_COMPLETE,archive:I18N.MK_TYPE_ARCHIVE,fichier:I18N.MK_TYPE_FICHIER_RS}[x.forme]||I18N.MK_TYPE_FICHIER_DEFAULT;
     return `<div class="mk-card">
         <div class="mk-nom"><img src="/static/img/solid/puzzle-piece.svg" style="width:15px;height:15px;filter:invert(30%) sepia(90%) saturate(400%) hue-rotate(200deg)" alt="">
             ${esc(x.id)} ${etat}</div>
         <div class="mk-meta">${esc(x.nom)}</div>
-        <div class="mk-meta">${type} · ${mkTaille(x.taille)}${x.telechargements?' · '+x.telechargements+' tel.':''}</div>
+        <div class="mk-meta">${type} · ${mkTaille(x.taille)}${x.telechargements?' · '+x.telechargements+' '+I18N.MK_TEL_DOT:''}</div>
         <div class="mk-act">
             <button class="btn ba" style="height:30px;font-size:.76rem"
                 onclick="mkInstall('${esc(x.nom)}','${esc(x.id)}',false)">
                 <img src="/static/img/solid/download.svg" class="ico" style="filter:invert(1)" alt="">
-                ${x.installee?'Reinstaller':'Installer'}</button>
+                ${x.installee?I18N.MK_REINSTALLER:I18N.MK_INSTALLER}</button>
         </div></div>`;
 }
 function mkRendre(){
@@ -988,14 +986,14 @@ function mkRendre(){
     if(!box)return;
     box.innerHTML=liste.length
         ? `<div class="mk-grid">${liste.map(mkCarte).join('')}</div>`
-        : `<div class="mk-vide">${q?'Aucune extension ne correspond a « '+esc(q)+' ».':'Toutes les extensions du catalogue sont deja installees.'}</div>`;
+        : `<div class="mk-vide">${q?I18N.MK_AUCUNE_CORRESPOND.replace('{q}',esc(q)):I18N.MK_TOUTES_INSTALLEES}</div>`;
 }
 async function loadMarket(forcer){
     const box=document.getElementById('mk-res');
-    if(box)box.innerHTML='<div class="loading"><span class="spin"></span> Interrogation de GitHub…</div>';
+    if(box)box.innerHTML=`<div class="loading"><span class="spin"></span> ${I18N.MK_INTERROGATION_GITHUB}</div>`;
     const r=await api('/marketplace'+(forcer?'?refresh=1':''));
     if(!r.success){
-        if(box)box.innerHTML=`<div class="mk-vide">${esc(r.error||'Catalogue indisponible.')}</div>`;
+        if(box)box.innerHTML=`<div class="mk-vide">${esc(r.error||I18N.MK_CATALOGUE_INDISPONIBLE)}</div>`;
         return;
     }
     MK.items=r.data.items||[];MK.charge=true;
@@ -1018,18 +1016,18 @@ async function mkSource(){
 }
 async function mkInstall(nom,id,confirme){
     const x=MK.items.find(i=>i.nom===nom);
-    if(!x){flash('Element introuvable dans le catalogue.',true);return;}
-    if(!confirme&&!await confirmerDialogue(`Installer « ${id} » depuis GitHub ?\n\nDu code distant sera pose dans src/extensions/${id}/ puis compile.\nN'installez que des extensions dont vous connaissez la provenance.`,{danger:true,titre:'Installer une extension distante'}))return;
-    flash('Telechargement de '+id+'…');
+    if(!x){flash(I18N.MK_ELEMENT_INTROUVABLE,true);return;}
+    if(!confirme&&!await confirmerDialogue(I18N.MK_CONFIRM_INSTALLER_MSG.replace(/\{id\}/g,id),{danger:true,titre:I18N.MK_TITRE_INSTALLER_DISTANTE}))return;
+    flash(I18N.MK_TELECHARGEMENT_DE.replace('{id}',id));
     const r=await post('/marketplace/install',{url:x.url,nom:x.nom,id:x.id,confirm_risques:confirme?'1':'0'});
     if(r.success){flash(r.message);loadExt();return;}
     if(r.need_confirm){
         const detail=(r.risques||[]).slice(0,12)
             .map(v=>`l.${v.ligne} — ${v.motif}\n   ${v.extrait}`).join('\n');
-        if(await confirmerDialogue(`${r.error}\n\n${detail}\n\nInstaller quand meme ?`,{danger:true}))mkInstall(nom,id,true);
+        if(await confirmerDialogue(`${r.error}\n\n${detail}\n\n${I18N.MK_INSTALLER_QUAND_MEME}`,{danger:true}))mkInstall(nom,id,true);
         return;
     }
-    flash(r.error||'Installation impossible.',true);
+    flash(r.error||I18N.MK_INSTALLATION_IMPOSSIBLE,true);
 }
 
 function dlTemplate(){
@@ -1049,30 +1047,29 @@ function showUploadExt(idExistant){
     m.innerHTML=`<div class="modal-box">
         <div style="font-weight:800;font-size:1.05rem;margin-bottom:16px;display:flex;align-items:center;gap:8px">
             <img src="/static/img/solid/puzzle-piece.svg" class="ico" style="filter:invert(30%) sepia(90%) saturate(400%) hue-rotate(200deg)" alt="">
-            ${idExistant?'Remplacer le code de « '+esc(idExistant)+' »':'Installer une extension (.rs)'}
+            ${idExistant?I18N.EXT_REMPLACER_CODE.replace('{id}',esc(idExistant)):I18N.EXT_INSTALLER_RS}
         </div>
         <div style="padding:10px 13px;background:var(--surface2);border-radius:7px;border:1px solid var(--border);font-size:.78rem;color:var(--text-m);margin-bottom:14px;line-height:1.6">
-            Le fichier doit exposer <code>pub fn handle(pool, session, req)</code>.
-            Servi sur <code>/ext/&lt;id&gt;</code> des l'installation ; la compilation part toute seule.
+            ${I18N.EXT_FICHIER_DOIT_EXPOSER_DESC}
         </div>
-        <div class="f"><label>Fichier source Rust</label>
+        <div class="f"><label>${I18N.EXT_FICHIER_SOURCE_RUST}</label>
             <div class="fpick">
                 <input type="file" id="new-ext-file" accept=".rs,text/plain" onchange="lireFichierExt(this)">
-                <label class="fpick-btn" for="new-ext-file"><img src="/static/img/solid/folder-open.svg" class="ico ico-accent" alt=""> Parcourir…</label>
-                <span class="fpick-name" id="new-ext-fileinfo">Aucun fichier selectionne</span>
+                <label class="fpick-btn" for="new-ext-file"><img src="/static/img/solid/folder-open.svg" class="ico ico-accent" alt=""> ${I18N.EXT_PARCOURIR}</label>
+                <span class="fpick-name" id="new-ext-fileinfo">${I18N.EXT_AUCUN_FICHIER_SELECTIONNE}</span>
             </div></div>
-        <div class="f"><label>ID de l'extension (= nom du dossier)</label>
+        <div class="f"><label>${I18N.EXT_ID_EXTENSION}</label>
             <input type="text" id="new-ext-id" class="ci" placeholder="ex: monchat" value="${esc(idExistant||'')}" ${idExistant?'readonly':''}></div>
-        <div class="f"><label>Version</label><input type="text" id="new-ext-ver" class="ci" value="${esc(e.version||'0.1')}"></div>
-        <div class="f"><label>Privilege min requis (1 = fondateur, 12 = tout le monde)</label>
+        <div class="f"><label>${I18N.CFG_VERSION}</label><input type="text" id="new-ext-ver" class="ci" value="${esc(e.version||'0.1')}"></div>
+        <div class="f"><label>${I18N.EXT_PRIVILEGE_MIN_REQUIS} (${I18N.EXT_PRIVILEGE_MIN_SUB})</label>
             <input type="number" id="new-ext-priv" class="ci" value="${e.privilege_min??10}" min="1" max="12"></div>
-        <div class="f"><label>Plans autorises (virgule, vide = tous)</label>
+        <div class="f"><label>${I18N.EXT_PLANS_AUTORISES} (${I18N.EXT_PLANS_AUTORISES_SUB})</label>
             <input type="text" id="new-ext-plans" class="ci" value="${esc((e.plans_autorises||['free','vip']).join(', '))}"></div>
-        <div class="f"><label><input type="checkbox" id="new-ext-enabled" checked style="width:auto;margin-right:6px">Activer immediatement</label></div>
+        <div class="f"><label><input type="checkbox" id="new-ext-enabled" checked style="width:auto;margin-right:6px">${I18N.EXT_ACTIVER_IMMEDIATEMENT}</label></div>
         <div id="new-ext-risques"></div>
         <div style="display:flex;gap:10px;margin-top:16px">
-            <button class="btn ba" onclick="submitUploadExt(false)" id="btn-up-ext"><img src="/static/img/solid/check.svg" class="ico" style="filter:invert(1)" alt=""> Installer</button>
-            <button class="btn bg2" onclick="document.getElementById('add-ext-modal').remove()"><img src="/static/img/solid/xmark.svg" class="ico ico-gray" alt=""> Annuler</button>
+            <button class="btn ba" onclick="submitUploadExt(false)" id="btn-up-ext"><img src="/static/img/solid/check.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.MK_INSTALLER}</button>
+            <button class="btn bg2" onclick="document.getElementById('add-ext-modal').remove()"><img src="/static/img/solid/xmark.svg" class="ico ico-gray" alt=""> ${I18N.ANNULER}</button>
         </div>
     </div>`;
     document.body.appendChild(m);
@@ -1081,9 +1078,9 @@ function showUploadExt(idExistant){
 function lireFichierExt(input){
     const f=input.files&&input.files[0];const info=document.getElementById('new-ext-fileinfo');
     const setInfo=(txt,cls)=>{info.textContent=txt;info.className='fpick-name'+(cls?' '+cls:'');};
-    if(!f){EXT_FILE={name:'',b64:'',size:0};setInfo('Aucun fichier selectionne');return;}
-    if(!f.name.toLowerCase().endsWith('.rs')){setInfo('Le fichier doit avoir l\'extension .rs','ko');input.value='';return;}
-    if(f.size>(EXT_DATA.max_bytes||524288)){setInfo(`Fichier trop gros (${Math.round(f.size/1024)} Ko, max ${Math.round((EXT_DATA.max_bytes||524288)/1024)} Ko)`,'ko');input.value='';return;}
+    if(!f){EXT_FILE={name:'',b64:'',size:0};setInfo(I18N.EXT_AUCUN_FICHIER_SELECTIONNE);return;}
+    if(!f.name.toLowerCase().endsWith('.rs')){setInfo(I18N.EXT_ERREUR_EXTENSION_RS,'ko');input.value='';return;}
+    if(f.size>(EXT_DATA.max_bytes||524288)){setInfo(I18N.EXT_ERREUR_FICHIER_TROP_GROS.replace('{ko}',Math.round(f.size/1024)).replace('{maxko}',Math.round((EXT_DATA.max_bytes||524288)/1024)),'ko');input.value='';return;}
     const fr=new FileReader();
     fr.onload=()=>{
         EXT_FILE={name:f.name,b64:fr.result.split(',')[1]||'',size:f.size};
@@ -1098,9 +1095,9 @@ function lireFichierExt(input){
 }
 
 async function submitUploadExt(confirme){
-    if(!EXT_FILE.b64){flash('Choisissez un fichier .rs.',true);return;}
+    if(!EXT_FILE.b64){flash(I18N.EXT_CHOISISSEZ_FICHIER,true);return;}
     const id=document.getElementById('new-ext-id').value.trim().toLowerCase();
-    if(!id){flash('ID requis.',true);return;}
+    if(!id){flash(I18N.EXT_ID_REQUIS,true);return;}
     const btn=document.getElementById('btn-up-ext');if(btn)btn.disabled=true;
     const r=await post('/extensions/upload',{
         id, filename:EXT_FILE.name, code_b64:EXT_FILE.b64,
@@ -1114,7 +1111,7 @@ async function submitUploadExt(confirme){
     if(r.success){
         document.getElementById('add-ext-modal')?.remove();
         flash(r.message);
-        if((r.data?.risques||[]).length)flash(`Installee avec ${r.data.risques.length} motif(s) sensible(s) — relisez le code.`,true);
+        if((r.data?.risques||[]).length)flash(I18N.EXT_INSTALLEE_AVEC_MOTIFS_MSG.replace('{n}',r.data.risques.length),true);
         loadExt();
         return;
     }
@@ -1125,7 +1122,7 @@ async function submitUploadExt(confirme){
                 <div style="max-height:180px;overflow:auto;font-family:var(--mono);font-size:.72rem;line-height:1.6">
                 ${r.risques.map(x=>`<div>l.${x.ligne} — <strong>${esc(x.motif)}</strong><br><span style="color:var(--text-m)">${esc(x.extrait)}</span></div>`).join('')}
                 </div>
-                <button class="btn br2" style="margin-top:10px" onclick="submitUploadExt(true)"><img src="/static/img/solid/triangle-exclamation.svg" class="ico" style="filter:invert(1)" alt=""> Installer quand meme</button>
+                <button class="btn br2" style="margin-top:10px" onclick="submitUploadExt(true)"><img src="/static/img/solid/triangle-exclamation.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.MK_INSTALLER_QUAND_MEME}</button>
             </div>`;
         return;
     }
@@ -1133,25 +1130,25 @@ async function submitUploadExt(confirme){
 }
 
 async function deleteExt(id){
-    if(BASE_APPS.has(id)){flash('Impossible de supprimer une app de base.',true);return;}
-    if(!await confirmerDialogue(`Retirer l'extension "${id}" de la configuration ?`,{danger:true,titre:'Retirer une extension'}))return;
-    const purge=await confirmerDialogue(`Supprimer aussi les fichiers src/extensions/${id}/ et static/extensions/${id}/ ?\n\nConfirmer = supprimer les fichiers, Annuler = les conserver.`,{titre:'Supprimer les fichiers ?'});
+    if(BASE_APPS.has(id)){flash(I18N.EXT_IMPOSSIBLE_SUPPRIMER_BASE,true);return;}
+    if(!await confirmerDialogue(I18N.EXT_CONFIRM_RETIRER.replace('{id}',id),{danger:true,titre:I18N.EXT_TITRE_RETIRER}))return;
+    const purge=await confirmerDialogue(I18N.EXT_CONFIRM_SUPPR_FICHIERS.replace(/\{id\}/g,id),{titre:I18N.EXT_TITRE_SUPPR_FICHIERS});
     const r=await post('/extensions/delete',{id,purge:purge?'1':'0'});
     if(r.success){flash(r.message);loadExt();}else flash(r.error,true);
 }
 
 async function toggleExt(id,val){
     const r=await post('/extensions/permissions',{id,enabled:val});
-    if(r.success){flash('Extension '+(val==='true'?'activee':'desactivee')+'.');refreshExtView();}else flash(r.error,true);
+    if(r.success){flash((val==='true'?I18N.EXT_ACTIVEE_MSG:I18N.EXT_DESACTIVEE_MSG)+' : '+id);refreshExtView();}else flash(r.error,true);
 }
 
 async function saveExtMeta(id){
     const q=s=>document.querySelector(`[data-ext-${s}="${id}"]`);
     let params=q('params')?.value||'{}';
-    try{JSON.parse(params);}catch(e){flash('Parametres JSON invalides : '+e.message,true);return;}
-    for(const[c,lib]of[['navapp','App du menu'],['tile','Tuile dashboard'],['infos','Infos tuile Admin']]){
+    try{JSON.parse(params);}catch(e){flash(I18N.EXT_PARAMETRES_INVALIDES.replace('{msg}',e.message),true);return;}
+    for(const[c,lib]of[['navapp',I18N.EXT_APP_DU_MENU],['tile',I18N.EXT_TUILE_DASHBOARD],['infos',I18N.EXT_INFOS_TUILE_ADMIN]]){
         const t=q(c)?.value.trim();
-        if(t){try{JSON.parse(t);}catch(e){flash(lib+' : JSON invalide — '+e.message,true);return;}}
+        if(t){try{JSON.parse(t);}catch(e){flash(I18N.EXT_JSON_INVALIDE_LIB.replace('{lib}',lib).replace('{msg}',e.message),true);return;}}
     }
     const r=await post('/extensions/permissions',{
         id, version:q('ver')?.value||'', privilege_min:q('priv')?.value,
@@ -1165,14 +1162,14 @@ async function saveExtMeta(id){
 }
 
 async function rebuildExt(){
-    if(!await confirmerDialogue(`Relancer « ${EXT_DATA.build_cmd} » ?\n\nLa compilation part deja seule a chaque upload. VEX doit etre redemarre une fois terminee pour charger le code natif.`,{titre:'Recompiler VEX'}))return;
+    if(!await confirmerDialogue(I18N.EXT_CONFIRM_RELANCER.replace('{cmd}',EXT_DATA.build_cmd),{titre:I18N.EXT_RECOMPILER_VEX}))return;
     const r=await post('/extensions/rebuild');
     if(!r.success){flash(r.error,true);return;}
     flash(r.message);planifierStatutBuild();loadExt();
 }
 
 async function updateExt(){
-    if(!await confirmerDialogue(`Tirer les derniers changements depuis GitHub (git pull) puis recompiler ?\n\nEn cas de modifications locales non commitees (ex. reinstallation d'une extension via le marketplace), le pull peut echouer -- la sortie l'indiquera.`,{titre:'Mettre à jour depuis GitHub'}))return;
+    if(!await confirmerDialogue(I18N.EXT_CONFIRM_MAJ_GITHUB,{titre:I18N.EXT_METTRE_A_JOUR_GITHUB}))return;
     const r=await post('/extensions/update');
     if(!r.success){flash(r.error,true);return;}
     flash(r.message);planifierStatutBuild();loadExt();
@@ -1199,20 +1196,20 @@ async function loadBackups(){
     if(!rl.success){flash(rl.error,true);return;}
     const items=rl.data||[];
     document.getElementById('backup-list').innerHTML=items.length
-        ?`<table class="t"><thead><tr><th>Fichier</th><th>Taille</th><th>Date</th><th>Actions</th></tr></thead><tbody>${items.map(b=>
+        ?`<table class="t"><thead><tr><th>${I18N.FICHIER_COL}</th><th>${I18N.BACKUP_COL_TAILLE}</th><th>${I18N.DATE}</th><th>${I18N.ACTIONS}</th></tr></thead><tbody>${items.map(b=>
             `<tr><td class="m">${esc(b.nom)}</td><td>${b.taille_mo} Mo</td><td>${esc(new Date(b.modifie*1000).toLocaleString())}</td>`
-            +`<td style="display:flex;gap:8px"><a class="btn bg2" href="/api/admin/backup/download?nom=${encodeURIComponent(b.nom)}"><img src="/static/img/solid/download.svg" class="ico ico-accent" alt=""> Télécharger</a>`
-            +`<button class="btn br2" onclick="supprimerBackup('${esc(b.nom)}')"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Suppr.</button></td></tr>`
+            +`<td style="display:flex;gap:8px"><a class="btn bg2" href="/api/admin/backup/download?nom=${encodeURIComponent(b.nom)}"><img src="/static/img/solid/download.svg" class="ico ico-accent" alt=""> ${I18N.BACKUP_TELECHARGER}</a>`
+            +`<button class="btn br2" onclick="supprimerBackup('${esc(b.nom)}')"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SUPPRIMER}</button></td></tr>`
         ).join('')}</tbody></table>`
-        :'<div style="padding:20px;text-align:center;color:var(--text-m);background:var(--surface2);border:1px dashed var(--border);border-radius:var(--r);font-size:.84rem">Aucune sauvegarde. Cliquez sur « Lancer une sauvegarde » ci-dessus.</div>';
+        :`<div style="padding:20px;text-align:center;color:var(--text-m);background:var(--surface2);border:1px dashed var(--border);border-radius:var(--r);font-size:.84rem">${I18N.BACKUP_AUCUNE_SAUVEGARDE}</div>`;
 }
 function backupBanner(){
     const bs=BACKUP_STATUS||{};
-    if(bs.running)return `<div class="ob" style="background:rgba(245,158,11,.08);border-color:#f59e0b"><span class="spin"></span> <strong>Sauvegarde en cours…</strong> <span style="margin-left:auto;color:var(--text-m);font-size:.76rem">démarrée à ${esc(bs.started_at||'')}</span></div>`;
+    if(bs.running)return `<div class="ob" style="background:rgba(245,158,11,.08);border-color:#f59e0b"><span class="spin"></span> <strong>${I18N.BACKUP_EN_COURS}</strong> <span style="margin-left:auto;color:var(--text-m);font-size:.76rem">${I18N.BACKUP_DEMARREE_A.replace('{date}',esc(bs.started_at||''))}</span></div>`;
     if(bs.jamais_lance||bs.success===undefined)return '';
     return bs.success
-        ?`<div class="ob ok"><div class="od"></div><strong>Dernière sauvegarde réussie</strong> <span style="color:var(--text-m)">${esc(bs.finished_at||'')} — ${bs.taille_mo} Mo</span></div>`
-        :`<div class="ob nok"><div class="od"></div><strong>Dernière sauvegarde échouée</strong> <span style="color:var(--text-m)">${esc(bs.erreur||'')}</span></div>`;
+        ?`<div class="ob ok"><div class="od"></div><strong>${I18N.BACKUP_DERNIERE_REUSSIE}</strong> <span style="color:var(--text-m)">${esc(bs.finished_at||'')} — ${bs.taille_mo} Mo</span></div>`
+        :`<div class="ob nok"><div class="od"></div><strong>${I18N.BACKUP_DERNIERE_ECHOUEE}</strong> <span style="color:var(--text-m)">${esc(bs.erreur||'')}</span></div>`;
 }
 function planifierStatutBackup(){
     clearTimeout(BACKUP_TIMER);
@@ -1226,13 +1223,13 @@ function planifierStatutBackup(){
     },4000);
 }
 async function creerBackup(){
-    if(!await confirmerDialogue('Lancer une sauvegarde complète de la base maintenant ?\n\nLe dump tourne en arrière-plan (mysqldump | gzip) ; le serveur reste disponible pendant ce temps.',{titre:'Lancer une sauvegarde'}))return;
+    if(!await confirmerDialogue(I18N.BACKUP_CONFIRM_LANCER,{titre:I18N.BACKUP_LANCER_SAUVEGARDE}))return;
     const r=await post('/backup/create');
     if(!r.success){flash(r.error,true);return;}
     flash(r.message);planifierStatutBackup();loadBackups();
 }
 async function supprimerBackup(nom){
-    if(!await confirmerDialogue(`Supprimer la sauvegarde ${nom} ?\n\nIrréversible — si c'est la seule copie, vous n'aurez plus aucune sauvegarde.`,{danger:true,titre:'Supprimer la sauvegarde'}))return;
+    if(!await confirmerDialogue(I18N.BACKUP_CONFIRM_SUPPRIMER.replace('{nom}',nom),{danger:true,titre:I18N.BACKUP_TITRE_SUPPRIMER}))return;
     const r=await post('/backup/delete',{nom});
     if(r.success){flash(r.message);loadBackups();}else flash(r.error,true);
 }
@@ -1245,7 +1242,7 @@ async function loadRoles(){
     const grid=document.getElementById('roles-labels-grid');
     grid.innerHTML=[2,3,4,5,6,7,8,9,10,11,12].map(p=>{
         const v=S.configData.privilege_labels[String(p)]??'';
-        return `<div><label class="cl">Privilege ${p}<small>${PRIVILEGES[p]?.nom||''}</small></label><input type="text" class="ci" data-role-label="${p}" value="${esc(v)}" placeholder="Nom du role ${p}"></div>`;
+        return `<div><label class="cl">${I18N.ROLES_PRIVILEGE_LABEL.replace('{n}',p)}<small>${PRIVILEGES[p]?.nom||''}</small></label><input type="text" class="ci" data-role-label="${p}" value="${esc(v)}" placeholder="${I18N.ROLES_PLACEHOLDER_NOM_ROLE.replace('{n}',p)}"></div>`;
     }).join('');
     renderPlans();
 }
@@ -1254,7 +1251,7 @@ async function saveRoleLabels(){
     if(!nc.privilege_labels)nc.privilege_labels={};
     document.querySelectorAll('[data-role-label]').forEach(el=>{nc.privilege_labels[el.dataset.roleLabel]=el.value;});
     const r=await post('/config',{config:JSON.stringify(nc)});
-    if(r.success){S.configData=nc;flash('Noms de roles sauvegardes.');loadUsers();}else flash(r.error,true);
+    if(r.success){S.configData=nc;flash(I18N.ROLES_NOMS_SAUVEGARDES);loadUsers();}else flash(r.error,true);
 }
 function renderPlans(){
     const plans=S.configData.plans?.available_plans||[];
@@ -1262,12 +1259,12 @@ function renderPlans(){
         <div class="card" style="margin-bottom:10px"><div class="cb">
             <div class="cgr">
                 <div><label class="cl">ID</label><input type="text" class="ci" data-plan-i="${i}" data-plan-k="id" value="${esc(p.id)}"></div>
-                <div><label class="cl">Nom affiche</label><input type="text" class="ci" data-plan-i="${i}" data-plan-k="name" value="${esc(p.name)}"></div>
-                <div><label class="cl">Prix euros/mois</label><input type="number" class="ci" data-plan-i="${i}" data-plan-k="price_eur_month" value="${p.price_eur_month}"></div>
-                <div><label class="cl">Stockage</label><input type="text" class="ci" data-plan-i="${i}" data-plan-k="features.storage" value="${esc(p.features?.storage||'')}"></div>
+                <div><label class="cl">${I18N.ROLES_NOM_AFFICHE}</label><input type="text" class="ci" data-plan-i="${i}" data-plan-k="name" value="${esc(p.name)}"></div>
+                <div><label class="cl">${I18N.ROLES_PRIX_EUROS_MOIS}</label><input type="number" class="ci" data-plan-i="${i}" data-plan-k="price_eur_month" value="${p.price_eur_month}"></div>
+                <div><label class="cl">${I18N.ROLES_STOCKAGE}</label><input type="text" class="ci" data-plan-i="${i}" data-plan-k="features.storage" value="${esc(p.features?.storage||'')}"></div>
             </div>
-            <button class="btn br2" style="margin-top:10px" onclick="removePlan(${i})"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Supprimer ce plan</button>
-        </div></div>`).join('')+`<button class="btn ba" onclick="savePlans()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> Sauvegarder les plans</button>`;
+            <button class="btn br2" style="margin-top:10px" onclick="removePlan(${i})"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.ROLES_SUPPRIMER_CE_PLAN}</button>
+        </div></div>`).join('')+`<button class="btn ba" onclick="savePlans()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.ROLES_SAUVEGARDER_PLANS}</button>`;
 }
 function addPlan(){
     if(!S.configData.plans)S.configData.plans={available_plans:[],enforce_plan_restrictions:true};
@@ -1284,7 +1281,7 @@ async function savePlans(){
         else nc.plans.available_plans[i][k]=v;
     });
     const r=await post('/config',{config:JSON.stringify(nc)});
-    if(r.success){S.configData=nc;flash('Plans sauvegardes.');}else flash(r.error,true);
+    if(r.success){S.configData=nc;flash(I18N.ROLES_PLANS_SAUVEGARDES);}else flash(r.error,true);
 }
 
 /* ── Serveur ── */
@@ -1294,19 +1291,19 @@ async function loadServer(){
     const d=r.data;
     const disks=(d.disks&&d.disks.length?d.disks:[{...d.disk,mount:'/'}]);
     const disqueTuile=dk=>{const pct=dk.used_pct||0,cl=pct>80?'d':pct>60?'w':'';
-        return `<div class="sc" style="--si:${pct>80?'#ef4444':pct>60?'#f59e0b':'var(--accent)'}"><div class="sc-i"><img src="/static/img/solid/hard-drive.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1.1rem">${esc(String(dk.used_gb))} <span style="font-size:.6em;font-weight:400">/ ${esc(String(dk.total_gb))} GB</span></div><div class="sc-l" title="${esc(dk.mount)}">Disque ${esc(dk.mount)} (${pct}%)</div><div class="pg"><div class="pgb ${cl}" style="width:${pct}%"></div></div></div>`;};
+        return `<div class="sc" style="--si:${pct>80?'#ef4444':pct>60?'#f59e0b':'var(--accent)'}"><div class="sc-i"><img src="/static/img/solid/hard-drive.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1.1rem">${esc(String(dk.used_gb))} <span style="font-size:.6em;font-weight:400">/ ${esc(String(dk.total_gb))} GB</span></div><div class="sc-l" title="${esc(dk.mount)}">${I18N.SERVER_DISQUE_LABEL.replace('{mount}',esc(dk.mount)).replace('{pct}',pct)}</div><div class="pg"><div class="pgb ${cl}" style="width:${pct}%"></div></div></div>`;};
     document.getElementById('server-content').innerHTML=`<div class="sg">
-        <div class="sc" style="--si:#3b82f6"><div class="sc-i"><img src="/static/img/solid/code.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1rem">${esc(d.vex_version)}</div><div class="sc-l">Version VEX</div></div>
-        <div class="sc" style="--si:#f59e0b"><div class="sc-i"><img src="/static/img/solid/laptop.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:.9rem">${esc(d.os)} / ${esc(d.arch)}</div><div class="sc-l">OS / Arch</div></div>
+        <div class="sc" style="--si:#3b82f6"><div class="sc-i"><img src="/static/img/solid/code.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1rem">${esc(d.vex_version)}</div><div class="sc-l">${I18N.SERVER_VERSION_VEX}</div></div>
+        <div class="sc" style="--si:#f59e0b"><div class="sc-i"><img src="/static/img/solid/laptop.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:.9rem">${esc(d.os)} / ${esc(d.arch)}</div><div class="sc-l">${I18N.SERVER_OS_ARCH}</div></div>
         ${disks.map(disqueTuile).join('')}
-        <div class="sc" style="--si:#8b5cf6"><div class="sc-i"><img src="/static/img/solid/clock.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1.1rem">${esc(d.uptime_sec)}s</div><div class="sc-l">Uptime</div></div>
+        <div class="sc" style="--si:#8b5cf6"><div class="sc-i"><img src="/static/img/solid/clock.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1.1rem">${esc(d.uptime_sec)}s</div><div class="sc-l">${I18N.SERVER_UPTIME}</div></div>
     </div>
     <div class="card" style="margin-top:16px">
         <div class="ch">
-            <span><img src="/static/img/solid/arrow-up-right-dots.svg" class="ico ico-accent" alt=""> Mises à jour système <small>lecture seule — a appliquer manuellement</small></span>
-            <button class="btn bg2" onclick="loadSystemUpdates()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Vérifier</button>
+            <span><img src="/static/img/solid/arrow-up-right-dots.svg" class="ico ico-accent" alt=""> ${I18N.SERVER_MISES_A_JOUR_SYSTEME} <small>${I18N.SERVER_LECTURE_SEULE}</small></span>
+            <button class="btn bg2" onclick="loadSystemUpdates()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> ${I18N.SERVER_VERIFIER}</button>
         </div>
-        <div class="cb" id="system-updates-content"><div style="padding:14px;color:var(--text-m);font-size:.84rem">Cliquez sur "Vérifier" pour interroger le serveur (peut prendre quelques secondes).</div></div>
+        <div class="cb" id="system-updates-content"><div style="padding:14px;color:var(--text-m);font-size:.84rem">${I18N.SERVER_CLIQUEZ_VERIFIER}</div></div>
     </div>`;
 }
 
@@ -1316,45 +1313,45 @@ async function loadSystemUpdates(){
     const r=await api('/server/updates');
     if(!r.success){box.innerHTML=`<div style="padding:14px;color:var(--text-m)">${esc(r.error||'Erreur.')}</div>`;return;}
     const d=r.data;
-    if(!d.supporte){box.innerHTML='<div style="padding:14px;color:var(--text-m)">Non disponible sur cette plateforme.</div>';return;}
+    if(!d.supporte){box.innerHTML=`<div style="padding:14px;color:var(--text-m)">${I18N.SERVER_NON_DISPONIBLE_PLATEFORME}</div>`;return;}
     const badgePkg = d.paquets_dispo>0
-        ? `<span class="b bo">${d.paquets_dispo} paquet(s) systeme a mettre a jour</span>`
-        : `<span class="b bg">Systeme a jour</span>`;
+        ? `<span class="b bo">${I18N.SERVER_PAQUETS_A_METTRE_A_JOUR.replace('{n}',d.paquets_dispo)}</span>`
+        : `<span class="b bg">${I18N.SERVER_SYSTEME_A_JOUR}</span>`;
     const badgeRust = d.rust_maj_disponible
-        ? `<span class="b bo">Mise a jour Rust disponible</span>`
-        : `<span class="b bg">Toolchain Rust a jour</span>`;
+        ? `<span class="b bo">${I18N.SERVER_MAJ_RUST_DISPO}</span>`
+        : `<span class="b bg">${I18N.SERVER_TOOLCHAIN_A_JOUR}</span>`;
     box.innerHTML=`
         <div class="cgr">
-            <div><label class="cl">Systeme d'exploitation</label><div style="font-size:.85rem;padding:6px 0">${esc(d.os_nom||'?')}</div></div>
-            <div><label class="cl">Noyau</label><div style="font-size:.85rem;padding:6px 0;font-family:var(--mono)">${esc(d.kernel||'?')}</div></div>
-            <div><label class="cl">Rust</label><div style="font-size:.85rem;padding:6px 0;font-family:var(--mono)">${esc(d.rustc_version||'?')}</div></div>
+            <div><label class="cl">${I18N.SERVER_SYSTEME_EXPLOITATION}</label><div style="font-size:.85rem;padding:6px 0">${esc(d.os_nom||'?')}</div></div>
+            <div><label class="cl">${I18N.SERVER_NOYAU}</label><div style="font-size:.85rem;padding:6px 0;font-family:var(--mono)">${esc(d.kernel||'?')}</div></div>
+            <div><label class="cl">${I18N.SERVER_RUST_LABEL}</label><div style="font-size:.85rem;padding:6px 0;font-family:var(--mono)">${esc(d.rustc_version||'?')}</div></div>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">${badgePkg}${badgeRust}</div>
-        ${d.paquets_dispo>0?'<div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">Sur le serveur : <code>sudo apt update && sudo apt upgrade</code></div>':''}
-        ${d.rust_maj_disponible?'<div style="margin-top:6px;font-size:.78rem;color:var(--text-m)">Sur le serveur : <code>rustup update</code></div>':''}
+        ${d.paquets_dispo>0?`<div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">${I18N.SERVER_SUR_LE_SERVEUR} <code>sudo apt update && sudo apt upgrade</code></div>`:''}
+        ${d.rust_maj_disponible?`<div style="margin-top:6px;font-size:.78rem;color:var(--text-m)">${I18N.SERVER_SUR_LE_SERVEUR} <code>rustup update</code></div>`:''}
     `;
 }
 
 /* ── Logs ── */
-async function loadLogs(){document.getElementById('log-content').innerHTML='<div class="loading"><span class="spin"></span></div>';const r=await api('/logs');if(!r.success){flash(r.error,true);return;}const files=r.data.files||[];const filesHtml=files.length?`<div style="margin-bottom:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:.78rem;color:var(--text-m)"><div style="font-weight:700;color:var(--text);margin-bottom:6px">Fichiers de logs</div><div style="display:flex;flex-wrap:wrap;gap:6px">${files.map(f=>`<span style="padding:4px 8px;border-radius:999px;background:var(--alt);color:var(--accent);font-family:monospace">${esc(f)}</span>`).join('')}</div></div>`:'';document.getElementById('log-content').innerHTML=r.data.empty?'<div style="padding:24px;text-align:center;color:var(--text-m)">Aucun log disponible</div>':`<div>${filesHtml}<div class="lb" id="lb">${esc(r.data.content)}</div></div>`;scrollLogs();loadVexiaAudit();}
+async function loadLogs(){document.getElementById('log-content').innerHTML='<div class="loading"><span class="spin"></span></div>';const r=await api('/logs');if(!r.success){flash(r.error,true);return;}const files=r.data.files||[];const filesHtml=files.length?`<div style="margin-bottom:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:.78rem;color:var(--text-m)"><div style="font-weight:700;color:var(--text);margin-bottom:6px">${I18N.LOGS_FICHIERS_DE_LOGS}</div><div style="display:flex;flex-wrap:wrap;gap:6px">${files.map(f=>`<span style="padding:4px 8px;border-radius:999px;background:var(--alt);color:var(--accent);font-family:monospace">${esc(f)}</span>`).join('')}</div></div>`:'';document.getElementById('log-content').innerHTML=r.data.empty?`<div style="padding:24px;text-align:center;color:var(--text-m)">${I18N.LOGS_AUCUN_DISPONIBLE}</div>`:`<div>${filesHtml}<div class="lb" id="lb">${esc(r.data.content)}</div></div>`;scrollLogs();loadVexiaAudit();}
 function scrollLogs(){const lb=document.getElementById('lb');if(lb)lb.scrollTop=lb.scrollHeight;}
-async function clearLogs(){if(!await confirmerDialogue('Vider le log ?',{danger:true}))return;const r=await post('/logs/clear');if(r.success){flash(r.message);loadLogs();}else flash(r.error,true);}
+async function clearLogs(){if(!await confirmerDialogue(I18N.LOGS_VIDER_CONFIRM,{danger:true}))return;const r=await post('/logs/clear');if(r.success){flash(r.message);loadLogs();}else flash(r.error,true);}
 
 async function loadVexiaAudit(){
     const el=document.getElementById('vexia-audit-content');
     if(!el)return;
     el.innerHTML='<div class="loading"><span class="spin"></span></div>';
     const r=await api('/vexia/audit');
-    if(!r.success){el.innerHTML=`<div style="padding:14px;color:var(--text-m)">${esc(r.error||"Reserve aux superadmins.")}</div>`;return;}
+    if(!r.success){el.innerHTML=`<div style="padding:14px;color:var(--text-m)">${esc(r.error||I18N.LOGS_RESERVE_SUPERADMINS)}</div>`;return;}
     const rows=r.data||[];
-    if(!rows.length){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text-m);font-size:.84rem">Aucune action VexIA enregistree.</div>';return;}
-    el.innerHTML=`<table class="t"><thead><tr><th>Date</th><th>Utilisateur</th><th>Outil</th><th>Tier</th><th>Resultat</th><th>Detail</th></tr></thead><tbody>${rows.map(a=>`
+    if(!rows.length){el.innerHTML=`<div style="padding:20px;text-align:center;color:var(--text-m);font-size:.84rem">${I18N.LOGS_AUCUNE_ACTION_VEXIA}</div>`;return;}
+    el.innerHTML=`<table class="t"><thead><tr><th>${I18N.DATE}</th><th>${I18N.LOGS_UTILISATEUR}</th><th>${I18N.LOGS_OUTIL}</th><th>${I18N.LOGS_TIER}</th><th>${I18N.LOGS_RESULTAT}</th><th>${I18N.LOGS_DETAIL}</th></tr></thead><tbody>${rows.map(a=>`
         <tr>
             <td class="m">${esc(a.created_at)}</td>
             <td><span class="b bx">#${a.user_id}</span></td>
             <td><code style="font-size:.76rem">${esc(a.tool_name)}</code></td>
-            <td>${a.tier==='admin'?'<span class="b br">admin</span>':'<span class="b bx">scoped</span>'}</td>
-            <td>${a.success?'<span class="b bg">reussie</span>':'<span class="b br">echouee</span>'}</td>
+            <td>${a.tier==='admin'?`<span class="b br">${I18N.LOGS_ADMIN}</span>`:`<span class="b bx">${I18N.LOGS_SCOPED}</span>`}</td>
+            <td>${a.success?`<span class="b bg">${I18N.EXT_REUSSIE}</span>`:`<span class="b br">${I18N.EXT_ECHOUEE}</span>`}</td>
             <td style="font-size:.75rem;color:var(--text-m);font-family:var(--mono)">${esc(a.success?a.args_json:a.error)}</td>
         </tr>`).join('')}</tbody></table>`;
 }
@@ -1363,20 +1360,20 @@ async function loadVexiaAudit(){
 let ED={active:'',providers:{},presets:[],status:{}};
 
 const ED_CHAMPS=[
-    ['name','Nom affiche','text'],
-    ['server_url','URL du serveur','text'],
-    ['healthcheck_path','Chemin de healthcheck','text'],
-    ['healthcheck_expect','Texte attendu dans la reponse (vide = code 2xx suffit)','text'],
-    ['editor_api_js','Chemin du script API editeur','text'],
-    ['wopi_discovery_path','Chemin WOPI discovery','text'],
-    ['callback_path','Chemin de callback VEX','text'],
-    ['start_cmd','Commande de demarrage','text'],
-    ['stop_cmd','Commande d\'arret','text'],
-    ['wait_boot_ms','Attente apres demarrage (ms)','number'],
-    ['default_format','Format par defaut','text'],
-    ['supported_formats','Formats supportes (virgule)','list'],
-    ['max_file_size_mb','Taille max (Mo)','number'],
-    ['jwt_secret','Secret JWT','text'],
+    ['name',I18N.ROLES_NOM_AFFICHE,'text'],
+    ['server_url',I18N.ED_URL_SERVEUR,'text'],
+    ['healthcheck_path',I18N.ED_CHEMIN_HEALTHCHECK,'text'],
+    ['healthcheck_expect',I18N.ED_TEXTE_ATTENDU,'text'],
+    ['editor_api_js',I18N.ED_CHEMIN_SCRIPT_API,'text'],
+    ['wopi_discovery_path',I18N.ED_CHEMIN_WOPI,'text'],
+    ['callback_path',I18N.ED_CHEMIN_CALLBACK,'text'],
+    ['start_cmd',I18N.ED_COMMANDE_DEMARRAGE,'text'],
+    ['stop_cmd',I18N.ED_COMMANDE_ARRET,'text'],
+    ['wait_boot_ms',I18N.ED_ATTENTE_DEMARRAGE,'number'],
+    ['default_format',I18N.ED_FORMAT_DEFAUT,'text'],
+    ['supported_formats',I18N.CFG_FORMATS_SUPPORTES,'list'],
+    ['max_file_size_mb',I18N.ED_TAILLE_MAX_MO,'number'],
+    ['jwt_secret',I18N.ED_SECRET_JWT,'text'],
 ];
 
 async function loadEditor(){
@@ -1410,39 +1407,39 @@ function renderEditor(){
 
     document.getElementById('oo-content').innerHTML=`
     <div class="ob ${st.online?'ok':'nok'}"><div class="od"></div>
-        <strong>${esc(p.name||act)} — ${st.online?'en ligne':'hors ligne'}</strong>
+        <strong>${esc(p.name||act)} — ${st.online?I18N.EN_LIGNE:I18N.HORS_LIGNE}</strong>
         — <code>${esc(p.server_url||'')}</code> — <strong>${st.ms||0}ms</strong>
-        <button class="btn bg2" style="margin-left:auto" onclick="loadEditor()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Re-tester</button></div>
+        <button class="btn bg2" style="margin-left:auto" onclick="loadEditor()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> ${I18N.ED_RETESTER}</button></div>
     ${st.detail?`<div style="font-family:var(--mono);font-size:.72rem;color:var(--text-m);margin:-6px 0 14px 4px">${esc(st.detail)}</div>`:''}
 
-    <div class="card" style="margin-bottom:16px"><div class="ch"><span><img src="/static/img/solid/list-check.svg" class="ico ico-accent" alt=""> Systeme d'edition actif</span>
+    <div class="card" style="margin-bottom:16px"><div class="ch"><span><img src="/static/img/solid/list-check.svg" class="ico ico-accent" alt=""> ${I18N.ED_SYSTEME_ACTIF}</span>
         <div style="display:flex;gap:8px">
-            <button class="btn bg2" onclick="showAddProvider()" style="height:28px;font-size:.75rem"><img src="/static/img/solid/plus.svg" class="ico ico-accent" alt=""> Ajouter un systeme</button>
-            ${Object.keys(ED.providers).length>1?`<button class="btn br2" onclick="deleteProvider('${esc(act)}')" style="height:28px;font-size:.75rem"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Supprimer</button>`:''}
+            <button class="btn bg2" onclick="showAddProvider()" style="height:28px;font-size:.75rem"><img src="/static/img/solid/plus.svg" class="ico ico-accent" alt=""> ${I18N.ED_AJOUTER_SYSTEME}</button>
+            ${Object.keys(ED.providers).length>1?`<button class="btn br2" onclick="deleteProvider('${esc(act)}')" style="height:28px;font-size:.75rem"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SUPPRIMER_FULL}</button>`:''}
         </div></div>
         <div class="cb"><div style="display:flex;gap:10px;flex-wrap:wrap">${cartes}</div>
         <label class="cl" style="margin-top:14px;display:flex;align-items:center;gap:8px;cursor:pointer">
             <input type="checkbox" id="ed-online-enabled" style="width:auto" ${ED.online_editing_enabled?'checked':''} onchange="selectEditor('${esc(act)}')">
-            Edition en ligne activee pour les utilisateurs</label>
+            ${I18N.ED_EDITION_LIGNE_ACTIVEE}</label>
         </div></div>
 
-    <div class="card"><div class="ch"><span><img src="/static/img/solid/gear.svg" class="ico ico-accent" alt=""> Parametres de « ${esc(p.name||act)} »</span>
+    <div class="card"><div class="ch"><span><img src="/static/img/solid/gear.svg" class="ico ico-accent" alt=""> ${I18N.ED_PARAMETRES_DE.replace('{name}',esc(p.name||act))}</span>
         <select class="isel" data-ed="enabled" onchange="null">
-            <option value="true" ${p.enabled!==false?'selected':''}>Active</option>
-            <option value="false" ${p.enabled===false?'selected':''}>Desactive</option>
+            <option value="true" ${p.enabled!==false?'selected':''}>${I18N.ACTIF}</option>
+            <option value="false" ${p.enabled===false?'selected':''}>${I18N.DESACTIF}</option>
         </select></div>
         <div class="cb">
             <div class="cgr">${champs}</div>
             <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px">
-                <label class="cl" style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" data-ed="jwt_enabled" style="width:auto" ${p.jwt_enabled?'checked':''}> JWT active</label>
-                <label class="cl" style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" data-ed="auto_save" style="width:auto" ${p.auto_save?'checked':''}> Sauvegarde auto</label>
-                <label class="cl" style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" data-ed="collaborative_editing" style="width:auto" ${p.collaborative_editing?'checked':''}> Edition collaborative</label>
+                <label class="cl" style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" data-ed="jwt_enabled" style="width:auto" ${p.jwt_enabled?'checked':''}> ${I18N.ED_JWT_ACTIVE}</label>
+                <label class="cl" style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" data-ed="auto_save" style="width:auto" ${p.auto_save?'checked':''}> ${I18N.ED_SAUVEGARDE_AUTO}</label>
+                <label class="cl" style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" data-ed="collaborative_editing" style="width:auto" ${p.collaborative_editing?'checked':''}> ${I18N.CFG_EDITION_COLLABORATIVE}</label>
             </div>
             <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
-                <button class="btn ba" onclick="saveProvider()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> Sauvegarder</button>
-                <button class="btn bg2" onclick="testProvider()"><img src="/static/img/solid/plug.svg" class="ico ico-accent" alt=""> Tester la connexion</button>
-                ${ED.is_super?`<button class="btn bg2" onclick="edCmd('start')"><img src="/static/img/solid/play.svg" class="ico ico-accent" alt=""> Demarrer</button>
-                <button class="btn br2" onclick="edCmd('stop')"><img src="/static/img/solid/stop.svg" class="ico" style="filter:invert(1)" alt=""> Arreter</button>`:''}
+                <button class="btn ba" onclick="saveProvider()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SAUVEGARDER}</button>
+                <button class="btn bg2" onclick="testProvider()"><img src="/static/img/solid/plug.svg" class="ico ico-accent" alt=""> ${I18N.ED_TESTER_CONNEXION}</button>
+                ${ED.is_super?`<button class="btn bg2" onclick="edCmd('start')"><img src="/static/img/solid/play.svg" class="ico ico-accent" alt=""> ${I18N.ED_DEMARRER}</button>
+                <button class="btn br2" onclick="edCmd('stop')"><img src="/static/img/solid/stop.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.ED_ARRETER}</button>`:''}
             </div>
             <div id="ed-test-result" style="margin-top:12px"></div>
         </div></div>`;
@@ -1474,18 +1471,18 @@ async function saveProvider(){
 async function testProvider(){
     const p=lireFormProvider();
     const el=document.getElementById('ed-test-result');
-    el.innerHTML='<div class="loading"><span class="spin"></span> Test en cours…</div>';
+    el.innerHTML=`<div class="loading"><span class="spin"></span> ${I18N.ED_TEST_EN_COURS}</div>`;
     const r=await post('/editor/test',{server_url:p.server_url,healthcheck_path:p.healthcheck_path,healthcheck_expect:p.healthcheck_expect||''});
     if(!r.success){el.innerHTML='';flash(r.error,true);return;}
     const d=r.data;
     el.innerHTML=`<div class="ob ${d.online?'ok':'nok'}" style="margin:0"><div class="od"></div>
-        <strong>${d.online?'Connexion OK':'Echec'}</strong> — ${d.ms}ms
+        <strong>${d.online?I18N.ED_CONNEXION_OK:I18N.ED_ECHEC_LABEL}</strong> — ${d.ms}ms
         <span style="color:var(--text-m);font-family:var(--mono);font-size:.73rem;margin-left:8px">${esc(d.detail||'')}</span></div>`;
 }
 
 async function edCmd(action){
     const r=await post('/editor/'+action,{id:ED.active});
-    flash(r.success?(action==='start'?'Serveur demarre.':'Serveur arrete.'):(r.error||r.output||'Echec.'),!r.success);
+    flash(r.success?(action==='start'?I18N.ED_SERVEUR_DEMARRE:I18N.ED_SERVEUR_ARRETE):(r.error||r.output||I18N.ED_ECHEC_PT),!r.success);
     if(r.output)document.getElementById('ed-test-result').innerHTML=`<div class="lb" style="max-height:220px">${esc(r.output)}</div>`;
     if(action==='start')loadEditor();
 }
@@ -1495,18 +1492,18 @@ function showAddProvider(){
     const m=document.createElement('div');m.id='add-ed-modal';m.className='modal-bg';
     m.innerHTML=`<div class="modal-box">
         <div style="font-weight:800;font-size:1.05rem;margin-bottom:14px;display:flex;align-items:center;gap:8px">
-            <img src="/static/img/solid/file-lines.svg" class="ico ico-accent" alt=""> Ajouter un systeme d'edition</div>
-        <div class="f"><label>Suite bureautique</label>
+            <img src="/static/img/solid/file-lines.svg" class="ico ico-accent" alt=""> ${I18N.ED_AJOUTER_SYSTEME_TITRE}</div>
+        <div class="f"><label>${I18N.ED_SUITE_BUREAUTIQUE}</label>
             <select id="new-ed-kind" class="ci" onchange="majPresetProvider()">
                 ${(ED.presets||[]).map(p=>`<option value="${esc(p.kind)}">${esc(p.name)}</option>`).join('')}
             </select>
             <div id="new-ed-desc" style="font-size:.76rem;color:var(--text-m);margin-top:7px;line-height:1.6"></div></div>
-        <div class="f"><label>Identifiant interne</label><input type="text" id="new-ed-id" class="ci" placeholder="ex: collabora"></div>
-        <div class="f"><label>Nom affiche</label><input type="text" id="new-ed-name" class="ci"></div>
-        <div class="f"><label>URL du serveur</label><input type="text" id="new-ed-url" class="ci"></div>
+        <div class="f"><label>${I18N.ED_IDENTIFIANT_INTERNE}</label><input type="text" id="new-ed-id" class="ci" placeholder="ex: collabora"></div>
+        <div class="f"><label>${I18N.ROLES_NOM_AFFICHE}</label><input type="text" id="new-ed-name" class="ci"></div>
+        <div class="f"><label>${I18N.ED_URL_SERVEUR}</label><input type="text" id="new-ed-url" class="ci"></div>
         <div style="display:flex;gap:10px;margin-top:16px">
-            <button class="btn ba" onclick="submitAddProvider()"><img src="/static/img/solid/check.svg" class="ico" style="filter:invert(1)" alt=""> Ajouter</button>
-            <button class="btn bg2" onclick="document.getElementById('add-ed-modal').remove()"><img src="/static/img/solid/xmark.svg" class="ico ico-gray" alt=""> Annuler</button>
+            <button class="btn ba" onclick="submitAddProvider()"><img src="/static/img/solid/check.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.AJOUTER}</button>
+            <button class="btn bg2" onclick="document.getElementById('add-ed-modal').remove()"><img src="/static/img/solid/xmark.svg" class="ico ico-gray" alt=""> ${I18N.ANNULER}</button>
         </div></div>`;
     document.body.appendChild(m);
     majPresetProvider();
@@ -1538,7 +1535,7 @@ async function submitAddProvider(){
 }
 
 async function deleteProvider(id){
-    if(!await confirmerDialogue(`Supprimer le systeme d'edition "${id}" ?`,{danger:true}))return;
+    if(!await confirmerDialogue(I18N.ED_CONFIRM_SUPPRIMER.replace('{id}',id),{danger:true}))return;
     const r=await post('/editor/delete',{id});
     if(r.success){flash(r.message);loadEditor();}else flash(r.error,true);
 }
@@ -1551,17 +1548,17 @@ async function loadP2p(){
     if(ri.success){const d=ri.data;document.getElementById('p2p-node-info').style.display='';document.getElementById('p2p-node-id').textContent=d.node_id||'';document.getElementById('p2p-node-url').textContent=d.vex_url||'';document.getElementById('p2p-pub-key').textContent=d.pub_key||'';document.getElementById('p2p-bootstrap').textContent=d.bootstrap||'';document.getElementById('p2p-chunk-size').textContent=d.chunk_size_bytes?(Math.round(d.chunk_size_bytes/1024)+' KB'):'';if(d.tor_addr)document.getElementById('p2p-tor-badge').style.display='';}
     const r=await api('/p2p/peers');if(!r.success){flash(r.error,true);return;}
     const d=r.data;document.getElementById('pill-p2p').textContent=d.online||0;document.getElementById('p2p-tab-peers-cnt').textContent=d.total||0;
-    document.getElementById('p2p-stats').innerHTML=`<div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/diagram-project.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${d.total}</div><div class="sc-l">Noeuds total</div></div><div class="sc" style="--si:#4ade80"><div class="sc-i"><img src="/static/img/solid/circle-check.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${d.online}</div><div class="sc-l">En ligne</div></div><div class="sc" style="--si:#ef4444"><div class="sc-i"><img src="/static/img/solid/circle-xmark.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${(d.total||0)-(d.online||0)}</div><div class="sc-l">Hors ligne</div></div>`;
-    if(!d.peers||!d.peers.length){document.getElementById('p2p-table').innerHTML='<div style="padding:30px;text-align:center;color:var(--text-m)">Aucun noeud enregistre</div>';}
-    else{document.getElementById('p2p-table').innerHTML=`<table class="t"><thead><tr><th>Node ID</th><th>URL VEX</th><th>Tor</th><th>Cle pub.</th><th>Statut</th><th>Vu le</th><th>Ver.</th><th>Action</th></tr></thead><tbody>${d.peers.map(p=>`<tr><td class="m" style="font-size:.7rem">${esc(p.node_id||'')}</td><td class="m"><a href="${esc(p.vex_url||'')}" target="_blank">${esc(p.vex_url||'')}</a></td><td class="m">${esc(p.tor_addr||'')}</td><td class="m" title="${esc(p.pub_key||'')}">${esc(p.pub_key?p.pub_key.slice(0,18)+'…':'')}</td><td><span class="b ${p.status==='online'?'bg':'br'}">${esc(p.status||'')}</span></td><td class="m">${esc(p.last_seen||'')}</td><td class="m">${esc(p.version||'?')}</td><td><button class="btn br2" onclick="kickPeer(${p.id})"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> Kick</button></td></tr>`).join('')}</tbody></table>`;}
+    document.getElementById('p2p-stats').innerHTML=`<div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/diagram-project.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${d.total}</div><div class="sc-l">${I18N.P2P_NOEUDS}</div></div><div class="sc" style="--si:#4ade80"><div class="sc-i"><img src="/static/img/solid/circle-check.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${d.online}</div><div class="sc-l">${I18N.EN_LIGNE}</div></div><div class="sc" style="--si:#ef4444"><div class="sc-i"><img src="/static/img/solid/circle-xmark.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${(d.total||0)-(d.online||0)}</div><div class="sc-l">${I18N.HORS_LIGNE}</div></div>`;
+    if(!d.peers||!d.peers.length){document.getElementById('p2p-table').innerHTML=`<div style="padding:30px;text-align:center;color:var(--text-m)">${I18N.P2P_AUCUN_NOEUD}</div>`;}
+    else{document.getElementById('p2p-table').innerHTML=`<table class="t"><thead><tr><th>Node ID</th><th>${I18N.P2P_COL_URL_VEX}</th><th>Tor</th><th>${I18N.P2P_COL_CLE_PUB}</th><th>${I18N.P2P_COL_STATUT}</th><th>${I18N.P2P_COL_VU_LE}</th><th>${I18N.P2P_COL_VER}</th><th>${I18N.ACTION}</th></tr></thead><tbody>${d.peers.map(p=>`<tr><td class="m" style="font-size:.7rem">${esc(p.node_id||'')}</td><td class="m"><a href="${esc(p.vex_url||'')}" target="_blank">${esc(p.vex_url||'')}</a></td><td class="m">${esc(p.tor_addr||'')}</td><td class="m" title="${esc(p.pub_key||'')}">${esc(p.pub_key?p.pub_key.slice(0,18)+'…':'')}</td><td><span class="b ${p.status==='online'?'bg':'br'}">${esc(p.status||'')}</span></td><td class="m">${esc(p.last_seen||'')}</td><td class="m">${esc(p.version||'?')}</td><td><button class="btn br2" onclick="kickPeer(${p.id})"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.P2P_KICK}</button></td></tr>`).join('')}</tbody></table>`;}
     const ru=await api('/p2p/users');
-    if(ru.success){document.getElementById('p2p-tab-users-cnt').textContent=ru.data.total||0;if(!ru.data.users||!ru.data.users.length){document.getElementById('p2p-users-table').innerHTML='<div style="padding:30px;text-align:center;color:var(--text-m)">Aucun utilisateur P2P connu</div>';}else{document.getElementById('p2p-users-table').innerHTML=`<table class="t"><thead><tr><th>ID@Noeud</th><th>Nom</th><th>Cle publique</th><th>Mis a jour</th></tr></thead><tbody>${ru.data.users.map(u=>`<tr><td class="m">${esc(u.user_id)}@<span style="font-size:.7rem">${esc((u.node_id||'').slice(0,12))}…</span></td><td><strong>${esc(u.nom||'')}</strong></td><td class="m" title="${esc(u.pub_key||'')}">${esc(u.pub_key?u.pub_key.slice(0,22)+'…':'')}</td><td class="m">${esc(u.updated_at||'')}</td></tr>`).join('')}</tbody></table>`;}}
+    if(ru.success){document.getElementById('p2p-tab-users-cnt').textContent=ru.data.total||0;if(!ru.data.users||!ru.data.users.length){document.getElementById('p2p-users-table').innerHTML=`<div style="padding:30px;text-align:center;color:var(--text-m)">${I18N.P2P_AUCUN_UTILISATEUR}</div>`;}else{document.getElementById('p2p-users-table').innerHTML=`<table class="t"><thead><tr><th>ID@Noeud</th><th>${I18N.NOM}</th><th>${I18N.P2P_COL_CLE_PUB}</th><th>${I18N.P2P_COL_VU_LE}</th></tr></thead><tbody>${ru.data.users.map(u=>`<tr><td class="m">${esc(u.user_id)}@<span style="font-size:.7rem">${esc((u.node_id||'').slice(0,12))}…</span></td><td><strong>${esc(u.nom||'')}</strong></td><td class="m" title="${esc(u.pub_key||'')}">${esc(u.pub_key?u.pub_key.slice(0,22)+'…':'')}</td><td class="m">${esc(u.updated_at||'')}</td></tr>`).join('')}</tbody></table>`;}}
 }
-async function loadP2pTransfers(){document.getElementById('p2p-transfers-table').innerHTML='<div class="loading"><span class="spin"></span></div>';const r=await api('/p2p/transfers');if(!r.success){flash(r.error,true);return;}const transfers=r.data.transfers||[];if(!transfers.length){document.getElementById('p2p-transfers-table').innerHTML='<div style="padding:30px;text-align:center;color:var(--text-m)">Aucun transfert</div>';return;}const sc={pending:'bx',in_progress:'bo',complete:'bg',error:'br'};document.getElementById('p2p-transfers-table').innerHTML=`<table class="t"><thead><tr><th>ID</th><th>Fichier</th><th>De -> Vers</th><th>Taille</th><th>Chunks</th><th>Statut</th><th>Date</th></tr></thead><tbody>${transfers.map(t=>{const pct=t.chunks_total?Math.round((t.chunks_ok/t.chunks_total)*100):0;const sz=t.fichier_size>1048576?(Math.round(t.fichier_size/1048576*10)/10)+' MB':Math.round(t.fichier_size/1024)+' KB';return`<tr><td class="m" style="font-size:.7rem">${esc((t.transfer_id||'').slice(0,8))}…</td><td><strong>${esc(t.fichier_nom||'')}</strong></td><td class="m" style="font-size:.72rem">${esc((t.from_node||'').slice(0,8))}… -> ${esc((t.to_node||'').slice(0,8))}…</td><td class="m">${sz}</td><td><span class="b bx">${t.chunks_ok||0}/${t.chunks_total||1}</span><div class="pg" style="margin-top:4px;width:60px"><div class="pgb" style="width:${pct}%"></div></div></td><td><span class="b ${sc[t.status]||'bx'}">${esc(t.status||'')}</span></td><td class="m">${esc(t.created_at||'')}</td></tr>`;}).join('')}</tbody></table>`;}
+async function loadP2pTransfers(){document.getElementById('p2p-transfers-table').innerHTML='<div class="loading"><span class="spin"></span></div>';const r=await api('/p2p/transfers');if(!r.success){flash(r.error,true);return;}const transfers=r.data.transfers||[];if(!transfers.length){document.getElementById('p2p-transfers-table').innerHTML=`<div style="padding:30px;text-align:center;color:var(--text-m)">${I18N.P2P_AUCUN_TRANSFERT}</div>`;return;}const sc={pending:'bx',in_progress:'bo',complete:'bg',error:'br'};document.getElementById('p2p-transfers-table').innerHTML=`<table class="t"><thead><tr><th>ID</th><th>${I18N.FICHIER_COL}</th><th>${I18N.P2P_DE_VERS}</th><th>${I18N.TAILLE_COL}</th><th>${I18N.P2P_CHUNKS}</th><th>${I18N.P2P_COL_STATUT}</th><th>${I18N.DATE}</th></tr></thead><tbody>${transfers.map(t=>{const pct=t.chunks_total?Math.round((t.chunks_ok/t.chunks_total)*100):0;const sz=t.fichier_size>1048576?(Math.round(t.fichier_size/1048576*10)/10)+' MB':Math.round(t.fichier_size/1024)+' KB';return`<tr><td class="m" style="font-size:.7rem">${esc((t.transfer_id||'').slice(0,8))}…</td><td><strong>${esc(t.fichier_nom||'')}</strong></td><td class="m" style="font-size:.72rem">${esc((t.from_node||'').slice(0,8))}… -> ${esc((t.to_node||'').slice(0,8))}…</td><td class="m">${sz}</td><td><span class="b bx">${t.chunks_ok||0}/${t.chunks_total||1}</span><div class="pg" style="margin-top:4px;width:60px"><div class="pgb" style="width:${pct}%"></div></div></td><td><span class="b ${sc[t.status]||'bx'}">${esc(t.status||'')}</span></td><td class="m">${esc(t.created_at||'')}</td></tr>`;}).join('')}</tbody></table>`;}
 async function loadP2pAnnuaire(){document.getElementById('p2p-annuaire-content').innerHTML='<div class="loading"><span class="spin"></span></div>';const r=await api('/p2p/annuaire');if(!r.success){flash(r.error,true);return;}document.getElementById('p2p-annuaire-content').innerHTML=`<div class="lb" id="p2p-annuaire-txt" style="max-height:500px">${esc(r.data.annuaire||'')}</div>`;}
-function copyAnnuaire(){const el=document.getElementById('p2p-annuaire-txt');if(el){navigator.clipboard.writeText(el.textContent).then(()=>flash('Annuaire copie.'));}}
-async function p2pSyncNow(){const btn=document.getElementById('p2p-sync-btn');btn.disabled=true;btn.innerHTML='<span class="spin"></span> Sync…';const r=await post('/p2p/sync_now');btn.disabled=false;btn.innerHTML='<img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Sync bootstrap';flash(r.success?r.message:r.error,!r.success);if(r.success)loadP2p();}
-async function kickPeer(id){if(!await confirmerDialogue('Supprimer ce noeud ?',{danger:true}))return;const r=await post('/p2p/kick',{peer_id:id});flash(r.success?r.message:r.error,!r.success);if(r.success)loadP2p();}
+function copyAnnuaire(){const el=document.getElementById('p2p-annuaire-txt');if(el){navigator.clipboard.writeText(el.textContent).then(()=>flash(I18N.P2P_ANNUAIRE_COPIE));}}
+async function p2pSyncNow(){const btn=document.getElementById('p2p-sync-btn');btn.disabled=true;btn.innerHTML=`<span class="spin"></span> ${I18N.P2P_SYNC_EN_COURS}`;const r=await post('/p2p/sync_now');btn.disabled=false;btn.innerHTML=`<img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> ${I18N.P2P_SYNC_BOOTSTRAP}`;flash(r.success?r.message:r.error,!r.success);if(r.success)loadP2p();}
+async function kickPeer(id){if(!await confirmerDialogue(I18N.P2P_CONFIRM_SUPPRIMER_NOEUD,{danger:true}))return;const r=await post('/p2p/kick',{peer_id:id});flash(r.success?r.message:r.error,!r.success);if(r.success)loadP2p();}
 
 /* ── Init ── */
 (async function(){

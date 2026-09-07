@@ -2,9 +2,11 @@
 // src/mess/mess.rs — Messagerie chiffrée VEX
 // ══════════════════════════════════════════════════════════════════
 
+use crate::access_control::get_header;
 use crate::appeldb::{selectionner, inserer_ou_modifier, DbPool};
 use crate::c::verifier_session;
-use crate::function::{build_nav_html, NavContext};
+use crate::function::{build_nav_html, get_user_language, NavContext};
+use crate::i18n::{self, Cle};
 use crate::utils;
 use serde_json::{json, Value};
 use tiny_http::{Request, Response};
@@ -52,14 +54,24 @@ pub fn handle(pool: &DbPool, request: &mut Request) -> Response<std::io::Cursor<
         .map(|h| h.value.as_str().to_string())
         .unwrap_or_default();
 
-    // ── Route HTML publique (pas d'auth)
-    if path == "/mess" || path == "/mess/" {
-        return serve_html();
-    }
-
     // ── Auth via verifier_session (même logique que tous les autres modules)
     let cookie_val = get_cookie(request, "connexion_cookie");
     let session    = verifier_session(pool, &cookie_val, &remote_ip, &user_agent);
+
+    // ── Route HTML publique (pas d'auth stricte) : la langue vient de la
+    // session si connecte, sinon de Accept-Language (meme pattern que
+    // login.rs) -- le JS cote client redirige de toute facon vers /login
+    // si la session est invalide.
+    if path == "/mess" || path == "/mess/" {
+        let accept_lang = get_header(request, "Accept-Language");
+        let langue = get_user_language(
+            pool,
+            if session.connecte { Some(session.user_id) } else { None },
+            None,
+            Some(&accept_lang),
+        );
+        return serve_html(&langue);
+    }
 
     if !session.connecte {
         return json_resp(json!({"success":false,"error":"Non authentifié"}), 401);
@@ -132,12 +144,55 @@ pub fn handle(pool: &DbPool, request: &mut Request) -> Response<std::io::Cursor<
 // Handlers
 // ══════════════════════════════════════════════════════════════════
 
-fn serve_html() -> Response<std::io::Cursor<Vec<u8>>> {
-    match std::fs::read("./static/mess/mess.html") {
-        Ok(d) => Response::from_data(d).with_header(
-            tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap()),
-        Err(_) => html_resp("<h1>mess.html introuvable</h1>", 404),
-    }
+fn serve_html(langue: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+    let html = match std::fs::read_to_string("./static/mess/mess.html") {
+        Ok(h) => h,
+        Err(_) => return html_resp("<h1>mess.html introuvable</h1>", 404),
+    };
+    let html = i18n::appliquer_traductions(&html, langue, &[
+        ("{{T_TITRE_ONGLET}}", Cle::MessTitreOnglet),
+        ("{{T_NOUVEAU_MESSAGE}}", Cle::MessNouveauMessage),
+        ("{{T_RECHERCHE_PLACEHOLDER}}", Cle::MessRecherchePlaceholder),
+        ("{{T_DOSSIERS}}", Cle::MessDossiers),
+        ("{{T_RECEPTION}}", Cle::MessReception),
+        ("{{T_ENVOYES}}", Cle::MessEnvoyes),
+        ("{{T_CORBEILLE}}", Cle::MessCorbeille),
+        ("{{T_CONNECTE}}", Cle::MessConnecte),
+        ("{{T_GENERATION_CLES}}", Cle::MessGenerationCles),
+        ("{{T_SELECTIONNEZ_MESSAGE}}", Cle::MessSelectionnezMessage),
+        ("{{T_DECHIFFREMENT_LOCAL}}", Cle::MessDechiffrementLocal),
+        ("{{T_LABEL_A}}", Cle::MessLabelA),
+        ("{{T_PLACEHOLDER_DESTINATAIRE}}", Cle::MessPlaceholderDestinataire),
+        ("{{T_LABEL_OBJET}}", Cle::MessLabelObjet),
+        ("{{T_PLACEHOLDER_OBJET}}", Cle::MessPlaceholderObjet),
+        ("{{T_LABEL_MESSAGE}}", Cle::MessLabelMessage),
+        ("{{T_PLACEHOLDER_VOTRE_MESSAGE}}", Cle::MessPlaceholderVotreMessage),
+        ("{{T_CHIFFRE_E2E}}", Cle::MessChiffreE2E),
+        ("{{T_ANNULER}}", Cle::MessAnnuler),
+        ("{{T_ENVOYER}}", Cle::MessEnvoyer),
+    ]);
+    let i18n_js = i18n::objet_js(langue, &[
+        ("CLES_ACTIVES", Cle::MessClesActives),
+        ("ERREUR_CHARGEMENT", Cle::MessErreurChargement),
+        ("DECHIFFREMENT_IMPOSSIBLE", Cle::MessDechiffrementImpossible),
+        ("AUCUN_MESSAGE", Cle::MessAucunMessage),
+        ("LOCALE_DATE", Cle::MessLocaleDate),
+        ("RETOUR", Cle::MessRetour),
+        ("REPONDRE", Cle::MessRepondre),
+        ("SUPPRIMER", Cle::MessSupprimer),
+        ("SUPPRIME_TOAST", Cle::MessSupprimeToast),
+        ("DECHIFFRE_LOCALEMENT_ECDH", Cle::MessDechiffreLocalementEcdh),
+        ("IMPOSSIBLE_DECHIFFRER", Cle::MessImpossibleDechiffrer),
+        ("CONFIRMER_SUPPRESSION", Cle::MessConfirmerSuppression),
+        ("CHAMPS_OBLIGATOIRES", Cle::MessChampsObligatoires),
+        ("CHIFFREMENT_EN_COURS", Cle::MessChiffrementEnCours),
+        ("DESTINATAIRE_SANS_CLE", Cle::MessDestinataireSansCle),
+        ("MESSAGE_ENVOYE", Cle::MessMessageEnvoye),
+        ("ERREUR_PREFIX", Cle::MessErreurPrefix),
+    ]);
+    let html = html.replacen("{{I18N_JS}}", &i18n_js, 1);
+    Response::from_data(html.into_bytes()).with_header(
+        tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap())
 }
 
 fn handle_prefs(
@@ -290,8 +345,10 @@ fn handle_send(
     let subj_enc = data["subj_enc"].as_str().unwrap_or("").to_string();
     let body_enc = data["body_enc"].as_str().unwrap_or("").to_string();
 
+    let langue = get_user_language(pool, Some(session.user_id), None, None);
+
     if to_email.is_empty() || subj_enc.is_empty() || body_enc.is_empty() {
-        return json_resp(json!({"success":false,"error":"Champs manquants"}), 400);
+        return json_resp(json!({"success":false,"error":i18n::t(&langue, Cle::MessErreurChampsManquants)}), 400);
     }
 
     // Vérifier que le destinataire existe
@@ -305,7 +362,7 @@ fn handle_send(
     ).is_empty();
 
     if !exists {
-        return json_resp(json!({"success":false,"error":"Destinataire introuvable"}), 404);
+        return json_resp(json!({"success":false,"error":i18n::t(&langue, Cle::MessErreurDestinataireIntrouvable)}), 404);
     }
 
     let now = std::time::SystemTime::now()

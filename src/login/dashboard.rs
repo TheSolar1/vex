@@ -14,7 +14,7 @@ use tiny_http::{Request, Response};
 
 // ── Utilitaires ───────────────────────────────────────────────────
 
-fn format_size(bytes: u64) -> String {
+fn format_size(bytes: u64, langue: &str) -> String {
     if bytes >= 1_073_741_824 {
         format!("{:.2} GB", bytes as f64 / 1_073_741_824.0)
     } else if bytes >= 1_048_576 {
@@ -22,23 +22,24 @@ fn format_size(bytes: u64) -> String {
     } else if bytes >= 1_024 {
         format!("{:.2} KB", bytes as f64 / 1_024.0)
     } else {
-        format!("{} octets", bytes)
+        crate::i18n::t(langue, crate::i18n::Cle::DashOctets).replace("{n}", &bytes.to_string())
     }
 }
 
-fn time_ago(datetime: &str) -> String {
+fn time_ago(datetime: &str, langue: &str) -> String {
+    use crate::i18n::{t, Cle};
     let ts = chrono::NaiveDateTime::parse_from_str(datetime, "%Y-%m-%d %H:%M:%S")
         .map(|dt| dt.and_utc().timestamp())
         .unwrap_or(0);
     let diff = chrono::Utc::now().timestamp() - ts;
     if diff < 60 {
-        "à l'instant".to_string()
+        t(langue, Cle::DashInstant).to_string()
     } else if diff < 3600 {
-        format!("{} min", diff / 60)
+        t(langue, Cle::DashMinutes).replace("{n}", &(diff / 60).to_string())
     } else if diff < 86400 {
-        format!("{} h", diff / 3600)
+        t(langue, Cle::DashHeures).replace("{n}", &(diff / 3600).to_string())
     } else if diff < 604800 {
-        format!("{} j", diff / 86400)
+        t(langue, Cle::DashJours).replace("{n}", &(diff / 86400).to_string())
     } else {
         chrono::NaiveDateTime::parse_from_str(datetime, "%Y-%m-%d %H:%M:%S")
             .map(|dt| dt.format("%d/%m/%Y").to_string())
@@ -230,6 +231,7 @@ fn build_admin_card(
     pool: &DbPool,
     prefs: &crate::function::UserPrefs,
     user_privilege: i64,
+    langue: &str,
 ) -> String {
     // Seul le fondateur voit le fondateur : ni son compte dans la liste
     // du staff, ni ses connexions dans le journal.
@@ -442,7 +444,7 @@ fn build_admin_card(
                 nom = he(v_str(log, "nom")),
                 email = he(v_str(log, "email")),
                 pc = he(v_str(log, "pc")),
-                time = time_ago(v_str(log, "datecra")),
+                time = time_ago(v_str(log, "datecra"), langue),
                 ts = ts_de(v_str(log, "datecra")),
             ));
         }
@@ -481,7 +483,7 @@ fn build_admin_card(
 
 /// Tuiles declarees par les extensions actives (config.json -> dashboard_tile).
 /// Aucune recompilation necessaire : le bloc est lu a chaque affichage.
-fn build_ext_tiles() -> String {
+fn build_ext_tiles(langue: &str) -> String {
     let mut out = String::new();
     for (id, e) in crate::function::extensions_actives("config.json") {
         let t = match e.get("dashboard_tile") {
@@ -522,7 +524,10 @@ fn build_ext_tiles() -> String {
             }
         }
         if lignes.is_empty() {
-            lignes = r#"<div class="empty-state"><i class="fas fa-puzzle-piece"></i><p>Rien a afficher</p></div>"#.to_string();
+            lignes = format!(
+                r#"<div class="empty-state"><i class="fas fa-puzzle-piece"></i><p>{}</p></div>"#,
+                he(crate::i18n::t(langue, crate::i18n::Cle::DashRienAfficher))
+            );
         }
 
         out.push_str(&format!(
@@ -535,7 +540,7 @@ fn build_ext_tiles() -> String {
                         <div class="card-title">{titre}</div>
                         <div class="card-subtitle">{sous}</div>
                     </div>
-                    <a href="{url}" class="btn-action"><i class="fas fa-arrow-right"></i> Ouvrir</a>
+                    <a href="{url}" class="btn-action"><i class="fas fa-arrow-right"></i> {ouvrir}</a>
                 </div>
                 <div class="card-content">{lignes}</div>
             </div>"#,
@@ -546,12 +551,13 @@ fn build_ext_tiles() -> String {
             sous = he(sous),
             url = he(&url),
             lignes = lignes,
+            ouvrir = he(crate::i18n::t(langue, crate::i18n::Cle::DashOuvrir)),
         ));
     }
     out
 }
 
-fn build_Fichiers_stats(pool: &DbPool, user_id: i64) -> String {
+fn build_Fichiers_stats(pool: &DbPool, user_id: i64, langue: &str) -> String {
     let total = compter_lignes(
         pool,
         "fichiers",
@@ -566,15 +572,12 @@ fn build_Fichiers_stats(pool: &DbPool, user_id: i64) -> String {
         None,
     );
     let size: u64 = all.iter().map(|f| v_u64(f, "taille")).sum();
-    format!(
-        "{} fichier{} — {}",
-        total,
-        if total > 1 { "s" } else { "" },
-        format_size(size)
-    )
+    crate::i18n::t(langue, crate::i18n::Cle::DashNbFichiers)
+        .replace("{n}", &total.to_string())
+        .replace("{taille}", &format_size(size, langue))
 }
 
-fn build_Fichiers_files(pool: &DbPool, user_id: i64) -> String {
+fn build_Fichiers_files(pool: &DbPool, user_id: i64, langue: &str) -> String {
     let mut files = selectionner(
         pool,
         "fichiers",
@@ -596,7 +599,10 @@ fn build_Fichiers_files(pool: &DbPool, user_id: i64) -> String {
         files.extend(pub_);
     }
     if files.is_empty() {
-        return r#"<div class="empty-state"><i class="fas fa-folder-open"></i><p>Aucun fichier</p></div>"#.to_string();
+        return format!(
+            r#"<div class="empty-state"><i class="fas fa-folder-open"></i><p>{}</p></div>"#,
+            he(crate::i18n::t(langue, crate::i18n::Cle::DashAucunFichier))
+        );
     }
     let mut html = String::new();
     for f in &files {
@@ -620,11 +626,14 @@ fn build_Fichiers_files(pool: &DbPool, user_id: i64) -> String {
             id   = id,
             ico  = file_icon(nom),
             nom  = he(nom),
-            size = format_size(v_u64(f, "taille")),
-            time = time_ago(v_str(f, "date")),
+            size = format_size(v_u64(f, "taille"), langue),
+            time = time_ago(v_str(f, "date"), langue),
         ));
     }
-    html.push_str(r#"<div class="show-more"><a href="/tel/"><i class="fas fa-chevron-right"></i> Tous les fichiers</a></div>"#);
+    html.push_str(&format!(
+        r#"<div class="show-more"><a href="/tel/"><i class="fas fa-chevron-right"></i> {}</a></div>"#,
+        he(crate::i18n::t(langue, crate::i18n::Cle::DashTousFichiers))
+    ));
     html
 }
 
@@ -641,7 +650,8 @@ fn build_mail_unread(pool: &DbPool, email: &str) -> String {
     .to_string()
 }
 
-fn build_mail_messages(pool: &DbPool, email: &str) -> String {
+fn build_mail_messages(pool: &DbPool, email: &str, langue: &str) -> String {
+    use crate::i18n::{t, Cle};
     let msgs = selectionner(
         pool,
         "mail",
@@ -654,23 +664,23 @@ fn build_mail_messages(pool: &DbPool, email: &str) -> String {
         Some(5),
     );
     if msgs.is_empty() {
-        return r#"<div class="empty-state"><i class="fas fa-inbox"></i><p>Aucun email récent</p></div>"#.to_string();
+        return format!(
+            r#"<div class="empty-state"><i class="fas fa-inbox"></i><p>{}</p></div>"#,
+            he(t(langue, Cle::DashAucunEmail))
+        );
     }
     let mut html = String::new();
     for m in &msgs {
         let objet = v_str(m, "objet");
-        let objet = if objet.trim().is_empty() {
-            "(Sans objet)"
-        } else {
-            objet
-        };
+        let objet_traduit = t(langue, Cle::DashSansObjet).to_string();
+        let objet = if objet.trim().is_empty() { &objet_traduit } else { objet };
         html.push_str(&format!(
             r#"<div class="mail-item" onclick="window.location.href='/mess/vexmail'">
                 <div class="item-left">
                     <i class="fas fa-envelope item-icon"></i>
                     <div class="item-info">
                         <div class="item-title">{objet}</div>
-                        <div class="item-subtitle">De: {from}</div>
+                        <div class="item-subtitle">{from}</div>
                     </div>
                 </div>
                 <div class="item-right">
@@ -679,20 +689,23 @@ fn build_mail_messages(pool: &DbPool, email: &str) -> String {
                 </div>
             </div>"#,
             objet = he(objet),
-            from  = he(v_str(m, "cd@")),
-            time  = time_ago(v_str(m, "date")),
+            from  = he(&t(langue, Cle::DashDe).replace("{from}", v_str(m, "cd@"))),
+            time  = time_ago(v_str(m, "date"), langue),
         ));
     }
-    html.push_str(r#"<div class="show-more"><a href="/mess/vexmail"><i class="fas fa-chevron-right"></i> Tous les emails</a></div>"#);
+    html.push_str(&format!(
+        r#"<div class="show-more"><a href="/mess/vexmail"><i class="fas fa-chevron-right"></i> {}</a></div>"#,
+        he(t(langue, Cle::DashTousEmails))
+    ));
     html
 }
 
-fn build_sitec_stats(pool: &DbPool, user_id: i64) -> String {
+fn build_sitec_stats(pool: &DbPool, user_id: i64, langue: &str) -> String {
     let n = compter_lignes(pool, "sitec", &[("user_id", mysql::Value::from(user_id))]);
-    format!("{} site{}", n, if n > 1 { "s" } else { "" })
+    crate::i18n::t(langue, crate::i18n::Cle::DashNbSites).replace("{n}", &n.to_string())
 }
 
-fn build_sitec_sites(pool: &DbPool, user_id: i64) -> String {
+fn build_sitec_sites(pool: &DbPool, user_id: i64, langue: &str) -> String {
     let mut sites = selectionner(
         pool,
         "sitec",
@@ -714,7 +727,10 @@ fn build_sitec_sites(pool: &DbPool, user_id: i64) -> String {
         sites.extend(pub_);
     }
     if sites.is_empty() {
-        return r#"<div class="empty-state"><i class="fas fa-globe"></i><p>Aucun site créé</p></div>"#.to_string();
+        return format!(
+            r#"<div class="empty-state"><i class="fas fa-globe"></i><p>{}</p></div>"#,
+            he(crate::i18n::t(langue, crate::i18n::Cle::DashAucunSite))
+        );
     }
     let mut html = String::new();
     for s in &sites {
@@ -729,17 +745,20 @@ fn build_sitec_sites(pool: &DbPool, user_id: i64) -> String {
                     </div>
                 </div>
                 <div class="item-right">
-                    <span class="item-badge badge-info">{pop} vues</span>
+                    <span class="item-badge badge-info">{vues}</span>
                     <a href="{url}" target="_blank" class="btn-action" onclick="event.stopPropagation();"><i class="fas fa-external-link-alt"></i></a>
                 </div>
             </div>"#,
             url     = he(&url),
             nom     = he(v_str(s, "nompage")),
             urlpage = he(v_str(s, "urlpage")),
-            pop     = v_u64(s, "popular"),
+            vues    = he(&crate::i18n::t(langue, crate::i18n::Cle::DashVues).replace("{n}", &v_u64(s, "popular").to_string())),
         ));
     }
-    html.push_str(r#"<div class="show-more"><a href="/sitec/"><i class="fas fa-chevron-right"></i> Tous les sites</a></div>"#);
+    html.push_str(&format!(
+        r#"<div class="show-more"><a href="/sitec/"><i class="fas fa-chevron-right"></i> {}</a></div>"#,
+        he(crate::i18n::t(langue, crate::i18n::Cle::DashTousSites))
+    ));
     html
 }
 
@@ -783,9 +802,10 @@ pub fn handle_request(request: Request, pool: &DbPool, _config: &VexConfig, remo
 
     let prefs = get_user_preferences(pool, user_id);
     let theme = if prefs.teme == 1 { "dark" } else { "light" };
+    let langue = crate::function::get_user_language(pool, Some(user_id), None, None);
 
     // ── Tuiles publiees par les extensions ────────────────────────
-    let ext_tiles = build_ext_tiles();
+    let ext_tiles = build_ext_tiles(&langue);
 
     // ── Tuiles masquees par l'utilisateur ─────────────────────────
     let masquees: Vec<String> = prefs
@@ -806,7 +826,7 @@ pub fn handle_request(request: Request, pool: &DbPool, _config: &VexConfig, remo
         let corps = if user_privilege < 8 {
             serde_json::json!({
                 "success": true,
-                "html": build_admin_card(pool, &prefs, user_privilege)
+                "html": build_admin_card(pool, &prefs, user_privilege, &langue)
             })
         } else {
             serde_json::json!({"success": false, "error": "Non autorise"})
@@ -848,13 +868,35 @@ pub fn handle_request(request: Request, pool: &DbPool, _config: &VexConfig, remo
     };
 
     let admin_card = if user_privilege < 8 {
-        build_admin_card(pool, &prefs, user_privilege)
+        build_admin_card(pool, &prefs, user_privilege, &langue)
     } else {
         String::new()
     };
 
     // ── Remplace tous les placeholders + navbar ──────────────────
-    let html = template
+    let html = crate::i18n::appliquer_traductions(
+        &template,
+        &langue,
+        &[
+            ("{{T_TITRE_ONGLET}}", crate::i18n::Cle::DashTitreOnglet),
+            ("{{T_SESSION_EXPIREE}}", crate::i18n::Cle::DashSessionExpiree),
+            ("{{T_BIENVENUE}}", crate::i18n::Cle::DashBienvenue),
+            ("{{T_FICHIERS_TITRE}}", crate::i18n::Cle::DashFichiersTitre),
+            ("{{T_OUVRIR_1}}", crate::i18n::Cle::DashOuvrir),
+            ("{{T_OUVRIR_2}}", crate::i18n::Cle::DashOuvrir),
+            ("{{T_OUVRIR_3}}", crate::i18n::Cle::DashOuvrir),
+            ("{{T_OUVRIR_4}}", crate::i18n::Cle::DashOuvrir),
+            ("{{T_NON_LU}}", crate::i18n::Cle::DashNonLu),
+            ("{{T_CREER}}", crate::i18n::Cle::DashCreer),
+            ("{{T_EDITEUR_TITRE}}", crate::i18n::Cle::DashEditeurTitre),
+            ("{{T_EDITEUR_SOUS}}", crate::i18n::Cle::DashEditeurSous),
+            ("{{T_EDITEUR_VIDE}}", crate::i18n::Cle::DashEditeurVide),
+            ("{{T_VIDEOS_TITRE}}", crate::i18n::Cle::DashVideosTitre),
+            ("{{T_VIDEOS_SOUS}}", crate::i18n::Cle::DashVideosSous),
+            ("{{T_VIDEOS_VIDE}}", crate::i18n::Cle::DashVideosVide),
+        ],
+    );
+    let html = html
         .replace("__NAV_HTML__", &nav_html)
         .replace("{{THEME}}", theme)
         .replace(
@@ -864,12 +906,12 @@ pub fn handle_request(request: Request, pool: &DbPool, _config: &VexConfig, remo
         .replace("{{TUILES_STYLE}}", &tuiles_style)
         .replace("{{EXT_TILES}}", &ext_tiles)
         .replace("{{ADMIN_CARD}}", &admin_card)
-        .replace("{{Fichiers_STATS}}", &build_Fichiers_stats(pool, user_id))
-        .replace("{{Fichiers_FILES}}", &build_Fichiers_files(pool, user_id))
+        .replace("{{Fichiers_STATS}}", &build_Fichiers_stats(pool, user_id, &langue))
+        .replace("{{Fichiers_FILES}}", &build_Fichiers_files(pool, user_id, &langue))
         .replace("{{MAIL_UNREAD}}", &build_mail_unread(pool, &user_email))
-        .replace("{{MAIL_MESSAGES}}", &build_mail_messages(pool, &user_email))
-        .replace("{{SITEC_STATS}}", &build_sitec_stats(pool, user_id))
-        .replace("{{SITEC_SITES}}", &build_sitec_sites(pool, user_id));
+        .replace("{{MAIL_MESSAGES}}", &build_mail_messages(pool, &user_email, &langue))
+        .replace("{{SITEC_STATS}}", &build_sitec_stats(pool, user_id, &langue))
+        .replace("{{SITEC_SITES}}", &build_sitec_sites(pool, user_id, &langue));
 
     let _ = request.respond(
         Response::from_string(html)

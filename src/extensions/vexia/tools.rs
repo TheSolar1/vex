@@ -141,12 +141,12 @@ pub(crate) fn authorized_for(tool: &ToolSpec, session: &SessionInfo) -> bool {
 fn tool_admin_set_user_privilege(pool: &DbPool, session: &SessionInfo, args: &Value) -> Result<Value, String> {
     let target_id = args.get("target_user_id").and_then(|v| v.as_i64()).ok_or("target_user_id manquant")?;
     let new_privilege = args.get("new_privilege").and_then(|v| v.as_i64()).ok_or("new_privilege manquant")?;
-    actions::set_user_privilege(pool, session.user_id, session.user_privilege, target_id, new_privilege)
+    actions::set_user_privilege(pool, session.user_id, session.user_privilege, target_id, new_privilege, "fr")
 }
 
 fn tool_admin_delete_user(pool: &DbPool, session: &SessionInfo, args: &Value) -> Result<Value, String> {
     let target_id = args.get("target_user_id").and_then(|v| v.as_i64()).ok_or("target_user_id manquant")?;
-    actions::delete_user(pool, session.user_id, session.user_privilege, target_id)
+    actions::delete_user(pool, session.user_id, session.user_privilege, target_id, "fr")
 }
 
 fn tool_mess_list_my_messages(pool: &DbPool, session: &SessionInfo, args: &Value) -> Result<Value, String> {

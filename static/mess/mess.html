@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Messagerie — VEX</title>
+<title>{{T_TITRE_ONGLET}}</title>
 <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
 <link rel="stylesheet" href="/static/css/theme.css">
 <style>
@@ -359,36 +359,36 @@ body {
 
     <button class="btn-nouveau" id="composeBtn">
       <img class="ico ico-sm ico-white" src="/static/img/solid/plus.svg">
-      Nouveau message
+      {{T_NOUVEAU_MESSAGE}}
     </button>
 
     <div class="sidebar-search">
       <img class="ico ico-sm ico-muted ico-search" src="/static/img/solid/magnifying-glass.svg">
-      <input type="text" id="searchInput" placeholder="Rechercher…">
+      <input type="text" id="searchInput" placeholder="{{T_RECHERCHE_PLACEHOLDER}}">
     </div>
 
     <div class="folder-section">
-      <div class="folder-label-sep">Dossiers</div>
+      <div class="folder-label-sep">{{T_DOSSIERS}}</div>
       <button class="folder active" data-folder="inbox">
         <img class="ico ico-18 ico-muted" src="/static/img/solid/inbox.svg">
-        <span>Réception</span>
+        <span>{{T_RECEPTION}}</span>
         <span class="folder-badge" id="inboxBadge">0</span>
       </button>
       <button class="folder" data-folder="sent">
         <img class="ico ico-18 ico-muted" src="/static/img/solid/paper-plane.svg">
-        <span>Envoyés</span>
+        <span>{{T_ENVOYES}}</span>
       </button>
       <button class="folder" data-folder="trash">
         <img class="ico ico-18 ico-muted" src="/static/img/solid/trash.svg">
-        <span>Corbeille</span>
+        <span>{{T_CORBEILLE}}</span>
       </button>
     </div>
 
     <div class="sidebar-foot">
-      <div>Connecté : <strong id="userEmail">—</strong></div>
+      <div>{{T_CONNECTE}} <strong id="userEmail">—</strong></div>
       <div class="key-info" id="keyInfo">
         <img class="ico ico-sm ico-primary ico-spin" id="keyIco" src="/static/img/solid/arrows-rotate.svg">
-        <span id="keyLabel">Génération des clés…</span>
+        <span id="keyLabel">{{T_GENERATION_CLES}}</span>
       </div>
     </div>
   </aside>
@@ -402,8 +402,8 @@ body {
   <div class="msg-content" id="msgContent">
     <div class="empty-state">
       <img class="ico ico-52 ico-muted" src="/static/img/solid/lock.svg">
-      <p>Sélectionnez un message</p>
-      <small>Déchiffrement local · clé privée</small>
+      <p>{{T_SELECTIONNEZ_MESSAGE}}</p>
+      <small>{{T_DECHIFFREMENT_LOCAL}}</small>
     </div>
   </div>
 
@@ -415,35 +415,35 @@ body {
     <div class="modal-header">
       <div class="modal-header-title">
         <img class="ico ico-20 ico-primary" src="/static/img/solid/lock.svg">
-        Nouveau message
+        {{T_NOUVEAU_MESSAGE}}
       </div>
       <button class="close-btn" id="closeModal">&times;</button>
     </div>
     <div class="modal-body">
       <div class="form-group ac">
-        <label>À (email)</label>
-        <input type="text" id="toInput" placeholder="destinataire@…" autocomplete="off">
+        <label>{{T_LABEL_A}}</label>
+        <input type="text" id="toInput" placeholder="{{T_PLACEHOLDER_DESTINATAIRE}}" autocomplete="off">
         <div class="ac-list" id="acList"></div>
       </div>
       <div class="form-group">
-        <label>Objet</label>
-        <input type="text" id="subjInput" placeholder="Objet du message">
+        <label>{{T_LABEL_OBJET}}</label>
+        <input type="text" id="subjInput" placeholder="{{T_PLACEHOLDER_OBJET}}">
       </div>
       <div class="form-group">
-        <label>Message</label>
-        <textarea id="msgInput" placeholder="Votre message…"></textarea>
+        <label>{{T_LABEL_MESSAGE}}</label>
+        <textarea id="msgInput" placeholder="{{T_PLACEHOLDER_VOTRE_MESSAGE}}"></textarea>
       </div>
     </div>
     <div class="modal-footer">
       <div class="enc-note">
         <img class="ico ico-sm ico-primary" src="/static/img/solid/shield-halved.svg">
-        Chiffré E2E · clé publique du destinataire
+        {{T_CHIFFRE_E2E}}
       </div>
       <div style="display:flex;gap:10px;">
-        <button class="btn btn-secondary" id="cancelBtn">Annuler</button>
+        <button class="btn btn-secondary" id="cancelBtn">{{T_ANNULER}}</button>
         <button class="btn btn-primary" id="sendBtn">
           <img class="ico ico-sm ico-white" src="/static/img/solid/paper-plane.svg">
-          Envoyer
+          {{T_ENVOYER}}
         </button>
       </div>
     </div>
@@ -453,6 +453,7 @@ body {
 <div id="toast-area"></div>
 
 <script>
+{{I18N_JS}}
 'use strict';
 // ════════════════════════════════════════════════════════════════
 // CONFIG
@@ -555,7 +556,7 @@ async function publishPubKey(pub) {
 function setKeyOk() {
   document.getElementById('keyIco').classList.remove('ico-spin');
   document.getElementById('keyIco').src = `${ICO}circle-check.svg`;
-  document.getElementById('keyLabel').textContent = 'Clés E2E actives';
+  document.getElementById('keyLabel').textContent = I18N.CLES_ACTIVES;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -611,7 +612,7 @@ async function loadMessages() {
     document.getElementById('msgList').innerHTML =
       `<div class="empty-state" style="padding:40px;">
         <img class="ico ico-32 ico-red" src="${ICO}circle-exclamation.svg">
-        <p style="margin-top:12px;">Erreur de chargement</p>
+        <p style="margin-top:12px;">${I18N.ERREUR_CHARGEMENT}</p>
        </div>`;
   }
 }
@@ -625,7 +626,7 @@ async function decryptMsg(m) {
       ok: true,
     };
   } catch {
-    decrypted[m.id] = { subject:'[Déchiffrement impossible]', body:'', ok:false };
+    decrypted[m.id] = { subject:I18N.DECHIFFREMENT_IMPOSSIBLE, body:'', ok:false };
   }
   return decrypted[m.id];
 }
@@ -655,7 +656,7 @@ function renderList() {
   if (!filtered.length) {
     el.innerHTML = `<div class="empty-state" style="padding:40px;">
       <img class="ico ico-32 ico-muted" src="${ICO}inbox.svg">
-      <p style="margin-top:12px;">Aucun message</p>
+      <p style="margin-top:12px;">${I18N.AUCUN_MESSAGE}</p>
     </div>`;
     return;
   }
@@ -667,7 +668,7 @@ function renderList() {
     const prev   = d ? d.body.slice(0,55) : '';
     const unread = !m.lu && currentFolder !== 'sent';
     const active = selectedMsg?.id === m.id;
-    const date   = new Date(m.created_at * 1000).toLocaleDateString('fr-FR');
+    const date   = new Date(m.created_at * 1000).toLocaleDateString(I18N.LOCALE_DATE);
     return `<div class="msg-item${unread?' unread':''}${active?' active':''}" data-id="${m.id}">
       <div class="msg-row">
         <div class="msg-from">${esc(from.split('@')[0])}</div>
@@ -701,20 +702,20 @@ async function selectMessage(id) {
 
   const d   = await decryptMsg(m);
   const who = currentFolder === 'sent' ? m.to_email : m.from_email;
-  const date= new Date(m.created_at*1000).toLocaleString('fr-FR');
+  const date= new Date(m.created_at*1000).toLocaleString(I18N.LOCALE_DATE);
 
   document.getElementById('msgContent').innerHTML = `
     <div class="msg-card">
       <div class="msg-card-hdr">
         <div class="msg-actions">
           <button class="btn btn-secondary" onclick="deselect()">
-            <img class="ico ico-sm ico-muted" src="${ICO}arrow-left.svg"> Retour
+            <img class="ico ico-sm ico-muted" src="${ICO}arrow-left.svg"> ${I18N.RETOUR}
           </button>
           <button class="btn btn-primary" onclick="replyTo(${m.id})">
-            <img class="ico ico-sm ico-white" src="${ICO}reply.svg"> Répondre
+            <img class="ico ico-sm ico-white" src="${ICO}reply.svg"> ${I18N.REPONDRE}
           </button>
           ${currentFolder!=='sent'?`<button class="btn btn-danger" onclick="deleteMsg(${m.id})">
-            <img class="ico ico-sm ico-white" src="${ICO}trash.svg"> Supprimer
+            <img class="ico ico-sm ico-white" src="${ICO}trash.svg"> ${I18N.SUPPRIMER}
           </button>`:''}
         </div>
         <h2 class="msg-title">${esc(d.subject)}</h2>
@@ -726,7 +727,7 @@ async function selectMessage(id) {
             <div class="msg-meta">${date}</div>
             <div class="enc-stamp">
               <img class="ico ico-sm ico-primary" src="${ICO}shield-halved.svg">
-              Déchiffré localement · ECDH P-256 + AES-256-GCM
+              ${I18N.DECHIFFRE_LOCALEMENT_ECDH}
             </div>
           </div>
         </div>
@@ -736,7 +737,7 @@ async function selectMessage(id) {
           ? `<div class="msg-body">${esc(d.body)}</div>`
           : `<div class="decrypt-err">
               <img class="ico ico-18 ico-red" src="${ICO}circle-exclamation.svg">
-              Impossible de déchiffrer ce message.
+              ${I18N.IMPOSSIBLE_DECHIFFRER}
              </div>`
         }
       </div>
@@ -748,8 +749,8 @@ function deselect() {
   document.getElementById('msgContent').innerHTML = `
     <div class="empty-state">
       <img class="ico ico-52 ico-muted" src="${ICO}lock.svg">
-      <p>Sélectionnez un message</p>
-      <small>Déchiffrement local · clé privée</small>
+      <p>${I18N.SELECTIONNEZ_MESSAGE}</p>
+      <small>${I18N.DECHIFFREMENT_LOCAL}</small>
     </div>`;
   renderList();
 }
@@ -758,11 +759,11 @@ function deselect() {
 // ACTIONS
 // ════════════════════════════════════════════════════════════════
 async function deleteMsg(id) {
-  if (!confirm('Supprimer ce message ?')) return;
+  if (!confirm(I18N.CONFIRMER_SUPPRESSION)) return;
   await apiFetch(`${API}/delete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
   messages = messages.filter(m => m.id !== id);
   deselect();
-  toast('Supprimé','ok');
+  toast(I18N.SUPPRIME_TOAST,'ok');
 }
 
 function replyTo(id) {
@@ -781,17 +782,17 @@ async function sendMessage() {
   const to   = document.getElementById('toInput').value.trim();
   const subj = document.getElementById('subjInput').value.trim();
   const body = document.getElementById('msgInput').value.trim();
-  if (!to||!subj||!body) { toast('Champs obligatoires','err'); return; }
+  if (!to||!subj||!body) { toast(I18N.CHAMPS_OBLIGATOIRES,'err'); return; }
 
   const btn = document.getElementById('sendBtn');
   btn.disabled = true;
-  btn.innerHTML = `<img class="ico ico-sm ico-white ico-spin" src="${ICO}arrows-rotate.svg"> Chiffrement…`;
+  btn.innerHTML = `<img class="ico ico-sm ico-white ico-spin" src="${ICO}arrows-rotate.svg"> ${I18N.CHIFFREMENT_EN_COURS}`;
 
   try {
     const kr = await apiFetch(`${API}/pubkey/${encodeURIComponent(to)}`);
     const kd = await kr.json();
     if (!kd.success||!kd.pub_key) {
-      toast('Destinataire sans clé — doit ouvrir la messagerie une fois','warn'); return;
+      toast(I18N.DESTINATAIRE_SANS_CLE,'warn'); return;
     }
     const recipPub = await impPub(kd.pub_key);
     const r = await apiFetch(`${API}/send`,{
@@ -803,13 +804,13 @@ async function sendMessage() {
       }),
     });
     const data = await r.json();
-    if (data.success) { closeModal('composeModal'); toast('Message envoyé ✓','ok'); }
-    else toast('Erreur : '+(data.error||'?'),'err');
+    if (data.success) { closeModal('composeModal'); toast(I18N.MESSAGE_ENVOYE,'ok'); }
+    else toast(I18N.ERREUR_PREFIX+(data.error||'?'),'err');
   } catch(e) {
-    if (e.message!=='Session expirée') toast('Erreur : '+e.message,'err');
+    if (e.message!=='Session expirée') toast(I18N.ERREUR_PREFIX+e.message,'err');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = `<img class="ico ico-sm ico-white" src="${ICO}paper-plane.svg"> Envoyer`;
+    btn.innerHTML = `<img class="ico ico-sm ico-white" src="${ICO}paper-plane.svg"> ${I18N.ENVOYER}`;
   }
 }
 

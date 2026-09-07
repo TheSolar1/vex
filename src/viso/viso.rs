@@ -21,7 +21,8 @@ use crate::appeldb::{
     compter_lignes, inserer_ou_modifier, selectionner, supprimer_ligne, verifier_connexion,
     DbPool,
 };
-use crate::function::{build_nav_html, get_theme_attr, NavContext};
+use crate::function::{build_nav_html, get_theme_attr, get_user_language, NavContext};
+use crate::i18n::{self, Cle};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::io::{Cursor, Read};
@@ -88,6 +89,7 @@ pub fn handle(pool: &DbPool, request: &mut Request) -> Response<Cursor<Vec<u8>>>
 
     let cookie_val = lire_cookie(request, "connexion_cookie");
     let user_agent = lire_header(request, "User-Agent");
+    let accept_lang = lire_header(request, "Accept-Language");
     let remote_ip = crate::utils::strip_port(
         &request.remote_addr().map(|a| a.to_string()).unwrap_or_default(),
     );
@@ -100,11 +102,21 @@ pub fn handle(pool: &DbPool, request: &mut Request) -> Response<Cursor<Vec<u8>>>
         let _ = request.as_reader().read_to_string(&mut body);
         let params = crate::utils::parse_query(&format!("?{}", body));
         let action = params.get("action").cloned().unwrap_or_default();
-        let res = handle_viso_action(pool, &action, &params, &cookie_val, &remote_ip, &user_agent);
+        let langue = resoudre_langue(pool, &cookie_val, &accept_lang);
+        let res = handle_viso_action(pool, &action, &params, &cookie_val, &remote_ip, &user_agent, &langue);
         return json_response(&res, 200);
     }
 
-    render_page(pool, &cookie_val, &remote_ip, &user_agent)
+    render_page(pool, &cookie_val, &remote_ip, &user_agent, &accept_lang)
+}
+
+/// Resout la langue d'affichage pour les reponses de l'API viso : pref
+/// utilisateur si `auth_viso` reconnait le cookie (verification allegee,
+/// cookie + expiration seulement -- voir sa doc plus bas), sinon
+/// Accept-Language (meme repli que login.rs pour les visiteurs anonymes).
+fn resoudre_langue(pool: &DbPool, cookie_val: &str, accept_lang: &str) -> String {
+    let user_id = auth_viso(pool, cookie_val).map(|(id, _, _)| id);
+    get_user_language(pool, user_id, None, Some(accept_lang))
 }
 
 // ── Construction des réponses HTTP ──────────────────────────────────
@@ -149,6 +161,7 @@ fn render_page(
     cookie_val: &str,
     remote_ip: &str,
     user_agent: &str,
+    accept_lang: &str,
 ) -> Response<Cursor<Vec<u8>>> {
     let user = verifier_connexion(pool, cookie_val, remote_ip, user_agent);
     let user_id = user.as_ref().and_then(|u| u.get("id").and_then(|v| v.as_i64()));
@@ -157,6 +170,7 @@ fn render_page(
     let theme = user_id
         .map(|uid| get_theme_attr(pool, uid))
         .unwrap_or("light");
+    let langue = get_user_language(pool, user_id, None, Some(accept_lang));
 
     let ctx = NavContext {
         pool,
@@ -178,6 +192,51 @@ fn render_page(
     // de tête quand {{NAV_HTML}} apparaissait aussi dans un commentaire CSS).
     let page = replace_first(PAGE_HTML, "{{NAV_HTML}}", &nav_html)
         .replace("{{THEME}}", theme);
+    let page = i18n::appliquer_traductions(&page, &langue, &[
+        ("{{T_TITRE_ONGLET}}", Cle::VisoTitreOnglet),
+        ("{{T_APPEL_VIDEO_VEX}}", Cle::VisoAppelVideoVex),
+        ("{{T_SOUS_TITRE}}", Cle::VisoSousTitre),
+        ("{{T_CREER_UNE_SALLE}}", Cle::VisoCreerUneSalle),
+        ("{{T_REJOINDRE}}", Cle::VisoRejoindre),
+        ("{{T_NOM_APPEL}}", Cle::VisoNomAppel),
+        ("{{T_PLACEHOLDER_REUNION}}", Cle::VisoPlaceholderReunion),
+        ("{{T_MDP_OPTIONNEL}}", Cle::VisoMdpOptionnel),
+        ("{{T_PLACEHOLDER_LAISSER_VIDE}}", Cle::VisoPlaceholderLaisserVide),
+        ("{{T_CREER_ET_DEMARRER}}", Cle::VisoCreerEtDemarrer),
+        ("{{T_CODE_SALLE}}", Cle::VisoCodeSalle),
+        ("{{T_MDP_SI_DEMANDE}}", Cle::VisoMdpSiDemande),
+        ("{{T_REJOINDRE_APPEL}}", Cle::VisoRejoindreAppel),
+        ("{{T_NOTE_SECURITE}}", Cle::VisoNoteSecurite),
+        ("{{T_APPEL_VEX_DEFAULT}}", Cle::VisoAppelVexDefault),
+        ("{{T_CONNEXION_EN_COURS}}", Cle::VisoConnexionEnCours),
+        ("{{T_COPIER_LE_CODE}}", Cle::VisoCopierLeCode),
+        ("{{T_SEUL_DANS_APPEL}}", Cle::VisoSeulDansAppel),
+        ("{{T_MICRO}}", Cle::VisoMicro),
+        ("{{T_CAMERA}}", Cle::VisoCamera),
+        ("{{T_PARTAGER_ECRAN}}", Cle::VisoPartagerEcran),
+        ("{{T_QUITTER_APPEL}}", Cle::VisoQuitterAppel),
+    ]);
+    let i18n_js = i18n::objet_js(&langue, &[
+        ("VOUS_DEFAULT", Cle::VisoVousDefault),
+        ("VOUS_SUFFIX", Cle::VisoVousSuffix),
+        ("PARTICIPANT_DEFAULT", Cle::VisoParticipantDefault),
+        ("PARTAGE_ECRAN_DEMARRE", Cle::VisoPartageEcranDemarre),
+        ("PARTAGE_ECRAN_ARRETE", Cle::VisoPartageEcranArrete),
+        ("PARTAGE_ECRAN_ANNULE", Cle::VisoPartageEcranAnnule),
+        ("CODE_COPIE", Cle::VisoCodeCopie),
+        ("CREATION_EN_COURS", Cle::VisoCreationEnCours),
+        ("CREER_ET_DEMARRER", Cle::VisoCreerEtDemarrer),
+        ("ERREUR_INCONNUE", Cle::VisoErreurInconnue),
+        ("MERCI_SAISIR_CODE", Cle::VisoMerciSaisirCode),
+        ("CONNEXION_EN_COURS", Cle::VisoConnexionEnCours),
+        ("REJOINDRE_APPEL", Cle::VisoRejoindreAppel),
+        ("IMPOSSIBLE_REJOINDRE", Cle::VisoImpossibleRejoindre),
+        ("APPEL_VEX_DEFAULT", Cle::VisoAppelVexDefault),
+        ("REJOINT_SANS_CAMERA_MICRO", Cle::VisoRejointSansCameraMicro),
+        ("EN_COMMUNICATION", Cle::VisoEnCommunication),
+        ("ACCES_CAMERA_MICRO_REFUSE", Cle::VisoAccesCameraMicroRefuse),
+    ]);
+    let page = page.replacen("{{I18N_JS}}", &i18n_js, 1);
 
     Response::from_data(page.into_bytes())
         .with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap())
@@ -355,6 +414,7 @@ pub fn creer_salle(
     cookie_val: &str,
     remote_ip: &str,
     user_agent: &str,
+    langue: &str,
     title: &str,
     is_public: bool,
     password: Option<&str>,
@@ -362,7 +422,7 @@ pub fn creer_salle(
 ) -> Value {
     let _ = (remote_ip, user_agent);
     let Some((user_id, _nom, _priv)) = auth_viso(pool, cookie_val) else {
-        return erreur("Session invalide ou expirée.");
+        return erreur(i18n::t(langue, Cle::VisoErreurSessionExpiree));
     };
 
     let max_participants = max_participants.clamp(2, 32);
@@ -386,7 +446,7 @@ pub fn creer_salle(
         }
     }
     if room_code.is_empty() {
-        return erreur("Impossible de générer un code de salle unique.");
+        return erreur(i18n::t(langue, Cle::VisoErreurCodeUnique));
     }
 
     let require_password = password.map(|p| !p.is_empty()).unwrap_or(false);
@@ -416,7 +476,7 @@ pub fn creer_salle(
     );
 
     if id < 0 {
-        return erreur("Erreur lors de la création de la salle.");
+        return erreur(i18n::t(langue, Cle::VisoErreurCreationSalle));
     }
 
     json!({
@@ -438,6 +498,7 @@ pub fn rejoindre_salle(
     cookie_val: &str,
     remote_ip: &str,
     user_agent: &str,
+    langue: &str,
     room_code: &str,
     session_id: &str,
     x25519_pub_b64: &str,
@@ -445,14 +506,14 @@ pub fn rejoindre_salle(
 ) -> Value {
     let _ = (remote_ip, user_agent);
     let Some((user_id, nom, _priv)) = auth_viso(pool, cookie_val) else {
-        return erreur("Session invalide ou expirée.");
+        return erreur(i18n::t(langue, Cle::VisoErreurSessionExpiree));
     };
 
     if session_id.len() < 16 || session_id.len() > 64 {
-        return erreur("session_id invalide.");
+        return erreur(i18n::t(langue, Cle::VisoErreurSessionIdInvalide));
     }
     if x25519_pub_b64.is_empty() || x25519_pub_b64.len() > 128 {
-        return erreur("Clé publique invalide.");
+        return erreur(i18n::t(langue, Cle::VisoErreurClePubliqueInvalide));
     }
 
     let rooms = selectionner(
@@ -467,7 +528,7 @@ pub fn rejoindre_salle(
         Some(1),
     );
     let Some(room) = rooms.into_iter().next() else {
-        return erreur("Salle introuvable ou fermée.");
+        return erreur(i18n::t(langue, Cle::VisoErreurSalleIntrouvable));
     };
     let room_id = room.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
 
@@ -475,7 +536,7 @@ pub fn rejoindre_salle(
         let attendu = room.get("password_hash").and_then(|v| v.as_str());
         let fourni = password.map(hash_simple);
         if attendu.is_none() || fourni.as_deref() != attendu {
-            return erreur("Mot de passe de salle incorrect.");
+            return erreur(i18n::t(langue, Cle::VisoErreurMdpIncorrect));
         }
     }
 
@@ -485,7 +546,7 @@ pub fn rejoindre_salle(
         .unwrap_or(8);
     let actifs = compter_participants_actifs(pool, room_id);
     if actifs >= max_p {
-        return erreur("Salle pleine.");
+        return erreur(i18n::t(langue, Cle::VisoErreurSallePleine));
     }
 
     let inserted = inserer_ou_modifier(
@@ -502,7 +563,7 @@ pub fn rejoindre_salle(
         &[],
     );
     if inserted < 0 {
-        return erreur("Impossible de rejoindre la salle (session_id déjà utilisé ?).");
+        return erreur(i18n::t(langue, Cle::VisoErreurImpossibleRejoindreDb));
     }
 
     let autres = lister_participants(pool, room_id, Some(session_id));
@@ -779,6 +840,7 @@ pub fn handle_viso_action(
     cookie_val: &str,
     remote_ip: &str,
     user_agent: &str,
+    langue: &str,
 ) -> Value {
     match action {
         "creer_salle" => creer_salle(
@@ -786,6 +848,7 @@ pub fn handle_viso_action(
             cookie_val,
             remote_ip,
             user_agent,
+            langue,
             params.get("title").map(|s| s.as_str()).unwrap_or(""),
             params.get("is_public").map(|v| v == "1").unwrap_or(false),
             params.get("password").map(|s| s.as_str()).filter(|s| !s.is_empty()),
@@ -808,6 +871,7 @@ pub fn handle_viso_action(
                 cookie_val,
                 remote_ip,
                 user_agent,
+                langue,
                 code,
                 sid,
                 pubkey,
@@ -835,7 +899,7 @@ pub fn handle_viso_action(
                 return erreur("Paramètres manquants.");
             };
             if !session_active(pool, from) {
-                return erreur("Session invalide ou expirée.");
+                return erreur(i18n::t(langue, Cle::VisoErreurSessionExpiree));
             }
             poster_signal(pool, room_id, from, to, ptype, cipher, nonce)
         }
@@ -850,7 +914,7 @@ pub fn handle_viso_action(
                 return erreur("session_id manquant.");
             };
             if !session_active(pool, sid) {
-                return erreur("Session invalide ou expirée.");
+                return erreur(i18n::t(langue, Cle::VisoErreurSessionExpiree));
             }
             let signaux = recuperer_signaux(pool, sid);
             json!({"success": true, "data": {"signaux": signaux}})
@@ -861,7 +925,7 @@ pub fn handle_viso_action(
                 return erreur("session_id manquant.");
             };
             if !session_active(pool, sid) {
-                return erreur("Session invalide ou expirée.");
+                return erreur(i18n::t(langue, Cle::VisoErreurSessionExpiree));
             }
             json!({"success": heartbeat(pool, sid)})
         }
@@ -888,7 +952,7 @@ pub fn handle_viso_action(
                 return erreur("session_id manquant.");
             };
             if !session_active(pool, sid) {
-                return erreur("Session invalide ou expirée.");
+                return erreur(i18n::t(langue, Cle::VisoErreurSessionExpiree));
             }
             let Some(room_id) = params.get("room_id").and_then(|v| v.parse::<i64>().ok()) else {
                 return erreur("room_id manquant.");

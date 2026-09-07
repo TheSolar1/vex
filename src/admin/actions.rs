@@ -9,6 +9,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 use crate::appeldb::{inserer_ou_modifier, selectionner, supprimer_ligne, DbPool};
+use crate::i18n::{self, Cle};
 use serde_json::{json, Value};
 
 pub(crate) const PRIVILEGE_MAX: i64 = 3;
@@ -24,15 +25,16 @@ pub(crate) fn set_user_privilege(
     caller_privilege: i64,
     target_id: i64,
     new_privilege: i64,
+    langue: &str,
 ) -> Result<Value, String> {
     if new_privilege < PRIVILEGE_MIN_SET {
-        return Err("Le privilege 1 ne peut pas être attribué via le panel.".into());
+        return Err(i18n::t(langue, Cle::AdmUsersErrPrivilege1Interdit).to_string());
     }
     if new_privilege > 12 || target_id == caller_id {
-        return Err("Action non autorisée.".into());
+        return Err(i18n::t(langue, Cle::AdmUsersErrActionNonAutorisee).to_string());
     }
     if caller_privilege > PRIVILEGE_SUPER && new_privilege < caller_privilege {
-        return Err("Vous ne pouvez pas donner un privilege supérieur au vôtre.".into());
+        return Err(i18n::t(langue, Cle::AdmUsersErrPrivilegeSuperieur).to_string());
     }
     inserer_ou_modifier(
         pool,
@@ -42,7 +44,7 @@ pub(crate) fn set_user_privilege(
     );
     Ok(json!({
         "success": true,
-        "message": "Privilège mis à jour.",
+        "message": i18n::t(langue, Cle::AdmUsersMsgPrivilegeMaj),
         "uid": target_id,
         "privilege": new_privilege,
     }))
@@ -55,9 +57,10 @@ pub(crate) fn delete_user(
     caller_id: i64,
     caller_privilege: i64,
     target_id: i64,
+    langue: &str,
 ) -> Result<Value, String> {
     if target_id == caller_id {
-        return Err("Impossible de supprimer votre propre compte.".into());
+        return Err(i18n::t(langue, Cle::AdmUsersErrAutoSuppression).to_string());
     }
     let target = selectionner(
         pool,
@@ -73,12 +76,12 @@ pub(crate) fn delete_user(
         .and_then(|v| v.as_i64())
         .unwrap_or(99);
     if target_priv <= PRIVILEGE_SUPER && caller_privilege > PRIVILEGE_SUPER {
-        return Err("Impossible de supprimer un superadmin.".into());
+        return Err(i18n::t(langue, Cle::AdmUsersErrSupprSuperadmin).to_string());
     }
     supprimer_ligne(pool, "login", "id", mysql::Value::from(target_id));
     Ok(json!({
         "success": true,
-        "message": "Utilisateur supprimé.",
+        "message": i18n::t(langue, Cle::AdmUsersMsgUtilisateurSupprime),
         "uid": target_id,
     }))
 }

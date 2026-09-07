@@ -10,6 +10,7 @@ use crate::appeldb::{
 };
 use crate::config_loader::{load_config, VexConfig};
 use crate::function::{build_nav_html, get_user_language, get_user_preferences, NavContext};
+use crate::i18n::{self, Cle};
 use crate::p2p::p2p::{admin_handle_api as p2p_admin_handle_api, NodeState, P2pConfig};
 use crate::utils::{parse_query, strip_port, url_decode};
 use serde_json::{json, Value};
@@ -21,6 +22,323 @@ use tiny_http::{Request, Response};
 use crate::admin::actions::{PRIVILEGE_MAX, PRIVILEGE_MIN_SET, PRIVILEGE_SUPER};
 
 const HTML_PATH: &str = "static/admin/admin.html";
+
+/// Cles injectees dans `const I18N = {...}` cote JS (voir {{I18N_JS}} dans admin.html).
+const ADMIN_I18N_JS_KEYS: [(&str, Cle); 313] = [
+    ("ACTIF", Cle::AdmActif),
+    ("BACKUP_COL_TAILLE", Cle::AdmBackupColTaille),
+    ("ACTION", Cle::AdmAction),
+    ("ACTIONS", Cle::AdmActions),
+    ("ADMIN_HASH_FALLBACK", Cle::AdmAdminHashFallback),
+    ("AJOUTER", Cle::AdmAjouter),
+    ("ANNULER", Cle::AdmAnnuler),
+    ("BACKUP_AUCUNE_SAUVEGARDE", Cle::AdmBackupAucuneSauvegarde),
+    ("BACKUP_CONFIRM_LANCER", Cle::AdmBackupConfirmLancer),
+    ("BACKUP_CONFIRM_SUPPRIMER", Cle::AdmBackupConfirmSupprimer),
+    ("BACKUP_DEMARREE_A", Cle::AdmBackupDemarreeA),
+    ("BACKUP_DERNIERE_ECHOUEE", Cle::AdmBackupDerniereEchouee),
+    ("BACKUP_DERNIERE_REUSSIE", Cle::AdmBackupDerniereReussie),
+    ("BACKUP_EN_COURS", Cle::AdmBackupEnCours),
+    ("BACKUP_LANCER_SAUVEGARDE", Cle::AdmBackupLancerSauvegarde),
+    ("BACKUP_TELECHARGER", Cle::AdmBackupTelecharger),
+    ("BACKUP_TITRE_SUPPRIMER", Cle::AdmBackupTitreSupprimer),
+    ("BLOCKS_AUCUN_BLOCAGE", Cle::AdmBlocksAucunBlocage),
+    ("BLOCKS_CIBLE", Cle::AdmBlocksCible),
+    ("BLOCKS_COL_PAGES", Cle::AdmBlocksColPages),
+    ("BLOCKS_COL_PRIVILEGE", Cle::AdmBlocksColPrivilege),
+    ("BLOCKS_POSE_PAR", Cle::AdmBlocksPosePar),
+    ("BLOCKS_TOUS_BADGE", Cle::AdmBlocksTousBadge),
+    ("BLOCKS_TOUS_OPTION", Cle::AdmBlocksTousOption),
+    ("CFG_ADRESSE_ONION", Cle::AdmCfgAdresseOnion),
+    ("CFG_APPLICATION", Cle::AdmCfgApplication),
+    ("CFG_BOOTSTRAP_URL", Cle::AdmCfgBootstrapUrl),
+    ("CFG_CHIFFRE", Cle::AdmCfgChiffre),
+    ("CFG_CHUNK_BYTES", Cle::AdmCfgChunkBytes),
+    ("CFG_CLE_ACTIVATION", Cle::AdmCfgCleActivation),
+    ("CFG_CLE_REQUISE", Cle::AdmCfgCleRequise),
+    ("CFG_DEBUG", Cle::AdmCfgDebug),
+    ("CFG_DOSSIER_CHUNKS", Cle::AdmCfgDossierChunks),
+    ("CFG_DOSSIER_SORTIE", Cle::AdmCfgDossierSortie),
+    ("CFG_DUREE_SESSION", Cle::AdmCfgDureeSession),
+    ("CFG_EDITEUR_DOCUMENTS", Cle::AdmCfgEditeurDocuments),
+    ("CFG_EDITION_COLLABORATIVE", Cle::AdmCfgEditionCollaborative),
+    ("CFG_EDITION_LIGNE_ACTIVEE", Cle::AdmCfgEditionLigneActivee),
+    ("CFG_FORMATS_SUPPORTES", Cle::AdmCfgFormatsSupportes),
+    ("CFG_INSCRIPTION", Cle::AdmCfgInscription),
+    ("CFG_LANGUE_DEFAUT", Cle::AdmCfgLangueDefaut),
+    ("CFG_LONGUEUR_MIN_MDP", Cle::AdmCfgLongueurMinMdp),
+    ("CFG_MAINTENANCE", Cle::AdmCfgMaintenance),
+    ("CFG_MAJUSCULE", Cle::AdmCfgMajuscule),
+    ("CFG_NB_MAX", Cle::AdmCfgNbMax),
+    ("CFG_NOM", Cle::AdmCfgNom),
+    ("CFG_OPTION_ACTIVE", Cle::AdmCfgOptionActive),
+    ("CFG_OPTION_DESACTIVE", Cle::AdmCfgOptionDesactive),
+    ("CFG_PORT_P2P", Cle::AdmCfgPortP2p),
+    ("CFG_RETENTION_J", Cle::AdmCfgRetentionJ),
+    ("CFG_SECURITE", Cle::AdmCfgSecurite),
+    ("CFG_SERVICE_EDITION", Cle::AdmCfgServiceEdition),
+    ("CFG_STOCKAGE", Cle::AdmCfgStockage),
+    ("CFG_SYNC_INTERVAL", Cle::AdmCfgSyncInterval),
+    ("CFG_TAILLE_MAX_MB", Cle::AdmCfgTailleMaxMb),
+    ("CFG_TENTATIVES_MAX", Cle::AdmCfgTentativesMax),
+    ("CFG_UTILISER_TOR", Cle::AdmCfgUtiliserTor),
+    ("CFG_VERROUILLAGE", Cle::AdmCfgVerrouillage),
+    ("CFG_VERSION", Cle::AdmCfgVersion),
+    ("CONFIRMER", Cle::AdmConfirmer),
+    ("CONFIRMER_SUPPRIMER_BLOCAGE", Cle::AdmConfirmerSupprimerBlocage),
+    ("CONFIRMER_SUPPRIMER_UTILISATEUR", Cle::AdmConfirmerSupprimerUtilisateur),
+    ("DASH_COL_ROLE", Cle::AdmDashColRole),
+    ("DASH_COL_VIP", Cle::AdmDashColVip),
+    ("DATE", Cle::AdmDate),
+    ("DB_AJOUTER_DANS", Cle::AdmDbAjouterDans),
+    ("DB_AJOUTER_LIGNE", Cle::AdmDbAjouterLigne),
+    ("DB_CLIQUEZ_POUR_MODIFIER", Cle::AdmDbCliquezPourModifier),
+    ("DB_COL_LIGNES", Cle::AdmDbColLignes),
+    ("DB_COL_TABLE", Cle::AdmDbColTable),
+    ("DB_COL_TAILLE_KB", Cle::AdmDbColTailleKb),
+    ("DB_CONFIRMER_SUPPRIMER_LIGNE", Cle::AdmDbConfirmerSupprimerLigne),
+    ("DB_ERR_COLONNES_VALEURS_INVALIDES_JS", Cle::AdmDbErrColonnesValeursInvalidesJs),
+    ("DB_IMPOSSIBLE_RECUPERER_STRUCTURE", Cle::AdmDbImpossibleRecupererStructure),
+    ("DB_MODIFIER_CELL_PROMPT", Cle::AdmDbModifierCellPrompt),
+    ("DB_N_TABLES", Cle::AdmDbNTables),
+    ("DB_TABLES_COEUR", Cle::AdmDbTablesCoeur),
+    ("DB_TABLES_EXTENSIONS", Cle::AdmDbTablesExtensions),
+    ("DB_TABLE_VIDE", Cle::AdmDbTableVide),
+    ("DB_TAILLE_TABLES_COEUR", Cle::AdmDbTailleTablesCoeur),
+    ("DB_TAILLE_TABLES_EXT", Cle::AdmDbTailleTablesExt),
+    ("DB_TOUTES_LES_TABLES", Cle::AdmDbToutesLesTables),
+    ("DB_TRIER_PAR_COL", Cle::AdmDbTrierParCol),
+    ("DESACTIF", Cle::AdmDesactif),
+    ("EDITEUR_DEFAULT", Cle::AdmEditeurDefault),
+    ("ED_AJOUTER_SYSTEME", Cle::AdmEdAjouterSysteme),
+    ("ED_AJOUTER_SYSTEME_TITRE", Cle::AdmEdAjouterSystemeTitre),
+    ("ED_ARRETER", Cle::AdmEdArreter),
+    ("ED_ATTENTE_DEMARRAGE", Cle::AdmEdAttenteDemarrage),
+    ("ED_CHEMIN_CALLBACK", Cle::AdmEdCheminCallback),
+    ("ED_CHEMIN_HEALTHCHECK", Cle::AdmEdCheminHealthcheck),
+    ("ED_CHEMIN_SCRIPT_API", Cle::AdmEdCheminScriptApi),
+    ("ED_CHEMIN_WOPI", Cle::AdmEdCheminWopi),
+    ("ED_COMMANDE_ARRET", Cle::AdmEdCommandeArret),
+    ("ED_COMMANDE_DEMARRAGE", Cle::AdmEdCommandeDemarrage),
+    ("ED_CONFIRM_SUPPRIMER", Cle::AdmEdConfirmSupprimer),
+    ("ED_CONNEXION_OK", Cle::AdmEdConnexionOk),
+    ("ED_DEMARRER", Cle::AdmEdDemarrer),
+    ("ED_ECHEC_LABEL", Cle::AdmEdEchecLabel),
+    ("ED_ECHEC_PT", Cle::AdmEdEchecPt),
+    ("ED_EDITION_LIGNE_ACTIVEE", Cle::AdmEdEditionLigneActivee),
+    ("ED_FORMAT_DEFAUT", Cle::AdmEdFormatDefaut),
+    ("ED_IDENTIFIANT_INTERNE", Cle::AdmEdIdentifiantInterne),
+    ("ED_JWT_ACTIVE", Cle::AdmEdJwtActive),
+    ("ED_PARAMETRES_DE", Cle::AdmEdParametresDe),
+    ("ED_RETESTER", Cle::AdmEdRetester),
+    ("ED_SAUVEGARDE_AUTO", Cle::AdmEdSauvegardeAuto),
+    ("ED_SECRET_JWT", Cle::AdmEdSecretJwt),
+    ("ED_SERVEUR_ARRETE", Cle::AdmEdServeurArrete),
+    ("ED_SERVEUR_DEMARRE", Cle::AdmEdServeurDemarre),
+    ("ED_SUITE_BUREAUTIQUE", Cle::AdmEdSuiteBureautique),
+    ("ED_SYSTEME_ACTIF", Cle::AdmEdSystemeActif),
+    ("ED_TAILLE_MAX_MO", Cle::AdmEdTailleMaxMo),
+    ("ED_TESTER_CONNEXION", Cle::AdmEdTesterConnexion),
+    ("ED_TEST_EN_COURS", Cle::AdmEdTestEnCours),
+    ("ED_TEXTE_ATTENDU", Cle::AdmEdTexteAttendu),
+    ("ED_URL_SERVEUR", Cle::AdmEdUrlServeur),
+    ("EMAIL", Cle::AdmEmail),
+    ("EN_LIGNE", Cle::AdmEnLigne),
+    ("ERREUR_SELECTIONNER_PAGE", Cle::AdmErreurSelectionnerPage),
+    ("EXT_ACTION_BTN", Cle::AdmExtActionBtn),
+    ("EXT_ACTIVEE_MSG", Cle::AdmExtActiveeMsg),
+    ("EXT_ACTIVER_IMMEDIATEMENT", Cle::AdmExtActiverImmediatement),
+    ("EXT_ACTUALISER", Cle::AdmExtActualiser),
+    ("EXT_APP_DE_BASE_BADGE", Cle::AdmExtAppDeBaseBadge),
+    ("EXT_APP_DU_MENU", Cle::AdmExtAppDuMenu),
+    ("EXT_AUCUNE_ACTION_DECLAREE", Cle::AdmExtAucuneActionDeclaree),
+    ("EXT_AUCUNE_EXTENSION", Cle::AdmExtAucuneExtension),
+    ("EXT_AUCUNE_SORTIE", Cle::AdmExtAucuneSortie),
+    ("EXT_AUCUN_FICHIER_SELECTIONNE", Cle::AdmExtAucunFichierSelectionne),
+    ("EXT_AUTORISATIONS_INTERNES", Cle::AdmExtAutorisationsInternes),
+    ("EXT_AUTORISATIONS_SUB", Cle::AdmExtAutorisationsSub),
+    ("EXT_CHANGER_CATALOGUE", Cle::AdmExtChangerCatalogue),
+    ("EXT_CHARGEMENT_CATALOGUE", Cle::AdmExtChargementCatalogue),
+    ("EXT_CHOISISSEZ_FICHIER", Cle::AdmExtChoisissezFichier),
+    ("EXT_COMPILATION_EN_COURS", Cle::AdmExtCompilationEnCours),
+    ("EXT_COMPILEE_BADGE", Cle::AdmExtCompileeBadge),
+    ("EXT_COMPILEE_TITLE", Cle::AdmExtCompileeTitle),
+    ("EXT_CONFIRM_MAJ_GITHUB", Cle::AdmExtConfirmMajGithub),
+    ("EXT_CONFIRM_RELANCER", Cle::AdmExtConfirmRelancer),
+    ("EXT_CONFIRM_RETIRER", Cle::AdmExtConfirmRetirer),
+    ("EXT_CONFIRM_SUPPR_FICHIERS", Cle::AdmExtConfirmSupprFichiers),
+    ("EXT_DEMARREE_A", Cle::AdmExtDemarreeA),
+    ("EXT_DERNIERE_COMPILATION", Cle::AdmExtDerniereCompilation),
+    ("EXT_DESACTIVEE_MSG", Cle::AdmExtDesactiveeMsg),
+    ("EXT_ECHOUEE", Cle::AdmExtEchouee),
+    ("EXT_ERREUR_EXTENSION_RS", Cle::AdmExtErreurExtensionRs),
+    ("EXT_ERREUR_FICHIER_TROP_GROS", Cle::AdmExtErreurFichierTropGros),
+    ("EXT_EXTENSIONS_INSTALLEES", Cle::AdmExtExtensionsInstallees),
+    ("EXT_EXTENSION_BADGE", Cle::AdmExtExtensionBadge),
+    ("EXT_FICHIER_DOIT_EXPOSER_DESC", Cle::AdmExtFichierDoitExposerDesc),
+    ("EXT_FICHIER_ECRIT_DESC", Cle::AdmExtFichierEcritDesc),
+    ("EXT_FICHIER_SOURCE_RUST", Cle::AdmExtFichierSourceRust),
+    ("EXT_ID_EXTENSION", Cle::AdmExtIdExtension),
+    ("EXT_ID_REQUIS", Cle::AdmExtIdRequis),
+    ("EXT_IMPOSSIBLE_SUPPRIMER_BASE", Cle::AdmExtImpossibleSupprimerBase),
+    ("EXT_INFOS_TUILE_ADMIN", Cle::AdmExtInfosTuileAdmin),
+    ("EXT_INSTALLEE_AVEC_MOTIFS_MSG", Cle::AdmExtInstalleeAvecMotifsMsg),
+    ("EXT_INSTALLER_DEPUIS_FICHIER", Cle::AdmExtInstallerDepuisFichier),
+    ("EXT_INSTALLER_RS", Cle::AdmExtInstallerRs),
+    ("EXT_JSON_INVALIDE_LIB", Cle::AdmExtJsonInvalideLib),
+    ("EXT_METTRE_A_JOUR_DESC", Cle::AdmExtMettreAJourDesc),
+    ("EXT_METTRE_A_JOUR_GITHUB", Cle::AdmExtMettreAJourGithub),
+    ("EXT_MODELE_RS", Cle::AdmExtModeleRs),
+    ("EXT_PARAMETRES_INVALIDES", Cle::AdmExtParametresInvalides),
+    ("EXT_PARAMETRES_JSON", Cle::AdmExtParametresJson),
+    ("EXT_PARCOURIR", Cle::AdmExtParcourir),
+    ("EXT_PLACEHOLDER_ACTION", Cle::AdmExtPlaceholderAction),
+    ("EXT_PLACEHOLDER_VIDE_TOUS", Cle::AdmExtPlaceholderVideTous),
+    ("EXT_PLANS_AUTORISES", Cle::AdmExtPlansAutorises),
+    ("EXT_PLANS_AUTORISES_SUB", Cle::AdmExtPlansAutorisesSub),
+    ("EXT_PLANS_VIRGULE", Cle::AdmExtPlansVirgule),
+    ("EXT_PRIVILEGE_MAX", Cle::AdmExtPrivilegeMax),
+    ("EXT_PRIVILEGE_MIN_REQUIS", Cle::AdmExtPrivilegeMinRequis),
+    ("EXT_PRIVILEGE_MIN_SUB", Cle::AdmExtPrivilegeMinSub),
+    ("EXT_RECHERCHER_INSTALLER", Cle::AdmExtRechercherInstaller),
+    ("EXT_RECOMPILER_VEX", Cle::AdmExtRecompilerVex),
+    ("EXT_REMPLACER_CODE", Cle::AdmExtRemplacerCode),
+    ("EXT_REMPLACER_RS", Cle::AdmExtRemplacerRs),
+    ("EXT_REUPLOADEZ_DESC", Cle::AdmExtReuploadezDesc),
+    ("EXT_REUSSIE", Cle::AdmExtReussie),
+    ("EXT_SAUVER_PERMISSIONS", Cle::AdmExtSauverPermissions),
+    ("EXT_SORTIE", Cle::AdmExtSortie),
+    ("EXT_SOURCES_NON_ENREGISTREES", Cle::AdmExtSourcesNonEnregistrees),
+    ("EXT_SOURCE_ABSENTE_BADGE", Cle::AdmExtSourceAbsenteBadge),
+    ("EXT_SOURCE_ABSENTE_TITLE", Cle::AdmExtSourceAbsenteTitle),
+    ("EXT_STATIQUE_BADGE", Cle::AdmExtStatiqueBadge),
+    ("EXT_STATIQUE_OK", Cle::AdmExtStatiqueOk),
+    ("EXT_STATIQUE_TITLE", Cle::AdmExtStatiqueTitle),
+    ("EXT_SUPERADMIN_UNIQUEMENT_TITLE", Cle::AdmExtSuperadminUniquementTitle),
+    ("EXT_TITRE_RETIRER", Cle::AdmExtTitreRetirer),
+    ("EXT_TITRE_SUPPR_FICHIERS", Cle::AdmExtTitreSupprFichiers),
+    ("EXT_TUILE_DASHBOARD", Cle::AdmExtTuileDashboard),
+    ("EXT_UPLOADER", Cle::AdmExtUploader),
+    ("FICHIER_COL", Cle::AdmFichierCol),
+    ("FREE", Cle::AdmFree),
+    ("HORS_LIGNE", Cle::AdmHorsLigne),
+    ("LOGS_ADMIN", Cle::AdmLogsAdmin),
+    ("LOGS_AUCUNE_ACTION_VEXIA", Cle::AdmLogsAucuneActionVexia),
+    ("LOGS_AUCUN_DISPONIBLE", Cle::AdmLogsAucunDisponible),
+    ("LOGS_DETAIL", Cle::AdmLogsDetail),
+    ("LOGS_FICHIERS_DE_LOGS", Cle::AdmLogsFichiersDeLogs),
+    ("LOGS_OUTIL", Cle::AdmLogsOutil),
+    ("LOGS_RESERVE_SUPERADMINS", Cle::AdmLogsReserveSuperadmins),
+    ("LOGS_RESULTAT", Cle::AdmLogsResultat),
+    ("LOGS_SCOPED", Cle::AdmLogsScoped),
+    ("LOGS_TIER", Cle::AdmLogsTier),
+    ("LOGS_UTILISATEUR", Cle::AdmLogsUtilisateur),
+    ("LOGS_VIDER_CONFIRM", Cle::AdmLogsViderConfirm),
+    ("MK_AUCUNE_CORRESPOND", Cle::AdmMkAucuneCorrespond),
+    ("MK_A_COMPILER_BADGE", Cle::AdmMkACompilerBadge),
+    ("MK_CATALOGUE_INDISPONIBLE", Cle::AdmMkCatalogueIndisponible),
+    ("MK_CONFIRM_INSTALLER_MSG", Cle::AdmMkConfirmInstallerMsg),
+    ("MK_ELEMENT_INTROUVABLE", Cle::AdmMkElementIntrouvable),
+    ("MK_INSTALLATION_IMPOSSIBLE", Cle::AdmMkInstallationImpossible),
+    ("MK_INSTALLEE_BADGE", Cle::AdmMkInstalleeBadge),
+    ("MK_INSTALLER", Cle::AdmMkInstaller),
+    ("MK_INSTALLER_QUAND_MEME", Cle::AdmMkInstallerQuandMeme),
+    ("MK_INTERROGATION_GITHUB", Cle::AdmMkInterrogationGithub),
+    ("MK_REINSTALLER", Cle::AdmMkReinstaller),
+    ("MK_TELECHARGEMENT_DE", Cle::AdmMkTelechargementDe),
+    ("MK_TEL_DOT", Cle::AdmMkTelDot),
+    ("MK_TITRE_INSTALLER_DISTANTE", Cle::AdmMkTitreInstallerDistante),
+    ("MK_TOUTES_INSTALLEES", Cle::AdmMkToutesInstallees),
+    ("MK_TYPE_ARCHIVE", Cle::AdmMkTypeArchive),
+    ("MK_TYPE_EXTENSION_COMPLETE", Cle::AdmMkTypeExtensionComplete),
+    ("MK_TYPE_FICHIER_DEFAULT", Cle::AdmMkTypeFichierDefault),
+    ("MK_TYPE_FICHIER_RS", Cle::AdmMkTypeFichierRs),
+    ("NOM", Cle::AdmNom),
+    ("N_LIGNES", Cle::AdmNLignes),
+    ("P2P_ANNUAIRE_COPIE", Cle::AdmP2pAnnuaireCopie),
+    ("P2P_AUCUN_NOEUD", Cle::AdmP2pAucunNoeud),
+    ("P2P_AUCUN_TRANSFERT", Cle::AdmP2pAucunTransfert),
+    ("P2P_AUCUN_UTILISATEUR", Cle::AdmP2pAucunUtilisateur),
+    ("P2P_CHUNKS", Cle::AdmP2pChunks),
+    ("P2P_COL_CLE_PUB", Cle::AdmP2pColClePub),
+    ("P2P_COL_STATUT", Cle::AdmP2pColStatut),
+    ("P2P_COL_URL_VEX", Cle::AdmP2pColUrlVex),
+    ("P2P_COL_VER", Cle::AdmP2pColVer),
+    ("P2P_COL_VU_LE", Cle::AdmP2pColVuLe),
+    ("P2P_CONFIRM_SUPPRIMER_NOEUD", Cle::AdmP2pConfirmSupprimerNoeud),
+    ("P2P_DE_VERS", Cle::AdmP2pDeVers),
+    ("P2P_KICK", Cle::AdmP2pKick),
+    ("P2P_NOEUDS", Cle::AdmP2pNoeuds),
+    ("P2P_SYNC_BOOTSTRAP", Cle::AdmP2pSyncBootstrap),
+    ("P2P_SYNC_EN_COURS", Cle::AdmP2pSyncEnCours),
+    ("PRIV_ADMIN", Cle::AdmPrivAdmin),
+    ("PRIV_AUCUN", Cle::AdmPrivAucun),
+    ("PRIV_BAN", Cle::AdmPrivBan),
+    ("PRIV_BETA_TESTEUR", Cle::AdmPrivBetaTesteur),
+    ("PRIV_FONDATEUR", Cle::AdmPrivFondateur),
+    ("PRIV_MODERATEUR", Cle::AdmPrivModerateur),
+    ("PRIV_SUPER_ADMIN", Cle::AdmPrivSuperAdmin),
+    ("PRIV_SUPER_MODERATEUR", Cle::AdmPrivSuperModerateur),
+    ("PRIV_UTILISATEUR_CERTIFIE", Cle::AdmPrivUtilisateurCertifie),
+    ("PRIV_VERIFICATEUR", Cle::AdmPrivVerificateur),
+    ("ROLES_NOMS_SAUVEGARDES", Cle::AdmRolesNomsSauvegardes),
+    ("ROLES_NOM_AFFICHE", Cle::AdmRolesNomAffiche),
+    ("ROLES_PLACEHOLDER_NOM_ROLE", Cle::AdmRolesPlaceholderNomRole),
+    ("ROLES_PLANS_SAUVEGARDES", Cle::AdmRolesPlansSauvegardes),
+    ("ROLES_PRIVILEGE_LABEL", Cle::AdmRolesPrivilegeLabel),
+    ("ROLES_PRIX_EUROS_MOIS", Cle::AdmRolesPrixEurosMois),
+    ("ROLES_SAUVEGARDER_PLANS", Cle::AdmRolesSauvegarderPlans),
+    ("ROLES_STOCKAGE", Cle::AdmRolesStockage),
+    ("ROLES_SUPPRIMER_CE_PLAN", Cle::AdmRolesSupprimerCePlan),
+    ("SAUVEGARDER", Cle::AdmSauvegarder),
+    ("SB_EXTENSIONS_PLUGIN", Cle::AdmSbExtensionsPlugin),
+    ("SB_UTILISATEURS", Cle::AdmSbUtilisateurs),
+    ("SERVER_CLIQUEZ_VERIFIER", Cle::AdmServerCliquezVerifier),
+    ("SERVER_DISQUE_LABEL", Cle::AdmServerDisqueLabel),
+    ("SERVER_LECTURE_SEULE", Cle::AdmServerLectureSeule),
+    ("SERVER_MAJ_RUST_DISPO", Cle::AdmServerMajRustDispo),
+    ("SERVER_MISES_A_JOUR_SYSTEME", Cle::AdmServerMisesAJourSysteme),
+    ("SERVER_NON_DISPONIBLE_PLATEFORME", Cle::AdmServerNonDisponiblePlateforme),
+    ("SERVER_NOYAU", Cle::AdmServerNoyau),
+    ("SERVER_OS_ARCH", Cle::AdmServerOsArch),
+    ("SERVER_PAQUETS_A_METTRE_A_JOUR", Cle::AdmServerPaquetsAMettreAJour),
+    ("SERVER_RUST_LABEL", Cle::AdmServerRustLabel),
+    ("SERVER_SUR_LE_SERVEUR", Cle::AdmServerSurLeServeur),
+    ("SERVER_SYSTEME_A_JOUR", Cle::AdmServerSystemeAJour),
+    ("SERVER_SYSTEME_EXPLOITATION", Cle::AdmServerSystemeExploitation),
+    ("SERVER_TOOLCHAIN_A_JOUR", Cle::AdmServerToolchainAJour),
+    ("SERVER_UPTIME", Cle::AdmServerUptime),
+    ("SERVER_VERIFIER", Cle::AdmServerVerifier),
+    ("SERVER_VERSION_VEX", Cle::AdmServerVersionVex),
+    ("SQL_AUCUN_RESULTAT", Cle::AdmSqlAucunResultat),
+    ("SQL_COLONNE_PLUR", Cle::AdmSqlColonnePlur),
+    ("SQL_COLONNE_SING", Cle::AdmSqlColonneSing),
+    ("SQL_ERREUR_TITRE", Cle::AdmSqlErreurTitre),
+    ("SQL_EXECUTER", Cle::AdmSqlExecuter),
+    ("SQL_EXECUTION_EN_COURS", Cle::AdmSqlExecutionEnCours),
+    ("SQL_LIGNE_AFFECTEE_PLUR", Cle::AdmSqlLigneAffecteePlur),
+    ("SQL_LIGNE_AFFECTEE_SING", Cle::AdmSqlLigneAffecteeSing),
+    ("SQL_LIGNE_RETOURNEE_PLUR", Cle::AdmSqlLigneRetourneePlur),
+    ("SQL_LIGNE_RETOURNEE_SING", Cle::AdmSqlLigneRetourneeSing),
+    ("SQL_LIMITE_ATTEINTE", Cle::AdmSqlLimiteAtteinte),
+    ("SQL_LIMITE_ATTEINTE_MSG", Cle::AdmSqlLimiteAtteinteMsg),
+    ("SQL_REQUETE_AUCUNE_LIGNE", Cle::AdmSqlRequeteAucuneLigne),
+    ("SQL_REQUETE_VIDE", Cle::AdmSqlRequeteVide),
+    ("STAT_BASE_DONNEES", Cle::AdmStatBaseDonnees),
+    ("STAT_FICHIERS", Cle::AdmStatFichiers),
+    ("STAT_PAGES_SITEC", Cle::AdmStatPagesSitec),
+    ("STAT_SESSIONS", Cle::AdmStatSessions),
+    ("SUPPRIMER", Cle::AdmSupprimer),
+    ("SUPPRIMER_FULL", Cle::AdmSupprimerFull),
+    ("TAILLE_COL", Cle::AdmTailleCol),
+    ("TITRE_SUPPRIMER_UTILISATEUR", Cle::AdmTitreSupprimerUtilisateur),
+    ("TOUS_LES_UTILISATEURS_OPTION", Cle::AdmTousLesUtilisateursOption),
+    ("USERS_CHANGER_ROLE", Cle::AdmUsersChangerRole),
+    ("USERS_N_COMPTES", Cle::AdmUsersNComptes),
+    ("USERS_ROLE_ACTUEL", Cle::AdmUsersRoleActuel),
+    ("USER_HASH_FALLBACK", Cle::AdmUserHashFallback),
+    ("VIP_FREE_OPTION", Cle::AdmVipFreeOption),
+];
 
 fn vex_pages() -> Vec<(&'static str, &'static str)> {
     vec![
@@ -159,6 +477,7 @@ pub fn handle_request(
             &cookie_val,
             &remote_ip,
             &user_agent,
+            &lang,
         );
         return;
     }
@@ -177,10 +496,90 @@ pub fn handle_request(
     let nav_html = build_nav_html(&nav_ctx);
 
     let html = match std::fs::read_to_string(HTML_PATH) {
-        Ok(s) => s
-            .replace("__NAV_HTML__", &nav_html)
-            .replace("__LANG__", &lang)
-            .replace("__THEME__", theme),
+        Ok(s) => {
+            let s = s
+                .replace("__NAV_HTML__", &nav_html)
+                .replace("__LANG__", &lang)
+                .replace("__THEME__", theme);
+            let s = i18n::appliquer_traductions(&s, &lang, &[
+                ("{{T_TITRE_ONGLET}}", Cle::AdmTitreOnglet),
+                ("{{T_SB_ADMIN_PANEL}}", Cle::AdmSbAdminPanel),
+                ("{{T_SB_PRINCIPAL}}", Cle::AdmSbPrincipal),
+                ("{{T_SB_DASHBOARD}}", Cle::AdmSbDashboard),
+                ("{{T_SB_UTILISATEURS}}", Cle::AdmSbUtilisateurs),
+                ("{{T_SB_BLOCAGES}}", Cle::AdmSbBlocages),
+                ("{{T_SB_SYSTEME}}", Cle::AdmSbSysteme),
+                ("{{T_SB_BASE_DE_DONNEES}}", Cle::AdmSbBaseDeDonnees),
+                ("{{T_SB_CONFIGURATION}}", Cle::AdmSbConfiguration),
+                ("{{T_SB_APPLICATIONS}}", Cle::AdmSbApplications),
+                ("{{T_SB_EXTENSIONS_PLUGIN}}", Cle::AdmSbExtensionsPlugin),
+                ("{{T_SB_ROLES_PLANS}}", Cle::AdmSbRolesPlans),
+                ("{{T_SB_SERVEUR}}", Cle::AdmSbServeur),
+                ("{{T_SB_LOGS}}", Cle::AdmSbLogs),
+                ("{{T_SB_EDITEUR_EN_LIGNE}}", Cle::AdmSbEditeurEnLigne),
+                ("{{T_SB_P2P_ANONNET}}", Cle::AdmSbP2pAnonnet),
+                ("{{T_SB_SAUVEGARDES}}", Cle::AdmSbSauvegardes),
+                ("{{T_CHARGEMENT}}", Cle::AdmChargement),
+                ("{{T_DASH_DERNIERS_INSCRITS}}", Cle::AdmDashDerniersInscrits),
+                ("{{T_USERS_TOUS_LES_COMPTES}}", Cle::AdmUsersTousLesComptes),
+                ("{{T_RECHERCHE_PLACEHOLDER}}", Cle::AdmRecherchePlaceholder),
+                ("{{T_BLOCKS_AJOUTER_BLOCAGE}}", Cle::AdmBlocksAjouterBlocage),
+                ("{{T_BLOCKS_CIBLE}}", Cle::AdmBlocksCible),
+                ("{{T_BLOCKS_TOUS_OPTION}}", Cle::AdmBlocksTousOption),
+                ("{{T_BLOCKS_BLOQUER_SI_PRIVILEGE}}", Cle::AdmBlocksBloquerSiPrivilege),
+                ("{{T_BLOCKS_PAGES_BLOQUEES}}", Cle::AdmBlocksPagesBloquees),
+                ("{{T_BLOCKS_AJOUTER_LE_BLOCAGE}}", Cle::AdmBlocksAjouterLeBlocage),
+                ("{{T_BLOCKS_TOUT_COCHER}}", Cle::AdmBlocksToutCocher),
+                ("{{T_BLOCKS_ACTIFS}}", Cle::AdmBlocksActifs),
+                ("{{T_SQL_REQUETE}}", Cle::AdmSqlRequete),
+                ("{{T_SQL_SUPERADMIN}}", Cle::AdmSqlSuperadmin),
+                ("{{T_SQL_META_TEXT}}", Cle::AdmSqlMetaText),
+                ("{{T_SQL_EXECUTER}}", Cle::AdmSqlExecuter),
+                ("{{T_SQL_EFFACER}}", Cle::AdmSqlEffacer),
+                ("{{T_DB_MODE_EDITION_ACTIF}}", Cle::AdmDbModeEditionActif),
+                ("{{T_DB_CLIQUEZ_POUR_MODIFIER}}", Cle::AdmDbCliquezPourModifier),
+                ("{{T_SQL_RETOUR_EXPLORATEUR}}", Cle::AdmSqlRetourExplorateur),
+                ("{{T_EXT_STRUCTURE_ATTENDUE}}", Cle::AdmExtStructureAttendue),
+                ("{{T_EXT_FICHIER_UPLOADE_COMMENT}}", Cle::AdmExtFichierUploadeComment),
+                ("{{T_EXT_CONVENTION}}", Cle::AdmExtConvention),
+                ("{{T_EXT_CONVENTION_DESC}}", Cle::AdmExtConventionDesc),
+                ("{{T_EXT_APP_DE_BASE_BADGE}}", Cle::AdmExtAppDeBaseBadge),
+                ("{{T_EXT_APP_DE_BASE_DESC}}", Cle::AdmExtAppDeBaseDesc),
+                ("{{T_EXT_EXTENSION_BADGE}}", Cle::AdmExtExtensionBadge),
+                ("{{T_EXT_EXTENSION_DESC}}", Cle::AdmExtExtensionDesc),
+                ("{{T_ROLES_NOMS_ROLES}}", Cle::AdmRolesNomsRoles),
+                ("{{T_ROLES_SAUVEGARDER_NOMS}}", Cle::AdmRolesSauvegarderNoms),
+                ("{{T_ROLES_PLANS_TARIFAIRES}}", Cle::AdmRolesPlansTarifaires),
+                ("{{T_ROLES_NOUVEAU_PLAN}}", Cle::AdmRolesNouveauPlan),
+                ("{{T_SERVER_MONITORING}}", Cle::AdmServerMonitoring),
+                ("{{T_BACKUP_SUPERADMIN_UNIQUEMENT}}", Cle::AdmBackupSuperadminUniquement),
+                ("{{T_BACKUP_DUMP_COMPLET}}", Cle::AdmBackupDumpComplet),
+                ("{{T_BACKUP_LANCER_SAUVEGARDE}}", Cle::AdmBackupLancerSauvegarde),
+                ("{{T_BACKUP_DESCRIPTION_TEXT}}", Cle::AdmBackupDescriptionText),
+                ("{{T_BACKUP_SAUVEGARDES_EXISTANTES}}", Cle::AdmBackupSauvegardesExistantes),
+                ("{{T_RAFRAICHIR}}", Cle::AdmRafraichir),
+                ("{{T_LOGS_SERVEUR}}", Cle::AdmLogsServeur),
+                ("{{T_LOGS_VEX_TITRE}}", Cle::AdmLogsVexTitre),
+                ("{{T_LOGS_VIDER}}", Cle::AdmLogsVider),
+                ("{{T_LOGS_BAS}}", Cle::AdmLogsBas),
+                ("{{T_LOGS_ACTIONS_VEXIA}}", Cle::AdmLogsActionsVexia),
+                ("{{T_LOGS_OUTILS_EXECUTES}}", Cle::AdmLogsOutilsExecutes),
+                ("{{T_ED_CHOIX_SUITE}}", Cle::AdmEdChoixSuite),
+                ("{{T_P2P_TOR_ACTIF}}", Cle::AdmP2pTorActif),
+                ("{{T_P2P_SYNC_BOOTSTRAP}}", Cle::AdmP2pSyncBootstrap),
+                ("{{T_P2P_CLE_PUBLIQUE}}", Cle::AdmP2pClePublique),
+                ("{{T_P2P_BOOTSTRAP_LABEL}}", Cle::AdmP2pBootstrapLabel),
+                ("{{T_P2P_CHUNK_LABEL}}", Cle::AdmP2pChunkLabel),
+                ("{{T_P2P_NOEUDS}}", Cle::AdmP2pNoeuds),
+                ("{{T_P2P_UTILISATEURS_P2P}}", Cle::AdmP2pUtilisateursP2p),
+                ("{{T_P2P_TRANSFERTS}}", Cle::AdmP2pTransferts),
+                ("{{T_P2P_ANNUAIRE}}", Cle::AdmP2pAnnuaire),
+                ("{{T_P2P_NOEUDS_CONNUS}}", Cle::AdmP2pNoeudsConnus),
+                ("{{T_P2P_UTILISATEURS_P2P_CONNUS}}", Cle::AdmP2pUtilisateursP2pConnus),
+                ("{{T_P2P_COPIER}}", Cle::AdmP2pCopier),
+            ]);
+            s.replacen("{{I18N_JS}}", &i18n::objet_js(&lang, &ADMIN_I18N_JS_KEYS), 1)
+        }
         Err(e) => {
             eprintln!("[admin] Impossible de lire {} : {}", HTML_PATH, e);
             format!("<h1>Erreur</h1><p>Fichier introuvable : {}</p>", HTML_PATH)
@@ -203,6 +602,7 @@ fn handle_api(
     cookie_val: &str,
     remote_ip: &str,
     user_agent: &str,
+    langue: &str,
 ) {
     let full_url = request.url().to_string();
     let path = full_url.split('?').next().unwrap_or(&full_url).to_string();
@@ -249,7 +649,7 @@ fn handle_api(
     if needs_super && privilege > PRIVILEGE_SUPER {
         return respond_json(
             request,
-            json!({"success":false,"error":"Réservé aux superadmins."}),
+            json!({"success":false,"error":i18n::t(langue, Cle::AdmP2pErrReserveSuperadmins)}),
         );
     }
 
@@ -351,7 +751,7 @@ fn handle_api(
                 .and_then(|v| v.parse::<i64>().ok())
                 .unwrap_or(0);
 
-            match crate::admin::actions::set_user_privilege(pool, user_id, privilege, tid, priv_val) {
+            match crate::admin::actions::set_user_privilege(pool, user_id, privilege, tid, priv_val, langue) {
                 Ok(v) => v,
                 Err(e) => return respond_json(request, json!({"success":false,"error":e})),
             }
@@ -375,7 +775,7 @@ fn handle_api(
                 &[("vip", mysql::Value::from(vip))],
                 &[("id", mysql::Value::from(tid))],
             );
-            json!({"success":true,"message":"Statut VIP modifié."})
+            json!({"success":true,"message":i18n::t(langue, Cle::AdmUsersMsgVipModifie)})
         }
 
         "/users/delete" => {
@@ -383,7 +783,7 @@ fn handle_api(
                 .get("uid")
                 .and_then(|v| v.parse::<i64>().ok())
                 .unwrap_or(0);
-            match crate::admin::actions::delete_user(pool, user_id, privilege, tid) {
+            match crate::admin::actions::delete_user(pool, user_id, privilege, tid, langue) {
                 Ok(v) => v,
                 Err(e) => return respond_json(request, json!({"success":false,"error":e})),
             }
@@ -417,7 +817,7 @@ fn handle_api(
             if pageb.is_empty() {
                 return respond_json(
                     request,
-                    json!({"success":false,"error":"Sélectionne au moins une page."}),
+                    json!({"success":false,"error":i18n::t(langue, Cle::AdmErreurSelectionnerPage)}),
                 );
             }
             inserer_ou_modifier(
@@ -431,7 +831,7 @@ fn handle_api(
                 ],
                 &[],
             );
-            json!({"success":true,"message":"Blocage ajouté."})
+            json!({"success":true,"message":i18n::t(langue, Cle::AdmBlocksMsgAjoute)})
         }
 
         "/blocks/delete" => {
@@ -440,7 +840,7 @@ fn handle_api(
                 .and_then(|v| v.parse::<i64>().ok())
                 .unwrap_or(0);
             supprimer_ligne(pool, "bloqpage", "id", mysql::Value::from(bid));
-            json!({"success":true,"message":"Blocage supprimé."})
+            json!({"success":true,"message":i18n::t(langue, Cle::AdmBlocksMsgSupprime)})
         }
 
         "/pages" => {
@@ -458,7 +858,7 @@ fn handle_api(
             let table = url_decode(table_raw);
             let schema = decrire_table(pool, &table);
             if schema.is_empty() {
-                json!({"success":false,"error":"Table introuvable ou inaccessible."})
+                json!({"success":false,"error":i18n::t(langue, Cle::AdmDbErrTableIntrouvable)})
             } else {
                 json!({"success":true,"data":{"table":table,"schema":schema}})
             }
@@ -487,7 +887,7 @@ fn handle_api(
                     "cols": data["cols"], "rows": data["rows"],
                     "is_super": privilege <= PRIVILEGE_SUPER,
                 }}),
-                None => json!({"success":false,"error":"Table introuvable."}),
+                None => json!({"success":false,"error":i18n::t(langue, Cle::AdmDbErrTableIntrouvable)}),
             }
         }
 
@@ -503,14 +903,14 @@ fn handle_api(
                 if new_priv < PRIVILEGE_MIN_SET {
                     return respond_json(
                         request,
-                        json!({"success":false,"error":"Le privilege 1 est interdit, même en édition directe."}),
+                        json!({"success":false,"error":i18n::t(langue, Cle::AdmDbErrPrivilege1Interdit)}),
                     );
                 }
             }
 
             let tables_ok = lister_tables(pool);
             if !tables_ok.contains(&table) {
-                return respond_json(request, json!({"success":false,"error":"Table inconnue."}));
+                return respond_json(request, json!({"success":false,"error":i18n::t(langue, Cle::AdmDbErrTableInconnue)}));
             }
             inserer_ou_modifier(
                 pool,
@@ -518,7 +918,7 @@ fn handle_api(
                 &[(&col, mysql::Value::from(val.as_str()))],
                 &[(&pk_col, mysql::Value::from(pk_val.as_str()))],
             );
-            json!({"success":true,"message":"Cellule modifiée."})
+            json!({"success":true,"message":i18n::t(langue, Cle::AdmDbMsgCelluleModifiee)})
         }
 
         "/db/row/delete" => {
@@ -543,24 +943,24 @@ fn handle_api(
                 if tp <= PRIVILEGE_SUPER {
                     return respond_json(
                         request,
-                        json!({"success":false,"error":"Impossible de supprimer un superadmin depuis l'explorateur DB."}),
+                        json!({"success":false,"error":i18n::t(langue, Cle::AdmDbErrImpossibleSupprSuperadmin)}),
                     );
                 }
             }
 
             let tables_ok = lister_tables(pool);
             if !tables_ok.contains(&table) {
-                return respond_json(request, json!({"success":false,"error":"Table inconnue."}));
+                return respond_json(request, json!({"success":false,"error":i18n::t(langue, Cle::AdmDbErrTableInconnue)}));
             }
             supprimer_ligne(pool, &table, &pk_col, mysql::Value::from(pk_val.as_str()));
-            json!({"success":true,"message":"Ligne supprimée."})
+            json!({"success":true,"message":i18n::t(langue, Cle::AdmDbMsgLigneSupprimee)})
         }
 
         "/db/row/add" => {
             let table = body.get("table").cloned().unwrap_or_default();
             let tables_ok = lister_tables(pool);
             if !tables_ok.contains(&table) {
-                return respond_json(request, json!({"success":false,"error":"Table inconnue."}));
+                return respond_json(request, json!({"success":false,"error":i18n::t(langue, Cle::AdmDbErrTableInconnue)}));
             }
             let cols_raw = body.get("cols").cloned().unwrap_or_default();
             let vals_raw = body.get("vals").cloned().unwrap_or_default();
@@ -569,7 +969,7 @@ fn handle_api(
             if cols.is_empty() || cols.len() != vals.len() {
                 return respond_json(
                     request,
-                    json!({"success":false,"error":"Colonnes/valeurs invalides."}),
+                    json!({"success":false,"error":i18n::t(langue, Cle::AdmDbErrColonnesValeursInvalides)}),
                 );
             }
             if table == "login" {
@@ -578,7 +978,7 @@ fn handle_api(
                         if v.parse::<i64>().unwrap_or(99) < PRIVILEGE_MIN_SET {
                             return respond_json(
                                 request,
-                                json!({"success":false,"error":"Le privilege 1 est interdit."}),
+                                json!({"success":false,"error":i18n::t(langue, Cle::AdmDbErrColonnesValeursInvalidesJs)}),
                             );
                         }
                     }
@@ -590,7 +990,7 @@ fn handle_api(
                 .map(|(c, v)| (c.as_str(), mysql::Value::from(v.as_str())))
                 .collect();
             let new_id = inserer_ou_modifier(pool, &table, &pairs, &[]);
-            json!({"success":true,"message":"Ligne ajoutée.","id":new_id})
+            json!({"success":true,"message":i18n::t(langue, Cle::AdmDbMsgLigneAjoutee),"id":new_id})
         }
 
         "/db/sql" => {
@@ -633,7 +1033,7 @@ fn handle_api(
                 .and_then(|v| v.parse::<i64>().ok())
                 .unwrap_or(0);
             supprimer_ligne(pool, "p2p_peers", "id", mysql::Value::from(peer_id));
-            json!({"success":true,"message":"Peer supprimé."})
+            json!({"success":true,"message":i18n::t(langue, Cle::AdmP2pMsgPeerSupprime)})
         }
 
         "/config" => {
@@ -645,9 +1045,9 @@ fn handle_api(
                             config_path,
                             serde_json::to_string_pretty(&v).unwrap_or_default(),
                         );
-                        json!({"success":true,"message":"Configuration sauvegardée."})
+                        json!({"success":true,"message":i18n::t(langue, Cle::AdmConfigSauvegardee)})
                     }
-                    Err(e) => json!({"success":false,"error":format!("JSON invalide : {}", e)}),
+                    Err(e) => json!({"success":false,"error":i18n::t(langue, Cle::AdmConfigJsonInvalide).replace("{e}", &e.to_string())}),
                 }
             } else {
                 json!({"success":true,"data": read_config(config_path)})
@@ -693,8 +1093,8 @@ fn handle_api(
                 Ok(d) => d,
                 Err(e) => return respond_json(request, json!({"success":false,"error":e})),
             };
-            match lancer_backup(&db) {
-                Ok(_) => json!({"success":true,"message":"Sauvegarde lancée en arrière-plan."}),
+            match lancer_backup(&db, langue) {
+                Ok(_) => json!({"success":true,"message":i18n::t(langue, Cle::AdmBackupMsgLancee)}),
                 Err(e) => json!({"success":false,"error":e}),
             }
         }
@@ -702,17 +1102,17 @@ fn handle_api(
         "/backup/delete" => {
             let nom = body.get("nom").cloned().unwrap_or_default();
             if !backup_nom_valide(&nom) {
-                json!({"success":false,"error":"Nom de fichier invalide."})
+                json!({"success":false,"error":i18n::t(langue, Cle::AdmBackupErrNomInvalide)})
             } else {
                 let _ = std::fs::remove_file(format!("{}/{}", BACKUP_DIR, nom));
-                json!({"success":true,"message":"Sauvegarde supprimée."})
+                json!({"success":true,"message":i18n::t(langue, Cle::AdmBackupMsgSupprimee)})
             }
         }
 
         "/backup/download" => {
             let nom = query.get("nom").cloned().unwrap_or_default();
             if !backup_nom_valide(&nom) {
-                return respond_json(request, json!({"success":false,"error":"Nom de fichier invalide."}));
+                return respond_json(request, json!({"success":false,"error":i18n::t(langue, Cle::AdmBackupErrNomInvalide)}));
             }
             let chemin = format!("{}/{}", BACKUP_DIR, nom);
             match std::fs::read(&chemin) {
@@ -726,7 +1126,7 @@ fn handle_api(
                     let _ = request.respond(reponse);
                     return;
                 }
-                Err(_) => return respond_json(request, json!({"success":false,"error":"Fichier introuvable."})),
+                Err(_) => return respond_json(request, json!({"success":false,"error":i18n::t(langue, Cle::AdmBackupErrFichierIntrouvable)})),
             }
         }
 
@@ -754,7 +1154,7 @@ fn handle_api(
             for path in log_files() {
                 let _ = std::fs::write(&path, "");
             }
-            json!({"success":true,"message":"Logs vidés sans supprimer les fichiers."})
+            json!({"success":true,"message":i18n::t(langue, Cle::AdmLogsMsgVides)})
         }
 
         "/vexia/audit" => {
@@ -802,7 +1202,7 @@ fn handle_api(
             if demarrage && !p.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true) {
                 return respond_json(
                     request,
-                    json!({"success":false,"error":"Editeur desactive dans la configuration."}),
+                    json!({"success":false,"error":i18n::t(langue, Cle::AdmEdErrDesactiveConfig)}),
                 );
             }
             let cle = if demarrage { "start_cmd" } else { "stop_cmd" };
@@ -810,7 +1210,7 @@ fn handle_api(
             if cmd.trim().is_empty() {
                 return respond_json(
                     request,
-                    json!({"success":false,"error":format!("Aucune commande {} definie pour « {} ».", cle, id)}),
+                    json!({"success":false,"error":i18n::t(langue, Cle::AdmEdErrAucuneCommande).replace("{cle}", cle).replace("{id}", &id)}),
                 );
             }
             let (cmd_ok, sortie) = run_shell_command(cmd);
@@ -897,11 +1297,11 @@ fn handle_api(
                 .to_lowercase();
             if !ext_id_valide(&id) {
                 return respond_json(request, json!({"success": false, "error":
-                    "ID invalide : 2 à 32 caractères, minuscules / chiffres / _, commençant par une lettre."}));
+                    i18n::t(langue, Cle::AdmExtErrIdInvalideLettre)}));
             }
             if EXT_BASE_APPS.contains(&id.as_str()) {
                 return respond_json(request, json!({"success": false, "error":
-                    format!("« {} » est une application de base : choisissez un autre ID.", id)}));
+                    i18n::t(langue, Cle::AdmExtErrAppDeBaseChoisir).replace("{id}", &id)}));
             }
 
             let filename = body
@@ -910,7 +1310,7 @@ fn handle_api(
                 .unwrap_or_else(|| "mod.rs".into());
             if !filename.to_lowercase().ends_with(".rs") {
                 return respond_json(request, json!({"success": false, "error":
-                    "Le fichier doit être un fichier source Rust (.rs)."}));
+                    i18n::t(langue, Cle::AdmExtErrFichierRs)}));
             }
 
             let b64 = body.get("code_b64").cloned().unwrap_or_default();
@@ -919,36 +1319,36 @@ fn handle_api(
                 Err(_) => {
                     return respond_json(
                         request,
-                        json!({"success": false, "error": "Contenu encodé invalide."}),
+                        json!({"success": false, "error": i18n::t(langue, Cle::AdmExtErrContenuInvalide)}),
                     )
                 }
             };
             if brut.len() > EXT_MAX_BYTES {
                 return respond_json(request, json!({"success": false, "error":
-                    format!("Fichier trop volumineux : {} Ko (max {} Ko).",
-                            brut.len() / 1024, EXT_MAX_BYTES / 1024)}));
+                    i18n::t(langue, Cle::AdmExtErrTropVolumineux)
+                        .replace("{ko}", &(brut.len() / 1024).to_string())
+                        .replace("{maxko}", &(EXT_MAX_BYTES / 1024).to_string())}));
             }
             let code = match String::from_utf8(brut) {
                 Ok(s) => s,
                 Err(_) => {
                     return respond_json(request, json!({"success": false, "error":
-                        "Le fichier n'est pas encodé en UTF-8."}))
+                        i18n::t(langue, Cle::AdmExtErrPasUtf8)}))
                 }
             };
             if code.trim().is_empty() {
                 return respond_json(
                     request,
-                    json!({"success": false, "error": "Le fichier est vide."}),
+                    json!({"success": false, "error": i18n::t(langue, Cle::AdmExtErrFichierVide)}),
                 );
             }
             if !code.contains("pub fn handle") {
                 return respond_json(request, json!({"success": false, "error":
-                    "Le fichier doit exposer `pub fn handle(pool, session, req)`. \
-                     Téléchargez le modèle pour partir d'une base correcte."}));
+                    i18n::t(langue, Cle::AdmExtErrDoitExposerHandle)}));
             }
 
             // ── Analyse des motifs sensibles ──────────────────────
-            let risques = ext_scan_risques(&code);
+            let risques = ext_scan_risques(&code, langue);
             let confirme = body
                 .get("confirm_risques")
                 .map(|v| v == "1" || v == "true")
@@ -958,7 +1358,7 @@ fn handle_api(
                     "success": false,
                     "need_confirm": true,
                     "risques": risques,
-                    "error": format!("{} motif(s) sensible(s) détecté(s) dans le code.", risques.len()),
+                    "error": i18n::t(langue, Cle::AdmExtErrMotifsDetectes).replace("{n}", &risques.len().to_string()),
                 }));
             }
 
@@ -1041,7 +1441,7 @@ fn handle_api(
                 Ok(v) => v,
                 Err(e) => {
                     return respond_json(request, json!({"success": false, "error":
-                        format!("Registre des extensions : {}", e)}))
+                        i18n::t(langue, Cle::AdmExtErrRegistreExtensions).replace("{e}", &e)}))
                 }
             };
 
@@ -1051,11 +1451,11 @@ fn handle_api(
             let build_lance = ext_lancer_build(&ext_build_cmd(&cfg)).is_ok();
 
             json!({"success": true,
-                "message": format!("Extension « {} » {}{}",
+                "message": format!("« {} » {}{}",
                                    id,
-                                   if deja_present { "mise à jour" } else { "installée" },
-                                   if build_lance { " — compilation lancée automatiquement." }
-                                   else { " — compilation déjà en cours." }),
+                                   if deja_present { i18n::t(langue, Cle::AdmExtMsgInstalleeMiseAJour) } else { i18n::t(langue, Cle::AdmExtMsgInstalleeInstallee) },
+                                   if build_lance { i18n::t(langue, Cle::AdmExtMsgCompilationLanceeAuto) }
+                                   else { i18n::t(langue, Cle::AdmExtMsgCompilationDejaEnCours) }),
                 "data": {
                     "id":            id,
                     "src_path":      chemin_src.to_string_lossy(),
@@ -1075,7 +1475,7 @@ fn handle_api(
             {
                 return respond_json(
                     request,
-                    json!({"success": false, "error": "Extension inconnue."}),
+                    json!({"success": false, "error": i18n::t(langue, Cle::AdmExtErrExtensionInconnue)}),
                 );
             }
             if let Some(v) = body.get("privilege_min").and_then(|v| v.parse::<i64>().ok()) {
@@ -1119,7 +1519,7 @@ fn handle_api(
                         }
                         Err(e) => {
                             return respond_json(request, json!({"success": false, "error":
-                                format!("{} : JSON invalide ({})", cle, e)}))
+                                i18n::t(langue, Cle::AdmExtJsonInvalideLib).replace("{lib}", cle).replace("{msg}", &e.to_string())}))
                         }
                     }
                 }
@@ -1131,11 +1531,11 @@ fn handle_api(
                     }
                     Ok(_) => {
                         return respond_json(request, json!({"success": false, "error":
-                            "Les autorisations doivent être un objet JSON."}))
+                            i18n::t(langue, Cle::AdmExtErrAutorisationsObjet)}))
                     }
                     Err(e) => {
                         return respond_json(request, json!({"success": false, "error":
-                            format!("Autorisations JSON invalides : {}", e)}))
+                            i18n::t(langue, Cle::AdmExtErrAutorisationsInvalides).replace("{e}", &e.to_string())}))
                     }
                 }
             }
@@ -1146,16 +1546,16 @@ fn handle_api(
                     }
                     Ok(_) => {
                         return respond_json(request, json!({"success": false, "error":
-                            "Les paramètres doivent être un objet JSON."}))
+                            i18n::t(langue, Cle::AdmExtErrParametresObjet)}))
                     }
                     Err(e) => {
                         return respond_json(request, json!({"success": false, "error":
-                            format!("Paramètres JSON invalides : {}", e)}))
+                            i18n::t(langue, Cle::AdmExtErrParametresInvalides2).replace("{e}", &e.to_string())}))
                     }
                 }
             }
             match ecrire_config(config_path, &cfg) {
-                Ok(_) => json!({"success": true, "message": "Permissions enregistrées."}),
+                Ok(_) => json!({"success": true, "message": i18n::t(langue, Cle::AdmExtMsgPermissionsEnregistrees)}),
                 Err(e) => json!({"success": false, "error": e}),
             }
         }
@@ -1164,12 +1564,12 @@ fn handle_api(
             let id = body.get("id").cloned().unwrap_or_default();
             if EXT_BASE_APPS.contains(&id.as_str()) {
                 return respond_json(request, json!({"success": false, "error":
-                    "Impossible de supprimer une application de base."}));
+                    i18n::t(langue, Cle::AdmExtErrImpossibleSupprBase)}));
             }
             if !ext_id_valide(&id) {
                 return respond_json(
                     request,
-                    json!({"success": false, "error": "ID invalide."}),
+                    json!({"success": false, "error": i18n::t(langue, Cle::AdmExtErrIdInvalide)}),
                 );
             }
             let purge = body
@@ -1199,9 +1599,9 @@ fn handle_api(
             let ids = ext_regenerer_registre().unwrap_or_default();
             json!({"success": true,
                 "message": if purge {
-                    format!("Extension « {} » supprimée (config + fichiers).", id)
+                    i18n::t(langue, Cle::AdmExtMsgSupprimeeConfigFichiers).replace("{id}", &id)
                 } else {
-                    format!("Extension « {} » retirée de la configuration (fichiers conservés).", id)
+                    i18n::t(langue, Cle::AdmExtMsgRetireeConfig).replace("{id}", &id)
                 },
                 "data": {"supprimes": supprimes, "registre_ids": ids, "needs_rebuild": purge}})
         }
@@ -1211,7 +1611,7 @@ fn handle_api(
             let cmd = ext_build_cmd(&cfg);
             match ext_lancer_build(&cmd) {
                 Ok(_) => json!({"success": true, "message":
-                    "Compilation lancée en arrière-plan. Redémarrez VEX une fois terminée.",
+                    i18n::t(langue, Cle::AdmExtMsgCompilationLanceeRedemarrez),
                     "data": {"cmd": cmd}}),
                 Err(e) => json!({"success": false, "error": e}),
             }
@@ -1230,7 +1630,7 @@ fn handle_api(
             let cmd = format!("git pull origin main 2>&1 && {}", build_cmd);
             match ext_lancer_build(&cmd) {
                 Ok(_) => json!({"success": true, "message":
-                    "Mise à jour depuis GitHub + compilation lancées en arrière-plan. Redémarrez VEX une fois terminée.",
+                    i18n::t(langue, Cle::AdmExtMsgMajGithubCompilation),
                     "data": {"cmd": cmd}}),
                 Err(e) => json!({"success": false, "error": e}),
             }
@@ -1276,7 +1676,7 @@ fn handle_api(
             if !providers.contains_key(&id) {
                 return respond_json(
                     request,
-                    json!({"success": false, "error": "Provider inconnu."}),
+                    json!({"success": false, "error": i18n::t(langue, Cle::AdmEdErrProviderInconnu)}),
                 );
             }
             if !cfg["editor"].is_object() {
@@ -1296,7 +1696,7 @@ fn handle_api(
             }
             match ecrire_config(config_path, &cfg) {
                 Ok(_) => json!({"success": true,
-                    "message": format!("Éditeur actif : {}.",
+                    "message": i18n::t(langue, Cle::AdmEdMsgEditeurActif).replace("{name}",
                         providers[&id].get("name").and_then(|v| v.as_str()).unwrap_or(&id))}),
                 Err(e) => json!({"success": false, "error": e}),
             }
@@ -1311,7 +1711,7 @@ fn handle_api(
                 .to_lowercase();
             if !ext_id_valide(&id) {
                 return respond_json(request, json!({"success": false, "error":
-                    "ID invalide : 2 à 32 caractères, minuscules / chiffres / _."}));
+                    i18n::t(langue, Cle::AdmEdErrIdInvalide2a32)}));
             }
             let kind = body
                 .get("kind")
@@ -1321,7 +1721,7 @@ fn handle_api(
             let mut providers = editor_providers(&cfg);
             if providers.contains_key(&id) {
                 return respond_json(request, json!({"success": false, "error":
-                    "Un provider porte déjà cet identifiant."}));
+                    i18n::t(langue, Cle::AdmEdErrProviderExisteDeja)}));
             }
             let mut p = editor_defauts(&kind);
             if let Some(nom) = body.get("name") {
@@ -1341,7 +1741,7 @@ fn handle_api(
             cfg["editor"]["providers"] = Value::Object(providers);
             match ecrire_config(config_path, &cfg) {
                 Ok(_) => json!({"success": true,
-                    "message": format!("Provider « {} » ajouté.", id), "data": {"id": id}}),
+                    "message": i18n::t(langue, Cle::AdmEdMsgProviderAjoute).replace("{id}", &id), "data": {"id": id}}),
                 Err(e) => json!({"success": false, "error": e}),
             }
         }
@@ -1353,19 +1753,19 @@ fn handle_api(
                 Ok(v) => v,
                 Err(e) => {
                     return respond_json(request, json!({"success": false, "error":
-                        format!("JSON du provider invalide : {}", e)}))
+                        i18n::t(langue, Cle::AdmEdErrJsonProviderInvalide).replace("{e}", &e.to_string())}))
                 }
             };
             if !recu.is_object() {
                 return respond_json(request, json!({"success": false, "error":
-                    "Le provider doit être un objet JSON."}));
+                    i18n::t(langue, Cle::AdmEdErrProviderDoitEtreObjet)}));
             }
             let mut cfg = read_config(config_path);
             let mut providers = editor_providers(&cfg);
             if !providers.contains_key(&id) {
                 return respond_json(
                     request,
-                    json!({"success": false, "error": "Provider inconnu."}),
+                    json!({"success": false, "error": i18n::t(langue, Cle::AdmEdErrProviderInconnu)}),
                 );
             }
             let mut fusionne = providers[&id].clone();
@@ -1392,7 +1792,7 @@ fn handle_api(
             match ecrire_config(config_path, &cfg) {
                 Ok(_) => {
                     let (online, ms, detail) = editor_check(&fusionne);
-                    json!({"success": true, "message": "Paramètres enregistrés.",
+                    json!({"success": true, "message": i18n::t(langue, Cle::AdmEdMsgParametresEnregistres),
                         "data": {"status": {"online": online, "ms": ms, "detail": detail}}})
                 }
                 Err(e) => json!({"success": false, "error": e}),
@@ -1406,12 +1806,12 @@ fn handle_api(
             if !providers.contains_key(&id) {
                 return respond_json(
                     request,
-                    json!({"success": false, "error": "Provider inconnu."}),
+                    json!({"success": false, "error": i18n::t(langue, Cle::AdmEdErrProviderInconnu)}),
                 );
             }
             if providers.len() <= 1 {
                 return respond_json(request, json!({"success": false, "error":
-                    "Impossible de supprimer le dernier provider."}));
+                    i18n::t(langue, Cle::AdmEdErrImpossibleSupprDernier)}));
             }
             providers.remove(&id);
             if !cfg["editor"].is_object() {
@@ -1422,7 +1822,7 @@ fn handle_api(
             cfg["editor"]["provider"] = json!(actif);
             match ecrire_config(config_path, &cfg) {
                 Ok(_) => json!({"success": true,
-                    "message": format!("Provider « {} » supprimé.", id),
+                    "message": i18n::t(langue, Cle::AdmEdMsgProviderSupprime).replace("{id}", &id),
                     "data": {"active": actif}}),
                 Err(e) => json!({"success": false, "error": e}),
             }
@@ -1443,7 +1843,7 @@ fn handle_api(
                     None => {
                         return respond_json(
                             request,
-                            json!({"success": false, "error": "Provider inconnu."}),
+                            json!({"success": false, "error": i18n::t(langue, Cle::AdmEdErrProviderInconnu)}),
                         )
                     }
                 }
@@ -1471,19 +1871,19 @@ fn handle_api(
                 None => {
                     return respond_json(
                         request,
-                        json!({"success": false, "error": "Provider inconnu."}),
+                        json!({"success": false, "error": i18n::t(langue, Cle::AdmEdErrProviderInconnu)}),
                     )
                 }
             };
             if demarrage && !p.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true) {
                 return respond_json(request, json!({"success": false, "error":
-                    "Ce provider est désactivé dans la configuration."}));
+                    i18n::t(langue, Cle::AdmEdErrProviderDesactive)}));
             }
             let cle = if demarrage { "start_cmd" } else { "stop_cmd" };
             let cmd = p.get(cle).and_then(|v| v.as_str()).unwrap_or("");
             if cmd.trim().is_empty() {
                 return respond_json(request, json!({"success": false, "error":
-                    format!("Aucune commande {} définie pour « {} ».", cle, id)}));
+                    i18n::t(langue, Cle::AdmEdErrAucuneCommande).replace("{cle}", cle).replace("{id}", &id)}));
             }
             let (cmd_ok, sortie) = run_shell_command(cmd);
             if demarrage {
@@ -1514,7 +1914,7 @@ fn handle_api(
                 .unwrap_or_default()
                 .trim()
                 .to_lowercase();
-            match market_release(&cfg, forcer) {
+            match market_release(&cfg, forcer, langue) {
                 Ok(rel) => {
                     let installees: Vec<String> = cfg["extensions"]["extension_params"]
                         .as_object()
@@ -1586,7 +1986,7 @@ fn handle_api(
                 && !url.starts_with("https://api.github.com/")
             {
                 return respond_json(request, json!({"success": false, "error":
-                    "Adresse refusee : seules les releases GitHub sont acceptees."}));
+                    i18n::t(langue, Cle::AdmMkErrAdresseRefusee)}));
             }
             let mut cfg = read_config(config_path);
             if !cfg["extensions"].is_object() {
@@ -1596,7 +1996,7 @@ fn handle_api(
             match ecrire_config(config_path, &cfg) {
                 Ok(_) => {
                     let _ = std::fs::remove_file(MARKET_CACHE); // le cache pointait ailleurs
-                    json!({"success": true, "message": "Catalogue mis a jour."})
+                    json!({"success": true, "message": i18n::t(langue, Cle::AdmMkMsgCatalogueMaj)})
                 }
                 Err(e) => json!({"success": false, "error": e}),
             }
@@ -1609,7 +2009,7 @@ fn handle_api(
                 && !url.starts_with("https://objects.githubusercontent.com/")
             {
                 return respond_json(request, json!({"success": false, "error":
-                    "Source refusee : seules les releases GitHub sont acceptees."}));
+                    i18n::t(langue, Cle::AdmMkErrSourceRefusee)}));
             }
             let nom = body.get("nom").cloned().unwrap_or_default();
             let id = body
@@ -1619,11 +2019,11 @@ fn handle_api(
                 .unwrap_or_else(|| market_id_depuis_nom(&nom));
             if !ext_id_valide(&id) {
                 return respond_json(request, json!({"success": false, "error":
-                    format!("Identifiant deduit invalide : « {} ».", id)}));
+                    i18n::t(langue, Cle::AdmMkErrIdDeduitInvalide).replace("{id}", &id)}));
             }
             if EXT_BASE_APPS.contains(&id.as_str()) {
                 return respond_json(request, json!({"success": false, "error":
-                    "Cet identifiant est reserve a une application de base."}));
+                    i18n::t(langue, Cle::AdmMkErrIdReserveBase)}));
             }
 
             let donnees = match market_telecharger(&url) {
@@ -1639,17 +2039,17 @@ fn handle_api(
                     Ok(v) => v,
                     Err(e) => {
                         return respond_json(request, json!({"success": false, "error":
-                            format!("Manifeste illisible : {}", e)}))
+                            i18n::t(langue, Cle::AdmMkErrManifesteIllisible).replace("{e}", &e.to_string())}))
                     }
                 };
                 let cfg_rel = read_config(config_path);
-                let rel = match market_release(&cfg_rel, false) {
+                let rel = match market_release(&cfg_rel, false, langue) {
                     Ok(r) => r,
                     Err(e) => return respond_json(request, json!({"success": false, "error": e})),
                 };
                 match market_poser_fichiers(&id, &manif, &rel) {
                     Ok((poses, code)) => {
-                        risques = ext_scan_risques(&code);
+                        risques = ext_scan_risques(&code, langue);
                         poses
                     }
                     Err(e) => return respond_json(request, json!({"success": false, "error": e})),
@@ -1660,7 +2060,7 @@ fn handle_api(
                         // On relit le mod.rs extrait pour l'analyser.
                         let src = std::path::Path::new(EXT_SRC_ROOT).join(&id).join("mod.rs");
                         if let Ok(code) = std::fs::read_to_string(&src) {
-                            risques = ext_scan_risques(&code);
+                            risques = ext_scan_risques(&code, langue);
                         }
                         v
                     }
@@ -1671,14 +2071,14 @@ fn handle_api(
                     Ok(c) => c,
                     Err(_) => {
                         return respond_json(request, json!({"success": false, "error":
-                            "Le fichier .rs n'est pas encode en UTF-8."}))
+                            i18n::t(langue, Cle::AdmMkErrFichierPasUtf8)}))
                     }
                 };
                 if !code.contains("pub fn handle") {
                     return respond_json(request, json!({"success": false, "error":
-                        "Ce fichier n'expose pas `pub fn handle` : ce n'est pas une extension VEX."}));
+                        i18n::t(langue, Cle::AdmMkErrPasExtensionVex)}));
                 }
-                risques = ext_scan_risques(&code);
+                risques = ext_scan_risques(&code, langue);
                 let dossier = std::path::Path::new(EXT_SRC_ROOT).join(&id);
                 if let Err(e) = std::fs::create_dir_all(&dossier) {
                     return respond_json(request, json!({"success": false, "error":
@@ -1703,7 +2103,7 @@ fn handle_api(
                 // l'admin voit le detail avant de decider.
                 return respond_json(request, json!({
                     "success": false, "need_confirm": true, "risques": risques,
-                    "error": format!("{} motif(s) sensible(s) dans le code telecharge.", risques.len()),
+                    "error": i18n::t(langue, Cle::AdmMkErrMotifsCode).replace("{n}", &risques.len().to_string()),
                 }));
             }
 
@@ -1760,14 +2160,14 @@ fn handle_api(
                 Ok(v) => v,
                 Err(e) => {
                     return respond_json(request, json!({"success": false, "error":
-                        format!("Registre des extensions : {}", e)}))
+                        i18n::t(langue, Cle::AdmExtErrRegistreExtensions).replace("{e}", &e)}))
                 }
             };
             let build_lance = ext_lancer_build(&ext_build_cmd(&cfg)).is_ok();
 
             json!({"success": true,
-                "message": format!("« {} » installee depuis GitHub{}", id,
-                    if build_lance { " — compilation lancee." } else { " — compilation deja en cours." }),
+                "message": i18n::t(langue, Cle::AdmMkMsgInstalleeDepuisGithub).replace("{id}", &id).replace("{suffix}",
+                    if build_lance { i18n::t(langue, Cle::AdmExtMsgCompilationLanceeAuto) } else { i18n::t(langue, Cle::AdmExtMsgCompilationDejaEnCours) }),
                 "data": {"id": id, "fichiers": fichiers, "risques": risques,
                          "registre_ids": ids, "build_lance": build_lance}})
         }
@@ -2072,19 +2472,19 @@ fn ext_id_valide(id: &str) -> bool {
 
 /// Repère les constructions sensibles d'un code uploadé.
 /// Ne bloque rien tout seul : la liste part à l'admin qui confirme ou non.
-fn ext_scan_risques(code: &str) -> Vec<Value> {
-    let motifs: [(&str, &str); 11] = [
-        ("Command::new", "Exécution d'une commande système"),
-        ("std::process", "Accès aux processus système"),
-        ("unsafe", "Bloc unsafe"),
-        ("remove_dir_all", "Suppression récursive de dossiers"),
-        ("remove_file", "Suppression de fichiers"),
-        ("executer_sql", "Exécution de SQL brut"),
-        ("destruction_totale", "Appel à la routine de destruction"),
-        ("\"privilege\"", "Écriture sur la colonne privilege"),
-        ("extern \"C\"", "Liaison de code natif externe"),
-        ("libloading", "Chargement de bibliothèque dynamique"),
-        ("include_bytes!", "Inclusion de fichier binaire"),
+fn ext_scan_risques(code: &str, langue: &str) -> Vec<Value> {
+    let motifs: [(&str, &'static str); 11] = [
+        ("Command::new", i18n::t(langue, Cle::AdmRisqueCommandeSysteme)),
+        ("std::process", i18n::t(langue, Cle::AdmRisqueAccesProcessus)),
+        ("unsafe", i18n::t(langue, Cle::AdmRisqueBlocUnsafe)),
+        ("remove_dir_all", i18n::t(langue, Cle::AdmRisqueSupprRecursive)),
+        ("remove_file", i18n::t(langue, Cle::AdmRisqueSupprFichiers)),
+        ("executer_sql", i18n::t(langue, Cle::AdmRisqueSqlBrut)),
+        ("destruction_totale", i18n::t(langue, Cle::AdmRisqueDestructionTotale)),
+        ("\"privilege\"", i18n::t(langue, Cle::AdmRisqueEcriturePrivilege)),
+        ("extern \"C\"", i18n::t(langue, Cle::AdmRisqueLiaisonNative)),
+        ("libloading", i18n::t(langue, Cle::AdmRisqueChargementBiblio)),
+        ("include_bytes!", i18n::t(langue, Cle::AdmRisqueInclusionBinaire)),
     ];
     let mut sorties = Vec::new();
     for (i, ligne) in code.lines().enumerate() {
@@ -2358,17 +2758,18 @@ fn lister_backups() -> Vec<Value> {
 
 /// Lance un dump complet (structure + donnees, fichiers inclus car
 /// stockes en base64 dans `fichiers`) dans un thread separe.
-fn lancer_backup(db: &crate::config_loader::DbConfig) -> Result<(), String> {
+fn lancer_backup(db: &crate::config_loader::DbConfig, langue: &str) -> Result<(), String> {
     use std::process::Stdio;
     use std::sync::atomic::Ordering;
     if BACKUP_EN_COURS.swap(true, Ordering::SeqCst) {
-        return Err("Une sauvegarde est déjà en cours.".into());
+        return Err(i18n::t(langue, Cle::AdmBackupErrDejaEnCours).to_string());
     }
     let _ = std::fs::create_dir_all(BACKUP_DIR);
     let horodatage = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
     let nom = format!("vex-backup-{}.sql.gz", horodatage);
     let chemin = format!("{}/{}", BACKUP_DIR, nom);
     let db = db.clone();
+    let langue = langue.to_string();
     ecrire_backup_status(json!({"running": true, "started_at": maintenant(), "fichier": nom}));
 
     std::thread::spawn(move || {
@@ -2405,7 +2806,7 @@ fn lancer_backup(db: &crate::config_loader::DbConfig) -> Result<(), String> {
                 return Err(format!("mysqldump a échoué : {}", err.trim()));
             }
             if !gzip_status.success() {
-                return Err("gzip a échoué.".into());
+                return Err(i18n::t(&langue, Cle::AdmBackupErrGzipEchoue).to_string());
             }
             std::fs::metadata(&chemin).map(|m| m.len()).map_err(|e| format!("{e}"))
         })();
@@ -2823,7 +3224,7 @@ fn market_ecrire_cache(mut v: Value) {
 }
 
 /// Recupere la release depuis GitHub (ou le cache).
-fn market_release(cfg: &Value, forcer: bool) -> Result<Value, String> {
+fn market_release(cfg: &Value, forcer: bool, langue: &str) -> Result<Value, String> {
     if !forcer {
         if let Some(v) = market_lire_cache() {
             return Ok(v);
@@ -2832,10 +3233,9 @@ fn market_release(cfg: &Value, forcer: bool) -> Result<Value, String> {
     let configuree = cfg["extensions"]["marketplace_url"].as_str().unwrap_or("").trim();
     let url = market_api_url(cfg).ok_or_else(|| {
         if configuree.is_empty() {
-            "Aucun catalogue configure. Renseignez l'adresse de la release GitHub ci-dessous."
-                .to_string()
+            i18n::t(langue, Cle::AdmMkAucunCatalogueConfigure).to_string()
         } else {
-            format!("« {} » n'est pas une URL de release GitHub.", configuree)
+            i18n::t(langue, Cle::AdmMkPasUrlRelease).replace("{url}", configuree)
         }
     })?;
     let rep = ureq::get(&url)

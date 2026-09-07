@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Visio — VEX</title>
+<title>{{T_TITRE_ONGLET}}</title>
 <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
 <link rel="stylesheet" href="/static/css/theme.css">
 
@@ -138,31 +138,31 @@ body > .controls-bar {
 <!-- ══════════════ ÉCRAN D'ACCUEIL ══════════════ -->
 <div class="gate-wrap" id="gateWrap">
   <div class="gate-card">
-    <h1>Appel vidéo VEX</h1>
-    <p class="sub">Signalisation chiffrée de bout en bout — le serveur ne voit ni votre flux, ni vos SDP.</p>
+    <h1>{{T_APPEL_VIDEO_VEX}}</h1>
+    <p class="sub">{{T_SOUS_TITRE}}</p>
 
     <div class="gate-error" id="gateError"></div>
 
     <div class="tabs">
-      <button class="tab-btn active" id="tabCreate">Créer une salle</button>
-      <button class="tab-btn" id="tabJoin">Rejoindre</button>
+      <button class="tab-btn active" id="tabCreate">{{T_CREER_UNE_SALLE}}</button>
+      <button class="tab-btn" id="tabJoin">{{T_REJOINDRE}}</button>
     </div>
 
     <div id="paneCreate">
-      <div class="field"><label for="createTitle">Nom de l'appel</label><input type="text" id="createTitle" placeholder="Réunion équipe" maxlength="120"></div>
-      <div class="field"><label for="createPassword">Mot de passe (optionnel)</label><input type="password" id="createPassword" placeholder="Laisser vide = pas de mot de passe"></div>
-      <button class="btn-primary" id="btnCreate">Créer et démarrer</button>
+      <div class="field"><label for="createTitle">{{T_NOM_APPEL}}</label><input type="text" id="createTitle" placeholder="{{T_PLACEHOLDER_REUNION}}" maxlength="120"></div>
+      <div class="field"><label for="createPassword">{{T_MDP_OPTIONNEL}}</label><input type="password" id="createPassword" placeholder="{{T_PLACEHOLDER_LAISSER_VIDE}}"></div>
+      <button class="btn-primary" id="btnCreate">{{T_CREER_ET_DEMARRER}}</button>
     </div>
 
     <div id="paneJoin" style="display:none;">
-      <div class="field"><label for="joinCode">Code de la salle</label><input type="text" id="joinCode" placeholder="xxxx-xxxxxx" autocapitalize="off" autocomplete="off"></div>
-      <div class="field"><label for="joinPassword">Mot de passe (si demandé)</label><input type="password" id="joinPassword" placeholder="•••••••"></div>
-      <button class="btn-primary" id="btnJoin">Rejoindre l'appel</button>
+      <div class="field"><label for="joinCode">{{T_CODE_SALLE}}</label><input type="text" id="joinCode" placeholder="xxxx-xxxxxx" autocapitalize="off" autocomplete="off"></div>
+      <div class="field"><label for="joinPassword">{{T_MDP_SI_DEMANDE}}</label><input type="password" id="joinPassword" placeholder="•••••••"></div>
+      <button class="btn-primary" id="btnJoin">{{T_REJOINDRE_APPEL}}</button>
     </div>
 
     <div class="security-note">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6l8-4z"/></svg>
-      <span>Chaque appareil génère une paire de clés ECDH éphémère. La négociation WebRTC (offres/réponses/ICE) est chiffrée en AES-256-GCM avant de transiter par le serveur, qui ne peut pas la déchiffrer. Le flux audio/vidéo passe en direct entre les participants (DTLS-SRTP).</span>
+      <span>{{T_NOTE_SECURITE}}</span>
     </div>
   </div>
 </div>
@@ -171,30 +171,30 @@ body > .controls-bar {
 <div class="call-wrap" id="callWrap">
   <div class="call-header">
     <div class="call-header-left">
-      <div class="call-title" id="callTitle">Appel VEX</div>
+      <div class="call-title" id="callTitle">{{T_APPEL_VEX_DEFAULT}}</div>
       <div class="status-pill" id="statusPill" style="display:none;">
         <span class="status-dot" id="statusDot"></span>
-        <span id="statusText">Connexion…</span>
+        <span id="statusText">{{T_CONNEXION_EN_COURS}}</span>
       </div>
       <div class="participants-pill" id="participantsPill" style="display:none;">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span id="participantsCount">1</span>
       </div>
     </div>
-    <div class="room-code-chip" id="roomCodeChip" title="Copier le code">
+    <div class="room-code-chip" id="roomCodeChip" title="{{T_COPIER_LE_CODE}}">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
       <span id="roomCodeText">----</span>
     </div>
   </div>
 
   <div class="video-grid" id="videoGrid"></div>
-  <div class="empty-hint" id="emptyHint" style="display:none;">Vous êtes seul(e) dans cet appel pour le moment. Partagez le code pour inviter quelqu'un.</div>
+  <div class="empty-hint" id="emptyHint" style="display:none;">{{T_SEUL_DANS_APPEL}}</div>
 </div>
 
 <!-- ══════════════ BARRE DE CONTRÔLE ══════════════ -->
 <div class="controls-bar" id="controlsBar" style="display:none;">
   <div class="controls-inner">
-    <button class="ctrl-btn" id="btnMic" title="Micro">
+    <button class="ctrl-btn" id="btnMic" title="{{T_MICRO}}">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
         <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
@@ -202,20 +202,20 @@ body > .controls-bar {
         <line x1="8" y1="23" x2="16" y2="23"/>
       </svg>
     </button>
-    <button class="ctrl-btn" id="btnCam" title="Caméra">
+    <button class="ctrl-btn" id="btnCam" title="{{T_CAMERA}}">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M23 7l-7 5 7 5V7z"/>
         <rect x="1" y="5" width="15" height="14" rx="2"/>
       </svg>
     </button>
-    <button class="ctrl-btn" id="btnShare" title="Partager l'écran">
+    <button class="ctrl-btn" id="btnShare" title="{{T_PARTAGER_ECRAN}}">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <rect x="2" y="3" width="20" height="14" rx="2"/>
         <line x1="8" y1="21" x2="16" y2="21"/>
         <line x1="12" y1="17" x2="12" y2="21"/>
       </svg>
     </button>
-    <button class="ctrl-btn hangup" id="btnHangup" title="Quitter l'appel">
+    <button class="ctrl-btn hangup" id="btnHangup" title="{{T_QUITTER_APPEL}}">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <line x1="18" y1="6" x2="6" y2="18"/>
         <line x1="6" y1="6" x2="18" y2="18"/>
@@ -227,6 +227,7 @@ body > .controls-bar {
 <div class="toast" id="toast"></div>
 
 <script>
+{{I18N_JS}}
 (function () {
 "use strict";
 
@@ -237,7 +238,7 @@ const HEARTBEAT_MS = 25_000;
 const POLL_MS = 1_200;
 const ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
 
-let myKeyPair = null, myPubB64 = "", mySessionId = "", myNom = "Vous";
+let myKeyPair = null, myPubB64 = "", mySessionId = "", myNom = I18N.VOUS_DEFAULT;
 let roomId = null, localStream = null, micOn = true, camOn = true;
 let screenSharing = false;
 let heartbeatTimer = null, pollTimer = null;
@@ -275,7 +276,7 @@ function getOrCreatePeer(sessionId, pubKeyRaw, nom) {
   if (peers[sessionId]) return peers[sessionId];
 
   const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-  const entry = { pc, pubKeyRaw, nom: nom || "Participant", micOn: true, camOn: true, sharedKeyPromise: deriveSharedAesKey(myKeyPair.privateKey, pubKeyRaw), videoEl: null };
+  const entry = { pc, pubKeyRaw, nom: nom || I18N.PARTICIPANT_DEFAULT, micOn: true, camOn: true, sharedKeyPromise: deriveSharedAesKey(myKeyPair.privateKey, pubKeyRaw), videoEl: null };
   peers[sessionId] = entry;
 
   if (screenSharing && screenSharing.track) {
@@ -402,7 +403,7 @@ function ensureTile(sessionId, nom, isLocal) {
   tile.appendChild(avatar);
   const label = document.createElement("div");
   label.className = "tile-label";
-  label.innerHTML = MIC_ON_SVG + `<span class="name">${escapeHtml(nom)}${isLocal ? " (vous)" : ""}</span>`;
+  label.innerHTML = MIC_ON_SVG + `<span class="name">${escapeHtml(nom)}${isLocal ? I18N.VOUS_SUFFIX : ""}</span>`;
   tile.appendChild(label);
   grid.appendChild(tile);
   return tile;
@@ -413,7 +414,7 @@ function updateTileState(sessionId, micOnState, camOnState, nom) {
   if (!tile) return;
   const label = tile.querySelector(".tile-label");
   const nameSpan = label.querySelector(".name");
-  if (nom) nameSpan.textContent = nom + (sessionId === "local" ? " (vous)" : "");
+  if (nom) nameSpan.textContent = nom + (sessionId === "local" ? I18N.VOUS_SUFFIX : "");
   const micIcoWrap = document.createElement("span");
   micIcoWrap.style.display = "contents";
   label.innerHTML = (micOnState ? MIC_ON_SVG : MIC_OFF_SVG) + `<span class="name">${nameSpan.textContent}</span>`;
@@ -476,7 +477,7 @@ document.getElementById("btnShare").addEventListener("click", async () => {
       screenTrack.onended = () => document.getElementById("btnShare").click();
       btn.classList.add("active-toggle");
       screenSharing = { track: screenTrack, senders };
-      toast("Partage d'écran démarré.");
+      toast(I18N.PARTAGE_ECRAN_DEMARRE);
     } else {
       for (const sid in screenSharing.senders) {
         const pc = peers[sid] && peers[sid].pc;
@@ -486,15 +487,15 @@ document.getElementById("btnShare").addEventListener("click", async () => {
       if (screenSharing.track) screenSharing.track.stop();
       screenSharing = false;
       btn.classList.remove("active-toggle");
-      toast("Partage d'écran arrêté.");
+      toast(I18N.PARTAGE_ECRAN_ARRETE);
     }
-  } catch (e) { toast("Partage d'écran annulé ou indisponible."); }
+  } catch (e) { toast(I18N.PARTAGE_ECRAN_ANNULE); }
 });
 
 document.getElementById("btnHangup").addEventListener("click", quitterAppel);
 document.getElementById("roomCodeChip").addEventListener("click", () => {
   const code = document.getElementById("roomCodeText").textContent;
-  navigator.clipboard?.writeText(code).then(() => toast("Code copié dans le presse-papiers."));
+  navigator.clipboard?.writeText(code).then(() => toast(I18N.CODE_COPIE));
 });
 
 document.getElementById("tabCreate").addEventListener("click", () => switchTab("create"));
@@ -514,10 +515,10 @@ document.getElementById("btnCreate").addEventListener("click", async () => {
   const title = document.getElementById("createTitle").value.trim() || "Appel VEX";
   const password = document.getElementById("createPassword").value;
   const btn = document.getElementById("btnCreate");
-  btn.disabled = true; btn.textContent = "Création…";
+  btn.disabled = true; btn.textContent = I18N.CREATION_EN_COURS;
   const res = await apiCall("creer_salle", { title, password, max_participants: "8", is_public: "0" });
-  btn.disabled = false; btn.textContent = "Créer et démarrer";
-  if (!res.success) { showGateError(res.error || "Erreur inconnue."); return; }
+  btn.disabled = false; btn.textContent = I18N.CREER_ET_DEMARRER;
+  if (!res.success) { showGateError(res.error || I18N.ERREUR_INCONNUE); return; }
   await entrerDansAppel(res.data.room_id, res.data.room_code, res.data.title, password);
 });
 
@@ -525,11 +526,11 @@ document.getElementById("btnJoin").addEventListener("click", async () => {
   hideGateError();
   const code = document.getElementById("joinCode").value.trim();
   const password = document.getElementById("joinPassword").value;
-  if (!code) { showGateError("Merci de saisir un code de salle."); return; }
+  if (!code) { showGateError(I18N.MERCI_SAISIR_CODE); return; }
   const btn = document.getElementById("btnJoin");
-  btn.disabled = true; btn.textContent = "Connexion…";
+  btn.disabled = true; btn.textContent = I18N.CONNEXION_EN_COURS;
   await rejoindreEtEntrer(code, password);
-  btn.disabled = false; btn.textContent = "Rejoindre l'appel";
+  btn.disabled = false; btn.textContent = I18N.REJOINDRE_APPEL;
 });
 
 async function entrerDansAppel(rId, code, title, password) { await rejoindreEtEntrer(code, password, rId, title); }
@@ -546,11 +547,11 @@ async function rejoindreEtEntrer(code, password, knownRoomId, knownTitle) {
       .catch(() => null);
 
     const res = await apiCall("rejoindre_salle", { room_code: code, session_id: mySessionId, x25519_pub: myPubB64, password: password || "" });
-    if (!res.success) { showGateError(res.error || "Impossible de rejoindre la salle."); stopLocalStream(); return; }
+    if (!res.success) { showGateError(res.error || I18N.IMPOSSIBLE_REJOINDRE); stopLocalStream(); return; }
 
     roomId = res.data.room_id;
-    myNom = res.data.your_nom || "Vous";
-    document.getElementById("callTitle").textContent = knownTitle || res.data.title || "Appel VEX";
+    myNom = res.data.your_nom || I18N.VOUS_DEFAULT;
+    document.getElementById("callTitle").textContent = knownTitle || res.data.title || I18N.APPEL_VEX_DEFAULT;
     document.getElementById("roomCodeText").textContent = code;
 
     afficherSalle();
@@ -562,7 +563,7 @@ async function rejoindreEtEntrer(code, password, knownRoomId, knownTitle) {
       const btnMic = document.getElementById("btnMic"), btnCam = document.getElementById("btnCam");
       btnMic.classList.add("off"); btnMic.disabled = true;
       btnCam.classList.add("off"); btnCam.disabled = true;
-      toast("Rejoint sans caméra ni micro (accès refusé ou indisponible).");
+      toast(I18N.REJOINT_SANS_CAMERA_MICRO);
     }
 
     // FIX (bug "String contains an invalid character") : on passait ici
@@ -577,7 +578,7 @@ async function rejoindreEtEntrer(code, password, knownRoomId, knownTitle) {
       await initierAppel(p.session_id, p.x25519_pub, p.nom);
     }
 
-    setStatus("En communication", true);
+    setStatus(I18N.EN_COMMUNICATION, true);
     updateParticipantsCount();
     heartbeatTimer = setInterval(() => apiCall("heartbeat", { session_id: mySessionId }), HEARTBEAT_MS);
     pollTimer = setInterval(() => { pollSignaux(); rafraichirParticipants(); }, POLL_MS);
@@ -585,7 +586,7 @@ async function rejoindreEtEntrer(code, password, knownRoomId, knownTitle) {
     window.addEventListener("beforeunload", quitterAppelSync);
   } catch (e) {
     console.error(e);
-    showGateError("Accès caméra/micro refusé, ou erreur réseau.");
+    showGateError(I18N.ACCES_CAMERA_MICRO_REFUSE);
     stopLocalStream();
   }
 }

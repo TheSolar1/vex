@@ -41,11 +41,12 @@
 //     du jeton.
 // ══════════════════════════════════════════════════════════════════
 
+use super::notice_cloudsync;
 use crate::appeldb::{inserer_ou_modifier, selectionner, verifier_connexion, DbPool};
 use chrono::{NaiveDateTime, Utc};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::io::Read;
+use std::io::{Read, Write};
 use tiny_http::{Request, Response};
 
 const EXPIRATION_MINUTES: i64 = 10;
@@ -63,6 +64,13 @@ pub fn handle_request(mut request: Request, pool: &DbPool, remote_ip: &str) {
         .find(|h| h.field.as_str().to_ascii_lowercase() == "user-agent")
         .map(|h| h.value.as_str().to_string())
         .unwrap_or_default();
+    let bearer = request
+        .headers()
+        .iter()
+        .find(|h| h.field.as_str().to_ascii_lowercase() == "authorization")
+        .and_then(|h| h.value.as_str().strip_prefix("Bearer ").map(|s| s.trim().to_string()))
+        .unwrap_or_default();
+    let host = crate::access_control::get_header(&request, "Host");
     let methode = request.method().as_str().to_string();
 
     let reponse = match (methode.as_str(), path.as_str()) {
@@ -79,8 +87,10 @@ pub fn handle_request(mut request: Request, pool: &DbPool, remote_ip: &str) {
             api_revoquer(&mut request, pool, &cookie_val, remote_ip, &user_agent)
         }
         ("GET", "/api/appareil/telecharger") | ("HEAD", "/api/appareil/telecharger") => {
-            telecharger_bundle(pool, &methode, &cookie_val, remote_ip, &user_agent)
+            let zip = query.get("zip").is_some();
+            telecharger_bundle(pool, &methode, &cookie_val, &bearer, remote_ip, &user_agent, zip)
         }
+        ("GET", "/install.ps1") => script_installation(&host),
         _ => reponse_json(json!({"success": false, "error": "route inconnue"}), 404),
     };
     let _ = request.respond(reponse);
@@ -132,9 +142,10 @@ fn page_autorisation(
     remote_ip: &str,
     user_agent: &str,
 ) -> Response<std::io::Cursor<Vec<u8>>> {
+    use crate::i18n::{t, Cle};
     let code = query.get("code").cloned().unwrap_or_default();
 
-    if verifier_connexion(pool, cookie_val, remote_ip, user_agent).is_none() {
+    let Some(session) = verifier_connexion(pool, cookie_val, remote_ip, user_agent) else {
         // Pas connecte : on renvoie vers la page de login, avec un retour
         // vers cette meme page une fois connecte.
         let retour = format!("/autoriser-appareil?code={}", code);
@@ -147,66 +158,81 @@ fn page_autorisation(
                 )
                 .unwrap(),
             );
-    }
+    };
+    let user_id = session.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+    let theme = crate::function::get_theme_attr(pool, user_id);
+    let langue = crate::function::get_user_language(pool, Some(user_id), None, None);
 
     let ligne = ligne_par_code(pool, &code);
     let (titre, corps): (&str, String) = match &ligne {
-        None => ("Code invalide", "Ce code d'autorisation n'existe pas ou a expiré.".to_string()),
-        Some(l) if code_expire(l) => ("Code expiré", "Cette demande a expiré. Relance la connexion depuis l'appareil.".to_string()),
+        None => (t(&langue, Cle::AppareilCodeInvalideTitre), t(&langue, Cle::AppareilCodeInvalideTexte).to_string()),
+        Some(l) if code_expire(l) => (t(&langue, Cle::AppareilCodeExpireTitre), t(&langue, Cle::AppareilCodeExpireTexte).to_string()),
         Some(l) if l.get("statut").and_then(|v| v.as_str()) != Some("en_attente") => {
-            ("Déjà traité", "Cette demande a déjà été traitée.".to_string())
+            (t(&langue, Cle::AppareilDejaTraiteTitre), t(&langue, Cle::AppareilDejaTraiteTexte).to_string())
         }
         Some(l) => {
             let nom = l.get("nom_appareil").and_then(|v| v.as_str()).unwrap_or("Appareil inconnu");
+            let demande = t(&langue, Cle::AppareilDemandeAcces)
+                .replace("{nom}", &format!("<strong>{}</strong>", escaper_html(nom)));
             (
-                "Autoriser cet appareil ?",
+                t(&langue, Cle::AppareilAutoriserTitre),
                 format!(
-                    "<p>L'appareil <strong>{}</strong> demande à accéder à tes fichiers VEX \
-                     (lecture, écriture, suppression -- comme si tu étais connecté dessus).</p>\
-                     <p style=\"background:#1c2128;border:1px solid #2a2f3a;border-radius:8px;padding:10px 14px;\
-                     font-size:.8rem;color:#9aa1ad\">Code affiché sur l'appareil : \
-                     <strong style=\"color:#e7e9ee;letter-spacing:1px\">{}</strong> — vérifie qu'il correspond \
-                     bien à ce qui s'affiche sur l'appareil que tu essaies de connecter.</p>\
-                     <p style=\"color:#ffb347;font-size:.8rem\">⚠ N'autorise QUE si tu viens toi-même de lancer \
-                     VEX Cloud Sync sur un appareil que tu contrôles. Si tu n'as rien lancé, ou si ce lien t'a été \
-                     envoyé par quelqu'un d'autre, clique Refuser.</p>\
+                    "<p>{demande}</p>\
+                     <p style=\"background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;\
+                     font-size:.8rem;color:var(--text-dim)\">{label} \
+                     <strong style=\"color:var(--text);letter-spacing:1px\">{code}</strong> — {verifie}</p>\
+                     <p style=\"color:var(--orange);font-size:.8rem\">⚠ {avertissement}</p>\
                      <div style=\"display:flex;gap:10px;margin-top:20px\">\
-                     <button onclick=\"repondre('oui')\" style=\"flex:1;padding:12px;background:#4caf50;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer\">Autoriser</button>\
-                     <button onclick=\"repondre('non')\" style=\"flex:1;padding:12px;background:#2a2f3a;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer\">Refuser</button>\
+                     <button onclick=\"repondre('oui')\" style=\"flex:1;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer\">{bouton_autoriser}</button>\
+                     <button onclick=\"repondre('non')\" style=\"flex:1;padding:12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;font-weight:700;cursor:pointer\">{bouton_refuser}</button>\
                      </div>\
-                     <p id=\"resultat\" style=\"margin-top:16px;font-size:.85rem\"></p>",
-                    escaper_html(nom),
-                    escaper_html(&code)
+                     <p id=\"resultat\" style=\"margin-top:16px;font-size:.85rem;color:var(--text)\"></p>",
+                    demande = demande,
+                    label = t(&langue, Cle::AppareilCodeAfficheLabel),
+                    code = escaper_html(&code),
+                    verifie = t(&langue, Cle::AppareilVerifieCorrespond),
+                    avertissement = t(&langue, Cle::AppareilAvertissement),
+                    bouton_autoriser = t(&langue, Cle::AppareilBoutonAutoriser),
+                    bouton_refuser = t(&langue, Cle::AppareilBoutonRefuser),
                 ),
             )
         }
     };
 
     let html = format!(
-        r#"<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
-<title>Autoriser un appareil — VEX</title>
+        r#"<!DOCTYPE html><html lang="{langue}" data-theme="{theme}"><head><meta charset="UTF-8">
+<title>{titre_page}</title>
+<link rel="stylesheet" href="/static/css/theme.css">
 <style>
-body {{ font-family:-apple-system,sans-serif; background:#0f1115; color:#e7e9ee; display:flex;
+body {{ font-family:-apple-system,sans-serif; background:var(--bg); color:var(--text); display:flex;
        justify-content:center; padding:60px 16px; margin:0; }}
-.carte {{ max-width:440px; background:#171a21; border:1px solid #2a2f3a; border-radius:14px; padding:28px; }}
+.carte {{ max-width:440px; background:var(--panel); border:1px solid var(--panel-border); border-radius:14px; padding:28px; }}
 h1 {{ font-size:1.1rem; margin:0 0 14px; }}
-p {{ font-size:.9rem; line-height:1.6; color:#c7cbd4; }}
+p {{ font-size:.9rem; line-height:1.6; color:var(--text-dim); }}
 </style></head><body>
-<div class="carte"><h1>{}</h1>{}</div>
+<div class="carte"><h1>{titre}</h1>{corps}</div>
 <script>
 function repondre(decision) {{
   fetch('/api/appareil/approuver', {{
     method:'POST', headers:{{'Content-Type':'application/x-www-form-urlencoded'}}, credentials:'include',
-    body:'code={}&decision=' + decision,
+    body:'code={code_enc}&decision=' + decision,
   }}).then(r => r.json()).then(d => {{
     document.getElementById('resultat').textContent = d.success
-      ? (decision === 'oui' ? 'Appareil autorisé. Tu peux fermer cette page.' : 'Refusé. Tu peux fermer cette page.')
-      : (d.error || 'Erreur.');
+      ? (decision === 'oui' ? '{resultat_autorise}' : '{resultat_refuse}')
+      : (d.error || '{erreur_generique}');
   }});
 }}
 </script>
 </body></html>"#,
-        titre, corps, url_encode(&code)
+        langue = langue,
+        theme = theme,
+        titre_page = t(&langue, Cle::AppareilTitrePage),
+        titre = titre,
+        corps = corps,
+        code_enc = url_encode(&code),
+        resultat_autorise = t(&langue, Cle::AppareilResultatAutorise).replace('\'', "\\'"),
+        resultat_refuse = t(&langue, Cle::AppareilResultatRefuse).replace('\'', "\\'"),
+        erreur_generique = t(&langue, Cle::AppareilErreurGenerique).replace('\'', "\\'"),
     );
 
     Response::from_string(html).with_header(
@@ -224,10 +250,14 @@ fn api_approuver(
     remote_ip: &str,
     user_agent: &str,
 ) -> Response<std::io::Cursor<Vec<u8>>> {
+    use crate::i18n::{t, Cle};
+    let accept_lang = crate::access_control::get_header(request, "Accept-Language");
     let Some(user_info) = verifier_connexion(pool, cookie_val, remote_ip, user_agent) else {
-        return reponse_json(json!({"success": false, "error": "non authentifié"}), 401);
+        let langue = crate::function::get_user_language(pool, None, None, Some(&accept_lang));
+        return reponse_json(json!({"success": false, "error": t(&langue, Cle::AppareilErreurNonAuthentifie)}), 401);
     };
     let user_id = user_info.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+    let langue = crate::function::get_user_language(pool, Some(user_id), None, Some(&accept_lang));
 
     let corps = lire_body(request);
     let params = parser_query(&corps);
@@ -235,13 +265,13 @@ fn api_approuver(
     let decision = params.get("decision").cloned().unwrap_or_default();
 
     let Some(ligne) = ligne_par_code(pool, &code) else {
-        return reponse_json(json!({"success": false, "error": "code introuvable"}), 404);
+        return reponse_json(json!({"success": false, "error": t(&langue, Cle::AppareilErreurCodeIntrouvable)}), 404);
     };
     if code_expire(&ligne) {
-        return reponse_json(json!({"success": false, "error": "code expiré"}), 410);
+        return reponse_json(json!({"success": false, "error": t(&langue, Cle::AppareilCodeExpireTitre)}), 410);
     }
     if ligne.get("statut").and_then(|v| v.as_str()) != Some("en_attente") {
-        return reponse_json(json!({"success": false, "error": "déjà traité"}), 409);
+        return reponse_json(json!({"success": false, "error": t(&langue, Cle::AppareilDejaTraiteTitre)}), 409);
     }
 
     if decision == "oui" {
@@ -320,17 +350,22 @@ fn api_liste(
     remote_ip: &str,
     user_agent: &str,
 ) -> Response<std::io::Cursor<Vec<u8>>> {
+    use crate::i18n::{t, Cle};
     let Some(user_info) = verifier_connexion(pool, cookie_val, remote_ip, user_agent) else {
-        return reponse_json(json!({"success": false, "error": "non authentifié"}), 401);
+        let langue = crate::function::get_user_language(pool, None, None, None);
+        return reponse_json(json!({"success": false, "error": t(&langue, Cle::AppareilErreurNonAuthentifie)}), 401);
     };
     let user_id = user_info.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
 
     // WHERE user_id = ? exclut déjà naturellement les codes en_attente/refusé
-    // (user_id n'est renseigné qu'au moment de l'approbation).
+    // (user_id n'est renseigné qu'au moment de l'approbation). statut =
+    // 'approuve' en plus : la page affiche "Appareils autorisés", donc un
+    // appareil revoque n'a plus sa place dans cette liste -- BUG CONSTATE EN
+    // PRATIQUE, il y restait indefiniment.
     let lignes = selectionner(
         pool,
         "appareil_jetons",
-        &[("user_id", mysql::Value::from(user_id))],
+        &[("user_id", mysql::Value::from(user_id)), ("statut", mysql::Value::from("approuve"))],
         &["code", "nom_appareil", "statut", "created_at"],
         Some("created_at DESC"),
         None,
@@ -358,22 +393,25 @@ fn api_revoquer(
     remote_ip: &str,
     user_agent: &str,
 ) -> Response<std::io::Cursor<Vec<u8>>> {
+    use crate::i18n::{t, Cle};
     let Some(user_info) = verifier_connexion(pool, cookie_val, remote_ip, user_agent) else {
-        return reponse_json(json!({"success": false, "error": "non authentifié"}), 401);
+        let langue = crate::function::get_user_language(pool, None, None, None);
+        return reponse_json(json!({"success": false, "error": t(&langue, Cle::AppareilErreurNonAuthentifie)}), 401);
     };
     let user_id = user_info.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+    let langue = crate::function::get_user_language(pool, Some(user_id), None, None);
 
     let corps = lire_body(request);
     let params = parser_query(&corps);
     let code = params.get("code").cloned().unwrap_or_default();
 
     let Some(ligne) = ligne_par_code(pool, &code) else {
-        return reponse_json(json!({"success": false, "error": "code introuvable"}), 404);
+        return reponse_json(json!({"success": false, "error": t(&langue, Cle::AppareilErreurCodeIntrouvable)}), 404);
     };
     // Vérification de propriété : un utilisateur ne peut révoquer que SES
     // propres appareils, jamais ceux d'un autre en devinant/énumérant un code.
     if ligne.get("user_id").and_then(|v| v.as_i64()) != Some(user_id) {
-        return reponse_json(json!({"success": false, "error": "non autorisé"}), 403);
+        return reponse_json(json!({"success": false, "error": t(&langue, Cle::AppareilErreurNonAutorise)}), 403);
     }
 
     inserer_ou_modifier(
@@ -394,6 +432,14 @@ fn api_revoquer(
 // avec l'URL publique reelle (deduite du Host de la requete).
 // ══════════════════════════════════════════════════════════════════
 const CHEMIN_EXE_CLOUDSYNC: &str = "static/downloads/vex-cloudsync.exe";
+const CHEMIN_DESINSTALLER: &str = "static/downloads/desinstaller.exe";
+// Le zip (exe + notice + langue.txt) n'est PAS un fichier statique : il est
+// genere a la volee a chaque telechargement (voir plus bas), pour inclure la
+// notice traduite dans la langue de COMPTE de l'utilisateur qui telecharge
+// (function::get_user_language) -- deux utilisateurs avec des langues
+// differentes ne doivent pas recevoir le meme zip. install.ps1 continue de
+// recuperer l'exe brut directement (pas besoin de notice pour un script
+// automatise).
 
 // L'exe hebergee ici est un fichier STATIQUE : deja pre-configuree (essaie
 // plusieurs URLs connues au demarrage, voir BASE_URL_CANDIDATS dans
@@ -422,28 +468,91 @@ fn telecharger_bundle(
     pool: &DbPool,
     methode: &str,
     cookie_val: &str,
+    bearer: &str,
     remote_ip: &str,
     user_agent: &str,
+    zip: bool,
 ) -> Response<std::io::Cursor<Vec<u8>>> {
-    if verifier_connexion(pool, cookie_val, remote_ip, user_agent).is_none() {
+    // Auth par cookie (bouton "Telecharger" sur le site, session navigateur)
+    // OU par jeton d'appareil approuve (script d'installation / client
+    // desktop sans session navigateur, voir script_installation ci-dessous
+    // et fchier.rs::verifier_session pour le meme principe cote fichiers).
+    // On garde le HashMap (pas juste un bool) : le zip a besoin de l'id
+    // utilisateur pour lire sa langue de compte.
+    let session_cookie = verifier_connexion(pool, cookie_val, remote_ip, user_agent);
+    let session_bearer = crate::appeldb::verifier_jeton_appareil(pool, bearer);
+    if session_cookie.is_none() && session_bearer.is_none() {
         return reponse_json(json!({"success": false, "error": "non authentifié"}), 401);
     }
+    let user_id = session_cookie
+        .as_ref()
+        .or(session_bearer.as_ref())
+        .and_then(|m| m.get("id"))
+        .and_then(|v| v.as_i64());
 
-    let exe = match std::fs::read(CHEMIN_EXE_CLOUDSYNC) {
-        Ok(o) => o,
-        Err(_) => {
-            return reponse_json(
-                json!({"success": false, "error": "vex-cloudsync.exe indisponible sur le serveur"}),
-                404,
-            )
+    let (nom_fichier, content_type, corps) = if zip {
+        let exe = match std::fs::read(CHEMIN_EXE_CLOUDSYNC) {
+            Ok(o) => o,
+            Err(_) => {
+                return reponse_json(
+                    json!({"success": false, "error": "vex-cloudsync.exe indisponible sur le serveur"}),
+                    404,
+                )
+            }
+        };
+        // Optionnel : absent tant qu'on n'a pas encore deploye desinstaller.exe
+        // sur cette machine -- le zip reste utilisable sans (juste sans
+        // desinstalleur autonome, l'app elle-meme sait deja detecter une
+        // installation existante, voir main.rs::deja_installe).
+        let desinstaller = std::fs::read(CHEMIN_DESINSTALLER).ok();
+
+        let langue = crate::function::get_user_language(pool, user_id, None, None);
+        let (nom_notice, contenu_notice) = notice_cloudsync::contenu(&langue);
+
+        let resultat = (|| -> zip::result::ZipResult<Vec<u8>> {
+            let mut buf = std::io::Cursor::new(Vec::new());
+            let mut writer = zip::ZipWriter::new(&mut buf);
+            let options = zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Deflated);
+            writer.start_file(nom_notice, options)?;
+            writer.write_all(contenu_notice.as_bytes())?;
+            writer.start_file("vex-cloudsync.exe", options)?;
+            writer.write_all(&exe)?;
+            if let Some(desinstaller) = &desinstaller {
+                writer.start_file("desinstaller.exe", options)?;
+                writer.write_all(desinstaller)?;
+            }
+            // Lue par l'app au tout premier lancement pour choisir sa langue
+            // d'interface par defaut (voir clients/vex-cloudsync).
+            writer.start_file("langue.txt", options)?;
+            writer.write_all(langue.as_bytes())?;
+            writer.finish()?;
+            Ok(buf.into_inner())
+        })();
+        match resultat {
+            Ok(v) => ("vex-cloudsync.zip", "application/zip", v),
+            Err(_) => {
+                return reponse_json(json!({"success": false, "error": "echec de generation du zip"}), 500)
+            }
         }
+    } else {
+        let exe = match std::fs::read(CHEMIN_EXE_CLOUDSYNC) {
+            Ok(o) => o,
+            Err(_) => {
+                return reponse_json(
+                    json!({"success": false, "error": "vex-cloudsync.exe indisponible sur le serveur"}),
+                    404,
+                )
+            }
+        };
+        ("vex-cloudsync.exe", "application/vnd.microsoft.portable-executable", exe)
     };
-    let taille = exe.len();
+    let taille = corps.len();
 
     // HEAD : memes en-tetes (dont Content-Length reel), mais pas de corps
     // (les navigateurs l'utilisent parfois pour sonder la taille avant de
     // telecharger).
-    let corps = if methode == "HEAD" { Vec::new() } else { exe };
+    let corps = if methode == "HEAD" { Vec::new() } else { corps };
     let mut reponse = Response::from_data(corps);
     if methode == "HEAD" {
         reponse = reponse.with_data(std::io::Cursor::new(Vec::new()), Some(taille));
@@ -451,16 +560,93 @@ fn telecharger_bundle(
 
     reponse
         .with_chunked_threshold(usize::MAX)
-        .with_header(tiny_http::Header::from_bytes("Content-Type", "application/vnd.microsoft.portable-executable").unwrap())
+        .with_header(tiny_http::Header::from_bytes("Content-Type", content_type).unwrap())
         .with_header(
             tiny_http::Header::from_bytes(
                 "Content-Disposition",
-                "attachment; filename=\"vex-cloudsync.exe\"",
+                format!("attachment; filename=\"{nom_fichier}\""),
             )
             .unwrap(),
         )
         .with_header(tiny_http::Header::from_bytes("Accept-Ranges", "none").unwrap())
 }
+
+// ══════════════════════════════════════════════════════════════════
+// SCRIPT D'INSTALLATION — GET /install.ps1 (aucune auth : c'est le point
+// d'entree avant meme que l'appareil ait un jeton). Contourne le blocage
+// "fichier rarement telecharge" du gestionnaire de telechargements des
+// navigateurs (Firefox/Edge) qui, pour ce binaire encore peu diffuse,
+// aboutissait a un fichier final de 0 Ko cote navigateur (voir
+// telecharger_bundle ci-dessus pour le bug de transfert, deja corrige et
+// distinct de celui-ci). En passant par `irm .../install.ps1 | iex`, le
+// telechargement de l'exe se fait via Invoke-WebRequest (PowerShell), qui
+// ne passe PAS par le gestionnaire de telechargements du navigateur et
+// n'est donc pas soumis a cette verification de reputation cote navigateur.
+// L'authentification se fait via le flux d'autorisation d'appareil deja
+// en place (voir haut de fichier) : le script demande un code, ouvre la
+// page d'approbation dans le navigateur (ou l'utilisateur est deja
+// connecte via cookie), attend l'approbation, puis utilise le jeton
+// obtenu en "Authorization: Bearer" pour l'appel de telechargement --
+// meme mecanisme que celui deja utilise par fchier.rs::verifier_session
+// pour les appels fichiers des clients desktop.
+fn script_installation(host: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+    let base = format!("https://{}", host);
+    let script = SCRIPT_INSTALLATION_TEMPLATE.replace("__BASE_URL__", &base);
+    Response::from_data(script.into_bytes()).with_header(
+        tiny_http::Header::from_bytes("Content-Type", "text/plain; charset=utf-8").unwrap(),
+    )
+}
+
+const SCRIPT_INSTALLATION_TEMPLATE: &str = r#"$ErrorActionPreference = 'Stop'
+$base = '__BASE_URL__'
+
+Write-Host "Connexion a VEX Cloud Sync..." -ForegroundColor Cyan
+
+$demande = Invoke-RestMethod -Uri "$base/api/appareil/demander" -Method Post -Body @{ nom_appareil = $env:COMPUTERNAME }
+if (-not $demande.success) {
+    Write-Error "Impossible de demarrer la demande d'autorisation."
+    exit 1
+}
+$code = $demande.code
+$urlAuth = "$base/autoriser-appareil?code=$code"
+
+Write-Host ""
+Write-Host "Ouvre cette page et clique Autoriser (tentative d'ouverture automatique) :"
+Write-Host $urlAuth -ForegroundColor Yellow
+Write-Host ""
+try { Start-Process $urlAuth } catch {}
+
+Write-Host "En attente de ton autorisation..." -NoNewline
+$jeton = $null
+for ($i = 0; $i -lt 150; $i++) {
+    Start-Sleep -Seconds 2
+    Write-Host "." -NoNewline
+    $statut = Invoke-RestMethod -Uri "$base/api/appareil/statut?code=$code"
+    if ($statut.statut -eq 'approuve') { $jeton = $statut.jeton; break }
+    if ($statut.statut -eq 'refuse') { Write-Host ""; Write-Error "Autorisation refusee."; exit 1 }
+    if ($statut.statut -eq 'expire' -or $statut.statut -eq 'introuvable') {
+        Write-Host ""
+        Write-Error "Code expire -- relance le script."
+        exit 1
+    }
+}
+Write-Host ""
+if (-not $jeton) {
+    Write-Error "Delai depasse (5 min) -- relance le script."
+    exit 1
+}
+
+$dossier = "$env:LOCALAPPDATA\VexCloudSync"
+New-Item -ItemType Directory -Force -Path $dossier | Out-Null
+$exePath = Join-Path $dossier "vex-cloudsync.exe"
+
+Write-Host "Telechargement de vex-cloudsync.exe..."
+Invoke-WebRequest -Uri "$base/api/appareil/telecharger" -Headers @{ Authorization = "Bearer $jeton" } -OutFile $exePath
+
+Write-Host "Installe : $exePath" -ForegroundColor Green
+Write-Host "Windows peut afficher un avertissement SmartScreen au premier lancement -- c'est normal pour un logiciel encore peu diffuse, clique 'Informations complementaires' puis 'Executer quand meme'." -ForegroundColor DarkGray
+Start-Process $exePath
+"#;
 
 // ══════════════════════════════════════════════════════════════════
 // Aides

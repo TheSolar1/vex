@@ -23,8 +23,12 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, _
     }
 
     if request.method().to_string() == "POST" {
+        // Pas de compte, donc pas de session/preference : langue deduite du
+        // seul en-tete Accept-Language (meme principe que login.rs).
+        let accept_lang = crate::access_control::get_header(&request, "Accept-Language");
+        let langue = crate::function::get_user_language(pool, None, None, Some(&accept_lang));
         let body = read_body(&mut request);
-        let resp = handle_post(pool, &body);
+        let resp = handle_post(pool, &body, &langue);
         let _ = request.respond(
             Response::from_string(resp).with_header(
                 tiny_http::Header::from_bytes("Content-Type", "application/json; charset=utf-8")
@@ -50,9 +54,10 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, _
     ));
 }
 
-fn handle_post(pool: &DbPool, body: &HashMap<String, String>) -> String {
+fn handle_post(pool: &DbPool, body: &HashMap<String, String>, langue: &str) -> String {
+    use crate::i18n::{t, Cle};
     if body.get("setup").is_none() {
-        return jerr("Requête invalide.");
+        return jerr(t(langue, Cle::SetupErreurRequeteInvalide));
     }
 
     let nom = body
@@ -71,10 +76,10 @@ fn handle_post(pool: &DbPool, body: &HashMap<String, String>) -> String {
     let verifier_hex = body.get("srp_verifier").cloned().unwrap_or_default();
 
     if nom.is_empty() || email.is_empty() {
-        return jerr("Tous les champs sont obligatoires.");
+        return jerr(t(langue, Cle::SetupErreurChampsObligatoires));
     }
     if !email.contains('@') || !email.contains('.') {
-        return jerr("Adresse email invalide.");
+        return jerr(t(langue, Cle::LoginErreurEmailInvalide));
     }
     // Validation de forme : salt = 16 octets hex (32 car.), verifier = 256 octets hex (512 car. max)
     if salt_hex.len() != 32 || !salt_hex.chars().all(|c| c.is_ascii_hexdigit()) {
@@ -87,7 +92,7 @@ fn handle_post(pool: &DbPool, body: &HashMap<String, String>) -> String {
         return jerr("Format de verifier invalide.");
     }
     if compter_lignes(pool, "login", &[]) > 0 {
-        return jerr("Un compte existe déjà.");
+        return jerr(t(langue, Cle::SetupErreurCompteExisteDeja));
     }
 
     let id = inserer_ou_modifier(
@@ -108,7 +113,7 @@ fn handle_post(pool: &DbPool, body: &HashMap<String, String>) -> String {
     );
 
     if id <= 0 {
-        return jerr("Erreur lors de la création du compte.");
+        return jerr(t(langue, Cle::LoginErreurInscription));
     }
 
     inserer_ou_modifier(

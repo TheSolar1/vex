@@ -7,6 +7,7 @@ mod appeldb;
 mod c;
 mod config_loader;
 mod function;
+mod i18n;
 mod utils;
 mod srp;
 
@@ -29,6 +30,7 @@ mod login {
     pub mod first_setup;
     pub mod login;
     pub mod logout;
+    pub mod notice_cloudsync;
 }
 mod fchier {
     pub mod fchier;
@@ -655,7 +657,11 @@ fn main() {
                 login::autologin::handle_request(request, &pool, &config, &remote);
             }
 
-            p if p.starts_with("/api/appareil") || p == "/autoriser-appareil" || p == "/autoriser-appareil/" => {
+            p if p.starts_with("/api/appareil")
+                || p == "/autoriser-appareil"
+                || p == "/autoriser-appareil/"
+                || p == "/install.ps1" =>
+            {
                 login::appareil::handle_request(request, &pool, &remote);
             }
 

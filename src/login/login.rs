@@ -90,7 +90,8 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
 
     // ── GET → sert le HTML statique ──────────────────────────────
     if method == "GET" {
-        serve_static_html(request, "static/login/login.html");
+        let accept_lang = get_header(&request, "Accept-Language");
+        serve_login_html(request, pool, &accept_lang);
         return;
     }
 
@@ -116,14 +117,19 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
         }
     }
 
+    // Pas de session avant connexion : langue deduite du seul en-tete
+    // Accept-Language (meme mecanisme que serve_login_html).
+    let accept_lang = get_header(&request, "Accept-Language");
+    let langue = crate::function::get_user_language(pool, None, None, Some(&accept_lang));
+
     let body = read_body(&mut request);
     let action = body.get("action").map(|s| s.as_str()).unwrap_or("");
 
     match action {
         // ── Nouveau flux SRP-6a en 2 étapes ────────────────────────
-        "srp_step1" => handle_srp_step1(request, pool, &body),
-        "srp_step2" => handle_srp_step2(request, pool, &body, &remote_ip, &user_agent),
-        "signup" => handle_signup(request, pool, config, &body),
+        "srp_step1" => handle_srp_step1(request, pool, &body, &langue),
+        "srp_step2" => handle_srp_step2(request, pool, &body, &remote_ip, &user_agent, &langue),
+        "signup" => handle_signup(request, pool, config, &body, &langue),
         _ => respond_json(
             request,
             json!({"success":false,"error":"Action inconnue"}),
@@ -136,7 +142,8 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
 // SRP — Étape 1 : le client envoie son email, le serveur répond avec
 // le salt, sa valeur publique B, et un token pour corréler l'étape 2.
 // ══════════════════════════════════════════════════════════════════
-fn handle_srp_step1(request: Request, pool: &DbPool, body: &HashMap<String, String>) {
+fn handle_srp_step1(request: Request, pool: &DbPool, body: &HashMap<String, String>, langue: &str) {
+    use crate::i18n::{t, Cle};
     let email = body.get("email").cloned().unwrap_or_default();
 
     // FIX (défense en profondeur, même logique que step2) : borne la
@@ -144,7 +151,7 @@ fn handle_srp_step1(request: Request, pool: &DbPool, body: &HashMap<String, Stri
     // anormalement longue serve à faire travailler inutilement le
     // hachage SHA-256 ou les fonctions de la table `login`.
     if email.is_empty() || email.len() > 255 {
-        respond_json(request, json!({"success":false,"error":"Email invalide."}), 400);
+        respond_json(request, json!({"success":false,"error":t(langue, Cle::LoginErreurEmailInvalide)}), 400);
         return;
     }
 
@@ -233,7 +240,9 @@ fn handle_srp_step2(
     body: &HashMap<String, String>,
     remote_ip: &str,
     user_agent: &str,
+    langue: &str,
 ) {
+    use crate::i18n::{t, Cle};
     let token = body.get("token").cloned().unwrap_or_default();
     let email = body.get("email").cloned().unwrap_or_default();
     let a_hex = body.get("A").cloned().unwrap_or_default();
@@ -275,7 +284,7 @@ fn handle_srp_step2(
         Some(1),
     );
     let Some(sess) = sess_rows.into_iter().next() else {
-        respond_json(request, json!({"success":false,"error":"Session d'authentification invalide ou expirée."}), 200);
+        respond_json(request, json!({"success":false,"error":t(langue, Cle::LoginErreurSessionAuthExpiree)}), 200);
         return;
     };
     // Session à usage unique — on la supprime immédiatement, qu'elle
@@ -284,7 +293,7 @@ fn handle_srp_step2(
 
     let created_at = sess.get("created_at").and_then(|v| v.as_str()).unwrap_or("");
     if !crate::c::is_recent_local(created_at, SRP_SESSION_MAX_AGE_SECONDS) {
-        respond_json(request, json!({"success":false,"error":"Session d'authentification expirée."}), 200);
+        respond_json(request, json!({"success":false,"error":t(langue, Cle::LoginErreurSessionAuthExpiree)}), 200);
         return;
     }
     let b_hex = sess.get("b_hex").and_then(|v| v.as_str()).unwrap_or("");
@@ -301,7 +310,7 @@ fn handle_srp_step2(
     let Some(user_row) = user_rows.into_iter().next() else {
         // Compte inexistant : réponse volontairement identique à un
         // mauvais mot de passe, pour ne pas révéler l'absence du compte.
-        respond_json(request, json!({"success":false,"error":"Email ou mot de passe incorrect."}), 200);
+        respond_json(request, json!({"success":false,"error":t(langue, Cle::LoginErreurIdentifiants)}), 200);
         return;
     };
 
@@ -354,7 +363,7 @@ fn handle_srp_step2(
     let m1_expected = compute_m1(&grp, &email, &salt_bytes, &a_pub, &b_pub, &k_bytes);
 
     if !constant_time_eq(&m1_client, &m1_expected) {
-        respond_json(request, json!({"success":false,"error":"Email ou mot de passe incorrect."}), 200);
+        respond_json(request, json!({"success":false,"error":t(langue, Cle::LoginErreurIdentifiants)}), 200);
         return;
     }
 
@@ -410,27 +419,28 @@ fn handle_srp_step2(
 // Inscription — le client envoie salt + verifier (calculés côté JS),
 // jamais le mot de passe, jamais un hash équivalent au mot de passe.
 // ══════════════════════════════════════════════════════════════════
-fn handle_signup(request: Request, pool: &DbPool, config: &VexConfig, body: &HashMap<String, String>) {
+fn handle_signup(request: Request, pool: &DbPool, config: &VexConfig, body: &HashMap<String, String>, langue: &str) {
+    use crate::i18n::{t, Cle};
     let reg_mode = config.users.registration_mode.as_str();
     let activation_req = config.users.activation_key_required;
     let activation_key = config.users.activation_key.as_str();
     let max_users = config.users.max_users;
 
     if reg_mode == "closed" {
-        respond_json(request, json!({"success":false,"error":"Les inscriptions sont fermées."}), 200);
+        respond_json(request, json!({"success":false,"error":t(langue, Cle::LoginInscriptionsFermees)}), 200);
         return;
     }
     if reg_mode == "invitation" && activation_req {
         let key = body.get("activation_key").map(|s| s.as_str()).unwrap_or("");
         if key != activation_key {
-            respond_json(request, json!({"success":false,"error":"Clé d'activation invalide."}), 200);
+            respond_json(request, json!({"success":false,"error":t(langue, Cle::LoginErreurCleActivationInvalide)}), 200);
             return;
         }
     }
     if body.get("scales").is_none() {
         respond_json(
             request,
-            json!({"success":false,"error":"Veuillez accepter la politique de confidentialité."}),
+            json!({"success":false,"error":t(langue, Cle::LoginErreurAccepterPolitique)}),
             200,
         );
         return;
@@ -438,7 +448,7 @@ fn handle_signup(request: Request, pool: &DbPool, config: &VexConfig, body: &Has
     if compter_lignes(pool, "login", &[]) >= max_users {
         respond_json(
             request,
-            json!({"success":false,"error":format!("Nombre maximum d'utilisateurs ({}) atteint.", max_users)}),
+            json!({"success":false,"error":t(langue, Cle::LoginErreurMaxUtilisateurs).replace("{n}", &max_users.to_string())}),
             200,
         );
         return;
@@ -477,7 +487,7 @@ fn handle_signup(request: Request, pool: &DbPool, config: &VexConfig, body: &Has
     );
 
     if !existing.is_empty() || !existing_nom.is_empty() {
-        respond_json(request, json!({"success":false,"error":"Ce nom ou cet email existe déjà."}), 200);
+        respond_json(request, json!({"success":false,"error":t(langue, Cle::LoginErreurNomOuEmailExistant)}), 200);
         return;
     }
 
@@ -497,11 +507,11 @@ fn handle_signup(request: Request, pool: &DbPool, config: &VexConfig, body: &Has
     if result > 0 {
         respond_json(
             request,
-            json!({"success":true,"message":"Inscription réussie. Connectez-vous."}),
+            json!({"success":true,"message":t(langue, Cle::LoginInscriptionReussie)}),
             200,
         );
     } else {
-        respond_json(request, json!({"success":false,"error":"Erreur lors de l'inscription."}), 200);
+        respond_json(request, json!({"success":false,"error":t(langue, Cle::LoginErreurInscription)}), 200);
     }
 }
 
@@ -509,13 +519,65 @@ fn handle_signup(request: Request, pool: &DbPool, config: &VexConfig, body: &Has
 // Utilitaires
 // ══════════════════════════════════════════════════════════════════
 
-fn serve_static_html(request: Request, path: &str) {
+/// Sert login.html traduit dans la langue detectee (voir
+/// function::get_user_language) -- pas de session avant connexion, donc pas
+/// de preference de compte : uniquement l'en-tete Accept-Language du
+/// navigateur (cookie_lang=None, pas encore de cookie de langue dedie).
+fn serve_login_html(request: Request, pool: &DbPool, accept_lang: &str) {
+    use crate::i18n::{appliquer_traductions, objet_js, Cle};
+    let path = "static/login/login.html";
     match std::fs::read_to_string(path) {
         Ok(html) => {
+            let langue = crate::function::get_user_language(pool, None, None, Some(accept_lang));
             // Pas de session avant connexion → thème par défaut "light".
             // (Si tu veux respecter un thème mémorisé pré-connexion, il
             // faudrait un cookie non-HttpOnly dédié — hors scope ici.)
             let html = html.replace("{{THEME}}", "light");
+
+            let html = appliquer_traductions(
+                &html,
+                &langue,
+                &[
+                    ("{{T_TITRE_ONGLET}}", Cle::LoginTitreOnglet),
+                    ("{{T_SOUS_TITRE}}", Cle::LoginSousTitre),
+                    ("{{T_LABEL_EMAIL}}", Cle::LoginLabelEmail),
+                    ("{{T_LABEL_MDP}}", Cle::LoginLabelMdp),
+                    ("{{T_BOUTON_CONNECTER}}", Cle::LoginBoutonConnecter),
+                    ("{{T_NOTE_SECURITE}}", Cle::LoginNoteSecurite),
+                    ("{{T_CREER_COMPTE_TITRE}}", Cle::LoginCreerCompteTitre),
+                    ("{{T_LABEL_NOM}}", Cle::LoginLabelNom),
+                    ("{{T_PLACEHOLDER_NOM}}", Cle::LoginPlaceholderNom),
+                    ("{{T_ACCEPTE_LABEL}}", Cle::LoginAccepteLabel),
+                    ("{{T_POLITIQUE_CONFIDENTIALITE}}", Cle::LoginPolitiqueConfidentialite),
+                    ("{{T_BOUTON_ANNULER}}", Cle::LoginBoutonAnnuler),
+                    ("{{T_BOUTON_CREER_COMPTE}}", Cle::LoginBoutonCreerCompte),
+                ],
+            );
+
+            let i18n_js = objet_js(
+                &langue,
+                &[
+                    ("BOUTON_CONNECTER", Cle::LoginBoutonConnecter),
+                    ("BOUTON_CONNECTER_EN_COURS", Cle::LoginBoutonConnecterEnCours),
+                    ("BOUTON_CREER_COMPTE", Cle::LoginBoutonCreerCompte),
+                    ("BOUTON_CREATION_EN_COURS", Cle::LoginBoutonCreationEnCours),
+                    ("BOUTON_NOUVEAU_COMPTE", Cle::LoginBoutonNouveauCompte),
+                    ("OU", Cle::LoginOu),
+                    ("INSCRIPTIONS_FERMEES", Cle::LoginInscriptionsFermees),
+                    ("LABEL_CLE_ACTIVATION", Cle::LoginLabelCleActivation),
+                    ("PLACEHOLDER_CLE_ACTIVATION", Cle::LoginPlaceholderCleActivation),
+                    ("LABEL_MDP_INDICATION", Cle::LoginLabelMdpIndication),
+                    ("ERREUR_CONNEXION", Cle::LoginErreurConnexion),
+                    ("ERREUR_IDENTIFIANTS", Cle::LoginErreurIdentifiants),
+                    ("ERREUR_SERVEUR_NON_PROUVE", Cle::LoginErreurServeurNonProuve),
+                    ("ERREUR_RESEAU", Cle::LoginErreurReseau),
+                    ("ERREUR_ACCEPTER_POLITIQUE", Cle::LoginErreurAccepterPolitique),
+                    ("ERREUR_MDP_COURT", Cle::LoginErreurMdpCourt),
+                    ("INSCRIPTION_REUSSIE", Cle::LoginInscriptionReussie),
+                ],
+            );
+            let html = html.replace("{{I18N_JS}}", &i18n_js);
+
             let _ = request.respond(Response::from_string(html).with_header(
                 tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap(),
             ));

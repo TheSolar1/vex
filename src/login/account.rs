@@ -7,9 +7,11 @@ use crate::appeldb::{inserer_ou_modifier, selectionner, supprimer_ligne, DbPool}
 use crate::c::verifier_session;
 use crate::config_loader::VexConfig;
 use crate::function::{
-    build_nav_html, get_privilege_details_json, get_theme_attr, get_user_preferences,
-    update_user_preference, NavContext,
+    build_nav_html, get_privilege_details_json, get_supported_languages, get_theme_attr,
+    get_user_language, get_user_preferences, set_user_language, update_user_preference,
+    NavContext,
 };
+use crate::i18n::{self, Cle};
 use crate::utils::{strip_port, url_decode};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -40,6 +42,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
         // injecte désormais le thème serveur, comme sur toutes les
         // autres pages VEX (viso, admin, etc.), via get_theme_attr().
         let theme = get_theme_attr(pool, session.user_id);
+        let langue = get_user_language(pool, Some(session.user_id), None, None);
 
         // Construit la navbar de façon autonome (juste cookie + ip + ua)
         let nav_ctx = NavContext {
@@ -54,16 +57,22 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
             admin_apps: vec![],
         };
         let nav_html = build_nav_html(&nav_ctx);
-        serve_html_with_nav(request, "static/login/account.html", &nav_html, theme);
+        serve_html_with_nav(request, "static/login/account.html", &nav_html, theme, &langue);
         return;
     }
 
     // ── Auth requise pour toutes les routes /api/account ─────────
     let session = verifier_session(pool, &cookie_val, &remote_ip, &user_agent);
     if !session.connecte {
+        // FIX (i18n) : la detection cote JS se basait sur un sous-texte
+        // FRANCAIS de "error" ("non connect") pour rediriger vers /login --
+        // casse pour toute langue non-fr des que ce message est traduit.
+        // On ajoute un "code" stable independant de la langue et le JS
+        // s'appuie desormais dessus.
+        let langue_anon = get_user_language(pool, None, None, None);
         respond_json(
             request,
-            json!({"success":false,"error":"Non connecté"}),
+            json!({"success":false,"code":"non_connecte","error":i18n::t(&langue_anon, Cle::AccErreurNonConnecte)}),
             401,
         );
         return;
@@ -71,11 +80,12 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
 
     let user_id = session.user_id;
     let user_email = session.user_email.clone();
+    let langue = get_user_language(pool, Some(user_id), None, None);
 
     match (method.as_str(), path.as_str()) {
         // ── Données du compte ─────────────────────────────────────
         ("GET", "/api/account/data") => {
-            let data = build_account_data(pool, config, user_id, &user_email);
+            let data = build_account_data(pool, config, user_id, &user_email, &langue);
             respond_json(request, data, 200);
         }
 
@@ -189,7 +199,23 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
             } else {
                 respond_json(
                     request,
-                    json!({"success":false,"error":"Erreur mise à jour thème"}),
+                    json!({"success":false,"error":i18n::t(&langue, Cle::AccErreurTheme)}),
+                    200,
+                );
+            }
+        }
+
+        // ── Changer la langue de l'interface ──────────────────────
+        ("POST", "/api/account/language") => {
+            let body = read_body(&mut request);
+            let lang = body.get("langue").cloned().unwrap_or_default();
+            let ok = set_user_language(pool, user_id, &lang);
+            if ok {
+                respond_json(request, json!({"success":true,"langue":lang}), 200);
+            } else {
+                respond_json(
+                    request,
+                    json!({"success":false,"error":i18n::t(&langue, Cle::AccErreurLangue)}),
                     200,
                 );
             }
@@ -205,7 +231,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
             if old_mdp.is_empty() || new_mdp.is_empty() {
                 respond_json(
                     request,
-                    json!({"success":false,"error":"Champs obligatoires manquants"}),
+                    json!({"success":false,"error":i18n::t(&langue, Cle::AccErreurChampsManquants)}),
                     200,
                 );
                 return;
@@ -214,7 +240,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
                 respond_json(
                     request,
                     json!({"success":false,
-                    "error":format!("Mot de passe trop court (min. {} car.)", pass_min)}),
+                    "error":i18n::t(&langue, Cle::AccErreurMdpTropCourt).replace("{min}", &pass_min.to_string())}),
                     200,
                 );
                 return;
@@ -231,7 +257,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
             if rows.is_empty() {
                 respond_json(
                     request,
-                    json!({"success":false,"error":"Compte introuvable"}),
+                    json!({"success":false,"error":i18n::t(&langue, Cle::AccErreurCompteIntrouvable)}),
                     200,
                 );
                 return;
@@ -245,7 +271,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
             if !verify_password(&old_mdp, &current_hash) {
                 respond_json(
                     request,
-                    json!({"success":false,"error":"Mot de passe actuel incorrect"}),
+                    json!({"success":false,"error":i18n::t(&langue, Cle::AccErreurMdpActuelIncorrect)}),
                     200,
                 );
                 return;
@@ -261,7 +287,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
 
             respond_json(
                 request,
-                json!({"success":true,"message":"Mot de passe mis à jour"}),
+                json!({"success":true,"message":i18n::t(&langue, Cle::AccMdpMisAJour)}),
                 200,
             );
         }
@@ -283,7 +309,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
                 respond_json(
                     request,
                     json!({"success":false,
-                    "error":"Autologin non disponible pour ce compte"}),
+                    "error":i18n::t(&langue, Cle::AccErreurAutologinNonDisponible)}),
                     200,
                 );
                 return;
@@ -302,7 +328,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
                 respond_json(
                     request,
                     json!({"success":false,
-                    "error":"Nombre maximum de liens autologin atteint"}),
+                    "error":i18n::t(&langue, Cle::AccErreurMaxLiens)}),
                     200,
                 );
                 return;
@@ -324,7 +350,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
                 Err(_) => {
                     respond_json(
                         request,
-                        json!({"success":false,"error":"Erreur création token"}),
+                        json!({"success":false,"error":i18n::t(&langue, Cle::AccErreurCreationToken)}),
                         200,
                     );
                     return;
@@ -359,7 +385,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
             } else {
                 respond_json(
                     request,
-                    json!({"success":false,"error":"Erreur création token"}),
+                    json!({"success":false,"error":i18n::t(&langue, Cle::AccErreurCreationToken)}),
                     200,
                 );
             }
@@ -378,7 +404,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
             if rows.is_empty() {
                 respond_json(
                     request,
-                    json!({"success":false,"error":"Aucun lien autologin actif"}),
+                    json!({"success":false,"error":i18n::t(&langue, Cle::AccErreurAucunLienActif)}),
                     200,
                 );
                 return;
@@ -386,7 +412,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
             supprimer_ligne(pool, "autologin", "compteid", mysql::Value::from(user_id));
             respond_json(
                 request,
-                json!({"success":true,"message":"Lien autologin supprimé"}),
+                json!({"success":true,"message":i18n::t(&langue, Cle::AccLienSupprime)}),
                 200,
             );
         }
@@ -402,7 +428,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
 // ══════════════════════════════════════════════════════════════════
 // Construction des données du compte
 // ══════════════════════════════════════════════════════════════════
-fn build_account_data(pool: &DbPool, config: &VexConfig, user_id: i64, user_email: &str) -> Value {
+fn build_account_data(pool: &DbPool, config: &VexConfig, user_id: i64, user_email: &str, langue: &str) -> Value {
     let rows = selectionner(
         pool,
         "login",
@@ -472,6 +498,8 @@ fn build_account_data(pool: &DbPool, config: &VexConfig, user_id: i64, user_emai
                 "privilege_details": pd,
             },
             "theme": theme,
+            "langue": langue,
+            "supported_languages": get_supported_languages(),
             "autologin": {
                 "allowed":      autologin_allowed,
                 "enabled":      enabled,
@@ -488,16 +516,114 @@ fn build_account_data(pool: &DbPool, config: &VexConfig, user_id: i64, user_emai
 // Utilitaires
 // ══════════════════════════════════════════════════════════════════
 
-/// Sert un fichier HTML en remplaçant __NAV_HTML__ par la navbar et
-/// {{THEME}} par le thème résolu côté serveur ("light" | "dark").
-/// FIX : theme désormais passé en paramètre au lieu d'être codé en dur
-/// dans le fichier statique — cohérent avec build_nav_html/viso/admin.
-fn serve_html_with_nav(request: Request, path: &str, nav_html: &str, theme: &str) {
+/// Sert un fichier HTML en remplaçant __NAV_HTML__ par la navbar,
+/// {{THEME}} par le thème résolu côté serveur ("light" | "dark"), et en
+/// appliquant les traductions (placeholders {{T_XXX}} + {{I18N_JS}} pour
+/// le JS embarqué) — même mécanisme que login.rs/dashboard.rs.
+fn serve_html_with_nav(request: Request, path: &str, nav_html: &str, theme: &str, langue: &str) {
     match std::fs::read_to_string(path) {
         Ok(html) => {
             let html = html
                 .replace("__NAV_HTML__", nav_html)
                 .replace("{{THEME}}", theme);
+            let html = i18n::appliquer_traductions(&html, langue, &[
+                ("{{T_TITRE_ONGLET}}", Cle::AccTitreOnglet),
+                ("{{T_SIDEBAR_PROFIL}}", Cle::AccSidebarProfil),
+                ("{{T_SIDEBAR_PREFERENCES}}", Cle::AccSidebarPreferences),
+                ("{{T_SIDEBAR_SECURITE}}", Cle::AccSidebarSecurite),
+                ("{{T_SIDEBAR_AUTOLOGIN}}", Cle::AccSidebarAutologin),
+                ("{{T_SIDEBAR_SYNC}}", Cle::AccSidebarSync),
+                ("{{T_SIDEBAR_NOTIFICATIONS}}", Cle::AccSidebarNotifications),
+                ("{{T_SIDEBAR_CONFIDENTIALITE}}", Cle::AccSidebarConfidentialite),
+                ("{{T_MON_PROFIL}}", Cle::AccMonProfil),
+                ("{{T_PRIVILEGE_DEFAUT}}", Cle::AccPrivilegeDefaut),
+                ("{{T_STATS_COMPTE}}", Cle::AccStatsCompte),
+                ("{{T_NIVEAU_PRIVILEGE}}", Cle::AccNiveauPrivilege),
+                ("{{T_STATUT_ABONNEMENT}}", Cle::AccStatutAbonnement),
+                ("{{T_INFOS_DETAILLEES}}", Cle::AccInfosDetaillees),
+                ("{{T_NOM_UTILISATEUR}}", Cle::AccNomUtilisateur),
+                ("{{T_ADRESSE_EMAIL}}", Cle::AccAdresseEmail),
+                ("{{T_IDENTIFIANT_UNIQUE}}", Cle::AccIdentifiantUnique),
+                ("{{T_COPIER}}", Cle::AccCopier),
+                ("{{T_AFFICHAGE_PERSO}}", Cle::AccAffichagePerso),
+                ("{{T_AFFICHAGE_PERSO_DESC}}", Cle::AccAffichagePersoDesc),
+                ("{{T_CHARGEMENT}}", Cle::AccChargement),
+                ("{{T_ENREGISTRER_AFFICHAGE}}", Cle::AccEnregistrerAffichage),
+                ("{{T_PREFERENCES_AFFICHAGE}}", Cle::AccPreferencesAffichage),
+                ("{{T_PREFERENCES_AFFICHAGE_DESC}}", Cle::AccPreferencesAffichageDesc),
+                ("{{T_THEME_CLAIR}}", Cle::AccThemeClair),
+                ("{{T_THEME_CLAIR_DESC}}", Cle::AccThemeClairDesc),
+                ("{{T_THEME_SOMBRE}}", Cle::AccThemeSombre),
+                ("{{T_THEME_SOMBRE_DESC}}", Cle::AccThemeSombreDesc),
+                ("{{T_ENREGISTRER_PREFERENCES}}", Cle::AccEnregistrerPreferences),
+                ("{{T_LANGUE_TITRE}}", Cle::AccLangueTitre),
+                ("{{T_LANGUE_DESC}}", Cle::AccLangueDesc),
+                ("{{T_PARAMETRES_EXTENSIONS}}", Cle::AccParametresExtensions),
+                ("{{T_PARAMETRES_EXTENSIONS_DESC}}", Cle::AccParametresExtensionsDesc),
+                ("{{T_MDP_ACTUEL}}", Cle::AccMdpActuel),
+                ("{{T_NOUVEAU_MDP}}", Cle::AccNouveauMdp),
+                ("{{T_MODIFIER_MDP}}", Cle::AccModifierMdp),
+                ("{{T_AUTOLOGIN_DESC}}", Cle::AccAutologinDesc),
+                ("{{T_GENERER_LIEN}}", Cle::AccGenererLien),
+                ("{{T_SUPPRIMER_LIEN}}", Cle::AccSupprimerLien),
+                ("{{T_SYNC_TITRE}}", Cle::AccSyncTitre),
+                ("{{T_SYNC_DESC}}", Cle::AccSyncDesc),
+                ("{{T_TELECHARGER_SYNC}}", Cle::AccTelechargerSync),
+                ("{{T_APPAREILS_AUTORISES}}", Cle::AccAppareilsAutorises),
+                ("{{T_NOTIFICATIONS_DESC}}", Cle::AccNotificationsDesc),
+            ]);
+            let i18n_js = i18n::objet_js(langue, &[
+                ("REPONSE_INVALIDE", Cle::AccReponseInvalide),
+                ("THEME_ENREGISTRE", Cle::AccThemeEnregistre),
+                ("LANGUE_ENREGISTREE", Cle::AccLangueEnregistree),
+                ("ERREUR_LANGUE", Cle::AccErreurLangue),
+                ("ERREUR_THEME", Cle::AccErreurTheme),
+                ("PRIVILEGE_LABEL", Cle::AccPrivilegeLabel),
+                ("PREMIUM", Cle::AccPremium),
+                ("GRATUIT", Cle::AccGratuit),
+                ("FREE", Cle::AccFree),
+                ("AL_NON_DISPONIBLE", Cle::AccAlNonDisponible),
+                ("AL_LIEN_ACTIF_TITRE", Cle::AccAlLienActifTitre),
+                ("AL_LIEN_EXISTE_DEJA", Cle::AccAlLienExisteDeja),
+                ("AL_UTILISE", Cle::AccAlUtilise),
+                ("AL_AUCUN_LIEN", Cle::AccAlAucunLien),
+                ("AL_PAS_ENCORE_DE_LIEN", Cle::AccAlPasEncoreDeLien),
+                ("AL_CLIQUEZ_POUR_GENERER", Cle::AccAlCliquezPourGenerer),
+                ("SYNC_IMPOSSIBLE_CHARGER", Cle::AccSyncImpossibleCharger),
+                ("SYNC_AUCUN_APPAREIL", Cle::AccSyncAucunAppareil),
+                ("APPAREIL_INCONNU", Cle::AccAppareilInconnu),
+                ("REVOQUE", Cle::AccRevoque),
+                ("AUTORISE", Cle::AccAutorise),
+                ("REVOQUER", Cle::AccRevoquer),
+                ("APPAREIL_REVOQUE_MSG", Cle::AccAppareilRevoqueMsg),
+                ("ERREUR_REVOCATION", Cle::AccErreurRevocation),
+                ("MDP_MIS_A_JOUR", Cle::AccMdpMisAJour),
+                ("ERREUR_MDP", Cle::AccErreurMdp),
+                ("ID_COPIE", Cle::AccIdCopie),
+                ("COPIE_IMPOSSIBLE", Cle::AccCopieImpossible),
+                ("COPIEZ_ID", Cle::AccCopiezId),
+                ("LIEN_CREE", Cle::AccLienCree),
+                ("CREATION_IMPOSSIBLE", Cle::AccCreationImpossible),
+                ("LIEN_SUPPRIME", Cle::AccLienSupprime),
+                ("SUPPRESSION_IMPOSSIBLE", Cle::AccSuppressionImpossible),
+                ("AFF_TUILES_TITRE", Cle::AccAffTuilesTitre),
+                ("AFF_TUILES_DESC", Cle::AccAffTuilesDesc),
+                ("AFF_EVENEMENTS_TITRE", Cle::AccAffEvenementsTitre),
+                ("AFF_EVENEMENTS_DESC", Cle::AccAffEvenementsDesc),
+                ("AFF_APPS_TITRE", Cle::AccAffAppsTitre),
+                ("AFF_APPS_DESC", Cle::AccAffAppsDesc),
+                ("TOUT", Cle::AccTout),
+                ("AUCUN", Cle::AccAucun),
+                ("INDISPONIBLE", Cle::AccIndisponible),
+                ("ERREUR_CHARGEMENT_AFF", Cle::AccErreurChargementAff),
+                ("ENREGISTREMENT", Cle::AccEnregistrement),
+                ("ENREGISTRER_AFFICHAGE", Cle::AccEnregistrerAffichage),
+                ("AFF_ENREGISTRE", Cle::AccAffEnregistre),
+                ("ECHEC_ENREGISTREMENT", Cle::AccEchecEnregistrement),
+                ("ERREUR_CHARGEMENT_COMPTE", Cle::AccErreurChargementCompte),
+                ("UTILISATEUR_DEFAUT", Cle::AdmLogsUtilisateur),
+            ]);
+            let html = html.replacen("{{I18N_JS}}", &i18n_js, 1);
             let _ = request.respond(Response::from_string(html).with_header(
                 tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap(),
             ));

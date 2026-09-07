@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard — VEX</title>
+    <title>{{T_TITRE_ONGLET}}</title>
     <link rel="icon" href="/static/img/favicon.ico" type="image/svg+xml">
     <link rel="stylesheet" href="/static/css/theme.css">
     <script src="/static/fa-local.js" defer></script>
@@ -164,14 +164,14 @@
 </head>
 <body data-theme="{{THEME}}">
 
-<div id="session-expired-banner">Votre session a expiré — redirection vers la connexion…</div>
+<div id="session-expired-banner">{{T_SESSION_EXPIREE}}</div>
 
 __NAV_HTML__
 
 <!-- Correction 1 : classe nav-sidebar-content-push-7844 pour le push sidebar -->
 <div class="content-area nav-sidebar-content-push-7844">
     <div class="welcome-section">
-        <div class="welcome-title">Bienvenue,</div>
+        <div class="welcome-title">{{T_BIENVENUE}}</div>
         {{WELCOME_NAME_BLOCK}}
     </div>
 
@@ -185,10 +185,10 @@ __NAV_HTML__
             <div class="card-header">
                 <div class="card-icon"><i class="fas fa-hard-drive"></i></div>
                 <div class="card-header-text">
-                    <div class="card-title">Fichiers</div>
+                    <div class="card-title">{{T_FICHIERS_TITRE}}</div>
                     <div class="card-subtitle">{{Fichiers_STATS}}</div>
                 </div>
-                <a href="/fchier/" class="btn-action"><i class="fas fa-folder-open"></i> Ouvrir</a>
+                <a href="/fchier/" class="btn-action"><i class="fas fa-folder-open"></i> {{T_OUVRIR_1}}</a>
             </div>
             <div class="card-content">{{Fichiers_FILES}}</div>
         </div>
@@ -199,9 +199,9 @@ __NAV_HTML__
                 <div class="card-icon"><i class="fas fa-envelope"></i></div>
                 <div class="card-header-text">
                     <div class="card-title">VexMail</div>
-                    <div class="card-subtitle">{{MAIL_UNREAD}} non lu(s)</div>
+                    <div class="card-subtitle">{{MAIL_UNREAD}} {{T_NON_LU}}</div>
                 </div>
-                <a href="/mess/vexmail" class="btn-action"><i class="fas fa-inbox"></i> Ouvrir</a>
+                <a href="/mess/vexmail" class="btn-action"><i class="fas fa-inbox"></i> {{T_OUVRIR_2}}</a>
             </div>
             <div class="card-content">{{MAIL_MESSAGES}}</div>
         </div>
@@ -214,7 +214,7 @@ __NAV_HTML__
                     <div class="card-title">Sitec</div>
                     <div class="card-subtitle">{{SITEC_STATS}}</div>
                 </div>
-                <a href="/sitec/" class="btn-action"><i class="fas fa-plus"></i> Créer</a>
+                <a href="/sitec/" class="btn-action"><i class="fas fa-plus"></i> {{T_CREER}}</a>
             </div>
             <div class="card-content">{{SITEC_SITES}}</div>
         </div>
@@ -226,13 +226,13 @@ __NAV_HTML__
             <div class="card-header">
                 <div class="card-icon"><i class="fas fa-folder-open"></i></div>
                 <div class="card-header-text">
-                    <div class="card-title">Éditeur de fichiers</div>
-                    <div class="card-subtitle">Modifiez vos documents en ligne</div>
+                    <div class="card-title">{{T_EDITEUR_TITRE}}</div>
+                    <div class="card-subtitle">{{T_EDITEUR_SOUS}}</div>
                 </div>
-                <a href="/edite1/" class="btn-action"><i class="fas fa-edit"></i> Ouvrir</a>
+                <a href="/edite1/" class="btn-action"><i class="fas fa-edit"></i> {{T_OUVRIR_3}}</a>
             </div>
             <div class="card-content">
-                <div class="empty-state"><i class="fas fa-edit"></i><p>Prêt à éditer vos fichiers</p></div>
+                <div class="empty-state"><i class="fas fa-edit"></i><p>{{T_EDITEUR_VIDE}}</p></div>
             </div>
         </div>
 
@@ -241,13 +241,13 @@ __NAV_HTML__
             <div class="card-header">
                 <div class="card-icon"><i class="fas fa-video"></i></div>
                 <div class="card-header-text">
-                    <div class="card-title">Vidéos</div>
-                    <div class="card-subtitle">Appels et visioconférence</div>
+                    <div class="card-title">{{T_VIDEOS_TITRE}}</div>
+                    <div class="card-subtitle">{{T_VIDEOS_SOUS}}</div>
                 </div>
-                <a href="/viso/" class="btn-action"><i class="fas fa-video"></i> Ouvrir</a>
+                <a href="/viso/" class="btn-action"><i class="fas fa-video"></i> {{T_OUVRIR_4}}</a>
             </div>
             <div class="card-content">
-                <div class="empty-state"><i class="fas fa-video"></i><p>Démarrez ou rejoignez un appel</p></div>
+                <div class="empty-state"><i class="fas fa-video"></i><p>{{T_VIDEOS_VIDE}}</p></div>
             </div>
         </div>
 

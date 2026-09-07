@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Connexion - VEX</title>
+<title>{{T_TITRE_ONGLET}}</title>
 <link rel="icon" href="/static/img/favicon.ico" type="image/svg+xml">
 <link rel="stylesheet" href="/static/css/theme.css">
 <style>
@@ -49,41 +49,41 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 <div class="login-wrapper">
     <div class="logo">
         <h1>VEX</h1>
-        <p>Connectez-vous à votre compte</p>
+        <p>{{T_SOUS_TITRE}}</p>
     </div>
     <div id="msg-login"></div>
     <form id="login-form">
         <div class="form-group">
-            <label class="form-label" for="email">Adresse email</label>
+            <label class="form-label" for="email">{{T_LABEL_EMAIL}}</label>
             <input type="email" id="email" name="email" class="form-input" placeholder="exemple@email.com" required>
         </div>
         <div class="form-group">
-            <label class="form-label" for="motdepass">Mot de passe</label>
+            <label class="form-label" for="motdepass">{{T_LABEL_MDP}}</label>
             <input type="password" id="motdepass" name="motdepass" class="form-input" placeholder="••••••••" required>
         </div>
-        <button type="submit" class="btn-primary" id="login-btn">Se connecter</button>
+        <button type="submit" class="btn-primary" id="login-btn">{{T_BOUTON_CONNECTER}}</button>
     </form>
     <div id="signup-toggle"></div>
-    <div class="security-note">Authentification SRP-6a — votre mot de passe ne quitte jamais cet appareil, sous aucune forme.</div>
+    <div class="security-note">{{T_NOTE_SECURITE}}</div>
 </div>
 
 <div class="modal" id="signupModal">
     <div class="modal-content">
-        <div class="modal-header"><h2>Créer un compte</h2></div>
+        <div class="modal-header"><h2>{{T_CREER_COMPTE_TITRE}}</h2></div>
         <div class="modal-body">
             <div id="msg-signup"></div>
             <form id="signup-form">
                 <div class="form-group">
-                    <label class="form-label" for="s-nom">Nom d'utilisateur</label>
-                    <input type="text" id="s-nom" name="nom" class="form-input" placeholder="Votre nom" required>
+                    <label class="form-label" for="s-nom">{{T_LABEL_NOM}}</label>
+                    <input type="text" id="s-nom" name="nom" class="form-input" placeholder="{{T_PLACEHOLDER_NOM}}" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="s-email">Adresse email</label>
+                    <label class="form-label" for="s-email">{{T_LABEL_EMAIL}}</label>
                     <input type="email" id="s-email" name="email" class="form-input" placeholder="exemple@email.com" required>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="s-mdp">
-                        Mot de passe
+                        {{T_LABEL_MDP}}
                         <span id="pass-hint" style="font-weight:400;color:var(--text-dim);font-size:12px;"></span>
                     </label>
                     <input type="password" id="s-mdp" name="motdepass" class="form-input" placeholder="••••••••" required>
@@ -91,18 +91,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
                 <div id="activation-field"></div>
                 <div class="checkbox-wrapper">
                     <input type="checkbox" id="scales" name="scales">
-                    <label for="scales">J'accepte la <a href="/constiontu.html" target="_blank">Politique de Confidentialité</a></label>
+                    <label for="scales">{{T_ACCEPTE_LABEL}} <a href="/constiontu.html" target="_blank">{{T_POLITIQUE_CONFIDENTIALITE}}</a></label>
                 </div>
             </form>
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn-cancel" onclick="hideSignupModal()">Annuler</button>
-            <button type="button" class="btn-primary" style="width:auto;margin:0;" onclick="submitSignup()" id="signup-submit-btn">Créer le compte</button>
+            <button type="button" class="btn-cancel" onclick="hideSignupModal()">{{T_BOUTON_ANNULER}}</button>
+            <button type="button" class="btn-primary" style="width:auto;margin:0;" onclick="submitSignup()" id="signup-submit-btn">{{T_BOUTON_CREER_COMPTE}}</button>
         </div>
     </div>
 </div>
 
 <script>
+// Traductions injectees par le serveur (voir src/i18n.rs::objet_js et
+// login.rs::serve_static_html) -- une seule fois ici, referencees comme
+// I18N.CLE plus bas au lieu de chaines francaises figees.
+{{I18N_JS}}
+
 // ══════════════════════════════════════════════════════════════════
 // VEX SRP-6a — Client (RFC 5054 adapté SHA-256), BigInt natif
 //
@@ -374,7 +379,7 @@ document.getElementById('login-form').addEventListener('submit', async function 
     e.preventDefault();
     const btn = document.getElementById('login-btn');
     btn.disabled = true;
-    btn.textContent = 'Connexion…';
+    btn.textContent = I18N.BOUTON_CONNECTER_EN_COURS;
 
     const mdpClair = document.getElementById('motdepass').value;
     const email = document.getElementById('email').value;
@@ -388,8 +393,8 @@ document.getElementById('login-form').addEventListener('submit', async function 
         });
         const d1 = await r1.json();
         if (!d1.success) {
-            showMsg('msg-login', d1.error || 'Erreur de connexion.', 'error');
-            btn.disabled = false; btn.textContent = 'Se connecter';
+            showMsg('msg-login', d1.error || I18N.ERREUR_CONNEXION, 'error');
+            btn.disabled = false; btn.textContent = I18N.BOUTON_CONNECTER;
             return;
         }
 
@@ -406,16 +411,16 @@ document.getElementById('login-form').addEventListener('submit', async function 
         const d2 = await r2.json();
 
         if (!d2.success) {
-            showMsg('msg-login', d2.error || 'Email ou mot de passe incorrect.', 'error');
-            btn.disabled = false; btn.textContent = 'Se connecter';
+            showMsg('msg-login', d2.error || I18N.ERREUR_IDENTIFIANTS, 'error');
+            btn.disabled = false; btn.textContent = I18N.BOUTON_CONNECTER;
             return;
         }
 
         // ── Vérifie que le serveur connaît bien le verifier (M2) ────
         const serveurValide = await SRP.verifierM2(aHexOut, M1_hex, K, d2.M2);
         if (!serveurValide) {
-            showMsg('msg-login', 'Le serveur n\'a pas pu prouver son identité — connexion annulée.', 'error');
-            btn.disabled = false; btn.textContent = 'Se connecter';
+            showMsg('msg-login', I18N.ERREUR_SERVEUR_NON_PROUVE, 'error');
+            btn.disabled = false; btn.textContent = I18N.BOUTON_CONNECTER;
             return;
         }
 
@@ -431,9 +436,9 @@ document.getElementById('login-form').addEventListener('submit', async function 
         sessionStorage.setItem('vex_email', email);
         window.location.href = d2.redirect || '/login/dashboard';
     } catch (err) {
-        showMsg('msg-login', 'Erreur réseau ou crypto.', 'error');
+        showMsg('msg-login', I18N.ERREUR_RESEAU, 'error');
         console.error(err);
-        btn.disabled = false; btn.textContent = 'Se connecter';
+        btn.disabled = false; btn.textContent = I18N.BOUTON_CONNECTER;
     }
 });
 
@@ -441,7 +446,7 @@ document.getElementById('login-form').addEventListener('submit', async function 
 async function submitSignup() {
     const scales = document.getElementById('scales').checked;
     if (!scales) {
-        showMsg('msg-signup', 'Veuillez accepter la politique de confidentialité.', 'error');
+        showMsg('msg-signup', I18N.ERREUR_ACCEPTER_POLITIQUE, 'error');
         return;
     }
 
@@ -450,12 +455,12 @@ async function submitSignup() {
     const nom = document.getElementById('s-nom').value;
 
     if (mdpClair.length < window._VEX_PASS_MIN) {
-        showMsg('msg-signup', `Mot de passe trop court (min. ${window._VEX_PASS_MIN} car.).`, 'error');
+        showMsg('msg-signup', I18N.ERREUR_MDP_COURT.replace('{min}', window._VEX_PASS_MIN), 'error');
         return;
     }
 
     const btn = document.getElementById('signup-submit-btn');
-    btn.disabled = true; btn.textContent = 'Création…';
+    btn.disabled = true; btn.textContent = I18N.BOUTON_CREATION_EN_COURS;
 
     try {
         const { salt_hex, verifier_hex } = await SRP.genererSaltEtVerifier(email, mdpClair);
@@ -476,16 +481,16 @@ async function submitSignup() {
 
         if (d.success) {
             hideSignupModal();
-            showMsg('msg-login', d.message || 'Inscription réussie. Connectez-vous.', 'success');
+            showMsg('msg-login', d.message || I18N.INSCRIPTION_REUSSIE, 'success');
         } else {
             showMsg('msg-signup', d.error, 'error');
         }
     } catch (err) {
-        showMsg('msg-signup', 'Erreur réseau ou crypto.', 'error');
+        showMsg('msg-signup', I18N.ERREUR_RESEAU, 'error');
         console.error(err);
     }
 
-    btn.disabled = false; btn.textContent = 'Créer le compte';
+    btn.disabled = false; btn.textContent = I18N.BOUTON_CREER_COMPTE;
 }
 
 // ── Init ─────────────────────────────────────────────────────────
@@ -496,22 +501,22 @@ async function submitSignup() {
     const actReq = cfg.activation_key_required || false;
 
     window._VEX_PASS_MIN = passMin;
-    document.getElementById('pass-hint').textContent = `(min. ${passMin} car.)`;
+    document.getElementById('pass-hint').textContent = I18N.LABEL_MDP_INDICATION.replace('{min}', passMin);
 
     if (regMode === 'closed') {
         document.getElementById('signup-toggle').innerHTML =
-            '<p style="text-align:center;margin-top:20px;font-size:13px;color:var(--text-dim);">Les inscriptions sont fermées.</p>';
+            `<p style="text-align:center;margin-top:20px;font-size:13px;color:var(--text-dim);">${esc(I18N.INSCRIPTIONS_FERMEES)}</p>`;
     } else {
         document.getElementById('signup-toggle').innerHTML =
-            '<div class="divider"><span>ou</span></div>' +
-            '<button class="btn-secondary" onclick="showSignupModal()">Créer un nouveau compte</button>';
+            `<div class="divider"><span>${esc(I18N.OU)}</span></div>` +
+            `<button class="btn-secondary" onclick="showSignupModal()">${esc(I18N.BOUTON_NOUVEAU_COMPTE)}</button>`;
     }
 
     if (actReq) {
         document.getElementById('activation-field').innerHTML = `
             <div class="form-group">
-                <label class="form-label">Clé d'activation</label>
-                <input type="text" id="activation-input" class="form-input" placeholder="Votre clé d'invitation" required>
+                <label class="form-label">${esc(I18N.LABEL_CLE_ACTIVATION)}</label>
+                <input type="text" id="activation-input" class="form-input" placeholder="${esc(I18N.PLACEHOLDER_CLE_ACTIVATION)}" required>
             </div>`;
     }
 })();

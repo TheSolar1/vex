@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Sitec — VEX</title>
+<title>{{T_TITRE_ONGLET}}</title>
 <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
 <link rel="stylesheet" href="/static/css/theme.css">
 <style>
@@ -132,6 +132,41 @@ body {
 .link-row code { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-dim); }
 .link-row a { color:var(--accent); font-weight:600; text-decoration:none; display:flex; align-items:center; gap:5px; flex-shrink:0; }
 
+.blocs-hint { font-size:12px; color:var(--text-dim); margin-bottom:14px; }
+.blocs-list { display:flex; flex-direction:column; gap:12px; margin-bottom:16px; }
+.bloc-item { border:1px solid var(--border); border-radius:8px; padding:14px; background:var(--sidebar-hover); }
+.bloc-item-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.bloc-item-type { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-dim); display:flex; align-items:center; gap:7px; }
+.bloc-item-actions { display:flex; gap:4px; }
+.bloc-act {
+  width:28px; height:28px; border-radius:6px; border:1px solid var(--border); background:var(--surface);
+  color:var(--text-dim); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:12px;
+  transition:all .15s;
+}
+.bloc-act:hover { background:var(--accent); color:var(--surface); border-color:var(--accent); }
+.bloc-act:disabled { opacity:.35; cursor:not-allowed; }
+.bloc-act:disabled:hover { background:var(--surface); color:var(--text-dim); border-color:var(--border); }
+.bloc-act-danger:hover { background:var(--danger); border-color:var(--danger); }
+.bloc-item-body { display:flex; flex-direction:column; gap:8px; }
+.bloc-item-body input[type=text], .bloc-item-body textarea {
+  width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:6px;
+  font-size:13px; outline:none; background:var(--input); color:var(--text); font-family:inherit;
+}
+.bloc-item-body textarea { min-height:80px; resize:vertical; line-height:1.5; }
+.bloc-item-body textarea.code { font-family:'SF Mono',Consolas,monospace; font-size:12px; min-height:180px; }
+.bloc-item-body input:focus, .bloc-item-body textarea:focus { border-color:var(--accent); }
+.bloc-preview-img { max-width:220px; max-height:140px; border-radius:6px; margin-top:4px; display:block; }
+.bloc-anim-row {
+  display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-dim); margin-top:2px;
+}
+.bloc-anim-select {
+  padding:6px 8px; border-radius:6px; border:1px solid var(--border); background:var(--input);
+  color:var(--text); font-size:12px; font-family:inherit; outline:none;
+}
+.bloc-anim-select:focus { border-color:var(--accent); }
+.blocs-empty { text-align:center; padding:24px 14px; color:var(--text-dim); font-size:13px; border:1px dashed var(--border); border-radius:8px; margin-bottom:16px; }
+.blocs-add-row { display:flex; gap:8px; flex-wrap:wrap; }
+
 .spinner-wrap { display:flex; align-items:center; justify-content:center; padding:40px; }
 .spinner { border:3px solid var(--border); border-top:3px solid var(--accent); border-radius:50%; width:32px; height:32px; animation:ico-spin .8s linear infinite; }
 
@@ -153,7 +188,7 @@ body {
 <div class="app">
   <aside class="sidebar">
     <button class="btn-nouveau" id="createBtn">
-      <img class="ico ico-sm ico-white" src="/static/img/solid/plus.svg"> Nouvelle page
+      <img class="ico ico-sm ico-white" src="/static/img/solid/plus.svg"> {{T_NOUVELLE_PAGE}}
     </button>
     <div id="pageList"><div class="spinner-wrap"><div class="spinner"></div></div></div>
   </aside>
@@ -161,13 +196,16 @@ body {
   <div class="main" id="main">
     <div class="empty-state">
       <img class="ico ico-lg ico-muted" src="/static/img/solid/globe.svg">
-      <p>Sélectionnez ou créez une page</p>
+      <p>{{T_SELECTIONNEZ_OU_CREEZ}}</p>
     </div>
   </div>
 </div>
 
 <div id="toast-area"></div>
 
+<script>
+{{I18N_JS}}
+</script>
 <script>
 'use strict';
 const API = '/api/sitec';
@@ -211,24 +249,24 @@ async function loadPages() {
     renderList();
   } catch(e) {
     if (e.message !== 'Session expirée')
-      document.getElementById('pageList').innerHTML = '<div class="empty-list">Erreur de chargement</div>';
+      document.getElementById('pageList').innerHTML = `<div class="empty-list">${I18N.ERREUR_CHARGEMENT}</div>`;
   }
 }
 
 function renderList() {
   const el = document.getElementById('pageList');
   if (!pages.length) {
-    el.innerHTML = '<div class="empty-list">Aucune page pour l’instant</div>';
+    el.innerHTML = `<div class="empty-list">${I18N.AUCUNE_PAGE}</div>`;
     return;
   }
   el.innerHTML = pages.map(p => {
     const active = current && current.id === p.id ? ' active' : '';
     const badges = [];
-    if (p.public) badges.push('<span class="badge badge-public">Public</span>');
-    if (p.share_count > 0) badges.push(`<span class="badge badge-partage">${p.share_count} partagé(s)</span>`);
+    if (p.public) badges.push(`<span class="badge badge-public">${I18N.PUBLIC}</span>`);
+    if (p.share_count > 0) badges.push(`<span class="badge badge-partage">${I18N.N_PARTAGES.replace('{n}', p.share_count)}</span>`);
     return `<div class="page-item${active}" data-id="${p.id}">
-      <div class="page-item-title">${esc(p.titre || 'Sans titre')}</div>
-      <div class="page-item-meta">${badges.join('') || '<span>Privé</span>'}</div>
+      <div class="page-item-title">${esc(p.titre || I18N.SANS_TITRE)}</div>
+      <div class="page-item-meta">${badges.join('') || `<span>${I18N.PRIVE}</span>`}</div>
     </div>`;
   }).join('');
   el.querySelectorAll('.page-item').forEach(item =>
@@ -238,46 +276,153 @@ function renderList() {
 
 // ── Ouvrir / créer ────────────────────────────────────────────────
 async function openPage(id) {
-  if (dirty && !confirm('Modifications non enregistrées — continuer sans sauvegarder ?')) return;
+  if (dirty && !confirm(I18N.CONFIRM_QUITTER_SANS_SAUVEGARDER)) return;
   document.getElementById('main').innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
   try {
     const r = await apiFetch(`${API}/get?id=${encodeURIComponent(id)}`);
     const data = await r.json();
-    if (!data.success) { toast(data.error || 'Erreur', 'err'); return; }
+    if (!data.success) { toast(data.error || I18N.ERREUR, 'err'); return; }
     current = data.page;
     dirty = false;
     renderList();
     renderEditor();
-  } catch(e) { if (e.message !== 'Session expirée') toast('Erreur de chargement', 'err'); }
+  } catch(e) { if (e.message !== 'Session expirée') toast(I18N.ERREUR_CHARGEMENT, 'err'); }
 }
 
 async function createPage() {
   try {
     const r = await apiFetch(`${API}/create`, { method:'POST' });
     const data = await r.json();
-    if (!data.success) { toast(data.error || 'Erreur', 'err'); return; }
+    if (!data.success) { toast(data.error || I18N.ERREUR, 'err'); return; }
     await loadPages();
     await openPage(data.id);
-    toast('Page créée', 'ok');
-  } catch(e) { if (e.message !== 'Session expirée') toast('Erreur de création', 'err'); }
+    toast(I18N.PAGE_CREEE, 'ok');
+  } catch(e) { if (e.message !== 'Session expirée') toast(I18N.ERREUR_CREATION, 'err'); }
 }
 
 // ── Rendu éditeur ─────────────────────────────────────────────────
+const BLOC_TYPES = ['texte', 'image', 'bouton', 'video', 'code'];
+const BLOC_ICONES = { texte:'align-left', image:'image', bouton:'hand-pointer', video:'video', code:'code' };
+const ANIMATIONS = ['', 'fade', 'slide-up', 'slide-left', 'slide-right', 'zoom-in', 'bounce', 'rotate', 'pulse'];
+let blocs = [];
+
+function blocLabel(type) {
+  return { texte:I18N.BLOC_TEXTE, image:I18N.BLOC_IMAGE, bouton:I18N.BLOC_BOUTON, video:I18N.BLOC_VIDEO, code:I18N.BLOC_CODE }[type] || type;
+}
+
+function animationLabel(a) {
+  return {
+    '': I18N.ANIMATION_AUCUNE, 'fade': I18N.ANIMATION_FADE, 'slide-up': I18N.ANIMATION_SLIDE_UP,
+    'slide-left': I18N.ANIMATION_SLIDE_LEFT, 'slide-right': I18N.ANIMATION_SLIDE_RIGHT,
+    'zoom-in': I18N.ANIMATION_ZOOM_IN, 'bounce': I18N.ANIMATION_BOUNCE, 'rotate': I18N.ANIMATION_ROTATE,
+    'pulse': I18N.ANIMATION_PULSE,
+  }[a] ?? a;
+}
+
+function animationSelectHtml(b) {
+  const opts = ANIMATIONS.map(a => `<option value="${a}"${(b.animation||'')===a?' selected':''}>${escAttr(animationLabel(a))}</option>`).join('');
+  return `<label class="bloc-anim-row"><i class="fas fa-wand-magic-sparkles"></i> ${escAttr(I18N.ANIMATION_LABEL)}
+    <select data-field="animation" class="bloc-anim-select">${opts}</select></label>`;
+}
+
+function blocItemBodyHtml(b, i) {
+  if (b.type === 'texte') {
+    return `<textarea data-field="texte" placeholder="${escAttr(I18N.BLOC_TEXTE_PLACEHOLDER)}">${esc(b.texte||'')}</textarea>${animationSelectHtml(b)}`;
+  }
+  if (b.type === 'image') {
+    return `<input type="text" data-field="url" placeholder="${escAttr(I18N.BLOC_IMAGE_URL_PLACEHOLDER)}" value="${escAttr(b.url||'')}">
+      <input type="text" data-field="alt" placeholder="${escAttr(I18N.BLOC_IMAGE_ALT_PLACEHOLDER)}" value="${escAttr(b.alt||'')}">
+      <input type="text" data-field="legende" placeholder="${escAttr(I18N.BLOC_IMAGE_LEGENDE_PLACEHOLDER)}" value="${escAttr(b.legende||'')}">
+      ${b.url ? `<img class="bloc-preview-img" data-preview="${i}" src="${escAttr(b.url)}" alt="" onerror="this.style.display='none'">` : ''}
+      ${animationSelectHtml(b)}`;
+  }
+  if (b.type === 'bouton') {
+    return `<input type="text" data-field="texte" placeholder="${escAttr(I18N.BLOC_BOUTON_TEXTE_PLACEHOLDER)}" value="${escAttr(b.texte||'')}">
+      <input type="text" data-field="url" placeholder="${escAttr(I18N.BLOC_BOUTON_URL_PLACEHOLDER)}" value="${escAttr(b.url||'')}">
+      ${animationSelectHtml(b)}`;
+  }
+  if (b.type === 'video') {
+    return `<input type="text" data-field="url" placeholder="${escAttr(I18N.BLOC_VIDEO_URL_PLACEHOLDER)}" value="${escAttr(b.url||'')}">
+      ${animationSelectHtml(b)}`;
+  }
+  if (b.type === 'code') {
+    return `<textarea class="code" data-field="code" placeholder="${escAttr(I18N.BLOC_CODE_PLACEHOLDER)}">${esc(b.code||'')}</textarea>
+      <div class="hint">${I18N.BLOC_CODE_HINT}</div>
+      ${animationSelectHtml(b)}`;
+  }
+  return '';
+}
+
+function renderBlocsList() {
+  const list = document.getElementById('blocsList');
+  if (!list) return;
+  if (!blocs.length) {
+    list.innerHTML = `<div class="blocs-empty">${I18N.BLOCS_VIDE}</div>`;
+    return;
+  }
+  list.innerHTML = blocs.map((b, i) => `
+    <div class="bloc-item" data-idx="${i}">
+      <div class="bloc-item-hdr">
+        <span class="bloc-item-type"><i class="fas fa-${BLOC_ICONES[b.type]||'cube'}"></i> ${blocLabel(b.type)}</span>
+        <div class="bloc-item-actions">
+          <button type="button" class="bloc-act" data-act="up" ${i===0?'disabled':''} title="${escAttr(I18N.BLOC_MONTER_TITLE)}"><i class="fas fa-arrow-up"></i></button>
+          <button type="button" class="bloc-act" data-act="down" ${i===blocs.length-1?'disabled':''} title="${escAttr(I18N.BLOC_DESCENDRE_TITLE)}"><i class="fas fa-arrow-down"></i></button>
+          <button type="button" class="bloc-act bloc-act-danger" data-act="del" title="${escAttr(I18N.BLOC_SUPPRIMER_TITLE)}"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>
+      <div class="bloc-item-body">${blocItemBodyHtml(b, i)}</div>
+    </div>`).join('');
+
+  list.querySelectorAll('.bloc-item').forEach(item => {
+    const idx = Number(item.dataset.idx);
+    item.querySelectorAll('[data-field]').forEach(field => {
+      field.oninput = () => { blocs[idx][field.dataset.field] = field.value; markDirty(); };
+      if (field.dataset.field === 'url' && blocs[idx].type === 'image') {
+        field.onchange = () => renderBlocsList();
+      }
+    });
+    item.querySelectorAll('.bloc-act').forEach(btn => {
+      btn.onclick = () => {
+        const act = btn.dataset.act;
+        if (act === 'up' && idx > 0) { [blocs[idx-1], blocs[idx]] = [blocs[idx], blocs[idx-1]]; }
+        if (act === 'down' && idx < blocs.length-1) { [blocs[idx+1], blocs[idx]] = [blocs[idx], blocs[idx+1]]; }
+        if (act === 'del') { blocs.splice(idx, 1); }
+        markDirty();
+        renderBlocsList();
+      };
+    });
+  });
+}
+
+function ajouterBloc(type) {
+  const base = { type };
+  if (type === 'texte') base.texte = '';
+  if (type === 'image') { base.url = ''; base.alt = ''; base.legende = ''; }
+  if (type === 'bouton') { base.texte = ''; base.url = ''; }
+  if (type === 'video') base.url = '';
+  if (type === 'code') base.code = '';
+  base.animation = '';
+  blocs.push(base);
+  markDirty();
+  renderBlocsList();
+}
+
 function renderEditor() {
   const p = current;
   const viewUrl = `${window.location.origin}/page/${p.id}`;
-  const isSimple = p.mode !== 'brut';
+  const pageMode = (p.mode === 'brut' || p.mode === 'blocs') ? p.mode : 'simple';
+  blocs = Array.isArray(p.contenu_blocs) ? p.contenu_blocs.map(b => ({...b})) : [];
 
   document.getElementById('main').innerHTML = `
     <div class="editor-card">
       <div class="editor-hdr">
-        <input type="text" class="titre-input" id="titreInput" value="${escAttr(p.titre)}" placeholder="Titre de la page">
+        <input type="text" class="titre-input" id="titreInput" value="${escAttr(p.titre)}" placeholder="${I18N.TITRE_DE_LA_PAGE}">
         <div class="editor-actions">
           <button class="btn btn-danger" id="deleteBtn">
-            <img class="ico ico-sm ico-white" src="${ICO}trash.svg"> Supprimer
+            <img class="ico ico-sm ico-white" src="${ICO}trash.svg"> ${I18N.SUPPRIMER}
           </button>
           <button class="btn btn-primary" id="saveBtn">
-            <img class="ico ico-sm ico-white" src="${ICO}floppy-disk.svg"> Enregistrer
+            <img class="ico ico-sm ico-white" src="${ICO}floppy-disk.svg"> ${I18N.ENREGISTRER}
           </button>
         </div>
       </div>
@@ -285,10 +430,10 @@ function renderEditor() {
       <div class="link-row">
         <code>${viewUrl}</code>
         <a href="${viewUrl}" target="_blank">
-          <img class="ico ico-sm ico-primary" src="${ICO}up-right-from-square.svg"> Ouvrir
+          <img class="ico ico-sm ico-primary" src="${ICO}up-right-from-square.svg"> ${I18N.OUVRIR}
         </a>
         <a href="#" id="copyLinkBtn">
-          <img class="ico ico-sm ico-primary" src="${ICO}copy.svg"> Copier
+          <img class="ico ico-sm ico-primary" src="${ICO}copy.svg"> ${I18N.COPIER}
         </a>
       </div>
 
@@ -298,63 +443,83 @@ function renderEditor() {
           <span class="slider"></span>
         </label>
         <div>
-          <div class="pub-label">Page publique</div>
-          <div class="pub-sub">Visible par tout le monde, même sans compte VEX</div>
+          <div class="pub-label">${I18N.PAGE_PUBLIQUE}</div>
+          <div class="pub-sub">${I18N.VISIBLE_PAR_TOUT_LE_MONDE}</div>
         </div>
       </div>
 
       <div class="share-block">
-        <h3><img class="ico ico-sm ico-muted" src="${ICO}user-plus.svg"> Partager avec des utilisateurs</h3>
+        <h3><img class="ico ico-sm ico-muted" src="${ICO}user-plus.svg"> ${I18N.PARTAGER_AVEC_UTILISATEURS}</h3>
         <div class="share-add">
-          <input type="text" id="shareEmailInput" placeholder="email@exemple.com">
-          <button class="btn btn-secondary" id="shareAddBtn">Ajouter</button>
+          <input type="text" id="shareEmailInput" placeholder="${I18N.EMAIL_EXEMPLE_PLACEHOLDER}">
+          <button class="btn btn-secondary" id="shareAddBtn">${I18N.AJOUTER}</button>
         </div>
         <div class="share-list" id="shareList">
           ${p.shared_with.length ? p.shared_with.map(u => `
             <div class="share-item" data-email="${escAttr(u.email)}">
               <span>${esc(u.nom)} <span style="color:var(--text-dim)">(${esc(u.email)})</span></span>
-              <button class="share-item-rm" title="Retirer l'accès">&times;</button>
+              <button class="share-item-rm" title="${I18N.RETIRER_ACCES}">&times;</button>
             </div>`).join('')
-            : '<div class="share-empty">Personne d’autre n’a accès à cette page.</div>'}
+            : `<div class="share-empty">${I18N.PERSONNE_ACCES}</div>`}
         </div>
       </div>
 
       <div class="mode-tabs">
-        <button class="mode-tab${isSimple?' active':''}" data-mode="simple">Mode simple</button>
-        <button class="mode-tab${!isSimple?' active':''}" data-mode="brut">HTML brut</button>
+        <button class="mode-tab${pageMode==='simple'?' active':''}" data-mode="simple">${I18N.MODE_SIMPLE}</button>
+        <button class="mode-tab${pageMode==='blocs'?' active':''}" data-mode="blocs">${I18N.MODE_BLOCS}</button>
+        <button class="mode-tab${pageMode==='brut'?' active':''}" data-mode="brut">${I18N.HTML_BRUT}</button>
       </div>
 
-      <div id="simpleFields" style="display:${isSimple?'block':'none'}">
+      <div id="simpleFields" style="display:${pageMode==='simple'?'block':'none'}">
         <div class="field-group">
-          <label>Titre affiché</label>
+          <label>${I18N.TITRE_AFFICHE}</label>
           <input type="text" id="contenuTitreInput" value="${escAttr(p.contenu_titre||'')}">
         </div>
         <div class="field-group">
-          <label>Contenu</label>
-          <textarea id="contenuCorpsInput" placeholder="Texte de la page…">${esc(p.contenu_corps||'')}</textarea>
-          <div class="hint">Texte simple — les retours à la ligne sont conservés automatiquement.</div>
+          <label>${I18N.CONTENU}</label>
+          <textarea id="contenuCorpsInput" placeholder="${I18N.TEXTE_PLACEHOLDER}">${esc(p.contenu_corps||'')}</textarea>
+          <div class="hint">${I18N.HINT_TEXTE_SIMPLE}</div>
         </div>
       </div>
 
-      <div id="brutFields" style="display:${!isSimple?'block':'none'}">
+      <div id="blocsFields" style="display:${pageMode==='blocs'?'block':'none'}">
+        <p class="blocs-hint">${I18N.BLOCS_HINT}</p>
+        <div class="blocs-list" id="blocsList"></div>
+        <div class="blocs-add-row">
+          <button type="button" class="btn btn-secondary" data-add-bloc="texte"><i class="fas fa-align-left"></i> ${I18N.BLOC_TEXTE}</button>
+          <button type="button" class="btn btn-secondary" data-add-bloc="image"><i class="fas fa-image"></i> ${I18N.BLOC_IMAGE}</button>
+          <button type="button" class="btn btn-secondary" data-add-bloc="bouton"><i class="fas fa-hand-pointer"></i> ${I18N.BLOC_BOUTON}</button>
+          <button type="button" class="btn btn-secondary" data-add-bloc="video"><i class="fas fa-video"></i> ${I18N.BLOC_VIDEO}</button>
+          <button type="button" class="btn btn-secondary" data-add-bloc="code"><i class="fas fa-code"></i> ${I18N.BLOC_CODE}</button>
+        </div>
+      </div>
+
+      <div id="brutFields" style="display:${pageMode==='brut'?'block':'none'}">
         <div class="field-group">
-          <label>HTML de la page</label>
-          <textarea class="code" id="contenuHtmlInput" placeholder="&lt;h1&gt;Bonjour&lt;/h1&gt;">${esc(p.contenu_html||'')}</textarea>
-          <div class="hint">HTML complet inséré tel quel dans la page — attention à ce que vous publiez en public.</div>
+          <label>${I18N.HTML_DE_LA_PAGE}</label>
+          <textarea class="code" id="contenuHtmlInput" placeholder="&lt;h1&gt;${I18N.PLACEHOLDER_HTML_EXEMPLE}&lt;/h1&gt;">${esc(p.contenu_html||'')}</textarea>
+          <div class="hint">${I18N.HINT_HTML_BRUT}</div>
         </div>
       </div>
     </div>`;
 
+  renderBlocsList();
+
   // ── Listeners ──
-  let mode = isSimple ? 'simple' : 'brut';
+  let mode = pageMode;
   document.querySelectorAll('.mode-tab').forEach(tab => {
     tab.onclick = () => {
       mode = tab.dataset.mode;
       document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t===tab));
       document.getElementById('simpleFields').style.display = mode==='simple' ? 'block' : 'none';
+      document.getElementById('blocsFields').style.display  = mode==='blocs'  ? 'block' : 'none';
       document.getElementById('brutFields').style.display   = mode==='brut'   ? 'block' : 'none';
       markDirty();
     };
+  });
+
+  document.querySelectorAll('[data-add-bloc]').forEach(btn => {
+    btn.onclick = () => ajouterBloc(btn.dataset.addBloc);
   });
 
   ['titreInput','contenuTitreInput','contenuCorpsInput','contenuHtmlInput','publicToggle'].forEach(id => {
@@ -364,7 +529,7 @@ function renderEditor() {
 
   document.getElementById('copyLinkBtn').onclick = (e) => {
     e.preventDefault();
-    navigator.clipboard.writeText(viewUrl).then(() => toast('Lien copié', 'ok'));
+    navigator.clipboard.writeText(viewUrl).then(() => toast(I18N.LIEN_COPIE, 'ok'));
   };
 
   document.getElementById('deleteBtn').onclick = () => deletePage(p.id);
@@ -384,12 +549,13 @@ async function savePage(mode) {
   btn.disabled = true;
   const payload = {
     id: current.id,
-    titre: document.getElementById('titreInput').value.trim() || 'Sans titre',
+    titre: document.getElementById('titreInput').value.trim() || I18N.SANS_TITRE,
     mode,
     public: document.getElementById('publicToggle').checked,
     contenu_titre: document.getElementById('contenuTitreInput')?.value || '',
     contenu_corps: document.getElementById('contenuCorpsInput')?.value || '',
     contenu_html:  document.getElementById('contenuHtmlInput')?.value || '',
+    contenu_blocs: blocs,
   };
   try {
     const r = await apiFetch(`${API}/save`, {
@@ -398,17 +564,17 @@ async function savePage(mode) {
     const data = await r.json();
     if (data.success) {
       dirty = false;
-      toast('Page enregistrée ✓', 'ok');
+      toast(I18N.PAGE_ENREGISTREE, 'ok');
       await loadPages();
     } else {
-      toast(data.error || 'Erreur', 'err');
+      toast(data.error || I18N.ERREUR, 'err');
     }
-  } catch(e) { if (e.message !== 'Session expirée') toast('Erreur d’enregistrement', 'err'); }
+  } catch(e) { if (e.message !== 'Session expirée') toast(I18N.ERREUR_ENREGISTREMENT, 'err'); }
   finally { btn.disabled = false; }
 }
 
 async function deletePage(id) {
-  if (!confirm('Supprimer définitivement cette page ?')) return;
+  if (!confirm(I18N.CONFIRM_SUPPRIMER_PAGE)) return;
   try {
     await apiFetch(`${API}/delete`, {
       method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})
@@ -417,11 +583,11 @@ async function deletePage(id) {
     document.getElementById('main').innerHTML = `
       <div class="empty-state">
         <img class="ico ico-lg ico-muted" src="${ICO}globe.svg">
-        <p>Sélectionnez ou créez une page</p>
+        <p>${I18N.SELECTIONNEZ_OU_CREEZ}</p>
       </div>`;
     await loadPages();
-    toast('Page supprimée', 'ok');
-  } catch(e) { if (e.message !== 'Session expirée') toast('Erreur de suppression', 'err'); }
+    toast(I18N.PAGE_SUPPRIMEE, 'ok');
+  } catch(e) { if (e.message !== 'Session expirée') toast(I18N.ERREUR_SUPPRESSION, 'err'); }
 }
 
 // ── Partage ─────────────────────────────────────────────────────────
@@ -435,9 +601,9 @@ async function addShare(id) {
       body:JSON.stringify({id, email, action:'add'})
     });
     const data = await r.json();
-    if (data.success) { input.value=''; await openPage(id); toast('Accès accordé', 'ok'); }
-    else toast(data.error || 'Erreur', 'err');
-  } catch(e) { if (e.message !== 'Session expirée') toast('Erreur', 'err'); }
+    if (data.success) { input.value=''; await openPage(id); toast(I18N.ACCES_ACCORDE, 'ok'); }
+    else toast(data.error || I18N.ERREUR, 'err');
+  } catch(e) { if (e.message !== 'Session expirée') toast(I18N.ERREUR, 'err'); }
 }
 
 async function removeShare(id, email) {
@@ -447,9 +613,9 @@ async function removeShare(id, email) {
       body:JSON.stringify({id, email, action:'remove'})
     });
     const data = await r.json();
-    if (data.success) { await openPage(id); toast('Accès retiré', 'ok'); }
-    else toast(data.error || 'Erreur', 'err');
-  } catch(e) { if (e.message !== 'Session expirée') toast('Erreur', 'err'); }
+    if (data.success) { await openPage(id); toast(I18N.ACCES_RETIRE, 'ok'); }
+    else toast(data.error || I18N.ERREUR, 'err');
+  } catch(e) { if (e.message !== 'Session expirée') toast(I18N.ERREUR, 'err'); }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────

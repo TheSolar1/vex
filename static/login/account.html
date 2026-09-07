@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Page de Réglages - VEX</title>
+  <title>{{T_TITRE_ONGLET}}</title>
   <link rel="icon" type="image/png" href="/static/img/favicon.ico">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="/static/css/theme.css">
@@ -164,32 +164,32 @@ __NAV_HTML__
 
   <div class="main-layout">
     <aside class="sidebar">
-      <a href="#compte" class="sidebar-link active" data-sec="compte"><i class="fas fa-user-circle"></i><span>Profil</span></a>
-      <a href="#preferences" class="sidebar-link" data-sec="preferences"><i class="fas fa-palette"></i><span>Préférences</span></a>
-      <a href="#securite" class="sidebar-link" data-sec="securite"><i class="fas fa-lock"></i><span>Sécurité</span></a>
-      <a href="#autologin" class="sidebar-link" data-sec="autologin"><i class="fas fa-link"></i><span>Autologin</span></a>
-      <a href="#sync" class="sidebar-link" data-sec="sync"><i class="fas fa-arrows-rotate"></i><span>Synchronisation</span></a>
-      <a href="#notifications" class="sidebar-link" data-sec="notifications"><i class="fas fa-bell"></i><span>Notifications</span></a>
-      <a href="/constiontu.html" class="sidebar-link"><i class="fas fa-shield-alt"></i><span>Confidentialité</span></a>
+      <a href="#compte" class="sidebar-link active" data-sec="compte"><i class="fas fa-user-circle"></i><span>{{T_SIDEBAR_PROFIL}}</span></a>
+      <a href="#preferences" class="sidebar-link" data-sec="preferences"><i class="fas fa-palette"></i><span>{{T_SIDEBAR_PREFERENCES}}</span></a>
+      <a href="#securite" class="sidebar-link" data-sec="securite"><i class="fas fa-lock"></i><span>{{T_SIDEBAR_SECURITE}}</span></a>
+      <a href="#autologin" class="sidebar-link" data-sec="autologin"><i class="fas fa-link"></i><span>{{T_SIDEBAR_AUTOLOGIN}}</span></a>
+      <a href="#sync" class="sidebar-link" data-sec="sync"><i class="fas fa-arrows-rotate"></i><span>{{T_SIDEBAR_SYNC}}</span></a>
+      <a href="#notifications" class="sidebar-link" data-sec="notifications"><i class="fas fa-bell"></i><span>{{T_SIDEBAR_NOTIFICATIONS}}</span></a>
+      <a href="/constiontu.html" class="sidebar-link"><i class="fas fa-shield-alt"></i><span>{{T_SIDEBAR_CONFIDENTIALITE}}</span></a>
     </aside>
 
     <div class="content-area">
 
       <div id="compte-section" class="section-content active">
         <div class="card">
-          <h2><i class="fas fa-user-circle"></i> Mon Profil</h2>
+          <h2><i class="fas fa-user-circle"></i> {{T_MON_PROFIL}}</h2>
 
           <div class="profile-top-row">
             <div id="avatar-letter">V</div>
             <div style="flex:1;">
-              <h3 id="user-name">Profil</h3>
+              <h3 id="user-name">{{T_SIDEBAR_PROFIL}}</h3>
               <p style="margin-bottom:12px;">
                 <i class="fas fa-envelope" style="margin-right:8px;color:var(--accent);"></i>
                 <span id="user-email">email@example.com</span>
               </p>
               <div class="profile-badges">
                 <span id="user-privilege" class="badge-pill" style="background:var(--accent);">
-                  <i class="fas fa-shield-alt"></i> Privilège
+                  <i class="fas fa-shield-alt"></i> {{T_PRIVILEGE_DEFAUT}}
                 </span>
                 <span id="user-plan" class="badge-pill" style="background:linear-gradient(135deg,#FFD700,#FFA500);">
                   <i class="fas fa-crown"></i> VIP
@@ -198,31 +198,31 @@ __NAV_HTML__
             </div>
           </div>
 
-          <h3><i class="fas fa-chart-line"></i> Statistiques du Compte</h3>
+          <h3><i class="fas fa-chart-line"></i> {{T_STATS_COMPTE}}</h3>
           <div class="stat-grid">
             <div class="stat-box blue">
-              <div class="stat-label">Niveau de Privilège</div>
+              <div class="stat-label">{{T_NIVEAU_PRIVILEGE}}</div>
               <div class="stat-value" id="stat-priv">—</div>
             </div>
             <div class="stat-box purple">
-              <div class="stat-label">Statut d'Abonnement</div>
+              <div class="stat-label">{{T_STATUT_ABONNEMENT}}</div>
               <div class="stat-value" id="stat-vip">—</div>
             </div>
           </div>
 
-          <h3><i class="fas fa-info-circle"></i> Informations détaillées</h3>
+          <h3><i class="fas fa-info-circle"></i> {{T_INFOS_DETAILLEES}}</h3>
           <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:30px;">
             <div class="info-row">
               <i class="fas fa-user" style="color:var(--accent);width:20px;text-align:center;flex-shrink:0;"></i>
               <div>
-                <div class="info-label">Nom d'utilisateur</div>
+                <div class="info-label">{{T_NOM_UTILISATEUR}}</div>
                 <div class="info-value" id="prof-nom">—</div>
               </div>
             </div>
             <div class="info-row">
               <i class="fas fa-envelope" style="color:var(--accent);width:20px;text-align:center;flex-shrink:0;"></i>
               <div>
-                <div class="info-label">Adresse Email</div>
+                <div class="info-label">{{T_ADRESSE_EMAIL}}</div>
                 <div class="info-value" id="prof-mail">—</div>
               </div>
             </div>
@@ -230,12 +230,12 @@ __NAV_HTML__
               <div class="info-row-inner">
                 <i class="fas fa-fingerprint" style="color:var(--accent);width:20px;text-align:center;flex-shrink:0;"></i>
                 <div>
-                  <div class="info-label">Identifiant Unique</div>
+                  <div class="info-label">{{T_IDENTIFIANT_UNIQUE}}</div>
                   <div class="info-value" id="prof-id">#—</div>
                 </div>
               </div>
               <button class="btn btn-primary" id="btn-copy-id" style="font-size:13px;padding:7px 14px;">
-                <i class="fas fa-copy"></i> Copier
+                <i class="fas fa-copy"></i> {{T_COPIER}}
               </button>
             </div>
           </div>
@@ -244,12 +244,12 @@ __NAV_HTML__
 
       <div id="preferences-section" class="section-content">
         <div class="card">
-          <h2><i class="fas fa-table-cells"></i> Affichage personnalisé</h2>
-          <p>Choisissez les tuiles du tableau de bord, les informations suivies et les applications du menu.</p>
-          <div id="affichage-box"><p style="opacity:.6">Chargement…</p></div>
+          <h2><i class="fas fa-table-cells"></i> {{T_AFFICHAGE_PERSO}}</h2>
+          <p>{{T_AFFICHAGE_PERSO_DESC}}</p>
+          <div id="affichage-box"><p style="opacity:.6">{{T_CHARGEMENT}}</p></div>
           <div class="aff-pied">
             <button class="btn btn-primary" id="aff-save" onclick="saveAffichage()" disabled>
-              <i class="fas fa-save"></i> Enregistrer l'affichage
+              <i class="fas fa-save"></i> {{T_ENREGISTRER_AFFICHAGE}}
             </button>
             <span class="aff-msg" id="aff-msg"></span>
           </div>
@@ -295,48 +295,54 @@ __NAV_HTML__
           </style>
         </div>
         <div class="card">
-          <h2><i class="fas fa-palette"></i> Préférences d'Affichage</h2>
-          <p>Personnalisez l'apparence de votre interface.</p>
+          <h2><i class="fas fa-palette"></i> {{T_PREFERENCES_AFFICHAGE}}</h2>
+          <p>{{T_PREFERENCES_AFFICHAGE_DESC}}</p>
           <div class="theme-toggle">
             <label class="theme-option" data-val="0">
               <input type="radio" name="theme" value="0">
               <div class="theme-preview light"></div>
-              <strong>Thème Clair</strong>
-              <p>Interface lumineuse</p>
+              <strong>{{T_THEME_CLAIR}}</strong>
+              <p>{{T_THEME_CLAIR_DESC}}</p>
             </label>
             <label class="theme-option" data-val="1">
               <input type="radio" name="theme" value="1">
               <div class="theme-preview dark"></div>
-              <strong>Thème Sombre</strong>
-              <p>Interface sombre</p>
+              <strong>{{T_THEME_SOMBRE}}</strong>
+              <p>{{T_THEME_SOMBRE_DESC}}</p>
             </label>
           </div>
           <button class="btn btn-primary" style="margin-top:14px;" id="btn-save-theme">
-            <i class="fas fa-save"></i> Enregistrer les préférences
+            <i class="fas fa-save"></i> {{T_ENREGISTRER_PREFERENCES}}
           </button>
         </div>
 
+        <div class="card">
+          <h2><i class="fas fa-language"></i> {{T_LANGUE_TITRE}}</h2>
+          <p>{{T_LANGUE_DESC}}</p>
+          <select id="langue-select" style="margin-top:12px;padding:9px 12px;border-radius:6px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:14px;font-family:inherit;min-width:220px;"></select>
+        </div>
+
         <div class="card" id="ext-prefs-card" style="display:none">
-          <h2><i class="fas fa-puzzle-piece"></i> Paramètres des extensions</h2>
-          <p>Réglages personnels propres à une extension (clé API, options individuelles).</p>
+          <h2><i class="fas fa-puzzle-piece"></i> {{T_PARAMETRES_EXTENSIONS}}</h2>
+          <p>{{T_PARAMETRES_EXTENSIONS_DESC}}</p>
           <div id="ext-prefs-box"></div>
         </div>
       </div>
 
       <div id="securite-section" class="section-content">
         <div class="card">
-          <h2><i class="fas fa-lock"></i> Sécurité</h2>
+          <h2><i class="fas fa-lock"></i> {{T_SIDEBAR_SECURITE}}</h2>
           <form id="pwd-form">
             <div class="form-group">
-              <label for="pwd-old">Mot de passe actuel :</label>
+              <label for="pwd-old">{{T_MDP_ACTUEL}}</label>
               <input type="password" id="pwd-old" name="enmotdepass" required>
             </div>
             <div class="form-group">
-              <label for="pwd-new">Nouveau mot de passe :</label>
+              <label for="pwd-new">{{T_NOUVEAU_MDP}}</label>
               <input type="password" id="pwd-new" name="modifier_motdepasse" required>
             </div>
             <button type="submit" class="btn btn-primary">
-              <i class="fas fa-key"></i> Modifier le mot de passe
+              <i class="fas fa-key"></i> {{T_MODIFIER_MDP}}
             </button>
           </form>
           <div id="pwd-msg" class="message" style="display:none"></div>
@@ -345,13 +351,13 @@ __NAV_HTML__
 
       <div id="autologin-section" class="section-content">
         <div class="card">
-          <h2><i class="fas fa-link"></i> Autologin</h2>
-          <p>Générez un lien unique pour vous connecter automatiquement sans saisir vos identifiants. Gardez-le confidentiel.</p>
+          <h2><i class="fas fa-link"></i> {{T_SIDEBAR_AUTOLOGIN}}</h2>
+          <p>{{T_AUTOLOGIN_DESC}}</p>
           <div id="al-info" class="autologin-box"></div>
           <div id="al-token" class="autologin-box" style="display:none;margin-top:14px;"></div>
           <div class="autologin-token-actions" style="margin-top:12px;">
-            <button class="btn btn-primary" id="btn-al-create"><i class="fas fa-magic"></i> Générer un lien autologin</button>
-            <button class="btn btn-danger" id="btn-al-delete"><i class="fas fa-trash"></i> Supprimer le lien</button>
+            <button class="btn btn-primary" id="btn-al-create"><i class="fas fa-magic"></i> {{T_GENERER_LIEN}}</button>
+            <button class="btn btn-danger" id="btn-al-delete"><i class="fas fa-trash"></i> {{T_SUPPRIMER_LIEN}}</button>
           </div>
           <div id="al-msg" class="message" style="display:none;margin-top:10px;"></div>
         </div>
@@ -359,18 +365,19 @@ __NAV_HTML__
 
       <div id="sync-section" class="section-content">
         <div class="card">
-          <h2><i class="fas fa-arrows-rotate"></i> Synchronisation (Windows)</h2>
-          <p>Synchronise tes fichiers VEX avec un dossier sur ton PC Windows, comme OneDrive/Google Drive. Le programme se connecte via une autorisation que tu valides toi-même — ton mot de passe ne quitte jamais ton PC.</p>
-          <a class="btn btn-primary" href="/api/appareil/telecharger"><i class="fas fa-download"></i> Télécharger le synchronisateur</a>
-          <h3 style="margin-top:28px;"><i class="fas fa-laptop"></i> Appareils autorisés</h3>
-          <div id="sync-appareils-liste"><p style="color:var(--text-dim);">Chargement…</p></div>
+          <h2><i class="fas fa-arrows-rotate"></i> {{T_SYNC_TITRE}}</h2>
+          <p>{{T_SYNC_DESC}}</p>
+          <a class="btn btn-primary" href="/api/appareil/telecharger?zip=1"><i class="fas fa-download"></i> {{T_TELECHARGER_SYNC}}</a>
+
+          <h3 style="margin-top:28px;"><i class="fas fa-laptop"></i> {{T_APPAREILS_AUTORISES}}</h3>
+          <div id="sync-appareils-liste"><p style="color:var(--text-dim);">{{T_CHARGEMENT}}</p></div>
         </div>
       </div>
 
       <div id="notifications-section" class="section-content">
         <div class="card">
-          <h2><i class="fas fa-bell"></i> Notifications</h2>
-          <p>Gérez vos préférences de notifications ici.</p>
+          <h2><i class="fas fa-bell"></i> {{T_SIDEBAR_NOTIFICATIONS}}</h2>
+          <p>{{T_NOTIFICATIONS_DESC}}</p>
         </div>
       </div>
 
@@ -381,6 +388,7 @@ __NAV_HTML__
 <div class="toast" id="toast"></div>
 
 <script>
+{{I18N_JS}}
 (function(){
   const S = {theme:0, autologin:{}, user:{}};
   const $ = sel => document.querySelector(sel);
@@ -403,7 +411,7 @@ __NAV_HTML__
       const tx=await r.text();
       return JSON.parse(tx);
     }catch(_){
-      return {success:false,error:'Réponse invalide ou réseau indisponible'};
+      return {success:false,error:I18N.REPONSE_INVALIDE};
     }
   }
 
@@ -430,19 +438,45 @@ __NAV_HTML__
       // Applique immédiatement sans attendre un rechargement complet
       document.documentElement.setAttribute('data-theme', Number(val) === 1 ? 'dark' : 'light');
     }
-    toast(r.success ? 'Thème enregistré' : (r.error || 'Erreur thème'), !r.success);
+    toast(r.success ? I18N.THEME_ENREGISTRE : (r.error || I18N.ERREUR_THEME), !r.success);
+  }
+
+  // ── Langue de l'interface ────────────────────────────────────────
+  // Contrairement au thème (appliqué instantanément via un attribut), un
+  // changement de langue nécessite un rechargement complet : tout le HTML
+  // traduit côté serveur (placeholders {{T_*}} et bloc I18N) est déjà figé
+  // dans la page actuelle.
+  function renderLangueSelect(langues, courante){
+    const sel = $('#langue-select');
+    if (!sel) return;
+    sel.innerHTML = (langues||[]).map(([code,nom]) =>
+      `<option value="${code}"${code===courante?' selected':''}>${escapeHtmlSync(nom)}</option>`
+    ).join('');
+  }
+  async function saveLangue(lang){
+    const sel = $('#langue-select');
+    if (sel) sel.disabled = true;
+    const body = new URLSearchParams({langue:lang});
+    const r = await j('/api/account/language', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
+    if (r.success) {
+      toast(I18N.LANGUE_ENREGISTREE);
+      setTimeout(() => window.location.reload(), 600);
+    } else {
+      toast(r.error || I18N.ERREUR_LANGUE, true);
+      if (sel) sel.disabled = false;
+    }
   }
 
   function renderUser(d){
     S.user=d.user;
-    $('#user-name').textContent=d.user.nom||'Profil';
+    $('#user-name').textContent=d.user.nom||I18N.UTILISATEUR_DEFAUT;
     $('#user-email').textContent=d.user.email||'';
     $('#prof-nom').textContent=d.user.nom||'—';
     $('#prof-mail').textContent=d.user.email||'—';
     $('#prof-id').textContent='#'+(d.user.id??'');
     $('#avatar-letter').textContent=(d.user.nom||'V').substring(0,1).toUpperCase();
     const pv=d.user.privilege_details;
-    const privLabel=pv?.nom_privilege || ('Privilège '+(d.user.privilege??'?'));
+    const privLabel=pv?.nom_privilege || (I18N.PRIVILEGE_LABEL.replace('{n}',d.user.privilege??'?'));
     const privColor=pv?.couleur_privilege || 'var(--accent)';
     const elPriv=$('#user-privilege');
     if(elPriv){ elPriv.textContent=' '+privLabel; elPriv.prepend(Object.assign(document.createElement('i'),{className:'fas fa-shield-alt'})); elPriv.style.background=privColor; }
@@ -451,11 +485,11 @@ __NAV_HTML__
       if(d.user.vip===1){
         elPlan.style.background='linear-gradient(135deg,#FFD700,#FFA500)'; elPlan.innerHTML='<i class="fas fa-crown"></i> VIP';
       }else{
-        elPlan.style.background='linear-gradient(135deg,var(--vex-green-1),var(--vex-green-2))'; elPlan.innerHTML='<i class="fas fa-user"></i> Free';
+        elPlan.style.background='linear-gradient(135deg,var(--vex-green-1),var(--vex-green-2))'; elPlan.innerHTML='<i class="fas fa-user"></i> '+I18N.FREE;
       }
     }
     $('#stat-priv').textContent=privLabel;
-    $('#stat-vip').textContent=d.user.vip===1?'Premium':'Gratuit';
+    $('#stat-vip').textContent=d.user.vip===1?I18N.PREMIUM:I18N.GRATUIT;
   }
 
   function renderAutologin(a){
@@ -465,7 +499,7 @@ __NAV_HTML__
     msg.style.display='none';
     if(!a.allowed){
       info.className='al-disabled';
-      info.innerHTML='<i class="fas fa-ban" style="font-size:28px;display:block;margin-bottom:10px;"></i> La création d\'un lien autologin n\'est pas disponible pour votre compte.';
+      info.innerHTML='<i class="fas fa-ban" style="font-size:28px;display:block;margin-bottom:10px;"></i> '+I18N.AL_NON_DISPONIBLE;
       $('#btn-al-create').disabled=true; $('#btn-al-delete').disabled=true;
       box.style.display='none';
       return;
@@ -473,10 +507,10 @@ __NAV_HTML__
     info.className='autologin-box';
     if(a.has_token){
       const nb=a.utilisations||0;
-      info.innerHTML='<h3 style="margin-top:0;margin-bottom:16px;color:var(--accent);"><i class="fas fa-check-circle"></i> Votre lien actif</h3><div>Un lien autologin existe déjà.</div><div style="margin-top:8px;color:var(--text-dim);font-size:13px;">Utilisé '+nb+' fois</div>';
+      info.innerHTML='<h3 style="margin-top:0;margin-bottom:16px;color:var(--accent);"><i class="fas fa-check-circle"></i> '+I18N.AL_LIEN_ACTIF_TITRE+'</h3><div>'+I18N.AL_LIEN_EXISTE_DEJA+'</div><div style="margin-top:8px;color:var(--text-dim);font-size:13px;">'+I18N.AL_UTILISE.replace('{n}',nb)+'</div>';
       $('#btn-al-delete').disabled=false;
     }else{
-      info.innerHTML='<div class="autologin-box-empty"><div class="al-icon"><i class="fas fa-plus-circle"></i></div><h3>Aucun lien autologin</h3><p>Vous n\'avez pas encore de lien.<br>Cliquez pour en générer un.</p></div>';
+      info.innerHTML='<div class="autologin-box-empty"><div class="al-icon"><i class="fas fa-plus-circle"></i></div><h3>'+I18N.AL_AUCUN_LIEN+'</h3><p>'+I18N.AL_PAS_ENCORE_DE_LIEN+'<br>'+I18N.AL_CLIQUEZ_POUR_GENERER+'</p></div>';
       $('#btn-al-delete').disabled=true;
     }
     $('#btn-al-create').disabled=false;
@@ -492,22 +526,22 @@ __NAV_HTML__
     if(!zone) return;
     const r=await j('/api/appareil/liste');
     if(!r.success){
-      zone.innerHTML='<p style="color:var(--text-dim);">Impossible de charger la liste.</p>';
+      zone.innerHTML='<p style="color:var(--text-dim);">'+I18N.SYNC_IMPOSSIBLE_CHARGER+'</p>';
       return;
     }
     const appareils=r.appareils||[];
     if(appareils.length===0){
-      zone.innerHTML='<p style="color:var(--text-dim);">Aucun appareil autorisé pour l\'instant.</p>';
+      zone.innerHTML='<p style="color:var(--text-dim);">'+I18N.SYNC_AUCUN_APPAREIL+'</p>';
       return;
     }
     zone.innerHTML=appareils.map(a=>{
       const revoque=a.statut==='revoque';
       return `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--panel-border);">
         <div>
-          <strong>${escapeHtmlSync(a.nom_appareil||'Appareil inconnu')}</strong>
-          <div style="font-size:12px;color:var(--text-dim);">${escapeHtmlSync(a.created_at||'')} — ${revoque?'révoqué':'autorisé'}</div>
+          <strong>${escapeHtmlSync(a.nom_appareil||I18N.APPAREIL_INCONNU)}</strong>
+          <div style="font-size:12px;color:var(--text-dim);">${escapeHtmlSync(a.created_at||'')} — ${revoque?I18N.REVOQUE:I18N.AUTORISE}</div>
         </div>
-        ${revoque?'':`<button class="btn btn-danger" data-revoquer-code="${escapeHtmlSync(a.code)}"><i class="fas fa-ban"></i> Révoquer</button>`}
+        ${revoque?'':`<button class="btn btn-danger" data-revoquer-code="${escapeHtmlSync(a.code)}"><i class="fas fa-ban"></i> ${I18N.REVOQUER}</button>`}
       </div>`;
     }).join('');
     zone.querySelectorAll('[data-revoquer-code]').forEach(btn=>{
@@ -521,23 +555,23 @@ __NAV_HTML__
       headers:{'Content-Type':'application/x-www-form-urlencoded'},
       body:'code='+encodeURIComponent(code),
     });
-    if(r.success){ toast('Appareil révoqué.'); loadAppareilsSync(); }
-    else{ toast(r.error||'Erreur lors de la révocation',true); }
+    if(r.success){ toast(I18N.APPAREIL_REVOQUE_MSG); loadAppareilsSync(); }
+    else{ toast(r.error||I18N.ERREUR_REVOCATION,true); }
   }
 
   async function loadData(){
     const r=await j('/api/account/data');
     if(!r.success){
-      const err = (r.error||'').toLowerCase();
-      if(err.includes('non connect')){
+      if(r.code==='non_connecte'){
         window.location.href='/login';
         return;
       }
-      showGlobal(r.error||'Impossible de charger le compte');
-      toast(r.error||'Erreur chargement',true);
+      showGlobal(r.error||I18N.ERREUR_CHARGEMENT_COMPTE);
+      toast(r.error||I18N.ERREUR_CHARGEMENT_COMPTE,true);
       return;
     }
     markThemeSelected(r.data.theme ?? 0);
+    renderLangueSelect(r.data.supported_languages, r.data.langue);
     renderUser(r.data);
     renderAutologin(r.data.autologin);
   }
@@ -567,14 +601,17 @@ __NAV_HTML__
     const btnSave=$('#btn-save-theme');
     if(btnSave){ btnSave.addEventListener('click',()=>saveTheme(S.theme)); }
 
+    const langueSelect=$('#langue-select');
+    if(langueSelect){ langueSelect.addEventListener('change',()=>saveLangue(langueSelect.value)); }
+
     const copyBtn = $('#btn-copy-id');
     if(copyBtn){
       copyBtn.addEventListener('click',()=>{
         const text=($('#prof-id').textContent||'').replace('#','');
         if(navigator.clipboard){
-          navigator.clipboard.writeText(text).then(()=>toast('ID copié')).catch(()=>toast('Copie impossible',true));
+          navigator.clipboard.writeText(text).then(()=>toast(I18N.ID_COPIE)).catch(()=>toast(I18N.COPIE_IMPOSSIBLE,true));
         }else{
-          prompt("Copiez l'ID", text);
+          prompt(I18N.COPIEZ_ID, text);
         }
       });
     }
@@ -588,7 +625,7 @@ __NAV_HTML__
           modifier_motdepasse:$('#pwd-new').value,
         });
         const r=await j('/api/account/password',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
-        const msg=$('#pwd-msg'); setMsg(msg, r.success?'Mot de passe mis à jour':(r.error||'Erreur mot de passe'), r.success);
+        const msg=$('#pwd-msg'); setMsg(msg, r.success?I18N.MDP_MIS_A_JOUR:(r.error||I18N.ERREUR_MDP), r.success);
         toast(msg.textContent,!r.success);
         if(r.success){e.target.reset();}
       });
@@ -603,11 +640,11 @@ __NAV_HTML__
         if(r.success){
           renderAutologin(Object.assign({},S.autologin,{has_token:true}));
           box.style.display='block'; box.textContent=r.url||'(lien généré)';
-          msg.style.display='block'; msg.className='message success'; msg.textContent='Lien autologin créé';
-          toast('Lien autologin créé');
+          msg.style.display='block'; msg.className='message success'; msg.textContent=I18N.LIEN_CREE;
+          toast(I18N.LIEN_CREE);
         }else{
           box.style.display='none';
-          msg.style.display='block'; msg.className='message error'; msg.textContent=r.error||'Création impossible';
+          msg.style.display='block'; msg.className='message error'; msg.textContent=r.error||I18N.CREATION_IMPOSSIBLE;
           toast(msg.textContent,true);
         }
       });
@@ -622,10 +659,10 @@ __NAV_HTML__
         if(r.success){
           renderAutologin(Object.assign({},S.autologin,{has_token:false}));
           $('#al-token').style.display='none';
-          msg.style.display='block'; msg.className='message success'; msg.textContent='Lien autologin supprimé';
-          toast('Lien autologin supprimé');
+          msg.style.display='block'; msg.className='message success'; msg.textContent=I18N.LIEN_SUPPRIME;
+          toast(I18N.LIEN_SUPPRIME);
         }else{
-          msg.style.display='block'; msg.className='message error'; msg.textContent=r.error||'Suppression impossible';
+          msg.style.display='block'; msg.className='message error'; msg.textContent=r.error||I18N.SUPPRESSION_IMPOSSIBLE;
           toast(msg.textContent,true);
         }
       });
@@ -646,12 +683,12 @@ let AFF={tuiles:[],evenements:[],apps:[]};
 function affEsc(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 const AFF_GROUPES=[
-  {cle:'dashboard_tiles',source:'tuiles',titre:'Tuiles du tableau de bord',
-   icone:'table-cells',aide:"Les encadres affiches sur votre page d'accueil."},
-  {cle:'dashboard_events',source:'evenements',titre:'Informations suivies',
-   icone:'bell',aide:"Ce que la tuile Administration doit vous remonter."},
-  {cle:'nav_apps',source:'apps',titre:'Applications du menu',
-   icone:'grip',aide:"Les raccourcis proposes dans le menu des applications."},
+  {cle:'dashboard_tiles',source:'tuiles',titre:I18N.AFF_TUILES_TITRE,
+   icone:'table-cells',aide:I18N.AFF_TUILES_DESC},
+  {cle:'dashboard_events',source:'evenements',titre:I18N.AFF_EVENEMENTS_TITRE,
+   icone:'bell',aide:I18N.AFF_EVENEMENTS_DESC},
+  {cle:'nav_apps',source:'apps',titre:I18N.AFF_APPS_TITRE,
+   icone:'grip',aide:I18N.AFF_APPS_DESC},
 ];
 
 function affLigne(cle,x){
@@ -677,8 +714,8 @@ function affGroupe(g){
         <div class="aff-aide">${affEsc(g.aide)}</div>
       </div>
       <div class="aff-actions">
-        <button type="button" class="aff-mini" onclick="affTout('${g.cle}',true)">Tout</button>
-        <button type="button" class="aff-mini" onclick="affTout('${g.cle}',false)">Aucun</button>
+        <button type="button" class="aff-mini" onclick="affTout('${g.cle}',true)">${I18N.TOUT}</button>
+        <button type="button" class="aff-mini" onclick="affTout('${g.cle}',false)">${I18N.AUCUN}</button>
       </div>
     </header>
     <div class="aff-liste">${liste.map(x=>affLigne(g.cle,x)).join('')}</div>
@@ -704,14 +741,14 @@ async function loadAffichage(){
   if(!box||box.dataset.charge)return;
   try{
     const r=await (await fetch('/api/account/affichage',{credentials:'include'})).json();
-    if(!r.success){box.innerHTML='<p style="opacity:.6">Indisponible.</p>';return;}
+    if(!r.success){box.innerHTML='<p style="opacity:.6">'+I18N.INDISPONIBLE+'</p>';return;}
     AFF=r.data;
     box.innerHTML=AFF_GROUPES.map(affGroupe).join('');
     AFF_GROUPES.forEach(g=>affMaj(g.cle));
     const b=document.getElementById('aff-save');
     if(b){b.disabled=true;b.classList.remove('aff-dirty');}
     box.dataset.charge='1';
-  }catch(e){box.innerHTML='<p style="opacity:.6">Erreur de chargement.</p>';}
+  }catch(e){box.innerHTML='<p style="opacity:.6">'+I18N.ERREUR_CHARGEMENT_AFF+'</p>';}
 }
 
 async function saveAffichage(){
@@ -722,17 +759,17 @@ async function saveAffichage(){
   });
   const corps=Object.entries(cor)
     .map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(JSON.stringify(v))).join('&');
-  if(b){b.disabled=true;b.textContent='Enregistrement...';}
+  if(b){b.disabled=true;b.textContent=I18N.ENREGISTREMENT;}
   const r=await (await fetch('/api/account/affichage',{
     method:'POST',credentials:'include',
     headers:{'Content-Type':'application/x-www-form-urlencoded'},body:corps})).json();
   const msg=document.getElementById('aff-msg');
-  if(b)b.innerHTML='<i class="fas fa-save"></i> Enregistrer l&#39;affichage';
+  if(b)b.innerHTML='<i class="fas fa-save"></i> '+I18N.ENREGISTRER_AFFICHAGE;
   if(b)b.classList.remove('aff-dirty');
   if(msg){
     msg.textContent=r.success
-      ? 'Enregistre — rechargez le tableau de bord pour voir le resultat.'
-      : (r.error||'Echec de l enregistrement.');
+      ? I18N.AFF_ENREGISTRE
+      : (r.error||I18N.ECHEC_ENREGISTREMENT);
     msg.className='aff-msg '+(r.success?'ok':'ko');
     setTimeout(()=>{msg.textContent='';msg.className='aff-msg';},5000);
   }
