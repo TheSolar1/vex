@@ -164,11 +164,13 @@ body {
 .blocs-canvas.drop-over { outline:2px dashed var(--accent); outline-offset:-6px; }
 .blocs-drop-indicator { height:3px; background:var(--accent); border-radius:2px; margin:4px 0; }
 
-.blocs-list { display:flex; flex-direction:column; gap:12px; min-height:60px; }
+.blocs-list { display:flex; flex-wrap:wrap; gap:12px; min-height:60px; align-items:flex-start; }
 .bloc-item {
-  border:1px solid var(--border); border-radius:10px; background:var(--surface); cursor:pointer;
-  box-shadow:0 1px 2px rgba(0,0,0,.04); transition:box-shadow .15s, border-color .15s, transform .15s;
+  width:100%; border:1px solid var(--border); border-radius:10px; background:var(--surface); cursor:pointer;
+  box-shadow:0 1px 2px rgba(0,0,0,.04); transition:box-shadow .15s, border-color .15s, transform .15s, width .15s;
 }
+.bloc-item.largeur-50 { width:calc(50% - 6px); }
+@media (max-width:760px) { .bloc-item.largeur-50 { width:100%; } }
 .bloc-item:hover { box-shadow:0 4px 14px rgba(0,0,0,.09); transform:translateY(-1px); }
 .bloc-item.dragging { opacity:.4; }
 .bloc-item.selected { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent); transform:none; }
@@ -609,7 +611,7 @@ let blocSelected = null; // index du bloc actuellement ouvert dans le panneau de
 let dragState = null; // { fromPalette:bool, type?, fromIdx? }
 
 function blocDefaut(type) {
-  const base = { type, animation: '' };
+  const base = { type, animation: '', largeur: '100' };
   (BLOC_SPECS[type] || []).forEach(champ => {
     if (champ.type === 'items') base[champ.k] = [];
     else if (champ.type === 'checkgroup') base[champ.k] = champ.defaut ? [...champ.defaut] : [];
@@ -631,6 +633,18 @@ function animationSelectHtml(b) {
   const opts = ANIMATIONS.map(a => `<option value="${a}"${(b.animation||'')===a?' selected':''}>${escAttr(ANIMATION_LABELS[a])}</option>`).join('');
   return `<label class="bloc-anim-row"><i class="fas fa-wand-magic-sparkles"></i> ${escAttr(I18N.ANIMATION_LABEL)}
     <select data-field="animation" class="bloc-anim-select">${opts}</select></label>`;
+}
+
+// Largeur du bloc dans le canevas : "100" (pleine ligne) ou "50" (demi-ligne,
+// deux blocs consécutifs en "50" s'affichent côte à côte -- voir .blocs-list
+// et render_blocs_html côté serveur pour le rendu public).
+function largeurSelectHtml(b) {
+  const largeur = b.largeur || '100';
+  return `<label class="bloc-anim-row"><i class="fas fa-table-columns"></i> ${escAttr(I18N.LARGEUR_LABEL)}
+    <select data-field="largeur" class="bloc-anim-select">
+      <option value="100"${largeur==='100'?' selected':''}>${escAttr(I18N.LARGEUR_PLEINE)}</option>
+      <option value="50"${largeur==='50'?' selected':''}>${escAttr(I18N.LARGEUR_MOITIE)}</option>
+    </select></label>`;
 }
 
 function champHtml(valeur, champ) {
@@ -682,7 +696,7 @@ function blocItemBodyHtml(b) {
     const inner = champ.type === 'items' ? champItemsHtml(b, champ) : champHtml(b[champ.k], champ);
     return champ.label && champ.type !== 'items' ? `<div><span class="champ-label">${escAttr(champ.label)}</span>${inner}</div>` : `<div>${champ.label?`<span class="champ-label">${escAttr(champ.label)}</span>`:''}${inner}</div>`;
   }).join('');
-  return `${champs}${animationSelectHtml(b)}`;
+  return `${champs}${animationSelectHtml(b)}${largeurSelectHtml(b)}`;
 }
 
 // ── Rendu de la liste des blocs (canevas central) + glisser-déposer ──
@@ -697,7 +711,7 @@ function renderBlocsList() {
     return;
   }
   list.innerHTML = blocs.map((b, i) => `
-    <div class="bloc-item${blocSelected===i?' selected':''}" data-idx="${i}" draggable="true">
+    <div class="bloc-item${blocSelected===i?' selected':''}${(b.largeur||'100')==='50'?' largeur-50':''}" data-idx="${i}" draggable="true">
       <div class="bloc-item-hdr">
         <span class="bloc-item-type">
           <i class="fas fa-grip-vertical bloc-drag-handle"></i>
@@ -851,6 +865,10 @@ function attacherEcoutesChamps(el, idx) {
     if (field.closest('.champ-image') || field.closest('.champ-items')) return;
     field.addEventListener('input', () => { blocs[idx][field.dataset.field] = field.value; markDirty(); });
   });
+
+  // La largeur change l'agencement du canevas : la refléter immédiatement.
+  const largeurSelect = el.querySelector('[data-field="largeur"]');
+  if (largeurSelect) largeurSelect.addEventListener('change', () => renderBlocsList());
 
   // Checkgroups (partage_social)
   el.querySelectorAll('[data-checkgroup]').forEach(group => {

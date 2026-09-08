@@ -1107,6 +1107,9 @@ pub enum Cle {
     SitecInspecteurVide,
     SitecBibliothequeDeBlocs,
     SitecPaletteSousTitre,
+    SitecLargeurLabel,
+    SitecLargeurPleine,
+    SitecLargeurMoitie,
 }
 
 pub fn t(langue: &str, cle: Cle) -> &'static str {
@@ -2129,6 +2132,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         (_, SitecInspecteurVide) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Sélectionnez un bloc pour le modifier ici.",
         (_, SitecBibliothequeDeBlocs) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Bibliothèque de blocs",
         (_, SitecPaletteSousTitre) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Glissez un bloc dans la page, ou cliquez dessus pour l'ajouter.",
+        (_, SitecLargeurLabel) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Largeur",
+        (_, SitecLargeurPleine) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Pleine largeur",
+        (_, SitecLargeurMoitie) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Demi-largeur (2 par ligne)",
 
         // ────────────────────────────────────────────── English ──
         ("en", LoginTitreOnglet) => "Login - VEX",
@@ -3121,6 +3127,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("en", SitecInspecteurVide) => "Select a block to edit it here.",
         ("en", SitecBibliothequeDeBlocs) => "Block library",
         ("en", SitecPaletteSousTitre) => "Drag a block into the page, or click it to add it.",
+        ("en", SitecLargeurLabel) => "Width",
+        ("en", SitecLargeurPleine) => "Full width",
+        ("en", SitecLargeurMoitie) => "Half width (2 per row)",
 
         // ────────────────────────────────────────────── Español ──
         ("es", LoginTitreOnglet) => "Iniciar sesion - VEX",
@@ -4113,6 +4122,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("es", SitecInspecteurVide) => "Selecciona un bloque para editarlo aqui.",
         ("es", SitecBibliothequeDeBlocs) => "Biblioteca de bloques",
         ("es", SitecPaletteSousTitre) => "Arrastra un bloque a la pagina, o haz clic para anadirlo.",
+        ("es", SitecLargeurLabel) => "Ancho",
+        ("es", SitecLargeurPleine) => "Ancho completo",
+        ("es", SitecLargeurMoitie) => "Media anchura (2 por fila)",
 
         // ─────────────────────────────────────────────── Deutsch ──
         ("de", LoginTitreOnglet) => "Anmeldung - VEX",
@@ -5105,6 +5117,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("de", SitecInspecteurVide) => "Waehlen Sie einen Block aus, um ihn hier zu bearbeiten.",
         ("de", SitecBibliothequeDeBlocs) => "Blockbibliothek",
         ("de", SitecPaletteSousTitre) => "Ziehen Sie einen Block auf die Seite oder klicken Sie darauf, um ihn hinzuzufuegen.",
+        ("de", SitecLargeurLabel) => "Breite",
+        ("de", SitecLargeurPleine) => "Volle Breite",
+        ("de", SitecLargeurMoitie) => "Halbe Breite (2 pro Zeile)",
 
         // ─────────────────────────────────────────────── Italiano ──
         ("it", LoginTitreOnglet) => "Accesso - VEX",
@@ -6097,6 +6112,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("it", SitecInspecteurVide) => "Seleziona un blocco per modificarlo qui.",
         ("it", SitecBibliothequeDeBlocs) => "Libreria di blocchi",
         ("it", SitecPaletteSousTitre) => "Trascina un blocco nella pagina, oppure clicca per aggiungerlo.",
+        ("it", SitecLargeurLabel) => "Larghezza",
+        ("it", SitecLargeurPleine) => "Larghezza intera",
+        ("it", SitecLargeurMoitie) => "Meta larghezza (2 per riga)",
 
         // ──────────────────────────────────────────── Português ──
         ("pt", LoginTitreOnglet) => "Login - VEX",
@@ -7089,6 +7107,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("pt", SitecInspecteurVide) => "Selecione um bloco para edita-lo aqui.",
         ("pt", SitecBibliothequeDeBlocs) => "Biblioteca de blocos",
         ("pt", SitecPaletteSousTitre) => "Arraste um bloco para a pagina, ou clique para adiciona-lo.",
+        ("pt", SitecLargeurLabel) => "Largura",
+        ("pt", SitecLargeurPleine) => "Largura total",
+        ("pt", SitecLargeurMoitie) => "Meia largura (2 por linha)",
 
         // ──────────────────────────────────────────────── Русский ──
         ("ru", LoginTitreOnglet) => "Вход - VEX",
@@ -8081,6 +8102,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("ru", SitecInspecteurVide) => "Выберите блок, чтобы редактировать его здесь.",
         ("ru", SitecBibliothequeDeBlocs) => "Библиотека блоков",
         ("ru", SitecPaletteSousTitre) => "Перетащите блок на страницу или щёлкните по нему, чтобы добавить.",
+        ("ru", SitecLargeurLabel) => "Ширина",
+        ("ru", SitecLargeurPleine) => "Полная ширина",
+        ("ru", SitecLargeurMoitie) => "Половина ширины (по 2 в ряд)",
 
         // ────────────────────────────────────────────────── 中文 ──
         ("zh", LoginTitreOnglet) => "登录 - VEX",
@@ -9073,6 +9097,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("zh", SitecInspecteurVide) => "选择一个区块以在此处编辑。",
         ("zh", SitecBibliothequeDeBlocs) => "区块库",
         ("zh", SitecPaletteSousTitre) => "将区块拖入页面,或点击以添加。",
+        ("zh", SitecLargeurLabel) => "宽度",
+        ("zh", SitecLargeurPleine) => "整行宽度",
+        ("zh", SitecLargeurMoitie) => "半行宽度(每行2个)",
 
         // ────────────────────────────────────────────────── 日本語 ──
         ("ja", LoginTitreOnglet) => "ログイン - VEX",
@@ -10065,6 +10092,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("ja", SitecInspecteurVide) => "ブロックを選択するとここで編集できます。",
         ("ja", SitecBibliothequeDeBlocs) => "ブロックライブラリ",
         ("ja", SitecPaletteSousTitre) => "ブロックをページにドラッグするか、クリックして追加します。",
+        ("ja", SitecLargeurLabel) => "幅",
+        ("ja", SitecLargeurPleine) => "全幅",
+        ("ja", SitecLargeurMoitie) => "半幅(1行に2つ)",
 
         // ──────────────────────────────────────────────── العربية ──
         ("ar", LoginTitreOnglet) => "تسجيل الدخول - VEX",
@@ -11057,6 +11087,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("ar", SitecInspecteurVide) => "اختر كتلة لتعديلها هنا.",
         ("ar", SitecBibliothequeDeBlocs) => "مكتبة الكتل",
         ("ar", SitecPaletteSousTitre) => "اسحب كتلة إلى الصفحة، أو انقر عليها لإضافتها.",
+        ("ar", SitecLargeurLabel) => "العرض",
+        ("ar", SitecLargeurPleine) => "العرض الكامل",
+        ("ar", SitecLargeurMoitie) => "نصف العرض (2 في كل صف)",
 
         // Repli sur le francais pour toute combinaison non listee (ne
         // devrait pas arriver, toutes les langues supportees sont listees).

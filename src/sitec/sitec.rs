@@ -931,13 +931,42 @@ fn build_site_nav_html(pool: &DbPool, page: &SitecPage, session: &SessionInfo) -
 /// deja passe par `sanitiser_blocs` a l'enregistrement (type verifie,
 /// URLs limitees a http/https) -- ici on echappe en plus tout texte
 /// affiche, en defense en profondeur.
+/// Rend le tableau JSON de blocs (mode "blocs") en HTML. Les blocs en
+/// demi-largeur consecutifs ("largeur":"50") sont regroupes dans une ligne
+/// flex (`sitec-bloc-row`) pour s'afficher cote a cote ; les autres restent
+/// pleine largeur comme avant.
 fn render_blocs_html(contenu_blocs: &str) -> String {
     let blocs: Vec<Value> = serde_json::from_str(contenu_blocs).unwrap_or_default();
     let mut out = String::new();
-    for b in &blocs {
-        let kind = b["type"].as_str().unwrap_or("");
-        let anim = safe_animation(b["animation"].as_str().unwrap_or(""));
-        let inner = match kind {
+    let mut i = 0;
+    while i < blocs.len() {
+        if san_choice(&blocs[i], "largeur", &["100", "50"], "100") == "50" {
+            let mut row = String::new();
+            while i < blocs.len() && san_choice(&blocs[i], "largeur", &["100", "50"], "100") == "50" {
+                if let Some(html) = render_one_bloc(&blocs[i]) {
+                    row.push_str(&format!("<div class=\"sitec-bloc-col\">{}</div>", html));
+                }
+                i += 1;
+            }
+            if !row.is_empty() {
+                out.push_str(&format!("<div class=\"sitec-bloc-row\">{}</div>", row));
+            }
+        } else {
+            if let Some(html) = render_one_bloc(&blocs[i]) {
+                out.push_str(&html);
+            }
+            i += 1;
+        }
+    }
+    out
+}
+
+/// Rend un bloc individuel en HTML (`None` si type inconnu ou champs requis
+/// manquants -- le bloc est alors omis silencieusement, comme avant).
+fn render_one_bloc(b: &Value) -> Option<String> {
+    let kind = b["type"].as_str().unwrap_or("");
+    let anim = safe_animation(b["animation"].as_str().unwrap_or(""));
+    let inner = match kind {
             "titre" => {
                 let n = san_choice(b, "niveau", &["h1", "h2", "h3", "h4"], "h2");
                 format!("<{n} class=\"sitec-bloc sitec-bloc-titre\">{}</{n}>", html_escape(b["texte"].as_str().unwrap_or("")), n = n)
@@ -948,7 +977,7 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
             }
             "image" => {
                 let url = safe_url(b["url"].as_str().unwrap_or(""));
-                if url.is_empty() { continue; }
+                if url.is_empty() { return None; }
                 let alt = html_escape(b["alt"].as_str().unwrap_or(""));
                 let legende = b["legende"].as_str().unwrap_or("");
                 let legende_html = if legende.is_empty() {
@@ -968,7 +997,7 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                     if url.is_empty() { return None; }
                     Some(format!("<img src=\"{}\" alt=\"{}\" loading=\"lazy\">", html_escape(&url), html_escape(it["alt"].as_str().unwrap_or(""))))
                 }).collect();
-                if imgs.is_empty() { continue; }
+                if imgs.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-galerie sitec-cols-{}\">{}</div>", cols, imgs)
             }
             "carousel" => {
@@ -977,22 +1006,22 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                     if url.is_empty() { return None; }
                     Some(format!("<img src=\"{}\" alt=\"{}\" loading=\"lazy\">", html_escape(&url), html_escape(it["alt"].as_str().unwrap_or(""))))
                 }).collect();
-                if slides.is_empty() { continue; }
+                if slides.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-carousel\"><div class=\"sitec-carousel-track\">{}</div></div>", slides)
             }
             "video" => {
                 let url = safe_url(b["url"].as_str().unwrap_or(""));
-                if url.is_empty() { continue; }
+                if url.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-video\">{}</div>", video_embed_html(&url))
             }
             "audio" => {
                 let url = safe_url(b["url"].as_str().unwrap_or(""));
-                if url.is_empty() { continue; }
+                if url.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-audio\"><audio controls src=\"{}\"></audio></div>", html_escape(&url))
             }
             "bouton" => {
                 let url = safe_url(b["url"].as_str().unwrap_or(""));
-                if url.is_empty() { continue; }
+                if url.is_empty() { return None; }
                 let texte = html_escape(b["texte"].as_str().unwrap_or(""));
                 format!(
                     "<div class=\"sitec-bloc sitec-bloc-bouton\"><a href=\"{}\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">{}</a></div>",
@@ -1005,7 +1034,7 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                     if url.is_empty() { return None; }
                     Some(format!("<a href=\"{}\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">{}</a>", html_escape(&url), html_escape(it["texte"].as_str().unwrap_or(""))))
                 }).collect();
-                if btns.is_empty() { continue; }
+                if btns.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-groupe-boutons\">{}</div>", btns)
             }
             "separateur" => "<hr class=\"sitec-bloc sitec-bloc-separateur\">".to_string(),
@@ -1045,7 +1074,7 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                         img_html, html_escape(it["titre"].as_str().unwrap_or("")), html_escape(it["texte"].as_str().unwrap_or(""))
                     )
                 }).collect();
-                if cards.is_empty() { continue; }
+                if cards.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-cartes-grille sitec-cols-{}\">{}</div>", cols, cards)
             }
             "accordeon" => {
@@ -1053,12 +1082,12 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                     "<details class=\"sitec-accordeon-item\"><summary>{}</summary><div>{}</div></details>",
                     html_escape(it["question"].as_str().unwrap_or("")), html_escape(it["reponse"].as_str().unwrap_or(""))
                 )).collect();
-                if acc.is_empty() { continue; }
+                if acc.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-accordeon\">{}</div>", acc)
             }
             "onglets" => {
                 let items = b["items"].as_array().cloned().unwrap_or_default();
-                if items.is_empty() { continue; }
+                if items.is_empty() { return None; }
                 let btns: String = items.iter().enumerate().map(|(i, it)| format!(
                     "<button type=\"button\" class=\"sitec-tab-btn{}\" data-tab-idx=\"{}\">{}</button>",
                     if i == 0 { " active" } else { "" }, i, html_escape(it["titre"].as_str().unwrap_or(""))
@@ -1096,12 +1125,12 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                         valeur, html_escape(it["suffixe"].as_str().unwrap_or("")), html_escape(it["label"].as_str().unwrap_or(""))
                     )
                 }).collect();
-                if cards.is_empty() { continue; }
+                if cards.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-stats-grille\">{}</div>", cards)
             }
             "compte_rebours" => {
                 let date = b["date_cible"].as_str().unwrap_or("");
-                if date.is_empty() { continue; }
+                if date.is_empty() { return None; }
                 format!(
                     "<div class=\"sitec-bloc sitec-countdown\" data-cible=\"{}\"><div class=\"sitec-countdown-label\">{}</div><div class=\"sitec-countdown-chiffres\"></div></div>",
                     html_escape(date), html_escape(b["label"].as_str().unwrap_or(""))
@@ -1130,12 +1159,12 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                         html_escape(&url), key, sigle
                     ))
                 }).collect();
-                if links.is_empty() { continue; }
+                if links.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-reseaux\">{}</div>", links)
             }
             "carte_google_maps" => {
                 let adresse = b["adresse"].as_str().unwrap_or("");
-                if adresse.is_empty() { continue; }
+                if adresse.is_empty() { return None; }
                 format!(
                     "<div class=\"sitec-bloc sitec-bloc-maps\"><iframe src=\"https://www.google.com/maps?q={}&output=embed\" loading=\"lazy\" referrerpolicy=\"no-referrer-when-downgrade\"></iframe></div>",
                     url_encode(adresse)
@@ -1155,7 +1184,7 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                     "<div class=\"sitec-chrono-item\"><div class=\"sitec-chrono-date\">{}</div><div class=\"sitec-chrono-corps\"><h4>{}</h4><p>{}</p></div></div>",
                     html_escape(it["date"].as_str().unwrap_or("")), html_escape(it["titre"].as_str().unwrap_or("")), html_escape(it["texte"].as_str().unwrap_or(""))
                 )).collect();
-                if ev.is_empty() { continue; }
+                if ev.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-chronologie\">{}</div>", ev)
             }
             "tarifs" => {
@@ -1176,7 +1205,7 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                     .filter(|r| WHITELIST.contains(r))
                     .map(|r| format!("<button type=\"button\" class=\"sitec-partage-btn\" data-reseau=\"{}\"><i class=\"fas fa-share-nodes\"></i> {}</button>", html_escape(r), html_escape(r)))
                     .collect();
-                if btns.is_empty() { continue; }
+                if btns.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-partage\">{}</div>", btns)
             }
             "membre_equipe" => {
@@ -1193,7 +1222,7 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                     if url.is_empty() { return None; }
                     Some(format!("<img src=\"{}\" alt=\"\" loading=\"lazy\">", html_escape(&url)))
                 }).collect();
-                if imgs.is_empty() { continue; }
+                if imgs.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-logos\">{}</div>", imgs)
             }
             "badge" => format!(
@@ -1202,14 +1231,12 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                 html_escape(b["texte"].as_str().unwrap_or(""))
             ),
             "retour_haut" => "<div class=\"sitec-bloc\"><button type=\"button\" class=\"sitec-retour-haut\" onclick=\"window.scrollTo({top:0,behavior:'smooth'})\">&uarr;</button></div>".to_string(),
-            _ => continue,
+            _ => return None,
         };
-        out.push_str(&format!(
+        Some(format!(
             "<div class=\"sitec-anim\" data-anim=\"{}\">{}</div>",
             html_escape(&anim), inner
-        ));
-    }
-    out
+        ))
 }
 
 /// Bouton optionnel partagé par plusieurs types de blocs (carte, hero, CTA,
@@ -1311,6 +1338,11 @@ const BLOCS_ANIM_CSS: &str = "\
 /// (texte/image/bouton/video) -- toujours injecté en mode "blocs" (voir
 /// serve_page_view), même si un type donné n'est pas utilisé sur la page.
 const BLOCS_EXTRA_CSS: &str = "\
+.sitec-bloc-row{display:flex;gap:22px;align-items:flex-start;margin-bottom:22px;}\
+.sitec-bloc-row .sitec-bloc-col{flex:1;min-width:0;margin-bottom:0;}\
+.sitec-bloc-row .sitec-bloc-col .sitec-anim{margin-bottom:0;}\
+.sitec-bloc-row .sitec-bloc-col .sitec-bloc{margin-bottom:0;}\
+@media (max-width:640px){.sitec-bloc-row{flex-direction:column;gap:0;}}\
 .sitec-bloc-titre{margin:0 0 4px;}\
 .sitec-bloc-galerie{display:grid;gap:10px;}\
 .sitec-cols-2{grid-template-columns:repeat(2,1fr);}\
@@ -1788,6 +1820,7 @@ fn sanitiser_blocs(v: &Value) -> String {
             _ => continue,
         };
         bloc["animation"] = json!(anim);
+        bloc["largeur"] = json!(san_choice(b, "largeur", &["100", "50"], "100"));
         out.push(bloc);
     }
     serde_json::to_string(&out).unwrap_or_else(|_| "[]".to_string())
@@ -1945,6 +1978,9 @@ fn serve_sitec_html(langue: &str) -> Response<std::io::Cursor<Vec<u8>>> {
                     ("INSPECTEUR_VIDE", Cle::SitecInspecteurVide),
                     ("BIBLIOTHEQUE_DE_BLOCS", Cle::SitecBibliothequeDeBlocs),
                     ("PALETTE_SOUS_TITRE", Cle::SitecPaletteSousTitre),
+                    ("LARGEUR_LABEL", Cle::SitecLargeurLabel),
+                    ("LARGEUR_PLEINE", Cle::SitecLargeurPleine),
+                    ("LARGEUR_MOITIE", Cle::SitecLargeurMoitie),
                 ],
             );
             let html = html.replacen("{{I18N_JS}}", &i18n_js, 1);
