@@ -931,20 +931,29 @@ fn build_site_nav_html(pool: &DbPool, page: &SitecPage, session: &SessionInfo) -
 /// deja passe par `sanitiser_blocs` a l'enregistrement (type verifie,
 /// URLs limitees a http/https) -- ici on echappe en plus tout texte
 /// affiche, en defense en profondeur.
+const LARGEURS: &[&str] = &["100", "75", "66", "50", "33", "25"];
+
 /// Rend le tableau JSON de blocs (mode "blocs") en HTML. Les blocs en
-/// demi-largeur consecutifs ("largeur":"50") sont regroupes dans une ligne
-/// flex (`sitec-bloc-row`) pour s'afficher cote a cote ; les autres restent
-/// pleine largeur comme avant.
+/// largeur reduite consecutifs ("largeur" != "100") sont regroupes dans une
+/// ligne flex (`sitec-bloc-row`) pour s'afficher cote a cote, chaque colonne
+/// gardant la largeur exacte choisie (`data-largeur`) ; les blocs en pleine
+/// largeur restent seuls sur leur ligne comme avant.
 fn render_blocs_html(contenu_blocs: &str) -> String {
     let blocs: Vec<Value> = serde_json::from_str(contenu_blocs).unwrap_or_default();
     let mut out = String::new();
     let mut i = 0;
     while i < blocs.len() {
-        if san_choice(&blocs[i], "largeur", &["100", "50"], "100") == "50" {
+        let largeur = san_choice(&blocs[i], "largeur", LARGEURS, "100");
+        if largeur != "100" {
             let mut row = String::new();
-            while i < blocs.len() && san_choice(&blocs[i], "largeur", &["100", "50"], "100") == "50" {
+            while i < blocs.len() {
+                let largeur = san_choice(&blocs[i], "largeur", LARGEURS, "100");
+                if largeur == "100" { break; }
                 if let Some(html) = render_one_bloc(&blocs[i]) {
-                    row.push_str(&format!("<div class=\"sitec-bloc-col\">{}</div>", html));
+                    row.push_str(&format!(
+                        "<div class=\"sitec-bloc-col\" data-largeur=\"{}\">{}</div>",
+                        largeur, html
+                    ));
                 }
                 i += 1;
             }
@@ -1233,9 +1242,25 @@ fn render_one_bloc(b: &Value) -> Option<String> {
             "retour_haut" => "<div class=\"sitec-bloc\"><button type=\"button\" class=\"sitec-retour-haut\" onclick=\"window.scrollTo({top:0,behavior:'smooth'})\">&uarr;</button></div>".to_string(),
             _ => return None,
         };
+
+        let couleur_fond = san_couleur(b, "couleur_fond");
+        let couleur_texte = san_couleur(b, "couleur_texte");
+        let police = san_choice(b, "police", &["defaut", "serif", "mono", "arrondi"], "defaut");
+        let mut style = String::new();
+        if !couleur_fond.is_empty() {
+            style.push_str(&format!("background-color:{};padding:18px;border-radius:10px;", couleur_fond));
+        }
+        if !couleur_texte.is_empty() {
+            style.push_str(&format!("color:{};", couleur_texte));
+        }
+        let police_css = police_css(&police);
+        if !police_css.is_empty() {
+            style.push_str(&format!("font-family:{};", police_css));
+        }
+
         Some(format!(
-            "<div class=\"sitec-anim\" data-anim=\"{}\">{}</div>",
-            html_escape(&anim), inner
+            "<div class=\"sitec-anim\" data-anim=\"{}\" style=\"{}\">{}</div>",
+            html_escape(&anim), html_escape(&style), inner
         ))
 }
 
@@ -1338,11 +1363,17 @@ const BLOCS_ANIM_CSS: &str = "\
 /// (texte/image/bouton/video) -- toujours injecté en mode "blocs" (voir
 /// serve_page_view), même si un type donné n'est pas utilisé sur la page.
 const BLOCS_EXTRA_CSS: &str = "\
-.sitec-bloc-row{display:flex;gap:22px;align-items:flex-start;margin-bottom:22px;}\
-.sitec-bloc-row .sitec-bloc-col{flex:1;min-width:0;margin-bottom:0;}\
+.sitec-bloc-row{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-start;margin-bottom:22px;}\
+.sitec-bloc-row .sitec-bloc-col{flex:0 0 auto;min-width:0;margin-bottom:0;}\
+.sitec-bloc-row .sitec-bloc-col[data-largeur=\"100\"]{width:100%;}\
+.sitec-bloc-row .sitec-bloc-col[data-largeur=\"75\"]{width:calc(75% - 11px);}\
+.sitec-bloc-row .sitec-bloc-col[data-largeur=\"66\"]{width:calc(66.6667% - 11px);}\
+.sitec-bloc-row .sitec-bloc-col[data-largeur=\"50\"]{width:calc(50% - 11px);}\
+.sitec-bloc-row .sitec-bloc-col[data-largeur=\"33\"]{width:calc(33.3333% - 11px);}\
+.sitec-bloc-row .sitec-bloc-col[data-largeur=\"25\"]{width:calc(25% - 11px);}\
 .sitec-bloc-row .sitec-bloc-col .sitec-anim{margin-bottom:0;}\
 .sitec-bloc-row .sitec-bloc-col .sitec-bloc{margin-bottom:0;}\
-@media (max-width:640px){.sitec-bloc-row{flex-direction:column;gap:0;}}\
+@media (max-width:640px){.sitec-bloc-row{flex-direction:column;gap:0;}.sitec-bloc-row .sitec-bloc-col{width:100% !important;}}\
 .sitec-bloc-titre{margin:0 0 4px;}\
 .sitec-bloc-galerie{display:grid;gap:10px;}\
 .sitec-cols-2{grid-template-columns:repeat(2,1fr);}\
@@ -1610,6 +1641,28 @@ fn san_choice(v: &Value, key: &str, choices: &[&str], default: &str) -> String {
     if choices.contains(&s) { s.to_string() } else { default.to_string() }
 }
 
+/// Valide une couleur hexadecimale ("#rrggbb", insensible a la casse) --
+/// chaine vide si absente/invalide (= pas de surcharge de couleur).
+fn san_couleur(v: &Value, key: &str) -> String {
+    let s = v[key].as_str().unwrap_or("").trim();
+    let valide = s.len() == 7
+        && s.starts_with('#')
+        && s[1..].chars().all(|c| c.is_ascii_hexdigit());
+    if valide { s.to_lowercase() } else { String::new() }
+}
+
+/// Pile de polices CSS associee a chaque choix autorise (`san_choice`
+/// restreint deja aux clefs connues) -- chaine vide = pas de surcharge,
+/// on garde la police par defaut de la page.
+fn police_css(cle: &str) -> &'static str {
+    match cle {
+        "serif" => "Georgia, 'Times New Roman', Times, serif",
+        "mono" => "'SF Mono', Consolas, 'Courier New', monospace",
+        "arrondi" => "Verdana, 'Trebuchet MS', sans-serif",
+        _ => "",
+    }
+}
+
 /// Valide/nettoie le tableau de blocs envoye par l'editeur avant stockage :
 /// type reconnu uniquement (34 types), champs bornes en longueur, valeurs
 /// numeriques/enum verifiees. Les URLs sont stockees telles quelles (juste
@@ -1820,7 +1873,10 @@ fn sanitiser_blocs(v: &Value) -> String {
             _ => continue,
         };
         bloc["animation"] = json!(anim);
-        bloc["largeur"] = json!(san_choice(b, "largeur", &["100", "50"], "100"));
+        bloc["largeur"] = json!(san_choice(b, "largeur", &["100", "75", "66", "50", "33", "25"], "100"));
+        bloc["couleur_fond"] = json!(san_couleur(b, "couleur_fond"));
+        bloc["couleur_texte"] = json!(san_couleur(b, "couleur_texte"));
+        bloc["police"] = json!(san_choice(b, "police", &["defaut", "serif", "mono", "arrondi"], "defaut"));
         out.push(bloc);
     }
     serde_json::to_string(&out).unwrap_or_else(|_| "[]".to_string())
@@ -1981,6 +2037,18 @@ fn serve_sitec_html(langue: &str) -> Response<std::io::Cursor<Vec<u8>>> {
                     ("LARGEUR_LABEL", Cle::SitecLargeurLabel),
                     ("LARGEUR_PLEINE", Cle::SitecLargeurPleine),
                     ("LARGEUR_MOITIE", Cle::SitecLargeurMoitie),
+                    ("LARGEUR_75", Cle::SitecLargeur75),
+                    ("LARGEUR_66", Cle::SitecLargeur66),
+                    ("LARGEUR_33", Cle::SitecLargeur33),
+                    ("LARGEUR_25", Cle::SitecLargeur25),
+                    ("COULEUR_FOND", Cle::SitecCouleurFond),
+                    ("COULEUR_TEXTE", Cle::SitecCouleurTexte),
+                    ("RETIRER_COULEUR", Cle::SitecRetirerCouleur),
+                    ("POLICE_LABEL", Cle::SitecPoliceLabel),
+                    ("POLICE_DEFAUT", Cle::SitecPoliceDefaut),
+                    ("POLICE_SERIF", Cle::SitecPoliceSerif),
+                    ("POLICE_MONO", Cle::SitecPoliceMono),
+                    ("POLICE_ARRONDI", Cle::SitecPoliceArrondi),
                 ],
             );
             let html = html.replacen("{{I18N_JS}}", &i18n_js, 1);

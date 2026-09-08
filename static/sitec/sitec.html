@@ -169,8 +169,12 @@ body {
   width:100%; border:1px solid var(--border); border-radius:10px; background:var(--surface); cursor:pointer;
   box-shadow:0 1px 2px rgba(0,0,0,.04); transition:box-shadow .15s, border-color .15s, transform .15s, width .15s;
 }
-.bloc-item.largeur-50 { width:calc(50% - 6px); }
-@media (max-width:760px) { .bloc-item.largeur-50 { width:100%; } }
+.bloc-item[data-largeur="75"] { width:calc(75% - 6px); }
+.bloc-item[data-largeur="66"] { width:calc(66.6667% - 6px); }
+.bloc-item[data-largeur="50"] { width:calc(50% - 6px); }
+.bloc-item[data-largeur="33"] { width:calc(33.3333% - 6px); }
+.bloc-item[data-largeur="25"] { width:calc(25% - 6px); }
+@media (max-width:760px) { .bloc-item[data-largeur]:not([data-largeur="100"]) { width:100%; } }
 .bloc-item:hover { box-shadow:0 4px 14px rgba(0,0,0,.09); transform:translateY(-1px); }
 .bloc-item.dragging { opacity:.4; }
 .bloc-item.selected { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent); transform:none; }
@@ -247,6 +251,15 @@ body {
   color:var(--text); font-size:12px; font-family:inherit; outline:none; max-width:220px;
 }
 .bloc-anim-select:focus { border-color:var(--accent); }
+.bloc-style-row { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-dim); margin-top:2px; }
+.bloc-style-row input[type=color] {
+  width:34px; height:26px; padding:2px; border:1px solid var(--border); border-radius:6px;
+  background:var(--input); cursor:pointer;
+}
+.bloc-color-clear {
+  background:none; border:none; cursor:pointer; color:var(--text-dim); font-size:15px; line-height:1; padding:0 2px;
+}
+.bloc-color-clear:hover { color:var(--danger); }
 .blocs-empty { text-align:center; padding:24px 14px; color:var(--text-dim); font-size:13px; border:1px dashed var(--border); border-radius:8px; margin-bottom:16px; }
 .blocs-add-row { display:flex; gap:8px; flex-wrap:wrap; }
 
@@ -611,7 +624,7 @@ let blocSelected = null; // index du bloc actuellement ouvert dans le panneau de
 let dragState = null; // { fromPalette:bool, type?, fromIdx? }
 
 function blocDefaut(type) {
-  const base = { type, animation: '', largeur: '100' };
+  const base = { type, animation: '', largeur: '100', couleur_fond: '', couleur_texte: '', police: 'defaut' };
   (BLOC_SPECS[type] || []).forEach(champ => {
     if (champ.type === 'items') base[champ.k] = [];
     else if (champ.type === 'checkgroup') base[champ.k] = champ.defaut ? [...champ.defaut] : [];
@@ -640,11 +653,39 @@ function animationSelectHtml(b) {
 // et render_blocs_html côté serveur pour le rendu public).
 function largeurSelectHtml(b) {
   const largeur = b.largeur || '100';
+  const options = [
+    ['100', I18N.LARGEUR_PLEINE], ['75', I18N.LARGEUR_75], ['66', I18N.LARGEUR_66],
+    ['50', I18N.LARGEUR_MOITIE], ['33', I18N.LARGEUR_33], ['25', I18N.LARGEUR_25],
+  ].map(([val, lbl]) => `<option value="${val}"${largeur===val?' selected':''}>${escAttr(lbl)}</option>`).join('');
   return `<label class="bloc-anim-row"><i class="fas fa-table-columns"></i> ${escAttr(I18N.LARGEUR_LABEL)}
-    <select data-field="largeur" class="bloc-anim-select">
-      <option value="100"${largeur==='100'?' selected':''}>${escAttr(I18N.LARGEUR_PLEINE)}</option>
-      <option value="50"${largeur==='50'?' selected':''}>${escAttr(I18N.LARGEUR_MOITIE)}</option>
-    </select></label>`;
+    <select data-field="largeur" class="bloc-anim-select">${options}</select></label>`;
+}
+
+// Couleur de fond / texte (case a cocher "aucune" via bouton retirer, un
+// <input type=color> ne peut pas etre vide) + police, communes a tous les
+// types de blocs comme la largeur et l'animation.
+function styleFieldsHtml(b) {
+  const fond = b.couleur_fond || '';
+  const texte = b.couleur_texte || '';
+  const police = b.police || 'defaut';
+  return `
+    <div class="bloc-style-row">
+      <span class="champ-label" style="margin:0;">${escAttr(I18N.COULEUR_FOND)}</span>
+      <input type="color" data-field="couleur_fond" value="${escAttr(fond || '#ffffff')}">
+      ${fond ? `<button type="button" class="bloc-color-clear" data-color-clear="couleur_fond" title="${escAttr(I18N.RETIRER_COULEUR)}">&times;</button>` : ''}
+    </div>
+    <div class="bloc-style-row">
+      <span class="champ-label" style="margin:0;">${escAttr(I18N.COULEUR_TEXTE)}</span>
+      <input type="color" data-field="couleur_texte" value="${escAttr(texte || '#000000')}">
+      ${texte ? `<button type="button" class="bloc-color-clear" data-color-clear="couleur_texte" title="${escAttr(I18N.RETIRER_COULEUR)}">&times;</button>` : ''}
+    </div>
+    <label class="bloc-anim-row"><i class="fas fa-font"></i> ${escAttr(I18N.POLICE_LABEL)}
+      <select data-field="police" class="bloc-anim-select">
+        <option value="defaut"${police==='defaut'?' selected':''}>${escAttr(I18N.POLICE_DEFAUT)}</option>
+        <option value="serif"${police==='serif'?' selected':''}>${escAttr(I18N.POLICE_SERIF)}</option>
+        <option value="mono"${police==='mono'?' selected':''}>${escAttr(I18N.POLICE_MONO)}</option>
+        <option value="arrondi"${police==='arrondi'?' selected':''}>${escAttr(I18N.POLICE_ARRONDI)}</option>
+      </select></label>`;
 }
 
 function champHtml(valeur, champ) {
@@ -696,7 +737,7 @@ function blocItemBodyHtml(b) {
     const inner = champ.type === 'items' ? champItemsHtml(b, champ) : champHtml(b[champ.k], champ);
     return champ.label && champ.type !== 'items' ? `<div><span class="champ-label">${escAttr(champ.label)}</span>${inner}</div>` : `<div>${champ.label?`<span class="champ-label">${escAttr(champ.label)}</span>`:''}${inner}</div>`;
   }).join('');
-  return `${champs}${animationSelectHtml(b)}${largeurSelectHtml(b)}`;
+  return `${champs}${animationSelectHtml(b)}${largeurSelectHtml(b)}${styleFieldsHtml(b)}`;
 }
 
 // ── Rendu de la liste des blocs (canevas central) + glisser-déposer ──
@@ -711,7 +752,7 @@ function renderBlocsList() {
     return;
   }
   list.innerHTML = blocs.map((b, i) => `
-    <div class="bloc-item${blocSelected===i?' selected':''}${(b.largeur||'100')==='50'?' largeur-50':''}" data-idx="${i}" draggable="true">
+    <div class="bloc-item${blocSelected===i?' selected':''}" data-idx="${i}" data-largeur="${b.largeur||'100'}" draggable="true">
       <div class="bloc-item-hdr">
         <span class="bloc-item-type">
           <i class="fas fa-grip-vertical bloc-drag-handle"></i>
@@ -869,6 +910,16 @@ function attacherEcoutesChamps(el, idx) {
   // La largeur change l'agencement du canevas : la refléter immédiatement.
   const largeurSelect = el.querySelector('[data-field="largeur"]');
   if (largeurSelect) largeurSelect.addEventListener('change', () => renderBlocsList());
+
+  // Retirer une couleur (un <input type=color> ne peut pas être vide) --
+  // réaffiche le panneau pour cacher le bouton "retirer" devenu inutile.
+  el.querySelectorAll('[data-color-clear]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      blocs[idx][btn.dataset.colorClear] = '';
+      markDirty();
+      renderBlocsSidePanel();
+    });
+  });
 
   // Checkgroups (partage_social)
   el.querySelectorAll('[data-checkgroup]').forEach(group => {
