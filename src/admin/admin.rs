@@ -24,7 +24,7 @@ use crate::admin::actions::{PRIVILEGE_MAX, PRIVILEGE_MIN_SET, PRIVILEGE_SUPER};
 const HTML_PATH: &str = "static/admin/admin.html";
 
 /// Cles injectees dans `const I18N = {...}` cote JS (voir {{I18N_JS}} dans admin.html).
-const ADMIN_I18N_JS_KEYS: [(&str, Cle); 337] = [
+const ADMIN_I18N_JS_KEYS: [(&str, Cle); 338] = [
     ("ACTIF", Cle::AdmActif),
     ("BACKUP_COL_TAILLE", Cle::AdmBackupColTaille),
     ("ACTION", Cle::AdmAction),
@@ -297,6 +297,7 @@ const ADMIN_I18N_JS_KEYS: [(&str, Cle); 337] = [
     ("MACHINE_ONGLET_MAJ", Cle::AdmMachineOngletMaj),
     ("MACHINE_ONGLET_STOCKAGE", Cle::AdmMachineOngletStockage),
     ("MACHINE_ONGLET_ETAT", Cle::AdmMachineOngletEtat),
+    ("MACHINE_ONGLET_OS", Cle::AdmMachineOngletOs),
     ("MACHINE_VERSION_ACTUELLE", Cle::AdmMachineVersionActuelle),
     ("MACHINE_DERNIER_COMMIT", Cle::AdmMachineDernierCommit),
     ("MACHINE_A_JOUR", Cle::AdmMachineAJour),
@@ -580,6 +581,7 @@ pub fn handle_request(
                 ("{{T_MACHINE_ONGLET_MAJ}}", Cle::AdmMachineOngletMaj),
                 ("{{T_MACHINE_ONGLET_STOCKAGE}}", Cle::AdmMachineOngletStockage),
                 ("{{T_MACHINE_ONGLET_ETAT}}", Cle::AdmMachineOngletEtat),
+                ("{{T_MACHINE_ONGLET_OS}}", Cle::AdmMachineOngletOs),
                 ("{{T_BACKUP_SUPERADMIN_UNIQUEMENT}}", Cle::AdmBackupSuperadminUniquement),
                 ("{{T_BACKUP_DUMP_COMPLET}}", Cle::AdmBackupDumpComplet),
                 ("{{T_BACKUP_LANCER_SAUVEGARDE}}", Cle::AdmBackupLancerSauvegarde),

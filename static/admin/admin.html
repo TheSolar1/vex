@@ -391,6 +391,7 @@ __NAV_HTML__
             <button class="mtab on" data-mtab="update" onclick="switchMachineTab('update')">{{T_MACHINE_ONGLET_MAJ}}</button>
             <button class="mtab" data-mtab="storage" onclick="switchMachineTab('storage')">{{T_MACHINE_ONGLET_STOCKAGE}}</button>
             <button class="mtab" data-mtab="status" onclick="switchMachineTab('status')">{{T_MACHINE_ONGLET_ETAT}}</button>
+            <button class="mtab" data-mtab="os" onclick="switchMachineTab('os')">{{T_MACHINE_ONGLET_OS}}</button>
         </div>
         <div id="machine-content"><div class="loading"><span class="spin"></span></div></div>
     </div>
@@ -1369,6 +1370,7 @@ function renderMachineTab(){
     if(machinePollTimer){clearInterval(machinePollTimer);machinePollTimer=null;}
     if(machineTab==='update')return loadMachineUpdate();
     if(machineTab==='storage')return loadMachineStorage();
+    if(machineTab==='os')return loadMachineOs();
     return loadMachineStatus();
 }
 
@@ -1482,6 +1484,39 @@ async function loadMachineStatus(){
         <div class="sc" style="--si:#8b5cf6"><div class="sc-i"><img src="/static/img/solid/clock-rotate-left.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1.1rem">${h}h${String(m).padStart(2,'0')}</div><div class="sc-l">${I18N.MACHINE_UPTIME_LABEL}</div></div>
         <div class="sc" style="--si:#10b981"><div class="sc-i"><img src="/static/img/solid/code-branch.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:.95rem">${esc(d.branch)}</div><div class="sc-l">${I18N.MACHINE_BRANCHE}</div></div>
         <div class="sc" style="--si:#f59e0b"><div class="sc-i"><img src="/static/img/solid/hashtag.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:.95rem;font-family:var(--mono)">PID ${esc(String(d.pid))}</div><div class="sc-l">${I18N.MACHINE_PROCESSUS}</div></div>
+    </div>`;
+}
+
+/// Onglet OS de Machine -- reutilise l'endpoint /server/updates existant
+/// (verification en lecture seule des paquets systeme/toolchain Rust,
+/// jamais d'application automatique : voir verifier_maj_systeme() cote
+/// Rust). Meme rendu que l'onglet Serveur, regroupe ici pour que "Machine"
+/// couvre a la fois VEX et l'OS sans dupliquer la logique backend.
+async function loadMachineOs(){
+    const box=document.getElementById('machine-content');
+    box.innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const r=await api('/server/updates');
+    if(!r.success){box.innerHTML=`<div style="padding:14px;color:var(--text-m)">${esc(r.error||'Erreur.')}</div>`;return;}
+    const d=r.data;
+    if(!d.supporte){box.innerHTML=`<div class="card"><div class="cb">${I18N.SERVER_NON_DISPONIBLE_PLATEFORME}</div></div>`;return;}
+    const badgePkg = d.paquets_dispo>0
+        ? `<span class="b bo">${I18N.SERVER_PAQUETS_A_METTRE_A_JOUR.replace('{n}',d.paquets_dispo)}</span>`
+        : `<span class="b bg">${I18N.SERVER_SYSTEME_A_JOUR}</span>`;
+    const badgeRust = d.rust_maj_disponible
+        ? `<span class="b bo">${I18N.SERVER_MAJ_RUST_DISPO}</span>`
+        : `<span class="b bg">${I18N.SERVER_TOOLCHAIN_A_JOUR}</span>`;
+    box.innerHTML=`<div class="card">
+        <div class="ch"><span><img src="/static/img/solid/arrow-up-right-dots.svg" class="ico ico-accent" alt=""> ${I18N.MACHINE_ONGLET_OS} <small>${I18N.SERVER_LECTURE_SEULE}</small></span></div>
+        <div class="cb">
+            <div class="cgr">
+                <div><label class="cl">${I18N.SERVER_SYSTEME_EXPLOITATION}</label><div style="font-size:.85rem;padding:6px 0">${esc(d.os_nom||'?')}</div></div>
+                <div><label class="cl">${I18N.SERVER_NOYAU}</label><div style="font-size:.85rem;padding:6px 0;font-family:var(--mono)">${esc(d.kernel||'?')}</div></div>
+                <div><label class="cl">${I18N.SERVER_RUST_LABEL}</label><div style="font-size:.85rem;padding:6px 0;font-family:var(--mono)">${esc(d.rustc_version||'?')}</div></div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">${badgePkg}${badgeRust}</div>
+            ${d.paquets_dispo>0?`<div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">${I18N.SERVER_SUR_LE_SERVEUR} <code>sudo apt update && sudo apt upgrade</code></div>`:''}
+            ${d.rust_maj_disponible?`<div style="margin-top:6px;font-size:.78rem;color:var(--text-m)">${I18N.SERVER_SUR_LE_SERVEUR} <code>rustup update</code></div>`:''}
+        </div>
     </div>`;
 }
 
