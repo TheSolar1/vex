@@ -1943,6 +1943,8 @@ fn serve_sitec_html(langue: &str) -> Response<std::io::Cursor<Vec<u8>>> {
                     ("PAGE_AJOUTEE_AU_SITE", Cle::SitecPageAjouteeAuSite),
                     ("PAGE_RETIREE_DU_SITE", Cle::SitecPageRetireeDuSite),
                     ("INSPECTEUR_VIDE", Cle::SitecInspecteurVide),
+                    ("BIBLIOTHEQUE_DE_BLOCS", Cle::SitecBibliothequeDeBlocs),
+                    ("PALETTE_SOUS_TITRE", Cle::SitecPaletteSousTitre),
                 ],
             );
             let html = html.replacen("{{I18N_JS}}", &i18n_js, 1);

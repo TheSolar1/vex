@@ -1105,6 +1105,8 @@ pub enum Cle {
     SitecPageAjouteeAuSite,
     SitecPageRetireeDuSite,
     SitecInspecteurVide,
+    SitecBibliothequeDeBlocs,
+    SitecPaletteSousTitre,
 }
 
 pub fn t(langue: &str, cle: Cle) -> &'static str {
@@ -2125,6 +2127,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         (_, SitecPageAjouteeAuSite) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Page ajoutée au site",
         (_, SitecPageRetireeDuSite) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Page retirée du site",
         (_, SitecInspecteurVide) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Sélectionnez un bloc pour le modifier ici.",
+        (_, SitecBibliothequeDeBlocs) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Bibliothèque de blocs",
+        (_, SitecPaletteSousTitre) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Glissez un bloc dans la page, ou cliquez dessus pour l'ajouter.",
 
         // ────────────────────────────────────────────── English ──
         ("en", LoginTitreOnglet) => "Login - VEX",
@@ -3115,6 +3119,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("en", SitecPageAjouteeAuSite) => "Page added to site",
         ("en", SitecPageRetireeDuSite) => "Page removed from site",
         ("en", SitecInspecteurVide) => "Select a block to edit it here.",
+        ("en", SitecBibliothequeDeBlocs) => "Block library",
+        ("en", SitecPaletteSousTitre) => "Drag a block into the page, or click it to add it.",
 
         // ────────────────────────────────────────────── Español ──
         ("es", LoginTitreOnglet) => "Iniciar sesion - VEX",
@@ -4105,6 +4111,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("es", SitecPageAjouteeAuSite) => "Página añadida al sitio",
         ("es", SitecPageRetireeDuSite) => "Página retirada del sitio",
         ("es", SitecInspecteurVide) => "Selecciona un bloque para editarlo aqui.",
+        ("es", SitecBibliothequeDeBlocs) => "Biblioteca de bloques",
+        ("es", SitecPaletteSousTitre) => "Arrastra un bloque a la pagina, o haz clic para anadirlo.",
 
         // ─────────────────────────────────────────────── Deutsch ──
         ("de", LoginTitreOnglet) => "Anmeldung - VEX",
@@ -5095,6 +5103,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("de", SitecPageAjouteeAuSite) => "Seite zur Website hinzugefügt",
         ("de", SitecPageRetireeDuSite) => "Seite von der Website entfernt",
         ("de", SitecInspecteurVide) => "Waehlen Sie einen Block aus, um ihn hier zu bearbeiten.",
+        ("de", SitecBibliothequeDeBlocs) => "Blockbibliothek",
+        ("de", SitecPaletteSousTitre) => "Ziehen Sie einen Block auf die Seite oder klicken Sie darauf, um ihn hinzuzufuegen.",
 
         // ─────────────────────────────────────────────── Italiano ──
         ("it", LoginTitreOnglet) => "Accesso - VEX",
@@ -6085,6 +6095,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("it", SitecPageAjouteeAuSite) => "Pagina aggiunta al sito",
         ("it", SitecPageRetireeDuSite) => "Pagina rimossa dal sito",
         ("it", SitecInspecteurVide) => "Seleziona un blocco per modificarlo qui.",
+        ("it", SitecBibliothequeDeBlocs) => "Libreria di blocchi",
+        ("it", SitecPaletteSousTitre) => "Trascina un blocco nella pagina, oppure clicca per aggiungerlo.",
 
         // ──────────────────────────────────────────── Português ──
         ("pt", LoginTitreOnglet) => "Login - VEX",
@@ -7075,6 +7087,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("pt", SitecPageAjouteeAuSite) => "Pagina adicionada ao site",
         ("pt", SitecPageRetireeDuSite) => "Pagina removida do site",
         ("pt", SitecInspecteurVide) => "Selecione um bloco para edita-lo aqui.",
+        ("pt", SitecBibliothequeDeBlocs) => "Biblioteca de blocos",
+        ("pt", SitecPaletteSousTitre) => "Arraste um bloco para a pagina, ou clique para adiciona-lo.",
 
         // ──────────────────────────────────────────────── Русский ──
         ("ru", LoginTitreOnglet) => "Вход - VEX",
@@ -8065,6 +8079,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("ru", SitecPageAjouteeAuSite) => "Страница добавлена на сайт",
         ("ru", SitecPageRetireeDuSite) => "Страница удалена с сайта",
         ("ru", SitecInspecteurVide) => "Выберите блок, чтобы редактировать его здесь.",
+        ("ru", SitecBibliothequeDeBlocs) => "Библиотека блоков",
+        ("ru", SitecPaletteSousTitre) => "Перетащите блок на страницу или щёлкните по нему, чтобы добавить.",
 
         // ────────────────────────────────────────────────── 中文 ──
         ("zh", LoginTitreOnglet) => "登录 - VEX",
@@ -9055,6 +9071,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("zh", SitecPageAjouteeAuSite) => "页面已添加到网站",
         ("zh", SitecPageRetireeDuSite) => "页面已从网站移除",
         ("zh", SitecInspecteurVide) => "选择一个区块以在此处编辑。",
+        ("zh", SitecBibliothequeDeBlocs) => "区块库",
+        ("zh", SitecPaletteSousTitre) => "将区块拖入页面,或点击以添加。",
 
         // ────────────────────────────────────────────────── 日本語 ──
         ("ja", LoginTitreOnglet) => "ログイン - VEX",
@@ -10045,6 +10063,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("ja", SitecPageAjouteeAuSite) => "ページをサイトに追加しました",
         ("ja", SitecPageRetireeDuSite) => "ページをサイトから削除しました",
         ("ja", SitecInspecteurVide) => "ブロックを選択するとここで編集できます。",
+        ("ja", SitecBibliothequeDeBlocs) => "ブロックライブラリ",
+        ("ja", SitecPaletteSousTitre) => "ブロックをページにドラッグするか、クリックして追加します。",
 
         // ──────────────────────────────────────────────── العربية ──
         ("ar", LoginTitreOnglet) => "تسجيل الدخول - VEX",
@@ -11035,6 +11055,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("ar", SitecPageAjouteeAuSite) => "تمت إضافة الصفحة إلى الموقع",
         ("ar", SitecPageRetireeDuSite) => "تمت إزالة الصفحة من الموقع",
         ("ar", SitecInspecteurVide) => "اختر كتلة لتعديلها هنا.",
+        ("ar", SitecBibliothequeDeBlocs) => "مكتبة الكتل",
+        ("ar", SitecPaletteSousTitre) => "اسحب كتلة إلى الصفحة، أو انقر عليها لإضافتها.",
 
         // Repli sur le francais pour toute combinaison non listee (ne
         // devrait pas arriver, toutes les langues supportees sont listees).
