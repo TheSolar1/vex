@@ -63,7 +63,9 @@
     svg.setAttribute('class', el.getAttribute('class') || '');
     svg.innerHTML = data.inner;
 
-    el.parentNode.replaceChild(svg, el);
+    // `el` peut avoir été retiré du DOM pendant l'attente du fetch (contenu
+    // déjà réaffiché entre-temps, cas frequent dans une SPA) -- rien à faire.
+    if (el.parentNode) el.parentNode.replaceChild(svg, el);
   }
 
   // Traite tous les <i class="fas ..."> du nœud donné

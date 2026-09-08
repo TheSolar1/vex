@@ -50,19 +50,36 @@ pub fn ensure_schema(pool: &DbPool) {
                 `contenu_blocs`  LONGTEXT,
                 `public`         TINYINT      NOT NULL DEFAULT 0,
                 `partage`        TEXT,
+                `site_id`        VARCHAR(20)  NOT NULL DEFAULT '',
+                `menu_ordre`     INT          NOT NULL DEFAULT 0,
                 `created_at`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 `updated_at`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         ) {
             eprintln!("[sitec] CREATE TABLE sitec_pages: {e}");
         }
-        // Migration : table deja existante avant l'ajout du mode "blocs" --
-        // ADD COLUMN echoue silencieusement (colonne deja presente) sur les
-        // installations qui l'ont deja, comme les autres migrations du
-        // projet (voir db_init.rs).
+        // Migrations : table deja existante avant l'ajout du mode "blocs" ou
+        // du multi-pages (site_id/menu_ordre) -- ADD COLUMN echoue
+        // silencieusement (colonne deja presente) sur les installations qui
+        // l'ont deja, comme les autres migrations du projet (voir db_init.rs).
         let _ = mysql::prelude::Queryable::query_drop(
             &mut conn,
             "ALTER TABLE `sitec_pages` ADD COLUMN `contenu_blocs` LONGTEXT",
+        );
+        let _ = mysql::prelude::Queryable::query_drop(
+            &mut conn,
+            "ALTER TABLE `sitec_pages` ADD COLUMN `site_id` VARCHAR(20) NOT NULL DEFAULT ''",
+        );
+        let _ = mysql::prelude::Queryable::query_drop(
+            &mut conn,
+            "ALTER TABLE `sitec_pages` ADD COLUMN `menu_ordre` INT NOT NULL DEFAULT 0",
+        );
+        // Pages deja existantes avant cette migration : chacune devient le
+        // site d'une seule page (site_id = son propre id) pour rester
+        // affichee sans menu de navigation partage.
+        let _ = mysql::prelude::Queryable::query_drop(
+            &mut conn,
+            "UPDATE `sitec_pages` SET `site_id` = `id` WHERE `site_id` = ''",
         );
     }
 }
@@ -211,7 +228,19 @@ pub fn handle(pool: &DbPool, request: &mut Request) -> Response<std::io::Cursor<
         }
         "/api/sitec/list" => handle_list(pool, &session),
         "/api/sitec/get" => handle_get(pool, &session, &url, &langue),
-        "/api/sitec/create" => handle_create(pool, &session, &langue),
+        "/api/sitec/create" => {
+            let body = read_body(request);
+            handle_create(pool, &session, &body, &langue)
+        }
+        "/api/sitec/site_pages" => handle_site_pages(pool, &session, &url, &langue),
+        "/api/sitec/site_reorder" => {
+            let body = read_body(request);
+            handle_site_reorder(pool, &session, &body, &langue)
+        }
+        "/api/sitec/site_leave" => {
+            let body = read_body(request);
+            handle_site_leave(pool, &session, &body, &langue)
+        }
         "/api/sitec/save" => {
             let body = read_body(request);
             handle_save(pool, &session, &body, &langue)
@@ -322,6 +351,7 @@ fn handle_get(pool: &DbPool, session: &SessionInfo, url: &str, langue: &str) -> 
                 "contenu_corps": page.contenu_corps,
                 "contenu_blocs": serde_json::from_str::<Value>(&page.contenu_blocs).unwrap_or_else(|_| json!([])),
                 "public": page.public,
+                "site_id": page.site_id,
                 "shared_with": share_emails,
             }
         }),
@@ -329,10 +359,39 @@ fn handle_get(pool: &DbPool, session: &SessionInfo, url: &str, langue: &str) -> 
     )
 }
 
-fn handle_create(pool: &DbPool, session: &SessionInfo, langue: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+/// Cree une page. Si `site_id` est fourni dans le corps et correspond a un
+/// site dont l'utilisateur est proprietaire, la nouvelle page rejoint ce
+/// site (menu de navigation partage, voir `serve_page_view`) a la suite des
+/// pages existantes. Sinon la page devient le site d'une seule page (son
+/// propre id).
+fn handle_create(pool: &DbPool, session: &SessionInfo, body: &str, langue: &str) -> Response<std::io::Cursor<Vec<u8>>> {
     ensure_schema(pool);
 
+    let data: Value = serde_json::from_str(body).unwrap_or_default();
+    let requested_site_id = data["site_id"].as_str().unwrap_or("").trim().to_string();
+
     let id = generate_page_id(pool);
+
+    let mut site_id = id.clone();
+    let mut menu_ordre = 0i64;
+    if !requested_site_id.is_empty() {
+        let siblings = selectionner(
+            pool,
+            "sitec_pages",
+            &[
+                ("site_id", mysql::Value::from(requested_site_id.as_str())),
+                ("owner_id", mysql::Value::from(session.user_id)),
+            ],
+            &["menu_ordre"],
+            Some("menu_ordre DESC"),
+            Some(1),
+        );
+        if let Some(top) = siblings.into_iter().next() {
+            site_id = requested_site_id;
+            menu_ordre = top.get("menu_ordre").and_then(|v| v.as_i64()).unwrap_or(0) + 1;
+        }
+    }
+
     let nouvelle_page = t(langue, Cle::SitecNouvellePage);
     let ok = inserer_ou_modifier(
         pool,
@@ -348,11 +407,122 @@ fn handle_create(pool: &DbPool, session: &SessionInfo, langue: &str) -> Response
             ("contenu_blocs", mysql::Value::from("[]")),
             ("public", mysql::Value::from(0i64)),
             ("partage", mysql::Value::from("")),
+            ("site_id", mysql::Value::from(site_id.as_str())),
+            ("menu_ordre", mysql::Value::from(menu_ordre)),
         ],
         &[],
     );
     if ok >= 0 {
         json_resp(json!({"success":true,"id":id}), 200)
+    } else {
+        err500()
+    }
+}
+
+/// Liste les pages du meme site qu'une page donnee (proprietaire uniquement),
+/// triees pour l'affichage/edition du menu de navigation partage.
+fn handle_site_pages(pool: &DbPool, session: &SessionInfo, url: &str, langue: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+    let params = utils::parse_query(url);
+    let id = match params.get("id") {
+        Some(v) => v.clone(),
+        None => return json_resp(json!({"success":false,"error":"id manquant"}), 400),
+    };
+    let page = match get_page(pool, &id) {
+        Some(p) => p,
+        None => return json_resp(json!({"success":false,"error":t(langue, Cle::SitecErreurPageIntrouvable)}), 404),
+    };
+    if page.owner_id != session.user_id && session.user_privilege > 6 {
+        return json_resp(json!({"success":false,"error":t(langue, Cle::SitecErreurAccesRefuse)}), 403);
+    }
+
+    let rows = selectionner(
+        pool,
+        "sitec_pages",
+        &[
+            ("site_id", mysql::Value::from(page.site_id.as_str())),
+            ("owner_id", mysql::Value::from(page.owner_id)),
+        ],
+        &["id", "titre", "public", "menu_ordre"],
+        Some("menu_ordre ASC, id ASC"),
+        None,
+    );
+    let pages: Vec<Value> = rows
+        .into_iter()
+        .map(|r| {
+            json!({
+                "id":     r.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                "titre":  r.get("titre").and_then(|v| v.as_str()).unwrap_or(""),
+                "public": r.get("public").and_then(|v| v.as_i64()).unwrap_or(0),
+            })
+        })
+        .collect();
+    json_resp(json!({"success":true,"pages":pages}), 200)
+}
+
+/// Reordonne les pages d'un site : `ids` = tous les ids du site dans le
+/// nouvel ordre. Refuse si un id n'appartient pas au meme site/proprietaire.
+fn handle_site_reorder(pool: &DbPool, session: &SessionInfo, body: &str, langue: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+    let data: Value = serde_json::from_str(body).unwrap_or_default();
+    let ids: Vec<String> = data["ids"]
+        .as_array()
+        .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+        .unwrap_or_default();
+    if ids.is_empty() {
+        return json_resp(json!({"success":false,"error":"ids manquant"}), 400);
+    }
+
+    let first_page = match get_page(pool, &ids[0]) {
+        Some(p) => p,
+        None => return json_resp(json!({"success":false,"error":t(langue, Cle::SitecErreurPageIntrouvable)}), 404),
+    };
+    if first_page.owner_id != session.user_id && session.user_privilege > 6 {
+        return json_resp(json!({"success":false,"error":t(langue, Cle::SitecErreurAccesRefuse)}), 403);
+    }
+
+    for (idx, page_id) in ids.iter().enumerate() {
+        let page = match get_page(pool, page_id) {
+            Some(p) => p,
+            None => continue,
+        };
+        if page.owner_id != first_page.owner_id || page.site_id != first_page.site_id {
+            return json_resp(json!({"success":false,"error":t(langue, Cle::SitecErreurAccesRefuse)}), 403);
+        }
+        inserer_ou_modifier(
+            pool,
+            "sitec_pages",
+            &[("menu_ordre", mysql::Value::from(idx as i64))],
+            &[("id", mysql::Value::from(page_id.as_str()))],
+        );
+    }
+    json_resp(json!({"success":true}), 200)
+}
+
+/// Detache une page de son site : elle redevient le site d'une seule page
+/// (site_id = son propre id), sans supprimer son contenu.
+fn handle_site_leave(pool: &DbPool, session: &SessionInfo, body: &str, langue: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+    let data: Value = serde_json::from_str(body).unwrap_or_default();
+    let id = data["id"].as_str().unwrap_or("").to_string();
+    if id.is_empty() {
+        return json_resp(json!({"success":false,"error":"id manquant"}), 400);
+    }
+    let page = match get_page(pool, &id) {
+        Some(p) => p,
+        None => return json_resp(json!({"success":false,"error":t(langue, Cle::SitecErreurPageIntrouvable)}), 404),
+    };
+    if page.owner_id != session.user_id && session.user_privilege > 6 {
+        return json_resp(json!({"success":false,"error":t(langue, Cle::SitecErreurAccesRefuse)}), 403);
+    }
+    let ok = inserer_ou_modifier(
+        pool,
+        "sitec_pages",
+        &[
+            ("site_id", mysql::Value::from(id.as_str())),
+            ("menu_ordre", mysql::Value::from(0i64)),
+        ],
+        &[("id", mysql::Value::from(id.as_str()))],
+    );
+    if ok >= 0 {
+        json_resp(json!({"success":true}), 200)
     } else {
         err500()
     }
@@ -658,6 +828,8 @@ fn serve_page_view(pool: &DbPool, id: &str, session: &SessionInfo, langue: &str)
         String::new()
     };
 
+    let site_nav = build_site_nav_html(pool, &page, session);
+
     let doc = format!(
         "<!DOCTYPE html>\n<html lang=\"{langue}\"><head><meta charset=\"UTF-8\">\
         <meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\">\
@@ -683,12 +855,19 @@ fn serve_page_view(pool: &DbPool, id: &str, session: &SessionInfo, langue: &str)
         padding:12px 22px;border-radius:30px;text-decoration:none;font-weight:700;\
         box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:9999;}}\
         .sitec-edit-fab:hover{{filter:brightness(1.08);}}\
+        .sitec-site-nav{{display:flex;flex-wrap:wrap;gap:4px 18px;margin:-8px -20px 26px;\
+        padding:14px 20px;border-bottom:1px solid #e4e6eb;}}\
+        .sitec-site-nav a{{color:#65676b;text-decoration:none;font-weight:600;font-size:14px;\
+        padding:4px 0;border-bottom:2px solid transparent;}}\
+        .sitec-site-nav a:hover{{color:#1c1e21;}}\
+        .sitec-site-nav a.active{{color:#2e7d32;border-bottom-color:#2e7d32;}}\
         {extra_css}{anim_css}</style>\
-        </head><body>{body}{edit_fab}{anim_js}</body></html>",
+        </head><body>{site_nav}{body}{edit_fab}{anim_js}</body></html>",
         langue = langue,
         titre = html_escape(&page.titre),
         body = body_html,
         edit_fab = edit_fab,
+        site_nav = site_nav,
         extra_css = if page.mode == "blocs" { BLOCS_EXTRA_CSS } else { "" },
         anim_css = anim_css,
         anim_js = anim_js,
@@ -697,17 +876,97 @@ fn serve_page_view(pool: &DbPool, id: &str, session: &SessionInfo, langue: &str)
     html_resp(&doc, 200)
 }
 
+/// Menu de navigation partage entre les pages d'un meme site (`site_id`
+/// commun) : n'apparait que si le site compte plus d'une page visible par le
+/// visiteur courant (sinon comportement inchange pour les pages seules).
+fn build_site_nav_html(pool: &DbPool, page: &SitecPage, session: &SessionInfo) -> String {
+    let rows = selectionner(
+        pool,
+        "sitec_pages",
+        &[("site_id", mysql::Value::from(page.site_id.as_str()))],
+        &["id", "titre", "public", "partage", "owner_id"],
+        Some("menu_ordre ASC, id ASC"),
+        None,
+    );
+
+    let visibles: Vec<(String, String)> = rows
+        .into_iter()
+        .filter_map(|r| {
+            let sid = r.get("id").and_then(|v| v.as_str())?.to_string();
+            let titre = r.get("titre").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let public = r.get("public").and_then(|v| v.as_i64()).unwrap_or(0);
+            let owner_id = r.get("owner_id").and_then(|v| v.as_i64()).unwrap_or(-1);
+            let partage = r.get("partage").and_then(|v| v.as_str()).unwrap_or("");
+            let is_owner = session.connecte && session.user_id == owner_id;
+            let is_shared = session.connecte && partage_contains(partage, session.user_id);
+            if public == 1 || is_owner || is_shared {
+                Some((sid, titre))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    if visibles.len() < 2 {
+        return String::new();
+    }
+
+    let links: String = visibles
+        .iter()
+        .map(|(sid, titre)| {
+            let classe = if sid == &page.id { " class=\"active\"" } else { "" };
+            format!(
+                "<a href=\"/page/{}\"{}>{}</a>",
+                html_escape(sid),
+                classe,
+                html_escape(titre)
+            )
+        })
+        .collect();
+
+    format!("<nav class=\"sitec-site-nav\">{}</nav>", links)
+}
+
 /// Rend le tableau JSON de blocs (mode "blocs") en HTML. Chaque bloc est
 /// deja passe par `sanitiser_blocs` a l'enregistrement (type verifie,
 /// URLs limitees a http/https) -- ici on echappe en plus tout texte
 /// affiche, en defense en profondeur.
+/// Rend le tableau JSON de blocs (mode "blocs") en HTML. Les blocs en
+/// demi-largeur consecutifs ("largeur":"50") sont regroupes dans une ligne
+/// flex (`sitec-bloc-row`) pour s'afficher cote a cote ; les autres restent
+/// pleine largeur comme avant.
 fn render_blocs_html(contenu_blocs: &str) -> String {
     let blocs: Vec<Value> = serde_json::from_str(contenu_blocs).unwrap_or_default();
     let mut out = String::new();
-    for b in &blocs {
-        let kind = b["type"].as_str().unwrap_or("");
-        let anim = safe_animation(b["animation"].as_str().unwrap_or(""));
-        let inner = match kind {
+    let mut i = 0;
+    while i < blocs.len() {
+        if san_choice(&blocs[i], "largeur", &["100", "50"], "100") == "50" {
+            let mut row = String::new();
+            while i < blocs.len() && san_choice(&blocs[i], "largeur", &["100", "50"], "100") == "50" {
+                if let Some(html) = render_one_bloc(&blocs[i]) {
+                    row.push_str(&format!("<div class=\"sitec-bloc-col\">{}</div>", html));
+                }
+                i += 1;
+            }
+            if !row.is_empty() {
+                out.push_str(&format!("<div class=\"sitec-bloc-row\">{}</div>", row));
+            }
+        } else {
+            if let Some(html) = render_one_bloc(&blocs[i]) {
+                out.push_str(&html);
+            }
+            i += 1;
+        }
+    }
+    out
+}
+
+/// Rend un bloc individuel en HTML (`None` si type inconnu ou champs requis
+/// manquants -- le bloc est alors omis silencieusement, comme avant).
+fn render_one_bloc(b: &Value) -> Option<String> {
+    let kind = b["type"].as_str().unwrap_or("");
+    let anim = safe_animation(b["animation"].as_str().unwrap_or(""));
+    let inner = match kind {
             "titre" => {
                 let n = san_choice(b, "niveau", &["h1", "h2", "h3", "h4"], "h2");
                 format!("<{n} class=\"sitec-bloc sitec-bloc-titre\">{}</{n}>", html_escape(b["texte"].as_str().unwrap_or("")), n = n)
@@ -718,7 +977,7 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
             }
             "image" => {
                 let url = safe_url(b["url"].as_str().unwrap_or(""));
-                if url.is_empty() { continue; }
+                if url.is_empty() { return None; }
                 let alt = html_escape(b["alt"].as_str().unwrap_or(""));
                 let legende = b["legende"].as_str().unwrap_or("");
                 let legende_html = if legende.is_empty() {
@@ -738,7 +997,7 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                     if url.is_empty() { return None; }
                     Some(format!("<img src=\"{}\" alt=\"{}\" loading=\"lazy\">", html_escape(&url), html_escape(it["alt"].as_str().unwrap_or(""))))
                 }).collect();
-                if imgs.is_empty() { continue; }
+                if imgs.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-galerie sitec-cols-{}\">{}</div>", cols, imgs)
             }
             "carousel" => {
@@ -747,22 +1006,22 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                     if url.is_empty() { return None; }
                     Some(format!("<img src=\"{}\" alt=\"{}\" loading=\"lazy\">", html_escape(&url), html_escape(it["alt"].as_str().unwrap_or(""))))
                 }).collect();
-                if slides.is_empty() { continue; }
+                if slides.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-carousel\"><div class=\"sitec-carousel-track\">{}</div></div>", slides)
             }
             "video" => {
                 let url = safe_url(b["url"].as_str().unwrap_or(""));
-                if url.is_empty() { continue; }
+                if url.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-video\">{}</div>", video_embed_html(&url))
             }
             "audio" => {
                 let url = safe_url(b["url"].as_str().unwrap_or(""));
-                if url.is_empty() { continue; }
+                if url.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-audio\"><audio controls src=\"{}\"></audio></div>", html_escape(&url))
             }
             "bouton" => {
                 let url = safe_url(b["url"].as_str().unwrap_or(""));
-                if url.is_empty() { continue; }
+                if url.is_empty() { return None; }
                 let texte = html_escape(b["texte"].as_str().unwrap_or(""));
                 format!(
                     "<div class=\"sitec-bloc sitec-bloc-bouton\"><a href=\"{}\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">{}</a></div>",
@@ -775,7 +1034,7 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                     if url.is_empty() { return None; }
                     Some(format!("<a href=\"{}\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">{}</a>", html_escape(&url), html_escape(it["texte"].as_str().unwrap_or(""))))
                 }).collect();
-                if btns.is_empty() { continue; }
+                if btns.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-groupe-boutons\">{}</div>", btns)
             }
             "separateur" => "<hr class=\"sitec-bloc sitec-bloc-separateur\">".to_string(),
@@ -815,7 +1074,7 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                         img_html, html_escape(it["titre"].as_str().unwrap_or("")), html_escape(it["texte"].as_str().unwrap_or(""))
                     )
                 }).collect();
-                if cards.is_empty() { continue; }
+                if cards.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-cartes-grille sitec-cols-{}\">{}</div>", cols, cards)
             }
             "accordeon" => {
@@ -823,12 +1082,12 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                     "<details class=\"sitec-accordeon-item\"><summary>{}</summary><div>{}</div></details>",
                     html_escape(it["question"].as_str().unwrap_or("")), html_escape(it["reponse"].as_str().unwrap_or(""))
                 )).collect();
-                if acc.is_empty() { continue; }
+                if acc.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-accordeon\">{}</div>", acc)
             }
             "onglets" => {
                 let items = b["items"].as_array().cloned().unwrap_or_default();
-                if items.is_empty() { continue; }
+                if items.is_empty() { return None; }
                 let btns: String = items.iter().enumerate().map(|(i, it)| format!(
                     "<button type=\"button\" class=\"sitec-tab-btn{}\" data-tab-idx=\"{}\">{}</button>",
                     if i == 0 { " active" } else { "" }, i, html_escape(it["titre"].as_str().unwrap_or(""))
@@ -866,12 +1125,12 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                         valeur, html_escape(it["suffixe"].as_str().unwrap_or("")), html_escape(it["label"].as_str().unwrap_or(""))
                     )
                 }).collect();
-                if cards.is_empty() { continue; }
+                if cards.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-stats-grille\">{}</div>", cards)
             }
             "compte_rebours" => {
                 let date = b["date_cible"].as_str().unwrap_or("");
-                if date.is_empty() { continue; }
+                if date.is_empty() { return None; }
                 format!(
                     "<div class=\"sitec-bloc sitec-countdown\" data-cible=\"{}\"><div class=\"sitec-countdown-label\">{}</div><div class=\"sitec-countdown-chiffres\"></div></div>",
                     html_escape(date), html_escape(b["label"].as_str().unwrap_or(""))
@@ -900,12 +1159,12 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                         html_escape(&url), key, sigle
                     ))
                 }).collect();
-                if links.is_empty() { continue; }
+                if links.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-reseaux\">{}</div>", links)
             }
             "carte_google_maps" => {
                 let adresse = b["adresse"].as_str().unwrap_or("");
-                if adresse.is_empty() { continue; }
+                if adresse.is_empty() { return None; }
                 format!(
                     "<div class=\"sitec-bloc sitec-bloc-maps\"><iframe src=\"https://www.google.com/maps?q={}&output=embed\" loading=\"lazy\" referrerpolicy=\"no-referrer-when-downgrade\"></iframe></div>",
                     url_encode(adresse)
@@ -925,7 +1184,7 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                     "<div class=\"sitec-chrono-item\"><div class=\"sitec-chrono-date\">{}</div><div class=\"sitec-chrono-corps\"><h4>{}</h4><p>{}</p></div></div>",
                     html_escape(it["date"].as_str().unwrap_or("")), html_escape(it["titre"].as_str().unwrap_or("")), html_escape(it["texte"].as_str().unwrap_or(""))
                 )).collect();
-                if ev.is_empty() { continue; }
+                if ev.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-chronologie\">{}</div>", ev)
             }
             "tarifs" => {
@@ -946,7 +1205,7 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                     .filter(|r| WHITELIST.contains(r))
                     .map(|r| format!("<button type=\"button\" class=\"sitec-partage-btn\" data-reseau=\"{}\"><i class=\"fas fa-share-nodes\"></i> {}</button>", html_escape(r), html_escape(r)))
                     .collect();
-                if btns.is_empty() { continue; }
+                if btns.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-partage\">{}</div>", btns)
             }
             "membre_equipe" => {
@@ -963,7 +1222,7 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                     if url.is_empty() { return None; }
                     Some(format!("<img src=\"{}\" alt=\"\" loading=\"lazy\">", html_escape(&url)))
                 }).collect();
-                if imgs.is_empty() { continue; }
+                if imgs.is_empty() { return None; }
                 format!("<div class=\"sitec-bloc sitec-bloc-logos\">{}</div>", imgs)
             }
             "badge" => format!(
@@ -972,14 +1231,12 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                 html_escape(b["texte"].as_str().unwrap_or(""))
             ),
             "retour_haut" => "<div class=\"sitec-bloc\"><button type=\"button\" class=\"sitec-retour-haut\" onclick=\"window.scrollTo({top:0,behavior:'smooth'})\">&uarr;</button></div>".to_string(),
-            _ => continue,
+            _ => return None,
         };
-        out.push_str(&format!(
+        Some(format!(
             "<div class=\"sitec-anim\" data-anim=\"{}\">{}</div>",
             html_escape(&anim), inner
-        ));
-    }
-    out
+        ))
 }
 
 /// Bouton optionnel partagé par plusieurs types de blocs (carte, hero, CTA,
@@ -1081,6 +1338,11 @@ const BLOCS_ANIM_CSS: &str = "\
 /// (texte/image/bouton/video) -- toujours injecté en mode "blocs" (voir
 /// serve_page_view), même si un type donné n'est pas utilisé sur la page.
 const BLOCS_EXTRA_CSS: &str = "\
+.sitec-bloc-row{display:flex;gap:22px;align-items:flex-start;margin-bottom:22px;}\
+.sitec-bloc-row .sitec-bloc-col{flex:1;min-width:0;margin-bottom:0;}\
+.sitec-bloc-row .sitec-bloc-col .sitec-anim{margin-bottom:0;}\
+.sitec-bloc-row .sitec-bloc-col .sitec-bloc{margin-bottom:0;}\
+@media (max-width:640px){.sitec-bloc-row{flex-direction:column;gap:0;}}\
 .sitec-bloc-titre{margin:0 0 4px;}\
 .sitec-bloc-galerie{display:grid;gap:10px;}\
 .sitec-cols-2{grid-template-columns:repeat(2,1fr);}\
@@ -1558,6 +1820,7 @@ fn sanitiser_blocs(v: &Value) -> String {
             _ => continue,
         };
         bloc["animation"] = json!(anim);
+        bloc["largeur"] = json!(san_choice(b, "largeur", &["100", "50"], "100"));
         out.push(bloc);
     }
     serde_json::to_string(&out).unwrap_or_else(|_| "[]".to_string())
@@ -1589,6 +1852,7 @@ struct SitecPage {
     contenu_blocs: String,
     public: i64,
     partage: String,
+    site_id: String,
 }
 
 fn get_page(pool: &DbPool, id: &str) -> Option<SitecPage> {
@@ -1614,6 +1878,7 @@ fn get_page(pool: &DbPool, id: &str) -> Option<SitecPage> {
         contenu_blocs: row.get("contenu_blocs").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).unwrap_or("[]").to_string(),
         public: row.get("public").and_then(|v| v.as_i64()).unwrap_or(0),
         partage: row.get("partage").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        site_id: row.get("site_id").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).unwrap_or(id).to_string(),
     })
 }
 
@@ -1703,6 +1968,19 @@ fn serve_sitec_html(langue: &str) -> Response<std::io::Cursor<Vec<u8>>> {
                     ("ANIMATION_BOUNCE", Cle::SitecAnimationBounce),
                     ("ANIMATION_ROTATE", Cle::SitecAnimationRotate),
                     ("ANIMATION_PULSE", Cle::SitecAnimationPulse),
+                    ("PAGES_DU_SITE", Cle::SitecPagesDuSite),
+                    ("PAGES_DU_SITE_HINT", Cle::SitecPagesDuSiteHint),
+                    ("AJOUTER_PAGE_AU_SITE", Cle::SitecAjouterPageAuSite),
+                    ("RETIRER_DU_SITE", Cle::SitecRetirerDuSite),
+                    ("CONFIRM_RETIRER_DU_SITE", Cle::SitecConfirmRetirerDuSite),
+                    ("PAGE_AJOUTEE_AU_SITE", Cle::SitecPageAjouteeAuSite),
+                    ("PAGE_RETIREE_DU_SITE", Cle::SitecPageRetireeDuSite),
+                    ("INSPECTEUR_VIDE", Cle::SitecInspecteurVide),
+                    ("BIBLIOTHEQUE_DE_BLOCS", Cle::SitecBibliothequeDeBlocs),
+                    ("PALETTE_SOUS_TITRE", Cle::SitecPaletteSousTitre),
+                    ("LARGEUR_LABEL", Cle::SitecLargeurLabel),
+                    ("LARGEUR_PLEINE", Cle::SitecLargeurPleine),
+                    ("LARGEUR_MOITIE", Cle::SitecLargeurMoitie),
                 ],
             );
             let html = html.replacen("{{I18N_JS}}", &i18n_js, 1);
