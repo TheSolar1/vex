@@ -184,7 +184,16 @@ body {
 .blocs-list { display:flex; flex-direction:column; gap:10px; min-height:60px; }
 .blocs-row { display:flex; gap:10px; align-items:stretch; flex-wrap:wrap; }
 .blocs-row .bloc-item { min-width:0; }
-.bloc-item { border:1px solid var(--border); border-radius:8px; background:var(--sidebar-hover); flex:1; }
+.bloc-item { position:relative; border:1px solid var(--border); border-radius:8px; background:var(--sidebar-hover); flex:1; }
+.bloc-resize-handle {
+  position:absolute; top:0; right:-11px; bottom:0; width:22px; z-index:5; cursor:col-resize;
+  display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .15s;
+}
+.bloc-item:hover .bloc-resize-handle, .bloc-item.selected .bloc-resize-handle { opacity:1; }
+.bloc-resize-handle i {
+  width:20px; height:20px; border-radius:50%; background:var(--accent); color:var(--surface);
+  display:flex; align-items:center; justify-content:center; font-size:10px; box-shadow:0 1px 4px rgba(0,0,0,.3);
+}
 .bloc-item.dragging { opacity:.4; }
 .bloc-item.selected { border-color:var(--accent); box-shadow:0 0 0 2px var(--alt); }
 .bloc-item-hdr { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; cursor:pointer; gap:8px; }
@@ -262,7 +271,8 @@ body {
 }
 .blocs-timeline-hdr .vbtn:hover { background:var(--accent); color:var(--surface); }
 .timeline-time { font-family:'SF Mono',Consolas,monospace; font-size:12px; color:var(--text-dim); }
-.blocs-timeline-tracks { max-height:180px; overflow-y:auto; padding:8px 12px; }
+.blocs-timeline-tracks { position:relative; max-height:180px; overflow-y:auto; padding:8px 12px; }
+.tl-links { position:absolute; left:0; top:0; pointer-events:none; }
 .timeline-track { display:flex; align-items:center; gap:10px; height:30px; margin-bottom:4px; }
 .timeline-track-label { width:150px; flex-shrink:0; font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:6px; }
 .timeline-track-ruler { flex:1; position:relative; height:20px; background:var(--sidebar-hover); border-radius:4px; }
@@ -743,6 +753,7 @@ function renderBlocsList() {
   const cardHtml = (idx) => {
     const b = blocs[idx];
     const style = b.ligne ? ` style="flex:0 0 ${b.largeur||100}%;max-width:${b.largeur||100}%;"` : '';
+    const handle = b.ligne ? `<div class="bloc-resize-handle" data-idx="${idx}" title="Glisser pour redimensionner"><i class="fas fa-arrows-left-right"></i></div>` : '';
     return `<div class="bloc-item${selectedIdx===idx?' selected':''}" data-idx="${idx}" draggable="true"${style}>
       <div class="bloc-item-hdr">
         <span class="bloc-item-type">
@@ -757,6 +768,7 @@ function renderBlocsList() {
           <button type="button" class="bloc-act bloc-act-danger" data-act="del" title="${escAttr(I18N.BLOC_SUPPRIMER_TITLE)}"><i class="fas fa-trash"></i></button>
         </div>
       </div>
+      ${handle}
     </div>`;
   };
 
@@ -826,6 +838,37 @@ function renderBlocsList() {
         renderBlocsList();
         renderBlocsSettings();
       });
+    });
+  });
+
+  // Poignée de redimensionnement (bloc en rangée) : glisser = ajuste "largeur"
+  list.querySelectorAll('.bloc-resize-handle').forEach(handle => {
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = Number(handle.dataset.idx);
+      const item = handle.closest('.bloc-item');
+      const row = item.closest('.blocs-row');
+      if (!row) return;
+      const onMove = (ev) => {
+        const rowRect = row.getBoundingClientRect();
+        const rel = (ev.clientX - rowRect.left) / rowRect.width;
+        const largeur = Math.max(10, Math.min(100, Math.round(rel * 100)));
+        blocs[idx].largeur = largeur;
+        item.style.flex = `0 0 ${largeur}%`;
+        item.style.maxWidth = `${largeur}%`;
+        markDirty();
+        if (selectedIdx === idx) {
+          const el = document.getElementById('setLargeur');
+          if (el) el.value = largeur;
+        }
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
     });
   });
 
@@ -1183,6 +1226,11 @@ function renderEditor() {
   blocs = Array.isArray(p.contenu_blocs) ? p.contenu_blocs.map(b => ({...b})) : [];
   selectedIdx = -1;
 
+  // Écran dédié : la liste des pages n'apporte rien pendant l'édition de
+  // blocs et prend de la place utile au canevas.
+  const sidebarEl = document.querySelector('.sidebar');
+  if (sidebarEl) sidebarEl.style.display = blocsFullView ? 'none' : '';
+
   if (blocsFullView) { renderBlocsFullView(); return; }
 
   const viewUrl = `${window.location.origin}/page/${p.id}`;
@@ -1355,7 +1403,7 @@ function renderBlocsFullView() {
               <div class="blocs-timeline-hdr">
                 <button type="button" class="vbtn" id="tlPlayBtn" title="Lecture (Espace)"><i class="fas fa-play"></i></button>
                 <span class="timeline-time" id="tlTime">0 ms</span>
-                <span class="hint" style="margin-left:auto;">Glissez un repère pour régler son délai d'entrée · ←/→ pour avancer le curseur · Espace pour lire</span>
+                <span class="hint" style="margin-left:auto;">Glissez un repère (ou I) pour régler son délai d'entrée · ←/→ pour avancer le curseur · Espace pour lire</span>
               </div>
               <div class="timeline-ruler-wrap"><div class="timeline-playhead" id="tlPlayhead" style="left:0"></div></div>
               <div class="blocs-timeline-tracks" id="tlTracks"></div>
@@ -1426,15 +1474,24 @@ function basculerModeActions() {
   actionsMode = !actionsMode;
   document.getElementById('vbtnActions').classList.toggle('active', actionsMode);
   document.getElementById('blocsTimeline').classList.toggle('active', actionsMode);
+  // Laisse toute la largeur au canevas + a la frise pendant l'edition des
+  // animations -- le panneau de reglages d'un bloc n'y sert a rien.
+  const settingsEl = document.getElementById('blocsSettings');
+  if (settingsEl) settingsEl.style.display = actionsMode ? 'none' : '';
   if (actionsMode) renderTimeline();
 }
 
 function renderTimeline() {
   const tracks = document.getElementById('tlTracks');
+  // Le bouton lecture doit fonctionner meme sans aucun bloc anime -- cable
+  // en dehors du bloc "liste des pistes" ci-dessous (qui peut etre vide).
+  const playBtn = document.getElementById('tlPlayBtn');
+  if (playBtn) playBtn.onclick = tlTogglePlay;
   if (!tracks) return;
+
   const animes = blocs.map((b, i) => ({ b, i })).filter(x => x.b.animation);
   if (!animes.length) {
-    tracks.innerHTML = `<div class="hint">Aucun bloc animé — choisissez une animation d'entrée sur un bloc (panneau de droite) pour le voir apparaître ici.</div>`;
+    tracks.innerHTML = `<div class="hint">Aucun bloc animé — sélectionnez un bloc puis appuyez sur <strong>I</strong> pour l'ajouter à la frise (ou choisissez une animation d'entrée dans le panneau de droite).</div>`;
     return;
   }
   tracks.innerHTML = animes.map(({ b, i }) => `
@@ -1450,6 +1507,7 @@ function renderTimeline() {
       e.preventDefault();
       const idx = Number(clip.dataset.idx);
       tlSelectedIdx = idx;
+      selectionnerBloc(idx);
       const ruler = clip.parentElement;
       const onMove = (ev) => {
         const rect = ruler.getBoundingClientRect();
@@ -1460,18 +1518,52 @@ function renderTimeline() {
         clip.style.left = `calc(${rel*100}% - 8px)`;
         clip.title = `${ms} ms`;
         markDirty();
+        drawTimelineLinks();
       };
       const onUp = () => {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
-        if (selectedIdx === idx) renderBlocsSettings();
       };
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     });
   });
 
-  document.getElementById('tlPlayBtn').onclick = tlTogglePlay;
+  drawTimelineLinks();
+}
+
+// Relie les repères consécutifs (triés par délai) par une ligne, comme les
+// images clés reliées dans le dopesheet de Blender -- aide à visualiser
+// l'ordre de déclenchement des animations entre blocs différents.
+function drawTimelineLinks() {
+  const wrap = document.getElementById('tlTracks');
+  if (!wrap) return;
+  wrap.querySelector('svg.tl-links')?.remove();
+  const clips = Array.from(wrap.querySelectorAll('.timeline-clip'));
+  if (clips.length < 2) return;
+  const wrapRect = wrap.getBoundingClientRect();
+  const pts = clips.map(clip => {
+    const idx = Number(clip.dataset.idx);
+    const r = clip.getBoundingClientRect();
+    return {
+      delai: blocs[idx].anim_delai || 0,
+      x: r.left + r.width / 2 - wrapRect.left,
+      y: r.top + r.height / 2 - wrapRect.top + wrap.scrollTop,
+    };
+  }).sort((a, b) => a.delai - b.delai);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'tl-links');
+  svg.setAttribute('width', '100%');
+  svg.setAttribute('height', String(wrap.scrollHeight));
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  line.setAttribute('points', pts.map(p => `${p.x},${p.y}`).join(' '));
+  line.setAttribute('fill', 'none');
+  line.setAttribute('stroke', 'var(--accent)');
+  line.setAttribute('stroke-width', '2');
+  line.setAttribute('stroke-dasharray', '4 3');
+  line.setAttribute('opacity', '0.55');
+  svg.appendChild(line);
+  wrap.insertBefore(svg, wrap.firstChild);
 }
 
 function tlSetPlayhead(ms) {
@@ -1500,7 +1592,7 @@ function tlTogglePlay() {
 }
 
 function afficherRaccourcis() {
-  toast("Ctrl+S enregistrer · Suppr supprime le bloc sélectionné · Alt+↑/↓ le déplace · Échap désélectionne · Mode Actions : Espace lecture, ←/→ curseur", '', 7000);
+  toast("Ctrl+S enregistrer · Suppr supprime le bloc sélectionné · Alt+↑/↓ le déplace · Échap désélectionne · Mode Actions : Espace lecture, ←/→ curseur, I insère/déplace le repère du bloc sélectionné", '', 8000);
 }
 
 function markDirty() { dirty = true; }
@@ -1613,6 +1705,20 @@ document.addEventListener('keydown', (e) => {
     if (e.code === 'Space') { e.preventDefault(); tlTogglePlay(); return; }
     if (e.key === 'ArrowLeft') { e.preventDefault(); tlSetPlayhead(tlPlayhead - 100); return; }
     if (e.key === 'ArrowRight') { e.preventDefault(); tlSetPlayhead(tlPlayhead + 100); return; }
+    // "I" façon Blender (Insert Keyframe) : place -- ou déplace si déjà
+    // présent -- le repère du bloc sélectionné sur la position actuelle
+    // du curseur de lecture.
+    if ((e.key === 'i' || e.key === 'I') && selectedIdx >= 0) {
+      e.preventDefault();
+      const b = blocs[selectedIdx];
+      if (!b.animation) b.animation = 'fade';
+      b.anim_delai = Math.round(tlPlayhead / 50) * 50;
+      tlSelectedIdx = selectedIdx;
+      markDirty();
+      renderTimeline();
+      renderBlocsSettings();
+      return;
+    }
   }
   if (typing) return;
   if (e.key === 'Escape') { selectedIdx = -1; renderBlocsList(); renderBlocsSettings(); return; }
