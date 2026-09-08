@@ -1952,6 +1952,8 @@ fn serve_sitec_html(langue: &str) -> Response<std::io::Cursor<Vec<u8>>> {
                     ("{{T_TITRE_ONGLET}}", Cle::SitecTitreOnglet),
                     ("{{T_NOUVELLE_PAGE}}", Cle::SitecNouvellePage),
                     ("{{T_SELECTIONNEZ_OU_CREEZ}}", Cle::SitecSelectionnezOuCreez),
+                    ("{{T_MES_PAGES}}", Cle::SitecMesPages),
+                    ("{{T_MES_PAGES_SOUS_TITRE}}", Cle::SitecMesPagesSousTitre),
                 ],
             );
             let i18n_js = crate::i18n::objet_js(
@@ -2049,6 +2051,7 @@ fn serve_sitec_html(langue: &str) -> Response<std::io::Cursor<Vec<u8>>> {
                     ("POLICE_SERIF", Cle::SitecPoliceSerif),
                     ("POLICE_MONO", Cle::SitecPoliceMono),
                     ("POLICE_ARRONDI", Cle::SitecPoliceArrondi),
+                    ("MES_PAGES", Cle::SitecMesPages),
                 ],
             );
             let html = html.replacen("{{I18N_JS}}", &i18n_js, 1);

@@ -30,26 +30,24 @@ body {
 
 .app { display:flex; height:calc(100vh - 56px); overflow:hidden; }
 
-.sidebar {
-  width:280px; background:var(--sidebar-bg); border-right:1px solid var(--border);
-  display:flex; flex-direction:column; flex-shrink:0; overflow-y:auto; padding:16px 10px;
+/* ── Écran "Mes pages" : liste/sélection des pages, séparée de l'éditeur -
+   affichée seule à /sitec, remplacée par #main (réglages ou blocs) dès
+   qu'une page est ouverte (voir openPage()/showPagesScreen()). ── */
+.pages-screen { flex:1; overflow-y:auto; padding:32px 40px; }
+.pages-screen-hdr {
+  display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:26px;
 }
-.btn-nouveau {
-  width:100%; padding:10px 16px; background:var(--accent); color:var(--surface);
-  border:none; border-radius:6px; font-size:14px; font-weight:600; cursor:pointer;
-  display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:16px;
-  transition:background .2s; font-family:inherit;
-}
-.btn-nouveau:hover { background:var(--vex-green-2); }
+.pages-screen-hdr h1 { font-size:22px; font-weight:700; }
+.pages-screen-sub { font-size:13px; color:var(--text-dim); margin-top:4px; }
+.pages-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; }
 
-.page-item {
-  padding:12px 14px; border-radius:8px; cursor:pointer; margin-bottom:4px;
-  border:1px solid transparent; transition:background .15s;
+.page-card {
+  padding:18px; border-radius:12px; cursor:pointer; border:1px solid var(--border); background:var(--surface);
+  box-shadow:0 1px 2px rgba(0,0,0,.04); transition:box-shadow .15s, transform .15s, border-color .15s;
 }
-.page-item:hover  { background:var(--sidebar-hover); }
-.page-item.active { background:var(--alt); border-color:var(--accent); }
-.page-item-title { font-size:14px; font-weight:600; margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.page-item-meta  { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--text-dim); }
+.page-card:hover { box-shadow:0 4px 14px rgba(0,0,0,.09); transform:translateY(-2px); border-color:var(--accent); }
+.page-card-title { font-size:15px; font-weight:700; margin-bottom:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.page-card-meta  { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--text-dim); flex-wrap:wrap; }
 .badge {
   display:inline-flex; align-items:center; gap:3px; padding:1px 6px; border-radius:8px;
   font-size:10px; font-weight:700;
@@ -59,11 +57,11 @@ body {
 .empty-list { padding:30px 14px; text-align:center; color:var(--text-dim); font-size:13px; }
 
 .main { flex:1; overflow-y:auto; padding:28px 36px; }
-.empty-state {
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  height:100%; color:var(--text-dim); text-align:center;
+.retour-pages-link {
+  display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; color:var(--accent);
+  background:none; border:none; cursor:pointer; padding:0 0 14px; font-family:inherit;
 }
-.empty-state p { margin-top:14px; font-size:15px; }
+.retour-pages-link:hover { text-decoration:underline; }
 
 .editor-card { max-width:760px; margin:0 auto; }
 .editor-hdr { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; gap:12px; flex-wrap:wrap; }
@@ -319,19 +317,20 @@ body {
 <div id="vex-navbar"></div>
 
 <div class="app">
-  <aside class="sidebar">
-    <button class="btn-nouveau" id="createBtn">
-      <img class="ico ico-sm ico-white" src="/static/img/solid/plus.svg"> {{T_NOUVELLE_PAGE}}
-    </button>
-    <div id="pageList"><div class="spinner-wrap"><div class="spinner"></div></div></div>
-  </aside>
-
-  <div class="main" id="main">
-    <div class="empty-state">
-      <img class="ico ico-lg ico-muted" src="/static/img/solid/globe.svg">
-      <p>{{T_SELECTIONNEZ_OU_CREEZ}}</p>
+  <div class="pages-screen" id="pagesScreen">
+    <div class="pages-screen-hdr">
+      <div>
+        <h1>{{T_MES_PAGES}}</h1>
+        <p class="pages-screen-sub">{{T_MES_PAGES_SOUS_TITRE}}</p>
+      </div>
+      <button class="btn btn-primary" id="createBtn">
+        <img class="ico ico-sm ico-white" src="/static/img/solid/plus.svg"> {{T_NOUVELLE_PAGE}}
+      </button>
     </div>
+    <div class="pages-grid" id="pageList"><div class="spinner-wrap"><div class="spinner"></div></div></div>
   </div>
+
+  <div class="main" id="main" style="display:none;"></div>
 </div>
 
 <div id="toast-area"></div>
@@ -426,35 +425,54 @@ function renderList() {
     return;
   }
   el.innerHTML = pages.map(p => {
-    const active = current && current.id === p.id ? ' active' : '';
     const badges = [];
     if (p.public) badges.push(`<span class="badge badge-public">${I18N.PUBLIC}</span>`);
     if (p.share_count > 0) badges.push(`<span class="badge badge-partage">${I18N.N_PARTAGES.replace('{n}', p.share_count)}</span>`);
-    return `<div class="page-item${active}" data-id="${p.id}">
-      <div class="page-item-title">${esc(p.titre || I18N.SANS_TITRE)}</div>
-      <div class="page-item-meta">${badges.join('') || `<span>${I18N.PRIVE}</span>`}</div>
+    return `<div class="page-card" data-id="${p.id}">
+      <div class="page-card-title">${esc(p.titre || I18N.SANS_TITRE)}</div>
+      <div class="page-card-meta">${badges.join('') || `<span>${I18N.PRIVE}</span>`}</div>
     </div>`;
   }).join('');
-  el.querySelectorAll('.page-item').forEach(item =>
+  el.querySelectorAll('.page-card').forEach(item =>
     item.onclick = () => openPage(item.dataset.id)
   );
+}
+
+// ── Écran "Mes pages" (liste) vs écran d'édition (#main) : les deux sont
+// des écrans distincts et mutuellement exclusifs -- jamais affichés
+// ensemble, contrairement à l'ancienne barre latérale toujours visible. ──
+function showPagesScreen() {
+  current = null;
+  document.getElementById('main').style.display = 'none';
+  document.getElementById('main').innerHTML = '';
+  document.getElementById('pagesScreen').style.display = '';
+  loadPages();
+}
+
+function retourMesPages() {
+  if (dirty && !confirm(I18N.CONFIRM_QUITTER_SANS_SAUVEGARDER)) return;
+  showPagesScreen();
 }
 
 // ── Ouvrir / créer ────────────────────────────────────────────────
 async function openPage(id) {
   if (dirty && !confirm(I18N.CONFIRM_QUITTER_SANS_SAUVEGARDER)) return;
-  document.getElementById('main').innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  const mainEl = document.getElementById('main');
+  document.getElementById('pagesScreen').style.display = 'none';
+  mainEl.style.display = '';
+  mainEl.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
   try {
     const r = await apiFetch(`${API}/get?id=${encodeURIComponent(id)}`);
     const data = await r.json();
-    if (!data.success) { toast(data.error || I18N.ERREUR, 'err'); return; }
+    if (!data.success) { toast(data.error || I18N.ERREUR, 'err'); showPagesScreen(); return; }
     current = data.page;
     dirty = false;
     blocsFullView = current.mode === 'blocs';
     await loadSitePages(id);
-    renderList();
     renderEditor();
-  } catch(e) { if (e.message !== 'Session expirée') toast(I18N.ERREUR_CHARGEMENT, 'err'); }
+  } catch(e) {
+    if (e.message !== 'Session expirée') { toast(I18N.ERREUR_CHARGEMENT, 'err'); showPagesScreen(); }
+  }
 }
 
 async function loadSitePages(id) {
@@ -1103,6 +1121,7 @@ function renderEditor() {
 
   document.getElementById('main').innerHTML = `
     <div class="editor-card" id="editorCard">
+      <button type="button" class="retour-pages-link" id="retourPagesBtn"><i class="fas fa-arrow-left"></i> ${escAttr(I18N.MES_PAGES)}</button>
       <div class="editor-hdr">
         <input type="text" class="titre-input" id="titreInput" value="${escAttr(p.titre)}" placeholder="${I18N.TITRE_DE_LA_PAGE}">
         <div class="editor-actions">
@@ -1219,6 +1238,7 @@ function renderEditor() {
 
   document.getElementById('deleteBtn').onclick = () => deletePage(p.id);
   document.getElementById('saveBtn').onclick   = () => savePage(mode);
+  document.getElementById('retourPagesBtn').onclick = () => retourMesPages();
 
   document.getElementById('shareAddBtn').onclick = () => addShare(p.id);
   document.querySelectorAll('.share-item-rm').forEach(btn =>
@@ -1375,13 +1395,8 @@ async function deletePage(id) {
     await apiFetch(`${API}/delete`, {
       method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})
     });
-    current = null; dirty = false;
-    document.getElementById('main').innerHTML = `
-      <div class="empty-state">
-        <img class="ico ico-lg ico-muted" src="${ICO}globe.svg">
-        <p>${I18N.SELECTIONNEZ_OU_CREEZ}</p>
-      </div>`;
-    await loadPages();
+    dirty = false;
+    showPagesScreen();
     toast(I18N.PAGE_SUPPRIMEE, 'ok');
   } catch(e) { if (e.message !== 'Session expirée') toast(I18N.ERREUR_SUPPRESSION, 'err'); }
 }

@@ -1122,6 +1122,8 @@ pub enum Cle {
     SitecPoliceSerif,
     SitecPoliceMono,
     SitecPoliceArrondi,
+    SitecMesPages,
+    SitecMesPagesSousTitre,
 }
 
 pub fn t(langue: &str, cle: Cle) -> &'static str {
@@ -2159,6 +2161,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         (_, SitecPoliceSerif) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Serif (élégante)",
         (_, SitecPoliceMono) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Monospace (technique)",
         (_, SitecPoliceArrondi) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Arrondie",
+        (_, SitecMesPages) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Mes pages",
+        (_, SitecMesPagesSousTitre) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Sélectionnez une page à modifier, ou créez-en une nouvelle.",
 
         // ────────────────────────────────────────────── English ──
         ("en", LoginTitreOnglet) => "Login - VEX",
@@ -3166,6 +3170,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("en", SitecPoliceSerif) => "Serif (elegant)",
         ("en", SitecPoliceMono) => "Monospace (technical)",
         ("en", SitecPoliceArrondi) => "Rounded",
+        ("en", SitecMesPages) => "My pages",
+        ("en", SitecMesPagesSousTitre) => "Select a page to edit, or create a new one.",
 
         // ────────────────────────────────────────────── Español ──
         ("es", LoginTitreOnglet) => "Iniciar sesion - VEX",
@@ -4173,6 +4179,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("es", SitecPoliceSerif) => "Serif (elegante)",
         ("es", SitecPoliceMono) => "Monoespaciada (tecnica)",
         ("es", SitecPoliceArrondi) => "Redondeada",
+        ("es", SitecMesPages) => "Mis paginas",
+        ("es", SitecMesPagesSousTitre) => "Selecciona una pagina para editarla, o crea una nueva.",
 
         // ─────────────────────────────────────────────── Deutsch ──
         ("de", LoginTitreOnglet) => "Anmeldung - VEX",
@@ -5180,6 +5188,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("de", SitecPoliceSerif) => "Serif (elegant)",
         ("de", SitecPoliceMono) => "Monospace (technisch)",
         ("de", SitecPoliceArrondi) => "Abgerundet",
+        ("de", SitecMesPages) => "Meine Seiten",
+        ("de", SitecMesPagesSousTitre) => "Waehlen Sie eine Seite zum Bearbeiten aus oder erstellen Sie eine neue.",
 
         // ─────────────────────────────────────────────── Italiano ──
         ("it", LoginTitreOnglet) => "Accesso - VEX",
@@ -6187,6 +6197,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("it", SitecPoliceSerif) => "Serif (elegante)",
         ("it", SitecPoliceMono) => "Monospace (tecnico)",
         ("it", SitecPoliceArrondi) => "Arrotondato",
+        ("it", SitecMesPages) => "Le mie pagine",
+        ("it", SitecMesPagesSousTitre) => "Seleziona una pagina da modificare, oppure creane una nuova.",
 
         // ──────────────────────────────────────────── Português ──
         ("pt", LoginTitreOnglet) => "Login - VEX",
@@ -7194,6 +7206,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("pt", SitecPoliceSerif) => "Serif (elegante)",
         ("pt", SitecPoliceMono) => "Monoespacada (tecnica)",
         ("pt", SitecPoliceArrondi) => "Arredondada",
+        ("pt", SitecMesPages) => "Minhas paginas",
+        ("pt", SitecMesPagesSousTitre) => "Selecione uma pagina para editar, ou crie uma nova.",
 
         // ──────────────────────────────────────────────── Русский ──
         ("ru", LoginTitreOnglet) => "Вход - VEX",
@@ -8201,6 +8215,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("ru", SitecPoliceSerif) => "Serif (элегантный)",
         ("ru", SitecPoliceMono) => "Моноширинный (технический)",
         ("ru", SitecPoliceArrondi) => "Закругленный",
+        ("ru", SitecMesPages) => "Мои страницы",
+        ("ru", SitecMesPagesSousTitre) => "Выберите страницу для редактирования или создайте новую.",
 
         // ────────────────────────────────────────────────── 中文 ──
         ("zh", LoginTitreOnglet) => "登录 - VEX",
@@ -9208,6 +9224,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("zh", SitecPoliceSerif) => "衬线体(优雅)",
         ("zh", SitecPoliceMono) => "等宽字体(技术感)",
         ("zh", SitecPoliceArrondi) => "圆润体",
+        ("zh", SitecMesPages) => "我的页面",
+        ("zh", SitecMesPagesSousTitre) => "选择要编辑的页面,或创建一个新页面。",
 
         // ────────────────────────────────────────────────── 日本語 ──
         ("ja", LoginTitreOnglet) => "ログイン - VEX",
@@ -10215,6 +10233,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("ja", SitecPoliceSerif) => "セリフ(エレガント)",
         ("ja", SitecPoliceMono) => "等幅(テクニカル)",
         ("ja", SitecPoliceArrondi) => "丸みのある書体",
+        ("ja", SitecMesPages) => "マイページ",
+        ("ja", SitecMesPagesSousTitre) => "編集するページを選択するか、新しいページを作成してください。",
 
         // ──────────────────────────────────────────────── العربية ──
         ("ar", LoginTitreOnglet) => "تسجيل الدخول - VEX",
@@ -11222,6 +11242,8 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("ar", SitecPoliceSerif) => "سيريف (أنيق)",
         ("ar", SitecPoliceMono) => "أحادي المسافة (تقني)",
         ("ar", SitecPoliceArrondi) => "مدور",
+        ("ar", SitecMesPages) => "صفحاتي",
+        ("ar", SitecMesPagesSousTitre) => "اختر صفحة لتعديلها، أو أنشئ صفحة جديدة.",
 
         // Repli sur le francais pour toute combinaison non listee (ne
         // devrait pas arriver, toutes les langues supportees sont listees).
