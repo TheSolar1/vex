@@ -1104,6 +1104,7 @@ pub enum Cle {
     SitecConfirmRetirerDuSite,
     SitecPageAjouteeAuSite,
     SitecPageRetireeDuSite,
+    SitecInspecteurVide,
 }
 
 pub fn t(langue: &str, cle: Cle) -> &'static str {
@@ -2123,6 +2124,7 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         (_, SitecConfirmRetirerDuSite) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Retirer cette page du site ? Elle restera accessible seule, avec sa propre adresse.",
         (_, SitecPageAjouteeAuSite) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Page ajoutée au site",
         (_, SitecPageRetireeDuSite) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Page retirée du site",
+        (_, SitecInspecteurVide) if langue == "fr" || !crate::function::is_supported_lang(langue) => "Sélectionnez un bloc pour le modifier ici.",
 
         // ────────────────────────────────────────────── English ──
         ("en", LoginTitreOnglet) => "Login - VEX",
@@ -3112,6 +3114,7 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("en", SitecConfirmRetirerDuSite) => "Remove this page from the site? It will remain accessible on its own, with its own address.",
         ("en", SitecPageAjouteeAuSite) => "Page added to site",
         ("en", SitecPageRetireeDuSite) => "Page removed from site",
+        ("en", SitecInspecteurVide) => "Select a block to edit it here.",
 
         // ────────────────────────────────────────────── Español ──
         ("es", LoginTitreOnglet) => "Iniciar sesion - VEX",
@@ -4101,6 +4104,7 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("es", SitecConfirmRetirerDuSite) => "¿Quitar esta página del sitio? Seguirá siendo accesible por separado, con su propia dirección.",
         ("es", SitecPageAjouteeAuSite) => "Página añadida al sitio",
         ("es", SitecPageRetireeDuSite) => "Página retirada del sitio",
+        ("es", SitecInspecteurVide) => "Selecciona un bloque para editarlo aqui.",
 
         // ─────────────────────────────────────────────── Deutsch ──
         ("de", LoginTitreOnglet) => "Anmeldung - VEX",
@@ -5090,6 +5094,7 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("de", SitecConfirmRetirerDuSite) => "Diese Seite von der Website entfernen? Sie bleibt weiterhin einzeln mit eigener Adresse erreichbar.",
         ("de", SitecPageAjouteeAuSite) => "Seite zur Website hinzugefügt",
         ("de", SitecPageRetireeDuSite) => "Seite von der Website entfernt",
+        ("de", SitecInspecteurVide) => "Waehlen Sie einen Block aus, um ihn hier zu bearbeiten.",
 
         // ─────────────────────────────────────────────── Italiano ──
         ("it", LoginTitreOnglet) => "Accesso - VEX",
@@ -6079,6 +6084,7 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("it", SitecConfirmRetirerDuSite) => "Rimuovere questa pagina dal sito? Rimarrà comunque accessibile da sola, con il proprio indirizzo.",
         ("it", SitecPageAjouteeAuSite) => "Pagina aggiunta al sito",
         ("it", SitecPageRetireeDuSite) => "Pagina rimossa dal sito",
+        ("it", SitecInspecteurVide) => "Seleziona un blocco per modificarlo qui.",
 
         // ──────────────────────────────────────────── Português ──
         ("pt", LoginTitreOnglet) => "Login - VEX",
@@ -7068,6 +7074,7 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("pt", SitecConfirmRetirerDuSite) => "Remover esta pagina do site? Ela continuara acessivel sozinha, com seu proprio endereco.",
         ("pt", SitecPageAjouteeAuSite) => "Pagina adicionada ao site",
         ("pt", SitecPageRetireeDuSite) => "Pagina removida do site",
+        ("pt", SitecInspecteurVide) => "Selecione um bloco para edita-lo aqui.",
 
         // ──────────────────────────────────────────────── Русский ──
         ("ru", LoginTitreOnglet) => "Вход - VEX",
@@ -8057,6 +8064,7 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("ru", SitecConfirmRetirerDuSite) => "Удалить эту страницу с сайта? Она останется доступна отдельно, по своему собственному адресу.",
         ("ru", SitecPageAjouteeAuSite) => "Страница добавлена на сайт",
         ("ru", SitecPageRetireeDuSite) => "Страница удалена с сайта",
+        ("ru", SitecInspecteurVide) => "Выберите блок, чтобы редактировать его здесь.",
 
         // ────────────────────────────────────────────────── 中文 ──
         ("zh", LoginTitreOnglet) => "登录 - VEX",
@@ -9046,6 +9054,7 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("zh", SitecConfirmRetirerDuSite) => "从网站中移除此页面?它将仍可单独访问,并保留自己的地址。",
         ("zh", SitecPageAjouteeAuSite) => "页面已添加到网站",
         ("zh", SitecPageRetireeDuSite) => "页面已从网站移除",
+        ("zh", SitecInspecteurVide) => "选择一个区块以在此处编辑。",
 
         // ────────────────────────────────────────────────── 日本語 ──
         ("ja", LoginTitreOnglet) => "ログイン - VEX",
@@ -10035,6 +10044,7 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("ja", SitecConfirmRetirerDuSite) => "このページをサイトから削除しますか?独自のアドレスで単独でアクセスできる状態のままになります。",
         ("ja", SitecPageAjouteeAuSite) => "ページをサイトに追加しました",
         ("ja", SitecPageRetireeDuSite) => "ページをサイトから削除しました",
+        ("ja", SitecInspecteurVide) => "ブロックを選択するとここで編集できます。",
 
         // ──────────────────────────────────────────────── العربية ──
         ("ar", LoginTitreOnglet) => "تسجيل الدخول - VEX",
@@ -11024,6 +11034,7 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         ("ar", SitecConfirmRetirerDuSite) => "إزالة هذه الصفحة من الموقع؟ ستظل متاحة بمفردها، بعنوانها الخاص.",
         ("ar", SitecPageAjouteeAuSite) => "تمت إضافة الصفحة إلى الموقع",
         ("ar", SitecPageRetireeDuSite) => "تمت إزالة الصفحة من الموقع",
+        ("ar", SitecInspecteurVide) => "اختر كتلة لتعديلها هنا.",
 
         // Repli sur le francais pour toute combinaison non listee (ne
         // devrait pas arriver, toutes les langues supportees sont listees).
