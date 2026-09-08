@@ -703,7 +703,9 @@ fn serve_page_view(pool: &DbPool, id: &str, session: &SessionInfo, langue: &str)
 /// affiche, en defense en profondeur.
 fn render_blocs_html(contenu_blocs: &str) -> String {
     let blocs: Vec<Value> = serde_json::from_str(contenu_blocs).unwrap_or_default();
-    let mut out = String::new();
+    // (ligne, largeur%, espace px, html du bloc) -- groupe en second temps
+    // les blocs consecutifs partageant la meme "ligne" en rangee flex.
+    let mut items: Vec<(String, i64, i64, String)> = Vec::new();
     for b in &blocs {
         let kind = b["type"].as_str().unwrap_or("");
         let anim = safe_animation(b["animation"].as_str().unwrap_or(""));
@@ -793,8 +795,8 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
                 format!("<{t} class=\"sitec-bloc sitec-bloc-liste\">{}</{t}>", lis, t = tag)
             }
             "icone_texte" => format!(
-                "<div class=\"sitec-bloc sitec-bloc-icone-texte\"><div class=\"sitec-icone\">{}</div><div><h4>{}</h4><p>{}</p></div></div>",
-                html_escape(b["icone"].as_str().unwrap_or("")), html_escape(b["titre"].as_str().unwrap_or("")), html_escape(b["texte"].as_str().unwrap_or(""))
+                "<div class=\"sitec-bloc sitec-bloc-icone-texte\"><div class=\"sitec-icone\"><i class=\"fas fa-{}\"></i></div><div><h4>{}</h4><p>{}</p></div></div>",
+                safe_icon(b["icone"].as_str().unwrap_or("")), html_escape(b["titre"].as_str().unwrap_or("")), html_escape(b["texte"].as_str().unwrap_or(""))
             ),
             "carte" => {
                 let img = safe_url(b["url_image"].as_str().unwrap_or(""));
@@ -974,10 +976,42 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
             "retour_haut" => "<div class=\"sitec-bloc\"><button type=\"button\" class=\"sitec-retour-haut\" onclick=\"window.scrollTo({top:0,behavior:'smooth'})\">&uarr;</button></div>".to_string(),
             _ => continue,
         };
+        let delai = san_int(b, "anim_delai", 0, 5000, 0);
+        let delai_style = if delai > 0 { format!(" style=\"animation-delay:{}ms\"", delai) } else { String::new() };
+        let html = format!(
+            "<div class=\"sitec-anim\" data-anim=\"{}\"{}>{}</div>",
+            html_escape(&anim), delai_style, inner
+        );
+        let ligne = b["ligne"].as_str().unwrap_or("").to_string();
+        let largeur = san_int(b, "largeur", 10, 100, 100);
+        let espace = san_int(b, "espace", 0, 80, 16);
+        items.push((ligne, largeur, espace, html));
+    }
+
+    let mut out = String::new();
+    let mut i = 0;
+    while i < items.len() {
+        let ligne = items[i].0.clone();
+        if ligne.is_empty() {
+            out.push_str(&items[i].3);
+            i += 1;
+            continue;
+        }
+        let espace = items[i].2;
+        let mut row_html = String::new();
+        let mut j = i;
+        while j < items.len() && items[j].0 == ligne {
+            row_html.push_str(&format!(
+                "<div class=\"sitec-row-item\" style=\"flex:0 0 {l}%;max-width:{l}%;\">{}</div>",
+                items[j].3, l = items[j].1
+            ));
+            j += 1;
+        }
         out.push_str(&format!(
-            "<div class=\"sitec-anim\" data-anim=\"{}\">{}</div>",
-            html_escape(&anim), inner
+            "<div class=\"sitec-row\" style=\"display:flex;flex-wrap:wrap;gap:{}px;\">{}</div>",
+            espace, row_html
         ));
+        i = j;
     }
     out
 }
@@ -1020,6 +1054,18 @@ const ANIMATIONS: &[&str] = &[
 ];
 fn safe_animation(a: &str) -> String {
     if ANIMATIONS.contains(&a) { a.to_string() } else { String::new() }
+}
+
+/// Slug d'icône (Font Awesome solid, servi localement via fa-local.js) --
+/// utilisé à la place d'un émoji libre pour le bloc "icone_texte". Filtré à
+/// [a-z0-9-] pour atterrir sans risque dans un attribut class="fas fa-...".
+fn safe_icon(s: &str) -> String {
+    let cleaned: String = s
+        .chars()
+        .filter(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == '-')
+        .take(40)
+        .collect();
+    if cleaned.is_empty() { "star".to_string() } else { cleaned }
 }
 
 /// CSS des animations d'entree + script d'activation au scroll (mode
@@ -1081,6 +1127,8 @@ const BLOCS_ANIM_CSS: &str = "\
 /// (texte/image/bouton/video) -- toujours injecté en mode "blocs" (voir
 /// serve_page_view), même si un type donné n'est pas utilisé sur la page.
 const BLOCS_EXTRA_CSS: &str = "\
+.sitec-row{align-items:flex-start;}\
+.sitec-row-item{box-sizing:border-box;min-width:0;}\
 .sitec-bloc-titre{margin:0 0 4px;}\
 .sitec-bloc-galerie{display:grid;gap:10px;}\
 .sitec-cols-2{grid-template-columns:repeat(2,1fr);}\
@@ -1431,7 +1479,7 @@ fn sanitiser_blocs(v: &Value) -> String {
             }),
             "icone_texte" => json!({
                 "type": "icone_texte",
-                "icone": tronque(b["icone"].as_str().unwrap_or(""), 8),
+                "icone": safe_icon(b["icone"].as_str().unwrap_or("")),
                 "titre": tronque(b["titre"].as_str().unwrap_or(""), MAX_COURT),
                 "texte": tronque(b["texte"].as_str().unwrap_or(""), MAX_MOYEN),
             }),
@@ -1558,6 +1606,15 @@ fn sanitiser_blocs(v: &Value) -> String {
             _ => continue,
         };
         bloc["animation"] = json!(anim);
+        // Disposition en ligne (plusieurs blocs cote a cote) : "ligne" est un
+        // identifiant partage par les blocs d'une meme rangee (chaine libre,
+        // generee cote client), "largeur" leur part en % de la rangee,
+        // "espace" l'ecart en px entre blocs de la rangee. "anim_delai"
+        // decale le declenchement de l'animation d'entree (mode "actions").
+        bloc["ligne"] = json!(tronque(b["ligne"].as_str().unwrap_or(""), 20));
+        bloc["largeur"] = json!(san_int(b, "largeur", 10, 100, 100));
+        bloc["espace"] = json!(san_int(b, "espace", 0, 80, 16));
+        bloc["anim_delai"] = json!(san_int(b, "anim_delai", 0, 5000, 0));
         out.push(bloc);
     }
     serde_json::to_string(&out).unwrap_or_else(|_| "[]".to_string())

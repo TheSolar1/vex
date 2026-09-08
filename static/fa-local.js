@@ -27,8 +27,18 @@
     }
   }
 
+  // Un même <i> peut être découvert deux fois (le batch du MutationObserver
+  // regroupe plusieurs mutations dont les sous-arbres se recoupent, ex. un
+  // conteneur puis son contenu injectés coup sur coup) -- ce marqueur,
+  // posé de façon synchrone avant tout "await", évite de lancer deux
+  // remplacements concurrents sur le même élément.
+  const claimed = new WeakSet();
+
   // Remplace un élément <i class="fas fa-xxx"> par un <svg>
   async function replaceIcon(el) {
+    if (claimed.has(el)) return;
+    claimed.add(el);
+
     // Trouve le nom de l'icône : fa-gauge → gauge
     const iconClass = Array.from(el.classList)
       .find(c => c.startsWith('fa-') && c !== 'fas' && c !== 'far' && c !== 'fab');
@@ -63,7 +73,7 @@
     svg.setAttribute('class', el.getAttribute('class') || '');
     svg.innerHTML = data.inner;
 
-    el.parentNode.replaceChild(svg, el);
+    if (el.parentNode) el.parentNode.replaceChild(svg, el);
   }
 
   // Traite tous les <i class="fas ..."> du nœud donné

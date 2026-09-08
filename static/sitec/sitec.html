@@ -6,6 +6,7 @@
 <title>{{T_TITRE_ONGLET}}</title>
 <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
 <link rel="stylesheet" href="/static/css/theme.css">
+<script src="/static/fa-local.js" defer></script>
 <style>
 .ico    { display:inline-block; width:16px; height:16px; vertical-align:middle; flex-shrink:0; }
 .ico-sm { width:14px; height:14px; }
@@ -133,12 +134,13 @@ body {
 .link-row a { color:var(--accent); font-weight:600; text-decoration:none; display:flex; align-items:center; gap:5px; flex-shrink:0; }
 
 .blocs-hint { font-size:12px; color:var(--text-dim); margin-bottom:14px; }
-.editor-card.wide { max-width:1180px; }
+.editor-card.wide { max-width:none; width:100%; }
 
-.blocs-editor-layout { display:flex; gap:20px; align-items:flex-start; }
+/* ── Écran blocs : palette | canevas | réglages, + barre d'actions verticale ── */
+.blocs-editor-layout { display:flex; gap:0; align-items:stretch; height:calc(100vh - 150px); min-height:420px; }
 .blocs-palette {
-  width:220px; flex-shrink:0; border:1px solid var(--border); border-radius:8px; background:var(--sidebar-hover);
-  max-height:74vh; overflow-y:auto; padding:10px;
+  width:210px; flex-shrink:0; border:1px solid var(--border); border-radius:8px 0 0 8px; background:var(--sidebar-hover);
+  overflow-y:auto; padding:10px;
 }
 .blocs-palette-cat { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-dim); margin:12px 4px 6px; }
 .blocs-palette-cat:first-child { margin-top:2px; }
@@ -149,13 +151,42 @@ body {
 .blocs-palette-item:hover { background:var(--surface); border-color:var(--border); }
 .blocs-palette-item.dragging { opacity:.4; }
 .blocs-palette-item i { width:16px; text-align:center; color:var(--accent); flex-shrink:0; }
-.blocs-canvas { flex:1; min-width:0; }
+
+.blocs-toolbar-v {
+  width:44px; flex-shrink:0; background:var(--surface); border-top:1px solid var(--border); border-bottom:1px solid var(--border);
+  display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 0;
+}
+.blocs-toolbar-v .vbtn {
+  width:34px; height:34px; border-radius:7px; border:1px solid transparent; background:none; color:var(--text-dim);
+  cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; transition:.15s;
+}
+.blocs-toolbar-v .vbtn:hover { background:var(--sidebar-hover); color:var(--text); }
+.blocs-toolbar-v .vbtn.active { background:var(--accent); color:var(--surface); }
+.blocs-toolbar-v .vsep { width:22px; height:1px; background:var(--border); margin:4px 0; }
+
+.blocs-center { flex:1; min-width:0; display:flex; flex-direction:column; border-top:1px solid var(--border); border-bottom:1px solid var(--border); background:var(--surface); }
+.blocs-viewtabs { display:flex; gap:4px; padding:8px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+.blocs-viewtab {
+  padding:6px 13px; border-radius:6px; border:none; background:none; cursor:pointer; font-size:12.5px; font-weight:600;
+  color:var(--text-dim); display:inline-flex; align-items:center; gap:6px;
+}
+.blocs-viewtab.active { background:var(--alt); color:var(--accent); }
+.blocs-canvas-wrap { flex:1; overflow-y:auto; padding:16px; }
 .blocs-canvas.drop-over { background:var(--alt); border-radius:8px; }
 .blocs-drop-indicator { height:3px; background:var(--accent); border-radius:2px; margin:4px 0; }
+.blocs-drop-side { position:relative; }
+.blocs-drop-side::before { content:''; position:absolute; top:4px; bottom:4px; width:3px; background:var(--accent); border-radius:2px; }
+.blocs-drop-side.side-left::before { left:-6px; }
+.blocs-drop-side.side-right::before { right:-6px; }
+.blocs-code-view { width:100%; height:100%; min-height:300px; font-family:'SF Mono',Consolas,monospace; font-size:12.5px;
+  border:1px solid var(--border); border-radius:6px; padding:12px; background:var(--input); color:var(--text); resize:none; }
 
-.blocs-list { display:flex; flex-direction:column; gap:10px; margin-bottom:16px; min-height:60px; }
-.bloc-item { border:1px solid var(--border); border-radius:8px; background:var(--sidebar-hover); }
+.blocs-list { display:flex; flex-direction:column; gap:10px; min-height:60px; }
+.blocs-row { display:flex; gap:10px; align-items:stretch; flex-wrap:wrap; }
+.blocs-row .bloc-item { min-width:0; }
+.bloc-item { border:1px solid var(--border); border-radius:8px; background:var(--sidebar-hover); flex:1; }
 .bloc-item.dragging { opacity:.4; }
+.bloc-item.selected { border-color:var(--accent); box-shadow:0 0 0 2px var(--alt); }
 .bloc-item-hdr { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; cursor:pointer; gap:8px; }
 .bloc-item-type { font-size:12.5px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:8px; overflow:hidden; }
 .bloc-item-type .bloc-drag-handle { cursor:grab; color:var(--text-dim); flex-shrink:0; }
@@ -190,6 +221,59 @@ body {
 .bloc-anim-select:focus { border-color:var(--accent); }
 .blocs-empty { text-align:center; padding:24px 14px; color:var(--text-dim); font-size:13px; border:1px dashed var(--border); border-radius:8px; margin-bottom:16px; }
 .blocs-add-row { display:flex; gap:8px; flex-wrap:wrap; }
+
+/* ── Panneau de réglages (droite) ── */
+.blocs-settings {
+  width:290px; flex-shrink:0; border:1px solid var(--border); border-radius:0 8px 8px 0; background:var(--sidebar-hover);
+  overflow-y:auto; padding:14px;
+}
+.blocs-settings-empty { color:var(--text-dim); font-size:12.5px; text-align:center; padding:30px 10px; }
+.blocs-settings-hdr { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border); }
+.blocs-settings-hdr i { color:var(--accent); }
+.blocs-settings-section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-dim); margin:14px 0 8px; }
+.blocs-settings-section-title:first-child { margin-top:0; }
+.layout-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+
+/* ── Icônes (remplace le champ émoji libre) ── */
+.champ-icon-preview {
+  width:44px; height:44px; border-radius:8px; background:var(--surface); border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center; font-size:20px; color:var(--accent); margin-bottom:8px;
+}
+.icon-picker-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:6000; align-items:center; justify-content:center; }
+.icon-picker-modal { background:var(--surface); border-radius:10px; width:460px; max-width:92vw; max-height:78vh; display:flex; flex-direction:column; overflow:hidden; }
+.icon-picker-hdr { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid var(--border); }
+.icon-picker-close { background:none; border:none; font-size:18px; cursor:pointer; color:var(--text-dim); }
+.icon-picker-search { padding:10px 16px; border-bottom:1px solid var(--border); }
+.icon-picker-search input { width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:6px; background:var(--input); color:var(--text); font-size:13px; outline:none; }
+.icon-picker-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; padding:14px; overflow-y:auto; }
+.icon-picker-item {
+  aspect-ratio:1; border-radius:7px; border:1px solid var(--border); background:var(--sidebar-hover); cursor:pointer;
+  display:flex; align-items:center; justify-content:center; font-size:17px; color:var(--text);
+}
+.icon-picker-item:hover { border-color:var(--accent); color:var(--accent); }
+
+/* ── Mode Actions : timeline façon Blender ── */
+.blocs-timeline-wrap { border-top:1px solid var(--border); background:var(--surface); flex-shrink:0; display:none; }
+.blocs-timeline-wrap.active { display:block; }
+.blocs-timeline-hdr { display:flex; align-items:center; gap:10px; padding:8px 12px; border-bottom:1px solid var(--border); }
+.blocs-timeline-hdr .vbtn {
+  width:30px; height:30px; border-radius:6px; border:1px solid var(--border); background:var(--sidebar-hover); color:var(--text);
+  cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:12px;
+}
+.blocs-timeline-hdr .vbtn:hover { background:var(--accent); color:var(--surface); }
+.timeline-time { font-family:'SF Mono',Consolas,monospace; font-size:12px; color:var(--text-dim); }
+.blocs-timeline-tracks { max-height:180px; overflow-y:auto; padding:8px 12px; }
+.timeline-track { display:flex; align-items:center; gap:10px; height:30px; margin-bottom:4px; }
+.timeline-track-label { width:150px; flex-shrink:0; font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:6px; }
+.timeline-track-ruler { flex:1; position:relative; height:20px; background:var(--sidebar-hover); border-radius:4px; }
+.timeline-clip {
+  position:absolute; top:2px; height:16px; width:16px; border-radius:4px; background:var(--accent); cursor:grab;
+  box-shadow:0 1px 3px rgba(0,0,0,.3);
+}
+.timeline-clip:active { cursor:grabbing; }
+.timeline-clip.selected { outline:2px solid var(--text); }
+.timeline-playhead { position:absolute; top:-4px; bottom:-4px; width:2px; background:var(--danger); pointer-events:none; }
+.timeline-ruler-wrap { position:relative; margin-left:160px; height:16px; }
 
 .champ-image-preview { margin-bottom:6px; }
 .champ-image-preview img { max-width:220px; max-height:130px; border-radius:6px; display:block; }
@@ -296,6 +380,19 @@ body {
   </div>
 </div>
 
+<div class="icon-picker-overlay" id="iconPickerOverlay">
+  <div class="icon-picker-modal">
+    <div class="icon-picker-hdr">
+      <strong>Choisir une icône</strong>
+      <button type="button" class="icon-picker-close" id="iconPickerCloseBtn">&times;</button>
+    </div>
+    <div class="icon-picker-search">
+      <input type="text" id="iconPickerSearchInput" placeholder="Rechercher une icône…">
+    </div>
+    <div class="icon-picker-grid" id="iconPickerGrid"></div>
+  </div>
+</div>
+
 <script>
 {{I18N_JS}}
 </script>
@@ -378,6 +475,7 @@ async function openPage(id) {
     current = data.page;
     dirty = false;
     blocsFullView = current.mode === 'blocs';
+    history.replaceState({}, '', blocsFullView ? `/sitec?open=${encodeURIComponent(id)}&blocs=1` : `/sitec?open=${encodeURIComponent(id)}`);
     renderList();
     renderEditor();
   } catch(e) { if (e.message !== 'Session expirée') toast(I18N.ERREUR_CHARGEMENT, 'err'); }
@@ -457,7 +555,7 @@ const BLOC_SPECS = {
            {k:'items', type:'items', label:'Éléments', sousChamps:[{k:'texte',type:'text',placeholder:'Élément'}]} ],
   badge: [ {k:'texte', type:'text', label:'Texte', placeholder:'Texte du badge'},
            {k:'couleur', type:'select', label:'Couleur', options:[['vert','Vert'],['bleu','Bleu'],['rouge','Rouge'],['jaune','Jaune'],['gris','Gris'],['violet','Violet']], defaut:'vert'} ],
-  icone_texte: [ {k:'icone', type:'text', label:'Icône (emoji)', placeholder:'🚀'}, {k:'titre', type:'text', label:'Titre', placeholder:'Titre'},
+  icone_texte: [ {k:'icone', type:'icon', label:'Icône', defaut:'star'}, {k:'titre', type:'text', label:'Titre', placeholder:'Titre'},
            {k:'texte', type:'textarea', label:'Texte', placeholder:'Texte'} ],
   image: [ {k:'url', type:'image', label:'Image'}, {k:'alt', type:'text', label:'Texte alternatif', placeholder:'Description de l’image'},
            {k:'legende', type:'text', label:'Légende', placeholder:'Légende (optionnel)'} ],
@@ -505,12 +603,39 @@ const BLOC_SPECS = {
   carte_google_maps: [ {k:'adresse', type:'text', label:'Adresse', placeholder:'12 rue de la Paix, Paris'} ],
 };
 
+// Icônes proposées dans le sélecteur (Font Awesome solid, servies en local
+// via /static/img/solid/*.svg — voir fa-local.js). Sous-ensemble curé parmi
+// les ~2000 icônes disponibles.
+const ICON_CHOICES = [
+  'star','heart','bolt','gift','camera','music','gear','bell','check','trophy','fire','leaf','shield',
+  'sun','moon','cloud','snowflake','droplet','seedling','paw','cat','dog','fish','tree','gem','crown',
+  'diamond','wand-magic-sparkles','palette','paintbrush','pen','pencil','brush','graduation-cap','book',
+  'book-open','lightbulb','globe','compass','map-pin','location-dot','house','building-columns','store',
+  'cart-shopping','bag-shopping','credit-card','wallet','money-bill','coins','piggy-bank','chart-line',
+  'chart-simple','chart-pie','chart-column','gauge','gauge-high','rocket','plane','plane-departure','car',
+  'truck','bicycle','train','ship','anchor','umbrella-beach','mountain-sun','binoculars','camera-retro',
+  'film','clapperboard','headphones-simple','microphone','volume-high','wifi','signal','battery-full',
+  'link','paperclip','envelope','phone','comment','comments','thumbs-up','thumbs-down','handshake',
+  'users','user','user-group','award','medal','ribbon','flag','flag-checkered','bullseye','puzzle-piece',
+  'dice','cube','shapes','infinity','hourglass','clock','stopwatch','calendar','calendar-days','key',
+  'lock','lock-open','shield-halved','fingerprint','eye','eye-slash','search','filter','sliders','wrench',
+  'screwdriver-wrench','hammer','toolbox','recycle','list-check','circle-check','star-half-stroke',
+  'heart-pulse','dumbbell','utensils','mug-hot','pizza-slice','code','laptop','mobile-screen','server',
+  'database','cloud-arrow-up','share-nodes','thumbtack','bookmark',
+];
+
 let blocs = [];
-let blocsExpanded = new Set();
+let selectedIdx = -1;
 let dragState = null; // { fromPalette:bool, type?, fromIdx? }
+let blocsViewMode = 'visuel'; // 'visuel' | 'code'
+let actionsMode = false;
+let tlPlaying = false;
+let tlPlayhead = 0; // ms
+let tlSelectedIdx = -1;
+const TL_MAXMS = 5000;
 
 function blocDefaut(type) {
-  const base = { type, animation: '' };
+  const base = { type, animation: '', ligne: '', largeur: 100, espace: 16, anim_delai: 0 };
   (BLOC_SPECS[type] || []).forEach(champ => {
     if (champ.type === 'items') base[champ.k] = [];
     else if (champ.type === 'checkgroup') base[champ.k] = champ.defaut ? [...champ.defaut] : [];
@@ -545,6 +670,13 @@ function champHtml(valeur, champ) {
     const arr = Array.isArray(v) ? v : [];
     return `<div class="champ-checkgroup" data-checkgroup="${champ.k}">${champ.options.map(([val,lbl]) => `
       <label><input type="checkbox" value="${val}" ${arr.includes(val)?'checked':''}> ${escAttr(lbl)}</label>`).join('')}</div>`;
+  }
+  if (champ.type === 'icon') {
+    const icon = v || 'star';
+    return `<div class="champ-icon" data-field="${champ.k}">
+      <div class="champ-icon-preview"><i class="fas fa-${escAttr(icon)}"></i></div>
+      <button type="button" class="btn btn-secondary btn-xs" data-icon-pick="${champ.k}"><i class="fas fa-icons"></i> Choisir une icône</button>
+    </div>`;
   }
   if (champ.type === 'image') {
     return `<div class="champ-image" data-field="${champ.k}">
@@ -586,7 +718,7 @@ function blocItemBodyHtml(b) {
   return `${champs}${animationSelectHtml(b)}`;
 }
 
-// ── Rendu de la liste des blocs + accordéon + glisser-déposer ──────
+// ── Rendu du canevas : rangées de blocs, sélection, glisser-déposer ────
 function renderBlocsList() {
   const list = document.getElementById('blocsList');
   if (!list) return;
@@ -594,8 +726,24 @@ function renderBlocsList() {
     list.innerHTML = `<div class="blocs-empty">${I18N.BLOCS_VIDE}</div>`;
     return;
   }
-  list.innerHTML = blocs.map((b, i) => `
-    <div class="bloc-item${blocsExpanded.has(i)?' open':''}" data-idx="${i}" draggable="true">
+
+  // Regroupe les blocs consécutifs qui partagent "ligne" en rangées visuelles.
+  const rows = [];
+  let i = 0;
+  while (i < blocs.length) {
+    const ligne = blocs[i].ligne || '';
+    if (!ligne) { rows.push([i]); i++; continue; }
+    const grp = [i];
+    let j = i + 1;
+    while (j < blocs.length && (blocs[j].ligne || '') === ligne) { grp.push(j); j++; }
+    rows.push(grp);
+    i = j;
+  }
+
+  const cardHtml = (idx) => {
+    const b = blocs[idx];
+    const style = b.ligne ? ` style="flex:0 0 ${b.largeur||100}%;max-width:${b.largeur||100}%;"` : '';
+    return `<div class="bloc-item${selectedIdx===idx?' selected':''}" data-idx="${idx}" draggable="true"${style}>
       <div class="bloc-item-hdr">
         <span class="bloc-item-type">
           <i class="fas fa-grip-vertical bloc-drag-handle"></i>
@@ -604,21 +752,25 @@ function renderBlocsList() {
           ${blocSummary(b) ? `<span class="bloc-item-summary">— ${escAttr(blocSummary(b))}</span>` : ''}
         </span>
         <div class="bloc-item-actions">
-          <button type="button" class="bloc-act" data-act="up" ${i===0?'disabled':''} title="${escAttr(I18N.BLOC_MONTER_TITLE)}"><i class="fas fa-arrow-up"></i></button>
-          <button type="button" class="bloc-act" data-act="down" ${i===blocs.length-1?'disabled':''} title="${escAttr(I18N.BLOC_DESCENDRE_TITLE)}"><i class="fas fa-arrow-down"></i></button>
+          <button type="button" class="bloc-act" data-act="up" ${idx===0?'disabled':''} title="${escAttr(I18N.BLOC_MONTER_TITLE)}"><i class="fas fa-arrow-up"></i></button>
+          <button type="button" class="bloc-act" data-act="down" ${idx===blocs.length-1?'disabled':''} title="${escAttr(I18N.BLOC_DESCENDRE_TITLE)}"><i class="fas fa-arrow-down"></i></button>
           <button type="button" class="bloc-act bloc-act-danger" data-act="del" title="${escAttr(I18N.BLOC_SUPPRIMER_TITLE)}"><i class="fas fa-trash"></i></button>
         </div>
       </div>
-      <div class="bloc-item-body">${blocsExpanded.has(i) ? blocItemBodyHtml(b) : ''}</div>
-    </div>`).join('');
+    </div>`;
+  };
+
+  list.innerHTML = rows.map(grp => grp.length === 1
+    ? cardHtml(grp[0])
+    : `<div class="blocs-row">${grp.map(cardHtml).join('')}</div>`
+  ).join('');
 
   list.querySelectorAll('.bloc-item').forEach(item => {
     const idx = Number(item.dataset.idx);
 
     item.querySelector('.bloc-item-hdr').addEventListener('click', (e) => {
       if (e.target.closest('.bloc-act')) return;
-      if (blocsExpanded.has(idx)) blocsExpanded.delete(idx); else blocsExpanded.add(idx);
-      renderBlocsList();
+      selectionnerBloc(idx);
     });
 
     item.addEventListener('dragstart', (e) => {
@@ -627,142 +779,277 @@ function renderBlocsList() {
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', 'reorder');
     });
-    item.addEventListener('dragend', () => { item.classList.remove('dragging'); dragState = null; });
-
-    // Champs simples (hors items / checkgroup / image, gérés à part)
-    item.querySelectorAll(':scope > .bloc-item-body [data-field]').forEach(field => {
-      if (field.closest('.champ-image') || field.closest('.champ-items')) return;
-      field.addEventListener('input', () => { blocs[idx][field.dataset.field] = field.value; markDirty(); });
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      dragState = null;
+      list.querySelectorAll('.blocs-drop-side').forEach(el => el.classList.remove('blocs-drop-side','side-left','side-right'));
     });
 
-    // Checkgroups (partage_social)
-    item.querySelectorAll('[data-checkgroup]').forEach(group => {
-      group.querySelectorAll('input[type=checkbox]').forEach(cb => {
-        cb.addEventListener('change', () => {
-          const key = group.dataset.checkgroup;
-          blocs[idx][key] = Array.from(group.querySelectorAll('input:checked')).map(c => c.value);
-          markDirty();
-        });
-      });
+    // Survol : bord gauche/droit = rejoindre une rangée, centre = insérer seul
+    item.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const rect = item.getBoundingClientRect();
+      const rel = (e.clientX - rect.left) / rect.width;
+      item.classList.remove('blocs-drop-side','side-left','side-right');
+      if (rel < 0.22) item.classList.add('blocs-drop-side','side-left');
+      else if (rel > 0.78) item.classList.add('blocs-drop-side','side-right');
     });
+    item.addEventListener('dragleave', () => item.classList.remove('blocs-drop-side','side-left','side-right'));
 
-    // Champs image (ouvre le sélecteur) -- hors sous-listes, gérées plus bas
-    item.querySelectorAll('[data-img-pick]').forEach(btn => {
-      if (btn.closest('.champ-items')) return;
-      btn.addEventListener('click', () => {
-        const key = btn.dataset.imgPick;
-        ouvrirSelecteurImage(url => { blocs[idx][key] = url; markDirty(); renderBlocsList(); });
-      });
-    });
-    item.querySelectorAll('[data-img-clear]').forEach(btn => {
-      if (btn.closest('.champ-items')) return;
-      btn.addEventListener('click', () => { blocs[idx][btn.dataset.imgClear] = ''; markDirty(); renderBlocsList(); });
-    });
-
-    // Sous-listes (items)
-    item.querySelectorAll('.champ-items').forEach(wrap => {
-      const key = wrap.dataset.field;
-      const champ = (BLOC_SPECS[blocs[idx].type] || []).find(c => c.k === key);
-      wrap.querySelectorAll('.champ-item-row').forEach(row => {
-        const j = Number(row.dataset.subidx);
-        row.querySelectorAll('[data-field]').forEach(field => {
-          if (field.closest('.champ-image')) return;
-          field.addEventListener('input', () => { blocs[idx][key][j][field.dataset.field] = field.value; markDirty(); });
-        });
-        row.querySelectorAll('[data-img-pick]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const fk = btn.dataset.imgPick;
-            ouvrirSelecteurImage(url => { blocs[idx][key][j][fk] = url; markDirty(); renderBlocsList(); });
-          });
-        });
-        row.querySelectorAll('[data-img-clear]').forEach(btn => {
-          btn.addEventListener('click', () => { blocs[idx][key][j][btn.dataset.imgClear] = ''; markDirty(); renderBlocsList(); });
-        });
-        row.querySelectorAll('[data-subact]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const items = blocs[idx][key];
-            if (btn.dataset.subact === 'up' && j > 0) [items[j-1], items[j]] = [items[j], items[j-1]];
-            if (btn.dataset.subact === 'down' && j < items.length-1) [items[j+1], items[j]] = [items[j], items[j+1]];
-            if (btn.dataset.subact === 'del') items.splice(j, 1);
-            markDirty();
-            renderBlocsList();
-          });
-        });
-      });
-      const addBtn = wrap.querySelector('[data-add-item]');
-      if (addBtn) addBtn.addEventListener('click', () => {
-        const nouvel = {};
-        champ.sousChamps.forEach(sc => { nouvel[sc.k] = ''; });
-        blocs[idx][key].push(nouvel);
-        markDirty();
-        renderBlocsList();
-      });
+    item.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = item.getBoundingClientRect();
+      const rel = (e.clientX - rect.left) / rect.width;
+      item.classList.remove('blocs-drop-side','side-left','side-right');
+      const side = rel < 0.22 ? 'left' : (rel > 0.78 ? 'right' : null);
+      deposerSur(idx, side);
     });
 
     item.querySelectorAll(':scope > .bloc-item-hdr .bloc-act').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const act = btn.dataset.act;
-        if (act === 'up' && idx > 0) { [blocs[idx-1], blocs[idx]] = [blocs[idx], blocs[idx-1]]; reindexExpanded(idx-1, idx); }
-        if (act === 'down' && idx < blocs.length-1) { [blocs[idx+1], blocs[idx]] = [blocs[idx], blocs[idx+1]]; reindexExpanded(idx, idx+1); }
-        if (act === 'del') { blocs.splice(idx, 1); blocsExpanded.delete(idx); }
+        if (act === 'up' && idx > 0) {
+          [blocs[idx-1], blocs[idx]] = [blocs[idx], blocs[idx-1]];
+          if (selectedIdx === idx) selectedIdx = idx-1; else if (selectedIdx === idx-1) selectedIdx = idx;
+        }
+        if (act === 'down' && idx < blocs.length-1) {
+          [blocs[idx+1], blocs[idx]] = [blocs[idx], blocs[idx+1]];
+          if (selectedIdx === idx) selectedIdx = idx+1; else if (selectedIdx === idx+1) selectedIdx = idx;
+        }
+        if (act === 'del') {
+          blocs.splice(idx, 1);
+          if (selectedIdx === idx) selectedIdx = -1; else if (selectedIdx > idx) selectedIdx--;
+        }
         markDirty();
         renderBlocsList();
+        renderBlocsSettings();
       });
     });
   });
 
-  // Glisser-déposer sur le canevas (réordonner ou insérer depuis la palette)
-  const canvas = document.getElementById('blocsList');
-  canvas.ondragover = (e) => {
+  // Zone vide du canevas : dépose = bloc seul en fin de page
+  list.ondragover = (e) => { if (!e.target.closest('.bloc-item')) e.preventDefault(); };
+  list.ondrop = (e) => {
+    if (e.target.closest('.bloc-item')) return;
     e.preventDefault();
-    e.dataTransfer.dropEffect = dragState && dragState.type ? 'copy' : 'move';
-  };
-  canvas.ondrop = (e) => {
-    e.preventDefault();
-    const after = trouverPositionDepot(canvas, e.clientY);
     if (dragState && dragState.type) {
-      ajouterBloc(dragState.type, after);
+      ajouterBloc(dragState.type);
     } else if (dragState && dragState.fromIdx !== undefined) {
       const [moved] = blocs.splice(dragState.fromIdx, 1);
-      let dest = after;
-      if (dragState.fromIdx < after) dest -= 1;
-      blocs.splice(dest + 1, 0, moved);
+      moved.ligne = ''; moved.largeur = 100;
+      blocs.push(moved);
       markDirty();
       renderBlocsList();
     }
     dragState = null;
   };
+
+  if (actionsMode) renderTimeline();
 }
 
-function reindexExpanded(a, b) {
-  const ha = blocsExpanded.has(a), hb = blocsExpanded.has(b);
-  blocsExpanded.delete(a); blocsExpanded.delete(b);
-  if (ha) blocsExpanded.add(b);
-  if (hb) blocsExpanded.add(a);
+function selectionnerBloc(idx) {
+  selectedIdx = idx;
+  renderBlocsList();
+  renderBlocsSettings();
 }
 
-function trouverPositionDepot(canvas, clientY) {
-  const items = Array.from(canvas.querySelectorAll('.bloc-item'));
-  let after = items.length - 1;
-  for (let i = 0; i < items.length; i++) {
-    const rect = items[i].getBoundingClientRect();
-    if (clientY < rect.top + rect.height / 2) { after = i - 1; break; }
+// ── Panneau de réglages (droite) : contenu complet + disposition + animation du bloc sélectionné ──
+function renderBlocsSettings() {
+  const panel = document.getElementById('blocsSettings');
+  if (!panel) return;
+  if (selectedIdx < 0 || !blocs[selectedIdx]) {
+    panel.innerHTML = `<div class="blocs-settings-empty"><i class="fas fa-arrow-pointer" style="display:block;font-size:20px;margin-bottom:8px;"></i>Sélectionnez un bloc dans le canevas pour modifier tous ses réglages ici.</div>`;
+    return;
   }
-  return after;
+  const idx = selectedIdx;
+  const b = blocs[idx];
+  const enLigne = !!b.ligne;
+  panel.innerHTML = `
+    <div class="blocs-settings-hdr"><i class="fas fa-${BLOC_ICONES[b.type]||'cube'}"></i> ${escAttr(BLOC_LABELS[b.type]||b.type)}</div>
+    <div class="blocs-settings-section-title">Contenu</div>
+    ${blocItemBodyHtml(b)}
+    <div class="blocs-settings-section-title">Disposition</div>
+    <div class="layout-grid-2">
+      <div><span class="champ-label">Largeur (%)</span><input type="number" id="setLargeur" min="10" max="100" value="${b.largeur||100}" ${enLigne?'':'disabled'}></div>
+      <div><span class="champ-label">Espace ligne (px)</span><input type="number" id="setEspace" min="0" max="80" value="${b.espace||16}" ${enLigne?'':'disabled'}></div>
+    </div>
+    ${enLigne
+      ? `<button type="button" class="btn btn-secondary btn-xs" id="sortirLigneBtn" style="margin-top:8px"><i class="fas fa-arrows-left-right"></i> Sortir de la ligne</button>`
+      : `<div class="hint" style="margin-top:6px">Glissez ce bloc sur le bord gauche/droit d'un autre bloc dans le canevas pour les mettre côte à côte.</div>`}
+    <div class="blocs-settings-section-title">Délai d'animation</div>
+    <div><span class="champ-label">Avant déclenchement (ms)</span><input type="number" id="setDelai" min="0" max="5000" step="50" value="${b.anim_delai||0}"></div>
+    <div class="hint" style="margin-top:6px">Réglable aussi en glissant le repère de ce bloc dans le mode Actions (barre d'outils verticale).</div>`;
+
+  wireBlocFields(panel, idx);
+
+  const largeurEl = document.getElementById('setLargeur');
+  if (largeurEl) largeurEl.addEventListener('input', (e) => setLargeurLigne(idx, Number(e.target.value)));
+  const espaceEl = document.getElementById('setEspace');
+  if (espaceEl) espaceEl.addEventListener('input', (e) => setEspaceLigne(idx, Number(e.target.value)));
+  const delaiEl = document.getElementById('setDelai');
+  if (delaiEl) delaiEl.addEventListener('input', (e) => { blocs[idx].anim_delai = Math.max(0, Math.min(5000, Number(e.target.value)||0)); markDirty(); if (actionsMode) renderTimeline(); });
+  const sortirBtn = document.getElementById('sortirLigneBtn');
+  if (sortirBtn) sortirBtn.onclick = () => sortirDeLaLigne(idx);
+}
+
+// Câble les champs (texte, checkgroup, image, icône, sous-listes) d'un
+// panneau de réglages sur le bloc `idx` -- utilisé par le panneau latéral.
+function wireBlocFields(container, idx) {
+  container.querySelectorAll('[data-field]').forEach(field => {
+    if (field.closest('.champ-image') || field.closest('.champ-items') || field.closest('.champ-icon')) return;
+    field.addEventListener('input', () => { blocs[idx][field.dataset.field] = field.value; markDirty(); });
+    field.addEventListener('change', () => renderBlocsList());
+  });
+
+  container.querySelectorAll('[data-checkgroup]').forEach(group => {
+    group.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const key = group.dataset.checkgroup;
+        blocs[idx][key] = Array.from(group.querySelectorAll('input:checked')).map(c => c.value);
+        markDirty();
+      });
+    });
+  });
+
+  container.querySelectorAll('[data-img-pick]').forEach(btn => {
+    if (btn.closest('.champ-items')) return;
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.imgPick;
+      ouvrirSelecteurImage(url => { blocs[idx][key] = url; markDirty(); renderBlocsSettings(); });
+    });
+  });
+  container.querySelectorAll('[data-img-clear]').forEach(btn => {
+    if (btn.closest('.champ-items')) return;
+    btn.addEventListener('click', () => { blocs[idx][btn.dataset.imgClear] = ''; markDirty(); renderBlocsSettings(); });
+  });
+
+  container.querySelectorAll('[data-icon-pick]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.iconPick;
+      ouvrirSelecteurIcone(slug => { blocs[idx][key] = slug; markDirty(); renderBlocsSettings(); });
+    });
+  });
+
+  // Sous-listes (items)
+  container.querySelectorAll('.champ-items').forEach(wrap => {
+    const key = wrap.dataset.field;
+    const champ = (BLOC_SPECS[blocs[idx].type] || []).find(c => c.k === key);
+    wrap.querySelectorAll('.champ-item-row').forEach(row => {
+      const j = Number(row.dataset.subidx);
+      row.querySelectorAll('[data-field]').forEach(field => {
+        if (field.closest('.champ-image')) return;
+        field.addEventListener('input', () => { blocs[idx][key][j][field.dataset.field] = field.value; markDirty(); });
+      });
+      row.querySelectorAll('[data-img-pick]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const fk = btn.dataset.imgPick;
+          ouvrirSelecteurImage(url => { blocs[idx][key][j][fk] = url; markDirty(); renderBlocsSettings(); });
+        });
+      });
+      row.querySelectorAll('[data-img-clear]').forEach(btn => {
+        btn.addEventListener('click', () => { blocs[idx][key][j][btn.dataset.imgClear] = ''; markDirty(); renderBlocsSettings(); });
+      });
+      row.querySelectorAll('[data-subact]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const items = blocs[idx][key];
+          if (btn.dataset.subact === 'up' && j > 0) [items[j-1], items[j]] = [items[j], items[j-1]];
+          if (btn.dataset.subact === 'down' && j < items.length-1) [items[j+1], items[j]] = [items[j], items[j+1]];
+          if (btn.dataset.subact === 'del') items.splice(j, 1);
+          markDirty();
+          renderBlocsSettings();
+        });
+      });
+    });
+    const addBtn = wrap.querySelector('[data-add-item]');
+    if (addBtn) addBtn.addEventListener('click', () => {
+      const nouvel = {};
+      champ.sousChamps.forEach(sc => { nouvel[sc.k] = ''; });
+      blocs[idx][key].push(nouvel);
+      markDirty();
+      renderBlocsSettings();
+    });
+  });
+}
+
+// ── Disposition en rangées (plusieurs blocs par ligne) ──────────────
+function deposerSur(targetIdx, side) {
+  if (!dragState) return;
+  let novo;
+  if (dragState.type) {
+    novo = blocDefaut(dragState.type);
+  } else if (dragState.fromIdx !== undefined) {
+    [novo] = blocs.splice(dragState.fromIdx, 1);
+    if (dragState.fromIdx < targetIdx) targetIdx--;
+  } else {
+    dragState = null;
+    return;
+  }
+
+  if (side === 'left' || side === 'right') {
+    const target = blocs[targetIdx];
+    const ligneId = target.ligne || ('r' + Date.now().toString(36));
+    if (!target.ligne) target.ligne = ligneId;
+    novo.ligne = ligneId;
+    novo.espace = target.espace || 16;
+    const insertAt = side === 'left' ? targetIdx : targetIdx + 1;
+    blocs.splice(insertAt, 0, novo);
+    equilibrerLigne(ligneId);
+  } else {
+    novo.ligne = ''; novo.largeur = 100;
+    blocs.splice(targetIdx + 1, 0, novo);
+  }
+  selectedIdx = blocs.indexOf(novo);
+  markDirty();
+  renderBlocsList();
+  renderBlocsSettings();
+  dragState = null;
+}
+
+function equilibrerLigne(ligneId) {
+  const idxs = blocs.map((b, i) => b.ligne === ligneId ? i : -1).filter(i => i >= 0);
+  if (!idxs.length) return;
+  const w = Math.round(100 / idxs.length);
+  idxs.forEach(i => { blocs[i].largeur = w; });
+}
+
+function sortirDeLaLigne(idx) {
+  const ligneId = blocs[idx].ligne;
+  blocs[idx].ligne = '';
+  blocs[idx].largeur = 100;
+  if (ligneId) equilibrerLigne(ligneId);
+  markDirty();
+  renderBlocsList();
+  renderBlocsSettings();
+}
+
+function setLargeurLigne(idx, val) {
+  blocs[idx].largeur = Math.max(10, Math.min(100, val || 100));
+  markDirty();
+  renderBlocsList();
+}
+
+function setEspaceLigne(idx, val) {
+  const v = Math.max(0, Math.min(80, val || 0));
+  const ligneId = blocs[idx].ligne;
+  blocs.forEach(b => { if (b.ligne && b.ligne === ligneId) b.espace = v; });
+  markDirty();
+  renderBlocsList();
 }
 
 function ajouterBloc(type, apres) {
   const bloc = blocDefaut(type);
   if (apres === undefined || apres >= blocs.length - 1) {
     blocs.push(bloc);
-    blocsExpanded.add(blocs.length - 1);
+    selectedIdx = blocs.length - 1;
   } else {
     blocs.splice(apres + 1, 0, bloc);
-    blocsExpanded = new Set([...blocsExpanded].map(i => i > apres ? i + 1 : i));
-    blocsExpanded.add(apres + 1);
+    selectedIdx = apres + 1;
   }
   markDirty();
   renderBlocsList();
+  renderBlocsSettings();
 }
 
 function renderPalette() {
@@ -858,14 +1145,43 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('imgPickerUrlBtn').onclick = validerUrlImage;
   document.getElementById('uploadDropZone').onclick = () => document.getElementById('uploadFileInput').click();
   document.getElementById('uploadFileInput').onchange = (e) => gererUploadImage(e.target.files[0]);
+
+  document.getElementById('iconPickerCloseBtn').onclick = fermerSelecteurIcone;
+  document.getElementById('iconPickerOverlay').addEventListener('click', (e) => { if (e.target.id === 'iconPickerOverlay') fermerSelecteurIcone(); });
+  document.getElementById('iconPickerSearchInput').addEventListener('input', (e) => renderIconPickerGrid(e.target.value));
 });
+
+// ── Sélecteur d'icône (remplace la saisie libre d'émoji) ────────────
+let iconPickerCallback = null;
+
+function ouvrirSelecteurIcone(onChoisi) {
+  iconPickerCallback = onChoisi;
+  document.getElementById('iconPickerOverlay').style.display = 'flex';
+  document.getElementById('iconPickerSearchInput').value = '';
+  renderIconPickerGrid('');
+}
+function fermerSelecteurIcone() {
+  document.getElementById('iconPickerOverlay').style.display = 'none';
+  iconPickerCallback = null;
+}
+function renderIconPickerGrid(filter) {
+  const grid = document.getElementById('iconPickerGrid');
+  const f = (filter || '').toLowerCase().trim();
+  const list = f ? ICON_CHOICES.filter(s => s.includes(f)) : ICON_CHOICES;
+  grid.innerHTML = list.length
+    ? list.map(s => `<div class="icon-picker-item" data-icon="${s}" title="${s}"><i class="fas fa-${s}"></i></div>`).join('')
+    : `<div class="hint" style="grid-column:1/-1;text-align:center;padding:20px;">Aucune icône trouvée.</div>`;
+  grid.querySelectorAll('.icon-picker-item').forEach(el => {
+    el.onclick = () => { if (iconPickerCallback) iconPickerCallback(el.dataset.icon); fermerSelecteurIcone(); };
+  });
+}
 
 let blocsFullView = false;
 
 function renderEditor() {
   const p = current;
   blocs = Array.isArray(p.contenu_blocs) ? p.contenu_blocs.map(b => ({...b})) : [];
-  blocsExpanded = new Set();
+  selectedIdx = -1;
 
   if (blocsFullView) { renderBlocsFullView(); return; }
 
@@ -965,7 +1281,11 @@ function renderEditor() {
     };
   });
 
-  document.getElementById('ouvrirBlocsBtn').onclick = () => { blocsFullView = true; renderEditor(); };
+  document.getElementById('ouvrirBlocsBtn').onclick = () => {
+    blocsFullView = true;
+    history.pushState({}, '', `/sitec?open=${encodeURIComponent(p.id)}&blocs=1`);
+    renderEditor();
+  };
 
   ['titreInput','contenuTitreInput','contenuCorpsInput','contenuHtmlInput','publicToggle'].forEach(id => {
     const el = document.getElementById(id);
@@ -989,12 +1309,15 @@ function renderEditor() {
 // ── Écran séparé : éditeur de blocs plein écran ────────────────────
 function renderBlocsFullView() {
   const p = current;
+  selectedIdx = -1;
+  blocsViewMode = 'visuel';
   document.getElementById('main').innerHTML = `
     <div class="editor-card wide" id="editorCard">
       <div class="editor-hdr">
         <button type="button" class="btn btn-secondary" id="retourBtn"><i class="fas fa-arrow-left"></i> Retour</button>
         <input type="text" class="titre-input" id="titreInput" value="${escAttr(p.titre)}" placeholder="${I18N.TITRE_DE_LA_PAGE}" style="flex:1;margin:0 14px;">
         <div class="editor-actions">
+          <button class="btn btn-secondary" id="apercuBtn"><i class="fas fa-eye"></i> Aperçu</button>
           <button class="btn btn-danger" id="deleteBtn">
             <img class="ico ico-sm ico-white" src="${ICO}trash.svg"> ${I18N.SUPPRIMER}
           </button>
@@ -1005,23 +1328,179 @@ function renderBlocsFullView() {
       </div>
 
       <div id="blocsFields">
-        <p class="blocs-hint">${I18N.BLOCS_HINT} Glissez un bloc de la palette dans la page, ou cliquez dessus pour l'ajouter à la fin.</p>
         <div class="blocs-editor-layout">
           <div class="blocs-palette" id="blocsPalette"></div>
-          <div class="blocs-canvas">
-            <div class="blocs-list" id="blocsList"></div>
+          <div class="blocs-toolbar-v" id="blocsToolbarV">
+            <button type="button" class="vbtn active" id="vbtnVisuel" title="Vue visuelle"><i class="fas fa-eye"></i></button>
+            <button type="button" class="vbtn" id="vbtnCode" title="Éditeur de code (JSON)"><i class="fas fa-code"></i></button>
+            <div class="vsep"></div>
+            <button type="button" class="vbtn" id="vbtnAjouter" title="Ajouter un bloc texte"><i class="fas fa-plus"></i></button>
+            <button type="button" class="vbtn" id="vbtnActions" title="Mode Actions (délais d'animation)"><i class="fas fa-clapperboard"></i></button>
+            <div class="vsep"></div>
+            <button type="button" class="vbtn" id="vbtnRaccourcis" title="Raccourcis clavier"><i class="fas fa-keyboard"></i></button>
           </div>
+          <div class="blocs-center">
+            <div class="blocs-viewtabs">
+              <button type="button" class="blocs-viewtab active" data-view="visuel"><i class="fas fa-eye"></i> Vue</button>
+              <button type="button" class="blocs-viewtab" data-view="code"><i class="fas fa-code"></i> Code</button>
+              <span class="hint" style="margin-left:auto;align-self:center;">${I18N.BLOCS_HINT}</span>
+            </div>
+            <div class="blocs-canvas-wrap">
+              <div class="blocs-canvas" id="blocsCanvasVisuel">
+                <div class="blocs-list" id="blocsList"></div>
+              </div>
+              <textarea class="blocs-code-view" id="blocsCanvasCode" style="display:none" spellcheck="false"></textarea>
+            </div>
+            <div class="blocs-timeline-wrap" id="blocsTimeline">
+              <div class="blocs-timeline-hdr">
+                <button type="button" class="vbtn" id="tlPlayBtn" title="Lecture (Espace)"><i class="fas fa-play"></i></button>
+                <span class="timeline-time" id="tlTime">0 ms</span>
+                <span class="hint" style="margin-left:auto;">Glissez un repère pour régler son délai d'entrée · ←/→ pour avancer le curseur · Espace pour lire</span>
+              </div>
+              <div class="timeline-ruler-wrap"><div class="timeline-playhead" id="tlPlayhead" style="left:0"></div></div>
+              <div class="blocs-timeline-tracks" id="tlTracks"></div>
+            </div>
+          </div>
+          <div class="blocs-settings" id="blocsSettings"></div>
         </div>
       </div>
     </div>`;
 
   renderPalette();
   renderBlocsList();
+  renderBlocsSettings();
 
-  document.getElementById('retourBtn').onclick = () => { blocsFullView = false; renderEditor(); };
+  document.getElementById('retourBtn').onclick = quitterBlocsFullView;
   document.getElementById('titreInput').oninput = markDirty;
   document.getElementById('deleteBtn').onclick = () => deletePage(p.id);
   document.getElementById('saveBtn').onclick = () => savePage('blocs');
+  document.getElementById('apercuBtn').onclick = async () => {
+    await savePage('blocs');
+    window.open(`${window.location.origin}/page/${p.id}`, '_blank');
+  };
+
+  document.querySelectorAll('.blocs-viewtab').forEach(tab => tab.onclick = () => basculerVue(tab.dataset.view));
+  document.getElementById('vbtnVisuel').onclick = () => basculerVue('visuel');
+  document.getElementById('vbtnCode').onclick = () => basculerVue('code');
+  document.getElementById('vbtnAjouter').onclick = () => ajouterBloc('texte');
+  document.getElementById('vbtnActions').onclick = basculerModeActions;
+  document.getElementById('vbtnRaccourcis').onclick = afficherRaccourcis;
+}
+
+function quitterBlocsFullView() {
+  blocsFullView = false;
+  actionsMode = false;
+  history.pushState({}, '', `/sitec?open=${encodeURIComponent(current.id)}`);
+  renderEditor();
+}
+
+// ── Vue / Code (édition JSON directe des blocs pour les utilisateurs avancés) ──
+function basculerVue(view) {
+  const visuel = document.getElementById('blocsCanvasVisuel');
+  const code = document.getElementById('blocsCanvasCode');
+  if (blocsViewMode === 'code' && view !== 'code') {
+    try {
+      const parsed = JSON.parse(code.value);
+      if (Array.isArray(parsed)) { blocs = parsed; markDirty(); }
+      else { toast('Le code doit être un tableau de blocs — changements ignorés.', 'err'); }
+    } catch (e) { toast('JSON invalide — changements ignorés.', 'err'); }
+  }
+  blocsViewMode = view;
+  document.querySelectorAll('.blocs-viewtab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+  document.getElementById('vbtnVisuel').classList.toggle('active', view === 'visuel');
+  document.getElementById('vbtnCode').classList.toggle('active', view === 'code');
+  if (view === 'code') {
+    code.value = JSON.stringify(blocs, null, 2);
+    visuel.style.display = 'none';
+    code.style.display = 'block';
+  } else {
+    code.style.display = 'none';
+    visuel.style.display = 'block';
+    renderBlocsList();
+    renderBlocsSettings();
+  }
+}
+
+// ── Mode Actions : réglage des délais d'animation sur une frise temporelle ──
+function basculerModeActions() {
+  actionsMode = !actionsMode;
+  document.getElementById('vbtnActions').classList.toggle('active', actionsMode);
+  document.getElementById('blocsTimeline').classList.toggle('active', actionsMode);
+  if (actionsMode) renderTimeline();
+}
+
+function renderTimeline() {
+  const tracks = document.getElementById('tlTracks');
+  if (!tracks) return;
+  const animes = blocs.map((b, i) => ({ b, i })).filter(x => x.b.animation);
+  if (!animes.length) {
+    tracks.innerHTML = `<div class="hint">Aucun bloc animé — choisissez une animation d'entrée sur un bloc (panneau de droite) pour le voir apparaître ici.</div>`;
+    return;
+  }
+  tracks.innerHTML = animes.map(({ b, i }) => `
+    <div class="timeline-track">
+      <div class="timeline-track-label"><i class="fas fa-${BLOC_ICONES[b.type]||'cube'}"></i> ${escAttr(BLOC_LABELS[b.type]||b.type)}</div>
+      <div class="timeline-track-ruler" data-idx="${i}">
+        <div class="timeline-clip${tlSelectedIdx===i?' selected':''}" data-idx="${i}" style="left:calc(${(b.anim_delai||0)/TL_MAXMS*100}% - 8px)" title="${b.anim_delai||0} ms"></div>
+      </div>
+    </div>`).join('');
+
+  tracks.querySelectorAll('.timeline-clip').forEach(clip => {
+    clip.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const idx = Number(clip.dataset.idx);
+      tlSelectedIdx = idx;
+      const ruler = clip.parentElement;
+      const onMove = (ev) => {
+        const rect = ruler.getBoundingClientRect();
+        let rel = (ev.clientX - rect.left) / rect.width;
+        rel = Math.max(0, Math.min(1, rel));
+        const ms = Math.round(rel * TL_MAXMS / 50) * 50;
+        blocs[idx].anim_delai = ms;
+        clip.style.left = `calc(${rel*100}% - 8px)`;
+        clip.title = `${ms} ms`;
+        markDirty();
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        if (selectedIdx === idx) renderBlocsSettings();
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+
+  document.getElementById('tlPlayBtn').onclick = tlTogglePlay;
+}
+
+function tlSetPlayhead(ms) {
+  tlPlayhead = Math.max(0, Math.min(TL_MAXMS, ms));
+  const ph = document.getElementById('tlPlayhead');
+  if (ph) ph.style.left = `${tlPlayhead/TL_MAXMS*100}%`;
+  const t = document.getElementById('tlTime');
+  if (t) t.textContent = `${Math.round(tlPlayhead)} ms`;
+}
+
+function tlTogglePlay() {
+  tlPlaying = !tlPlaying;
+  const btn = document.getElementById('tlPlayBtn');
+  if (btn) btn.innerHTML = tlPlaying ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
+  if (!tlPlaying) return;
+  tlSetPlayhead(0);
+  const start = performance.now();
+  function tick(now) {
+    if (!tlPlaying) return;
+    const elapsed = now - start;
+    tlSetPlayhead(elapsed);
+    if (elapsed >= TL_MAXMS) { tlPlaying = false; if (btn) btn.innerHTML = '<i class="fas fa-play"></i>'; return; }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function afficherRaccourcis() {
+  toast("Ctrl+S enregistrer · Suppr supprime le bloc sélectionné · Alt+↑/↓ le déplace · Échap désélectionne · Mode Actions : Espace lecture, ←/→ curseur", '', 7000);
 }
 
 function markDirty() { dirty = true; }
@@ -1119,15 +1598,75 @@ function escAttr(s) {
   return esc(s).replace(/"/g,'&quot;');
 }
 
+// ── Raccourcis clavier (actifs uniquement dans l'éditeur de blocs plein écran) ──
+document.addEventListener('keydown', (e) => {
+  if (!blocsFullView) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  const typing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
+
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+    e.preventDefault();
+    savePage('blocs');
+    return;
+  }
+  if (actionsMode && !typing) {
+    if (e.code === 'Space') { e.preventDefault(); tlTogglePlay(); return; }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); tlSetPlayhead(tlPlayhead - 100); return; }
+    if (e.key === 'ArrowRight') { e.preventDefault(); tlSetPlayhead(tlPlayhead + 100); return; }
+  }
+  if (typing) return;
+  if (e.key === 'Escape') { selectedIdx = -1; renderBlocsList(); renderBlocsSettings(); return; }
+  if (selectedIdx < 0) return;
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault();
+    blocs.splice(selectedIdx, 1);
+    selectedIdx = -1;
+    markDirty(); renderBlocsList(); renderBlocsSettings();
+  } else if (e.altKey && e.key === 'ArrowUp' && selectedIdx > 0) {
+    e.preventDefault();
+    [blocs[selectedIdx-1], blocs[selectedIdx]] = [blocs[selectedIdx], blocs[selectedIdx-1]];
+    selectedIdx--; markDirty(); renderBlocsList(); renderBlocsSettings();
+  } else if (e.altKey && e.key === 'ArrowDown' && selectedIdx < blocs.length-1) {
+    e.preventDefault();
+    [blocs[selectedIdx+1], blocs[selectedIdx]] = [blocs[selectedIdx], blocs[selectedIdx+1]];
+    selectedIdx++; markDirty(); renderBlocsList(); renderBlocsSettings();
+  }
+});
+
 // ── Bootstrap ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   await initUI();
   await loadPages();
   document.getElementById('createBtn').onclick = createPage;
 
-  // Ouvre automatiquement la page ciblée par ?open=ID (lien depuis fchier)
-  const openId = new URLSearchParams(window.location.search).get('open');
-  if (openId) await openPage(openId);
+  // Ouvre automatiquement la page ciblée par ?open=ID (lien depuis fchier),
+  // et l'éditeur de blocs plein écran si l'URL le précise (&blocs=1) --
+  // permet un vrai lien/retour/rafraîchissement vers cet écran dédié.
+  const params = new URLSearchParams(window.location.search);
+  const openId = params.get('open');
+  if (openId) {
+    await openPage(openId);
+    if (params.get('blocs') === '1' && current) { blocsFullView = true; renderEditor(); }
+  }
+
+  window.addEventListener('popstate', async () => {
+    const p2 = new URLSearchParams(window.location.search);
+    const id2 = p2.get('open');
+    if (!id2) {
+      current = null; blocsFullView = false; actionsMode = false;
+      renderList();
+      document.getElementById('main').innerHTML = `
+        <div class="empty-state">
+          <img class="ico ico-lg ico-muted" src="${ICO}globe.svg">
+          <p>${I18N.SELECTIONNEZ_OU_CREEZ}</p>
+        </div>`;
+      return;
+    }
+    if (!current || current.id !== id2) await openPage(id2);
+    blocsFullView = p2.get('blocs') === '1';
+    if (!blocsFullView) actionsMode = false;
+    renderEditor();
+  });
 
   window.addEventListener('beforeunload', (e) => {
     if (dirty) { e.preventDefault(); e.returnValue=''; }

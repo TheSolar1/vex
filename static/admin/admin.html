@@ -104,6 +104,13 @@ body{padding-top:60px}
 .cl{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-m);display:block;margin-bottom:4px;font-family:var(--mono)}
 .cl small{opacity:.5;font-size:.66rem;display:block;font-weight:400;text-transform:none;letter-spacing:0}
 .cgr{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:11px}
+.mtabs{display:flex;gap:6px;background:var(--surface2);border-radius:var(--r);padding:4px;margin-bottom:18px;width:fit-content}
+.mtab{padding:8px 16px;border-radius:calc(var(--r) - 3px);border:none;background:none;cursor:pointer;font-size:.83rem;font-weight:700;color:var(--text-m);font-family:var(--sans);transition:.15s}
+.mtab.on{background:var(--surface);color:var(--accent);box-shadow:var(--shadow)}
+.commit-row{display:flex;align-items:baseline;gap:9px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem}
+.commit-row:last-child{border-bottom:none}
+.commit-hash{font-family:var(--mono);color:var(--accent);flex-shrink:0}
+.commit-date{margin-left:auto;color:var(--text-m);font-size:.74rem;flex-shrink:0}
 .ci{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--input);color:var(--text);font-family:var(--mono);font-size:.845rem;transition:border-color .13s}
 .ci:focus{outline:none;border-color:var(--accent)}
 .ob{display:flex;align-items:center;gap:11px;padding:13px 17px;border-radius:var(--r);font-weight:600;font-size:.88rem;margin-bottom:16px}
@@ -223,6 +230,7 @@ __NAV_HTML__
     <div class="sb-a" data-sec="extensions"><img src="/static/img/solid/puzzle-piece.svg" alt=""> <span>{{T_SB_EXTENSIONS_PLUGIN}}</span></div>
     <div class="sb-a" data-sec="roles"><img src="/static/img/solid/id-badge.svg" alt=""> <span>{{T_SB_ROLES_PLANS}}</span></div>
     <div class="sb-a" data-sec="server"><img src="/static/img/solid/server.svg" alt=""> <span>{{T_SB_SERVEUR}}</span></div>
+    <div class="sb-a" id="sb-machine" data-sec="machine" style="display:none"><img src="/static/img/solid/microchip.svg" alt=""> <span>{{T_SB_MACHINE}}</span></div>
     <div class="sb-a" data-sec="logs"><img src="/static/img/solid/scroll.svg" alt=""> <span>{{T_SB_LOGS}}</span></div>
     <div class="sb-a" data-sec="onlyoffice"><img src="/static/img/solid/file-lines.svg" alt=""> <span>{{T_SB_EDITEUR_EN_LIGNE}}</span><span class="sb-pill w" id="pill-oo" style="display:none">!</span></div>
     <div class="sb-a" id="sb-p2p" data-sec="p2p" style="display:none"><img src="/static/img/solid/network-wired.svg" alt=""> <span>{{T_SB_P2P_ANONNET}}</span><span class="sb-pill" id="pill-p2p">0</span></div>
@@ -376,6 +384,17 @@ __NAV_HTML__
         <div id="server-content"><div class="loading"><span class="spin"></span></div></div>
     </div>
 
+    <!-- Machine (mise a jour VEX / stockage / etat) -->
+    <div class="sec" id="sec-machine">
+        <div class="pt"><img src="/static/img/solid/microchip.svg" class="ico-accent" alt=""> {{T_SB_MACHINE}}</div>
+        <div class="mtabs">
+            <button class="mtab on" data-mtab="update" onclick="switchMachineTab('update')">{{T_MACHINE_ONGLET_MAJ}}</button>
+            <button class="mtab" data-mtab="storage" onclick="switchMachineTab('storage')">{{T_MACHINE_ONGLET_STOCKAGE}}</button>
+            <button class="mtab" data-mtab="status" onclick="switchMachineTab('status')">{{T_MACHINE_ONGLET_ETAT}}</button>
+        </div>
+        <div id="machine-content"><div class="loading"><span class="spin"></span></div></div>
+    </div>
+
     <!-- Sauvegardes -->
     <div class="sec" id="sec-backup">
         <div class="pt"><img src="/static/img/solid/box-archive.svg" class="ico-accent" alt=""> {{T_SB_SAUVEGARDES}} <small>{{T_BACKUP_SUPERADMIN_UNIQUEMENT}}</small></div>
@@ -480,7 +499,7 @@ function nav(sec){
     document.querySelectorAll('.sb-a[data-sec]').forEach(a=>a.classList.toggle('on',a.dataset.sec===sec));
     document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
     document.getElementById('sec-'+sec).classList.add('on');
-    ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,server:loadServer,logs:loadLogs,onlyoffice:loadEditor,p2p:loadP2p,apps:loadApps,extensions:loadExt,roles:loadRoles,backup:loadBackups}[sec]||Function)();
+    ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,server:loadServer,machine:loadMachine,logs:loadLogs,onlyoffice:loadEditor,p2p:loadP2p,apps:loadApps,extensions:loadExt,roles:loadRoles,backup:loadBackups}[sec]||Function)();
     history.replaceState(null,'','?section='+sec);
 }
 function flash(msg,err=false){
@@ -521,7 +540,7 @@ function confirmerDialogue(message,opts={}){
 async function loadDash(){
     const r=await api('/dashboard');if(!r.success){flash(r.error,true);return;}
     const d=r.data;
-    if(d.is_super){document.getElementById('sb-p2p').style.display='';document.getElementById('sb-backup').style.display='';}
+    if(d.is_super){document.getElementById('sb-p2p').style.display='';document.getElementById('sb-backup').style.display='';document.getElementById('sb-machine').style.display='';}
     IS_SUPER=d.is_super||false;
     document.getElementById('sql-zone').style.display=IS_SUPER?'':'none';
     const cfgR=await api('/config');
@@ -1330,6 +1349,140 @@ async function loadSystemUpdates(){
         ${d.paquets_dispo>0?`<div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">${I18N.SERVER_SUR_LE_SERVEUR} <code>sudo apt update && sudo apt upgrade</code></div>`:''}
         ${d.rust_maj_disponible?`<div style="margin-top:6px;font-size:.78rem;color:var(--text-m)">${I18N.SERVER_SUR_LE_SERVEUR} <code>rustup update</code></div>`:''}
     `;
+}
+
+/* ── Machine (mise a jour VEX / stockage / etat) ── */
+let machineTab='update', machinePollTimer=null;
+
+function switchMachineTab(tab){
+    machineTab=tab;
+    document.querySelectorAll('.mtab').forEach(b=>b.classList.toggle('on',b.dataset.mtab===tab));
+    renderMachineTab();
+}
+
+async function loadMachine(){
+    document.getElementById('machine-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
+    renderMachineTab();
+}
+
+function renderMachineTab(){
+    if(machinePollTimer){clearInterval(machinePollTimer);machinePollTimer=null;}
+    if(machineTab==='update')return loadMachineUpdate();
+    if(machineTab==='storage')return loadMachineStorage();
+    return loadMachineStatus();
+}
+
+async function loadMachineUpdate(){
+    const box=document.getElementById('machine-content');
+    box.innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const [rs,ru]=await Promise.all([api('/machine/status'),api('/machine/update_status')]);
+    if(!rs.success){box.innerHTML=`<div style="padding:14px;color:var(--text-m)">${esc(rs.error||'Erreur.')}</div>`;return;}
+    const d=rs.data,upd=ru.success?ru.data:{};
+    box.innerHTML=`
+        <div class="card">
+            <div class="ch"><span><img src="/static/img/solid/code-commit.svg" class="ico ico-accent" alt=""> ${I18N.MACHINE_VERSION_ACTUELLE}</span></div>
+            <div class="cb"><div class="cgr">
+                <div><label class="cl">${I18N.MACHINE_VERSION_ACTUELLE}</label><div style="font-size:.85rem;padding:6px 0;font-family:var(--mono)">v${esc(d.vex_version)}</div></div>
+                <div><label class="cl">${I18N.MACHINE_DERNIER_COMMIT}</label><div style="font-size:.85rem;padding:6px 0"><span class="commit-hash">${esc(d.commit_hash)}</span> ${esc(d.commit_message||'')}</div></div>
+            </div></div>
+        </div>
+        <div class="card">
+            <div class="ch">
+                <span><img src="/static/img/solid/arrow-up-right-dots.svg" class="ico ico-accent" alt=""> ${I18N.MACHINE_ONGLET_MAJ}</span>
+                <button class="btn bg2" id="mach-check-btn" onclick="machineCheck()"><img src="/static/img/solid/rotate.svg" class="ico ico-accent" alt=""> ${I18N.MACHINE_VERIFIER_MAJ}</button>
+            </div>
+            <div class="cb" id="machine-check-content"><div style="padding:14px;color:var(--text-m);font-size:.84rem">${I18N.SERVER_CLIQUEZ_VERIFIER}</div></div>
+        </div>
+        <div class="card" id="machine-build-card" style="${upd.jamais_lance?'display:none':''}">
+            <div class="ch"><span><img src="/static/img/solid/hammer.svg" class="ico ico-accent" alt=""> ${I18N.MACHINE_TELECHARGER_COMPILER}</span></div>
+            <div class="cb" id="machine-build-content"></div>
+        </div>
+    `;
+    renderMachineBuildStatus(upd);
+    if(upd.running)startMachinePoll();
+}
+
+async function machineCheck(){
+    const btn=document.getElementById('mach-check-btn');if(btn)btn.disabled=true;
+    const box=document.getElementById('machine-check-content');
+    box.innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const r=await api('/machine/check');
+    if(btn)btn.disabled=false;
+    if(!r.success){box.innerHTML=`<div class="ob nok"><span class="od"></span> ${esc(r.error||I18N.MACHINE_ERREUR_VERIFICATION)}</div>`;return;}
+    if(!r.behind_count){box.innerHTML=`<div class="ob ok"><span class="od"></span> ${I18N.MACHINE_A_JOUR}</div>`;return;}
+    const commitsHtml=(r.commits||[]).map(c=>`<div class="commit-row"><span class="commit-hash">${esc(c.hash)}</span><span>${esc(c.message)}</span><span class="commit-date">${esc((c.date||'').slice(0,10))}</span></div>`).join('');
+    box.innerHTML=`
+        <div class="ob nok"><span class="od"></span> ${I18N.MACHINE_RETARD.replace('{n}',r.behind_count)}</div>
+        <div style="margin:12px 0">${commitsHtml}</div>
+        <button class="btn ba" onclick="machineUpdate()"><img src="/static/img/solid/download.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.MACHINE_TELECHARGER_COMPILER}</button>
+    `;
+}
+
+async function machineUpdate(){
+    const r=await post('/machine/update');
+    if(!r.success){flash(r.error,true);return;}
+    document.getElementById('machine-build-card').style.display='';
+    renderMachineBuildStatus({running:true});
+    startMachinePoll();
+}
+
+function startMachinePoll(){
+    if(machinePollTimer)clearInterval(machinePollTimer);
+    machinePollTimer=setInterval(async()=>{
+        const r=await api('/machine/update_status');
+        if(!r.success)return;
+        renderMachineBuildStatus(r.data);
+        if(!r.data.running){clearInterval(machinePollTimer);machinePollTimer=null;}
+    },2000);
+}
+
+function renderMachineBuildStatus(upd){
+    const box=document.getElementById('machine-build-content');
+    if(!box)return;
+    if(upd.jamais_lance){box.innerHTML='';return;}
+    if(upd.running){box.innerHTML=`<div class="loading"><span class="spin"></span> ${I18N.MACHINE_COMPILATION_EN_COURS}</div>`;return;}
+    const badge=upd.success?`<span class="b bg">${I18N.MACHINE_COMPILATION_REUSSIE}</span>`:`<span class="b br">${I18N.MACHINE_COMPILATION_ECHOUEE}</span>`;
+    box.innerHTML=`
+        <div style="margin-bottom:10px">${badge}</div>
+        ${upd.output?`<pre class="lb" style="max-height:260px">${esc(upd.output)}</pre>`:''}
+        ${upd.success?`
+        <div class="ob nok" style="margin-top:14px"><span class="od"></span> ${I18N.MACHINE_AVERTISSEMENT_REDEMARRAGE}</div>
+        <button class="btn br2" style="margin-top:10px" onclick="machineRestart()"><img src="/static/img/solid/power-off.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.MACHINE_REDEMARRER}</button>
+        `:''}
+    `;
+}
+
+async function machineRestart(){
+    if(!await confirmerDialogue(I18N.MACHINE_CONFIRM_REDEMARRAGE,{danger:true}))return;
+    const r=await post('/machine/restart');
+    if(!r.success){flash(r.error,true);return;}
+    document.getElementById('machine-content').innerHTML=`<div style="padding:40px;text-align:center;color:var(--text-m)"><span class="spin" style="display:inline-block"></span><br><br>${esc(I18N.MACHINE_REDEMARRER)}…</div>`;
+}
+
+async function loadMachineStorage(){
+    const box=document.getElementById('machine-content');
+    box.innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const r=await api('/machine/status');
+    if(!r.success){box.innerHTML=`<div style="padding:14px;color:var(--text-m)">${esc(r.error||'Erreur.')}</div>`;return;}
+    const disks=r.data.disks&&r.data.disks.length?r.data.disks:[];
+    const disqueTuile=dk=>{const pct=dk.used_pct||0,cl=pct>80?'d':pct>60?'w':'';
+        return `<div class="sc" style="--si:${pct>80?'#ef4444':pct>60?'#f59e0b':'var(--accent)'}"><div class="sc-i"><img src="/static/img/solid/hard-drive.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1.1rem">${esc(String(dk.used_gb))} <span style="font-size:.6em;font-weight:400">/ ${esc(String(dk.total_gb))} GB</span></div><div class="sc-l" title="${esc(dk.mount)}">${I18N.SERVER_DISQUE_LABEL.replace('{mount}',esc(dk.mount)).replace('{pct}',pct)}</div><div class="pg"><div class="pgb ${cl}" style="width:${pct}%"></div></div></div>`;};
+    box.innerHTML=`<div class="sg">${disks.map(disqueTuile).join('')||`<div style="padding:14px;color:var(--text-m)">?</div>`}</div>`;
+}
+
+async function loadMachineStatus(){
+    const box=document.getElementById('machine-content');
+    box.innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const r=await api('/machine/status');
+    if(!r.success){box.innerHTML=`<div style="padding:14px;color:var(--text-m)">${esc(r.error||'Erreur.')}</div>`;return;}
+    const d=r.data;
+    const h=Math.floor(d.uptime_sec/3600),m=Math.floor((d.uptime_sec%3600)/60);
+    box.innerHTML=`<div class="sg">
+        <div class="sc" style="--si:#3b82f6"><div class="sc-i"><img src="/static/img/solid/code.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1rem">v${esc(d.vex_version)}</div><div class="sc-l">${I18N.SERVER_VERSION_VEX}</div></div>
+        <div class="sc" style="--si:#8b5cf6"><div class="sc-i"><img src="/static/img/solid/clock-rotate-left.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1.1rem">${h}h${String(m).padStart(2,'0')}</div><div class="sc-l">${I18N.MACHINE_UPTIME_LABEL}</div></div>
+        <div class="sc" style="--si:#10b981"><div class="sc-i"><img src="/static/img/solid/code-branch.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:.95rem">${esc(d.branch)}</div><div class="sc-l">${I18N.MACHINE_BRANCHE}</div></div>
+        <div class="sc" style="--si:#f59e0b"><div class="sc-i"><img src="/static/img/solid/hashtag.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:.95rem;font-family:var(--mono)">PID ${esc(String(d.pid))}</div><div class="sc-l">${I18N.MACHINE_PROCESSUS}</div></div>
+    </div>`;
 }
 
 /* ── Logs ── */

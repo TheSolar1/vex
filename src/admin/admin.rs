@@ -24,7 +24,7 @@ use crate::admin::actions::{PRIVILEGE_MAX, PRIVILEGE_MIN_SET, PRIVILEGE_SUPER};
 const HTML_PATH: &str = "static/admin/admin.html";
 
 /// Cles injectees dans `const I18N = {...}` cote JS (voir {{I18N_JS}} dans admin.html).
-const ADMIN_I18N_JS_KEYS: [(&str, Cle); 313] = [
+const ADMIN_I18N_JS_KEYS: [(&str, Cle); 337] = [
     ("ACTIF", Cle::AdmActif),
     ("BACKUP_COL_TAILLE", Cle::AdmBackupColTaille),
     ("ACTION", Cle::AdmAction),
@@ -292,7 +292,31 @@ const ADMIN_I18N_JS_KEYS: [(&str, Cle); 313] = [
     ("ROLES_SUPPRIMER_CE_PLAN", Cle::AdmRolesSupprimerCePlan),
     ("SAUVEGARDER", Cle::AdmSauvegarder),
     ("SB_EXTENSIONS_PLUGIN", Cle::AdmSbExtensionsPlugin),
+    ("SB_MACHINE", Cle::AdmSbMachine),
     ("SB_UTILISATEURS", Cle::AdmSbUtilisateurs),
+    ("MACHINE_ONGLET_MAJ", Cle::AdmMachineOngletMaj),
+    ("MACHINE_ONGLET_STOCKAGE", Cle::AdmMachineOngletStockage),
+    ("MACHINE_ONGLET_ETAT", Cle::AdmMachineOngletEtat),
+    ("MACHINE_VERSION_ACTUELLE", Cle::AdmMachineVersionActuelle),
+    ("MACHINE_DERNIER_COMMIT", Cle::AdmMachineDernierCommit),
+    ("MACHINE_A_JOUR", Cle::AdmMachineAJour),
+    ("MACHINE_RETARD", Cle::AdmMachineRetard),
+    ("MACHINE_VERIFIER_MAJ", Cle::AdmMachineVerifierMaj),
+    ("MACHINE_TELECHARGER_COMPILER", Cle::AdmMachineTelechargerCompiler),
+    ("MACHINE_COMPILATION_EN_COURS", Cle::AdmMachineCompilationEnCours),
+    ("MACHINE_COMPILATION_REUSSIE", Cle::AdmMachineCompilationReussie),
+    ("MACHINE_COMPILATION_ECHOUEE", Cle::AdmMachineCompilationEchouee),
+    ("MACHINE_REDEMARRER", Cle::AdmMachineRedemarrer),
+    ("MACHINE_AVERTISSEMENT_REDEMARRAGE", Cle::AdmMachineAvertissementRedemarrage),
+    ("MACHINE_CONFIRM_REDEMARRAGE", Cle::AdmMachineConfirmRedemarrage),
+    ("MACHINE_UPTIME_LABEL", Cle::AdmMachineUptimeLabel),
+    ("MACHINE_ESPACE_DISQUE", Cle::AdmMachineEspaceDisque),
+    ("MACHINE_COMMITS_EN_ATTENTE", Cle::AdmMachineCommitsEnAttente),
+    ("MACHINE_AUCUN_COMMIT_EN_ATTENTE", Cle::AdmMachineAucunCommitEnAttente),
+    ("MACHINE_ERREUR_VERIFICATION", Cle::AdmMachineErreurVerification),
+    ("MACHINE_SUPERADMIN_UNIQUEMENT", Cle::AdmMachineSuperadminUniquement),
+    ("MACHINE_BRANCHE", Cle::AdmMachineBranche),
+    ("MACHINE_PROCESSUS", Cle::AdmMachineProcessus),
     ("SERVER_CLIQUEZ_VERIFIER", Cle::AdmServerCliquezVerifier),
     ("SERVER_DISQUE_LABEL", Cle::AdmServerDisqueLabel),
     ("SERVER_LECTURE_SEULE", Cle::AdmServerLectureSeule),
@@ -515,6 +539,7 @@ pub fn handle_request(
                 ("{{T_SB_EXTENSIONS_PLUGIN}}", Cle::AdmSbExtensionsPlugin),
                 ("{{T_SB_ROLES_PLANS}}", Cle::AdmSbRolesPlans),
                 ("{{T_SB_SERVEUR}}", Cle::AdmSbServeur),
+                ("{{T_SB_MACHINE}}", Cle::AdmSbMachine),
                 ("{{T_SB_LOGS}}", Cle::AdmSbLogs),
                 ("{{T_SB_EDITEUR_EN_LIGNE}}", Cle::AdmSbEditeurEnLigne),
                 ("{{T_SB_P2P_ANONNET}}", Cle::AdmSbP2pAnonnet),
@@ -552,6 +577,9 @@ pub fn handle_request(
                 ("{{T_ROLES_PLANS_TARIFAIRES}}", Cle::AdmRolesPlansTarifaires),
                 ("{{T_ROLES_NOUVEAU_PLAN}}", Cle::AdmRolesNouveauPlan),
                 ("{{T_SERVER_MONITORING}}", Cle::AdmServerMonitoring),
+                ("{{T_MACHINE_ONGLET_MAJ}}", Cle::AdmMachineOngletMaj),
+                ("{{T_MACHINE_ONGLET_STOCKAGE}}", Cle::AdmMachineOngletStockage),
+                ("{{T_MACHINE_ONGLET_ETAT}}", Cle::AdmMachineOngletEtat),
                 ("{{T_BACKUP_SUPERADMIN_UNIQUEMENT}}", Cle::AdmBackupSuperadminUniquement),
                 ("{{T_BACKUP_DUMP_COMPLET}}", Cle::AdmBackupDumpComplet),
                 ("{{T_BACKUP_LANCER_SAUVEGARDE}}", Cle::AdmBackupLancerSauvegarde),
@@ -645,6 +673,10 @@ fn handle_api(
     ];
     let needs_super = sub.starts_with("/p2p")
         || sub.starts_with("/backup")
+        // Mise a jour VEX = git pull + recompilation + redemarrage du
+        // processus : aussi sensible qu'executer du code arbitraire sur
+        // le serveur, reserve aux superadmins comme les extensions.
+        || sub.starts_with("/machine")
         || superadmin_routes.iter().any(|r| sub.starts_with(r));
     if needs_super && privilege > PRIVILEGE_SUPER {
         return respond_json(
@@ -1072,6 +1104,25 @@ fn handle_api(
         "/server/updates" => {
             json!({"success":true,"data":verifier_maj_systeme()})
         }
+
+        // ══════════════════════════════════════════════════════════
+        // MACHINE — section "Système" : mise a jour de VEX lui-meme
+        // (git pull + cargo build, PAS l'OS -- voir verifier_maj_systeme
+        // ci-dessus pour les paquets systeme), stockage, etat du process.
+        // Reserve aux superadmins (needs_super plus haut) : declenche une
+        // compilation et peut redemarrer le serveur.
+        // ══════════════════════════════════════════════════════════
+        "/machine/status" => machine_status(),
+        "/machine/check" => machine_check(),
+        "/machine/update" => match machine_lancer_update() {
+            Ok(_) => json!({"success":true,"message":i18n::t(langue, Cle::AdmMachineCompilationEnCours)}),
+            Err(e) => json!({"success":false,"error":e}),
+        },
+        "/machine/update_status" => json!({"success":true,"data":lire_machine_update_status()}),
+        "/machine/restart" => match machine_redemarrer() {
+            Ok(_) => json!({"success":true}),
+            Err(e) => json!({"success":false,"error":e}),
+        },
 
         // ══════════════════════════════════════════════════════════
         // SAUVEGARDES — dump complet de la base (fichiers inclus, ils
@@ -2372,6 +2423,163 @@ fn verifier_maj_systeme() -> Value {
         })
     }
 }
+// ══════════════════════════════════════════════════════════════════
+// MACHINE — mise a jour de VEX depuis GitHub (git pull + cargo build),
+// stockage, etat du process. Distinct de verifier_maj_systeme() ci-dessus
+// qui ne concerne que l'OS/le toolchain Rust et reste volontairement en
+// lecture seule -- ici on applique reellement la mise a jour de VEX.
+// ══════════════════════════════════════════════════════════════════
+const MACHINE_UPDATE_STATUS_PATH: &str = "log/machine_update_status.json";
+static MACHINE_UPDATE_EN_COURS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Lance une commande et renvoie sa sortie nettoyee, ou chaine vide en cas
+/// d'echec -- evite d'afficher un message d'erreur shell brut (ex: cmd.exe
+/// sur Windows en dev local) a la place d'un champ comme le hash de commit.
+fn git_field(cmd: &str) -> String {
+    let (ok, out) = run_shell_command(cmd);
+    if ok { out.trim().to_string() } else { String::new() }
+}
+
+/// Version en cours d'execution, dernier commit, disques, PID -- affiche
+/// dans les onglets "Version actuelle" / "État" / "Stockage". Pas de
+/// redirection `2>/dev/null` ni de guillemets dans les commandes : elles
+/// doivent rester valides passees telles quelles a `cmd /C` (Windows, dev
+/// local) comme a `sh -c` (Linux, production) -- voir run_shell_command().
+fn machine_status() -> Value {
+    json!({"success":true,"data":{
+        "vex_version":    env!("CARGO_PKG_VERSION"),
+        "commit_hash":    git_field("git rev-parse --short HEAD"),
+        "commit_message": git_field("git log -1 --format=%s"),
+        "commit_date":    git_field("git log -1 --format=%cI"),
+        "branch":         git_field("git rev-parse --abbrev-ref HEAD"),
+        "uptime_sec":     uptime_sec(),
+        "pid":            std::process::id(),
+        "disks":          disks_info(),
+    }})
+}
+
+/// git fetch + liste des commits GitHub pas encore appliques localement.
+/// Separateur tabulation (%x09) plutot que "|" : "|" est un metacaractere
+/// de pipe pour `sh -c`, ce qui obligerait a le proteger par des guillemets
+/// -- des guillemets que `cmd /C` (Windows) ne retire pas de son cote et
+/// transmettrait tels quels a git. La tabulation n'a besoin d'aucun des deux.
+fn machine_check() -> Value {
+    let (fetch_ok, fetch_out) = run_shell_command("git fetch --quiet origin main 2>&1");
+    if !fetch_ok {
+        return json!({"success":false,"error":fetch_out});
+    }
+    let behind: u64 = git_field("git rev-list --count HEAD..origin/main").parse().unwrap_or(0);
+    let log_out = git_field("git log HEAD..origin/main --format=%h%x09%s%x09%cI -n 20");
+    let commits: Vec<Value> = log_out
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| {
+            let mut p = l.splitn(3, '\t');
+            json!({
+                "hash":    p.next().unwrap_or(""),
+                "message": p.next().unwrap_or(""),
+                "date":    p.next().unwrap_or(""),
+            })
+        })
+        .collect();
+    json!({"success":true,"behind_count":behind,"commits":commits})
+}
+
+fn ecrire_machine_update_status(v: Value) {
+    let _ = std::fs::create_dir_all(log_dir());
+    let _ = std::fs::write(
+        MACHINE_UPDATE_STATUS_PATH,
+        serde_json::to_string_pretty(&v).unwrap_or_default(),
+    );
+}
+
+fn lire_machine_update_status() -> Value {
+    std::fs::read_to_string(MACHINE_UPDATE_STATUS_PATH)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or(json!({ "running": false, "jamais_lance": true }))
+}
+
+/// git pull (fast-forward uniquement -- refuse tout merge/conflit) puis
+/// cargo build --release, et copie le binaire compile vers ./vex (chemin
+/// depuis lequel le process tourne actuellement). Ne redemarre pas seul --
+/// voir machine_redemarrer(), declenche separement par l'admin une fois la
+/// compilation confirmee reussie.
+fn machine_build_cmd() -> String {
+    ". $HOME/.cargo/env 2>/dev/null; \
+     git pull --ff-only origin main && \
+     cargo build --release && \
+     cp -f target/release/vex ./vex"
+        .to_string()
+}
+
+fn machine_lancer_update() -> Result<(), String> {
+    use std::sync::atomic::Ordering;
+    if MACHINE_UPDATE_EN_COURS.swap(true, Ordering::SeqCst) {
+        return Err("Une mise à jour est déjà en cours.".into());
+    }
+    let cmd = machine_build_cmd();
+    ecrire_machine_update_status(json!({
+        "running": true,
+        "started_at": maintenant(),
+        "output": "",
+    }));
+    std::thread::spawn(move || {
+        let (ok, out) = run_shell_command(&cmd);
+        let out_court: String = {
+            let lignes: Vec<&str> = out.lines().collect();
+            let debut = lignes.len().saturating_sub(400);
+            lignes[debut..].join("\n")
+        };
+        ecrire_machine_update_status(json!({
+            "running": false,
+            "success": ok,
+            "finished_at": maintenant(),
+            "output": out_court,
+        }));
+        MACHINE_UPDATE_EN_COURS.store(false, Ordering::SeqCst);
+    });
+    Ok(())
+}
+
+/// Redemarre VEX avec le binaire fraichement compile. Le process courant
+/// n'est PAS gere par systemd (verifie manuellement sur le Pi -- lance en
+/// arriere-plan via nohup) : on delegue donc a un petit script shell
+/// detache qui attend que ce process libere le port puis relance ./vex,
+/// avant de sortir nous-memes. Si le nouveau binaire ne demarre pas, le
+/// site reste indisponible jusqu'a une intervention SSH manuelle -- c'est
+/// pourquoi l'admin voit un avertissement explicite avant de confirmer
+/// (voir MACHINE_AVERTISSEMENT_REDEMARRAGE cote i18n/UI).
+fn machine_redemarrer() -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        return Err("Redémarrage automatique non disponible sur cette plateforme (dev local Windows).".into());
+    }
+    #[cfg(unix)]
+    {
+        let pid = std::process::id();
+        let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
+        let script = format!(
+            "sleep 1; kill {pid} 2>/dev/null; for i in $(seq 1 20); do kill -0 {pid} 2>/dev/null || break; sleep 0.5; done; \
+             cd '{cwd}' && nohup ./vex >> log/vex.out 2>&1 & disown",
+            pid = pid,
+            cwd = cwd.display()
+        );
+        std::process::Command::new("sh")
+            .arg("-c")
+            .arg(script)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        // Laisse le temps a la reponse HTTP de partir avant de sortir --
+        // le script detache, lui, continue de vivre independamment.
+        std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            std::process::exit(0);
+        });
+        Ok(())
+    }
+}
+
 // ══════════════════════════════════════════════════════════════════
 // EXTENSIONS — upload de fichiers .rs, permissions, compilation
 // ══════════════════════════════════════════════════════════════════
