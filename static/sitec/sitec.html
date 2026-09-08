@@ -429,7 +429,7 @@ async function moveSitePage(id, dir) {
   const swapIdx = idx + dir;
   if (idx < 0 || swapIdx < 0 || swapIdx >= sitePages.length) return;
   [sitePages[idx], sitePages[swapIdx]] = [sitePages[swapIdx], sitePages[idx]];
-  renderEditor();
+  renderSitePagesList();
   try {
     await apiFetch(`${API}/site_reorder`, {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -983,19 +983,7 @@ function renderEditor() {
       <div class="site-pages-block">
         <h3><i class="fas fa-sitemap"></i> ${I18N.PAGES_DU_SITE}</h3>
         ${sitePages.length < 2 ? `<div class="hint" style="margin:0 0 10px;">${I18N.PAGES_DU_SITE_HINT}</div>` : ''}
-        <div class="site-pages-list" id="sitePagesList">
-          ${sitePages.map((sp, idx) => {
-            const active = sp.id === p.id;
-            return `<div class="site-page-item${active ? ' active' : ''}" data-id="${sp.id}">
-              <span class="site-page-order">
-                <button type="button" class="site-page-up" title="${I18N.BLOC_MONTER_TITLE}" ${idx===0?'disabled':''}>&uarr;</button>
-                <button type="button" class="site-page-down" title="${I18N.BLOC_DESCENDRE_TITLE}" ${idx===sitePages.length-1?'disabled':''}>&darr;</button>
-              </span>
-              <span class="site-page-title" data-id="${sp.id}">${esc(sp.titre || I18N.SANS_TITRE)}</span>
-              ${active && sitePages.length > 1 ? `<button type="button" class="site-page-leave" id="siteLeaveBtn" title="${I18N.RETIRER_DU_SITE}">&times;</button>` : ''}
-            </div>`;
-          }).join('')}
-        </div>
+        <div class="site-pages-list" id="sitePagesList">${sitePagesListHtml(p)}</div>
         <button type="button" class="btn btn-secondary" id="addSitePageBtn" style="width:100%;justify-content:center;">
           <img class="ico ico-sm" src="${ICO}plus.svg"> ${I18N.AJOUTER_PAGE_AU_SITE}
         </button>
@@ -1064,8 +1052,29 @@ function renderEditor() {
   );
 
   document.getElementById('addSitePageBtn').onclick = () => createPage(current.site_id);
+  bindSitePagesListeners();
+}
+
+// ── Panneau "Pages du site" : rendu/écoute isolés pour pouvoir rafraîchir
+// juste cette liste (ex. après renommage) sans reconstruire tout l'éditeur
+// et perdre une saisie en cours dans les autres champs. ──
+function sitePagesListHtml(p) {
+  return sitePages.map((sp, idx) => {
+    const active = sp.id === p.id;
+    return `<div class="site-page-item${active ? ' active' : ''}" data-id="${sp.id}">
+      <span class="site-page-order">
+        <button type="button" class="site-page-up" title="${I18N.BLOC_MONTER_TITLE}" ${idx===0?'disabled':''}>&uarr;</button>
+        <button type="button" class="site-page-down" title="${I18N.BLOC_DESCENDRE_TITLE}" ${idx===sitePages.length-1?'disabled':''}>&darr;</button>
+      </span>
+      <span class="site-page-title" data-id="${sp.id}">${esc(sp.titre || I18N.SANS_TITRE)}</span>
+      ${active && sitePages.length > 1 ? `<button type="button" class="site-page-leave" id="siteLeaveBtn" title="${I18N.RETIRER_DU_SITE}">&times;</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function bindSitePagesListeners() {
   document.querySelectorAll('.site-page-title').forEach(el => {
-    if (el.dataset.id !== p.id) el.onclick = () => openPage(el.dataset.id);
+    if (el.dataset.id !== current.id) el.onclick = () => openPage(el.dataset.id);
   });
   document.querySelectorAll('.site-page-up').forEach(btn =>
     btn.onclick = () => moveSitePage(btn.closest('.site-page-item').dataset.id, -1)
@@ -1074,7 +1083,14 @@ function renderEditor() {
     btn.onclick = () => moveSitePage(btn.closest('.site-page-item').dataset.id, 1)
   );
   const siteLeaveBtn = document.getElementById('siteLeaveBtn');
-  if (siteLeaveBtn) siteLeaveBtn.onclick = () => leaveSite(p.id);
+  if (siteLeaveBtn) siteLeaveBtn.onclick = () => leaveSite(current.id);
+}
+
+function renderSitePagesList() {
+  const el = document.getElementById('sitePagesList');
+  if (!el) return;
+  el.innerHTML = sitePagesListHtml(current);
+  bindSitePagesListeners();
 }
 
 // ── Écran séparé : éditeur de blocs plein écran ────────────────────
@@ -1139,6 +1155,11 @@ async function savePage(mode) {
     const data = await r.json();
     if (data.success) {
       dirty = false;
+      current.titre = payload.titre;
+      current.public = payload.public ? 1 : 0;
+      const spEntry = sitePages.find(sp => sp.id === current.id);
+      if (spEntry) { spEntry.titre = payload.titre; spEntry.public = current.public; }
+      renderSitePagesList();
       toast(I18N.PAGE_ENREGISTREE, 'ok');
       await loadPages();
     } else {
