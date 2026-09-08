@@ -128,6 +128,21 @@ body {
 .share-item-rm:hover { color:var(--danger); }
 .share-empty { font-size:12px; color:var(--text-dim); padding:6px 2px; }
 
+.site-pages-block { border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:18px; }
+.site-pages-block h3 { font-size:13px; margin-bottom:12px; display:flex; align-items:center; gap:7px; }
+.site-pages-list { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+.site-page-item { display:flex; align-items:center; gap:8px; padding:7px 10px; background:var(--sidebar-hover); border-radius:6px; font-size:13px; }
+.site-page-item.active { outline:1px solid var(--accent); }
+.site-page-order { display:flex; gap:2px; flex-shrink:0; }
+.site-page-order button { background:none; border:none; cursor:pointer; color:var(--text-dim); font-size:13px; padding:2px 4px; line-height:1; }
+.site-page-order button:hover:not(:disabled) { color:var(--text); }
+.site-page-order button:disabled { opacity:.3; cursor:default; }
+.site-page-title { flex:1; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.site-page-item.active .site-page-title { cursor:default; font-weight:600; }
+.site-page-title:hover:not(.active .site-page-title) { color:var(--accent); }
+.site-page-leave { background:none; border:none; cursor:pointer; color:var(--text-dim); font-size:16px; line-height:1; flex-shrink:0; }
+.site-page-leave:hover { color:var(--danger); }
+
 .link-row { display:flex; align-items:center; gap:8px; padding:10px 14px; background:var(--sidebar-hover); border-radius:8px; font-size:13px; margin-bottom:18px; }
 .link-row code { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-dim); }
 .link-row a { color:var(--accent); font-weight:600; text-decoration:none; display:flex; align-items:center; gap:5px; flex-shrink:0; }
@@ -308,6 +323,7 @@ const THEMES = ['light','dark','solarized','rose'];
 let pages = [];
 let current = null; // page en cours d'édition (objet complet)
 let dirty = false;
+let sitePages = []; // pages du meme site que `current` (menu de navigation partagé)
 
 function redirectLogin() { window.location.href = '/login/login'; }
 
@@ -378,20 +394,61 @@ async function openPage(id) {
     current = data.page;
     dirty = false;
     blocsFullView = current.mode === 'blocs';
+    await loadSitePages(id);
     renderList();
     renderEditor();
   } catch(e) { if (e.message !== 'Session expirée') toast(I18N.ERREUR_CHARGEMENT, 'err'); }
 }
 
-async function createPage() {
+async function loadSitePages(id) {
   try {
-    const r = await apiFetch(`${API}/create`, { method:'POST' });
+    const r = await apiFetch(`${API}/site_pages?id=${encodeURIComponent(id)}`);
+    const data = await r.json();
+    sitePages = data.success ? data.pages : [];
+  } catch { sitePages = []; }
+}
+
+// `siteId` optionnel : si fourni, la nouvelle page rejoint ce site au lieu
+// d'en former un nouveau à elle seule (voir bouton "Ajouter une page au site").
+async function createPage(siteId) {
+  try {
+    const r = await apiFetch(`${API}/create`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ site_id: siteId || '' })
+    });
     const data = await r.json();
     if (!data.success) { toast(data.error || I18N.ERREUR, 'err'); return; }
     await loadPages();
     await openPage(data.id);
-    toast(I18N.PAGE_CREEE, 'ok');
+    toast(siteId ? I18N.PAGE_AJOUTEE_AU_SITE : I18N.PAGE_CREEE, 'ok');
   } catch(e) { if (e.message !== 'Session expirée') toast(I18N.ERREUR_CREATION, 'err'); }
+}
+
+async function moveSitePage(id, dir) {
+  const idx = sitePages.findIndex(sp => sp.id === id);
+  const swapIdx = idx + dir;
+  if (idx < 0 || swapIdx < 0 || swapIdx >= sitePages.length) return;
+  [sitePages[idx], sitePages[swapIdx]] = [sitePages[swapIdx], sitePages[idx]];
+  renderEditor();
+  try {
+    await apiFetch(`${API}/site_reorder`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ ids: sitePages.map(sp => sp.id) })
+    });
+  } catch(e) { if (e.message !== 'Session expirée') toast(I18N.ERREUR, 'err'); }
+}
+
+async function leaveSite(id) {
+  if (!confirm(I18N.CONFIRM_RETIRER_DU_SITE)) return;
+  try {
+    const r = await apiFetch(`${API}/site_leave`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id})
+    });
+    const data = await r.json();
+    if (!data.success) { toast(data.error || I18N.ERREUR, 'err'); return; }
+    toast(I18N.PAGE_RETIREE_DU_SITE, 'ok');
+    await openPage(id);
+  } catch(e) { if (e.message !== 'Session expirée') toast(I18N.ERREUR, 'err'); }
 }
 
 // ── Rendu éditeur : bibliothèque de blocs ──────────────────────────
@@ -923,6 +980,27 @@ function renderEditor() {
         </div>
       </div>
 
+      <div class="site-pages-block">
+        <h3><i class="fas fa-sitemap"></i> ${I18N.PAGES_DU_SITE}</h3>
+        ${sitePages.length < 2 ? `<div class="hint" style="margin:0 0 10px;">${I18N.PAGES_DU_SITE_HINT}</div>` : ''}
+        <div class="site-pages-list" id="sitePagesList">
+          ${sitePages.map((sp, idx) => {
+            const active = sp.id === p.id;
+            return `<div class="site-page-item${active ? ' active' : ''}" data-id="${sp.id}">
+              <span class="site-page-order">
+                <button type="button" class="site-page-up" title="${I18N.BLOC_MONTER_TITLE}" ${idx===0?'disabled':''}>&uarr;</button>
+                <button type="button" class="site-page-down" title="${I18N.BLOC_DESCENDRE_TITLE}" ${idx===sitePages.length-1?'disabled':''}>&darr;</button>
+              </span>
+              <span class="site-page-title" data-id="${sp.id}">${esc(sp.titre || I18N.SANS_TITRE)}</span>
+              ${active && sitePages.length > 1 ? `<button type="button" class="site-page-leave" id="siteLeaveBtn" title="${I18N.RETIRER_DU_SITE}">&times;</button>` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+        <button type="button" class="btn btn-secondary" id="addSitePageBtn" style="width:100%;justify-content:center;">
+          <img class="ico ico-sm" src="${ICO}plus.svg"> ${I18N.AJOUTER_PAGE_AU_SITE}
+        </button>
+      </div>
+
       <button type="button" class="btn btn-primary" id="ouvrirBlocsBtn" style="width:100%;margin-bottom:18px;justify-content:center;">
         <i class="fas fa-layer-group"></i> Ouvrir l'éditeur de blocs visuel
       </button>
@@ -984,6 +1062,19 @@ function renderEditor() {
   document.querySelectorAll('.share-item-rm').forEach(btn =>
     btn.onclick = () => removeShare(p.id, btn.closest('.share-item').dataset.email)
   );
+
+  document.getElementById('addSitePageBtn').onclick = () => createPage(current.site_id);
+  document.querySelectorAll('.site-page-title').forEach(el => {
+    if (el.dataset.id !== p.id) el.onclick = () => openPage(el.dataset.id);
+  });
+  document.querySelectorAll('.site-page-up').forEach(btn =>
+    btn.onclick = () => moveSitePage(btn.closest('.site-page-item').dataset.id, -1)
+  );
+  document.querySelectorAll('.site-page-down').forEach(btn =>
+    btn.onclick = () => moveSitePage(btn.closest('.site-page-item').dataset.id, 1)
+  );
+  const siteLeaveBtn = document.getElementById('siteLeaveBtn');
+  if (siteLeaveBtn) siteLeaveBtn.onclick = () => leaveSite(p.id);
 }
 
 // ── Écran séparé : éditeur de blocs plein écran ────────────────────
@@ -1123,7 +1214,7 @@ function escAttr(s) {
 document.addEventListener('DOMContentLoaded', async () => {
   await initUI();
   await loadPages();
-  document.getElementById('createBtn').onclick = createPage;
+  document.getElementById('createBtn').onclick = () => createPage();
 
   // Ouvre automatiquement la page ciblée par ?open=ID (lien depuis fchier)
   const openId = new URLSearchParams(window.location.search).get('open');
