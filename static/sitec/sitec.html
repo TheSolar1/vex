@@ -377,6 +377,7 @@ async function openPage(id) {
     if (!data.success) { toast(data.error || I18N.ERREUR, 'err'); return; }
     current = data.page;
     dirty = false;
+    blocsFullView = current.mode === 'blocs';
     renderList();
     renderEditor();
   } catch(e) { if (e.message !== 'Session expirée') toast(I18N.ERREUR_CHARGEMENT, 'err'); }
@@ -859,15 +860,20 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('uploadFileInput').onchange = (e) => gererUploadImage(e.target.files[0]);
 });
 
+let blocsFullView = false;
+
 function renderEditor() {
   const p = current;
-  const viewUrl = `${window.location.origin}/page/${p.id}`;
-  const pageMode = (p.mode === 'brut' || p.mode === 'blocs') ? p.mode : 'simple';
   blocs = Array.isArray(p.contenu_blocs) ? p.contenu_blocs.map(b => ({...b})) : [];
   blocsExpanded = new Set();
 
+  if (blocsFullView) { renderBlocsFullView(); return; }
+
+  const viewUrl = `${window.location.origin}/page/${p.id}`;
+  const pageMode = p.mode === 'brut' ? 'brut' : 'simple';
+
   document.getElementById('main').innerHTML = `
-    <div class="editor-card${pageMode==='blocs'?' wide':''}" id="editorCard">
+    <div class="editor-card" id="editorCard">
       <div class="editor-hdr">
         <input type="text" class="titre-input" id="titreInput" value="${escAttr(p.titre)}" placeholder="${I18N.TITRE_DE_LA_PAGE}">
         <div class="editor-actions">
@@ -917,9 +923,12 @@ function renderEditor() {
         </div>
       </div>
 
+      <button type="button" class="btn btn-primary" id="ouvrirBlocsBtn" style="width:100%;margin-bottom:18px;justify-content:center;">
+        <i class="fas fa-layer-group"></i> Ouvrir l'éditeur de blocs visuel
+      </button>
+
       <div class="mode-tabs">
         <button class="mode-tab${pageMode==='simple'?' active':''}" data-mode="simple">${I18N.MODE_SIMPLE}</button>
-        <button class="mode-tab${pageMode==='blocs'?' active':''}" data-mode="blocs">${I18N.MODE_BLOCS}</button>
         <button class="mode-tab${pageMode==='brut'?' active':''}" data-mode="brut">${I18N.HTML_BRUT}</button>
       </div>
 
@@ -935,16 +944,6 @@ function renderEditor() {
         </div>
       </div>
 
-      <div id="blocsFields" style="display:${pageMode==='blocs'?'block':'none'}">
-        <p class="blocs-hint">${I18N.BLOCS_HINT} Glissez un bloc de la palette dans la page, ou cliquez dessus pour l'ajouter à la fin.</p>
-        <div class="blocs-editor-layout">
-          <div class="blocs-palette" id="blocsPalette"></div>
-          <div class="blocs-canvas">
-            <div class="blocs-list" id="blocsList"></div>
-          </div>
-        </div>
-      </div>
-
       <div id="brutFields" style="display:${pageMode==='brut'?'block':'none'}">
         <div class="field-group">
           <label>${I18N.HTML_DE_LA_PAGE}</label>
@@ -954,9 +953,6 @@ function renderEditor() {
       </div>
     </div>`;
 
-  renderPalette();
-  renderBlocsList();
-
   // ── Listeners ──
   let mode = pageMode;
   document.querySelectorAll('.mode-tab').forEach(tab => {
@@ -964,16 +960,12 @@ function renderEditor() {
       mode = tab.dataset.mode;
       document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t===tab));
       document.getElementById('simpleFields').style.display = mode==='simple' ? 'block' : 'none';
-      document.getElementById('blocsFields').style.display  = mode==='blocs'  ? 'block' : 'none';
       document.getElementById('brutFields').style.display   = mode==='brut'   ? 'block' : 'none';
-      document.getElementById('editorCard').classList.toggle('wide', mode==='blocs');
       markDirty();
     };
   });
 
-  document.querySelectorAll('[data-add-bloc]').forEach(btn => {
-    btn.onclick = () => ajouterBloc(btn.dataset.addBloc);
-  });
+  document.getElementById('ouvrirBlocsBtn').onclick = () => { blocsFullView = true; renderEditor(); };
 
   ['titreInput','contenuTitreInput','contenuCorpsInput','contenuHtmlInput','publicToggle'].forEach(id => {
     const el = document.getElementById(id);
@@ -994,17 +986,56 @@ function renderEditor() {
   );
 }
 
+// ── Écran séparé : éditeur de blocs plein écran ────────────────────
+function renderBlocsFullView() {
+  const p = current;
+  document.getElementById('main').innerHTML = `
+    <div class="editor-card wide" id="editorCard">
+      <div class="editor-hdr">
+        <button type="button" class="btn btn-secondary" id="retourBtn"><i class="fas fa-arrow-left"></i> Retour</button>
+        <input type="text" class="titre-input" id="titreInput" value="${escAttr(p.titre)}" placeholder="${I18N.TITRE_DE_LA_PAGE}" style="flex:1;margin:0 14px;">
+        <div class="editor-actions">
+          <button class="btn btn-danger" id="deleteBtn">
+            <img class="ico ico-sm ico-white" src="${ICO}trash.svg"> ${I18N.SUPPRIMER}
+          </button>
+          <button class="btn btn-primary" id="saveBtn">
+            <img class="ico ico-sm ico-white" src="${ICO}floppy-disk.svg"> ${I18N.ENREGISTRER}
+          </button>
+        </div>
+      </div>
+
+      <div id="blocsFields">
+        <p class="blocs-hint">${I18N.BLOCS_HINT} Glissez un bloc de la palette dans la page, ou cliquez dessus pour l'ajouter à la fin.</p>
+        <div class="blocs-editor-layout">
+          <div class="blocs-palette" id="blocsPalette"></div>
+          <div class="blocs-canvas">
+            <div class="blocs-list" id="blocsList"></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  renderPalette();
+  renderBlocsList();
+
+  document.getElementById('retourBtn').onclick = () => { blocsFullView = false; renderEditor(); };
+  document.getElementById('titreInput').oninput = markDirty;
+  document.getElementById('deleteBtn').onclick = () => deletePage(p.id);
+  document.getElementById('saveBtn').onclick = () => savePage('blocs');
+}
+
 function markDirty() { dirty = true; }
 
 // ── Sauvegarde / suppression ───────────────────────────────────────
 async function savePage(mode) {
   const btn = document.getElementById('saveBtn');
   btn.disabled = true;
+  const publicToggle = document.getElementById('publicToggle');
   const payload = {
     id: current.id,
     titre: document.getElementById('titreInput').value.trim() || I18N.SANS_TITRE,
     mode,
-    public: document.getElementById('publicToggle').checked,
+    public: publicToggle ? publicToggle.checked : !!current.public,
     contenu_titre: document.getElementById('contenuTitreInput')?.value || '',
     contenu_corps: document.getElementById('contenuCorpsInput')?.value || '',
     contenu_html:  document.getElementById('contenuHtmlInput')?.value || '',
