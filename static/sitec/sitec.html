@@ -139,9 +139,16 @@ body {
 /* ── Écran blocs : palette | canevas | réglages, + barre d'actions verticale ── */
 .blocs-editor-layout { display:flex; gap:0; align-items:stretch; height:calc(100vh - 150px); min-height:420px; }
 .blocs-palette {
-  width:210px; flex-shrink:0; border:1px solid var(--border); border-radius:8px 0 0 8px; background:var(--sidebar-hover);
-  overflow-y:auto; padding:10px;
+  width:210px; flex-shrink:0; border:1px solid var(--border); border-radius:0 8px 8px 0; background:var(--sidebar-hover);
+  overflow-y:auto; padding:10px; position:relative; transition:background .15s,border-color .15s;
 }
+.blocs-palette.trash-armed { background:color-mix(in srgb, var(--danger) 12%, var(--sidebar-hover)); border-color:var(--danger); }
+.blocs-palette-trash-overlay {
+  display:none; position:absolute; inset:10px; z-index:1; border-radius:6px; border:2px dashed var(--danger);
+  align-items:center; justify-content:center; font-size:34px; color:var(--danger); opacity:.7; pointer-events:none;
+  background:var(--sidebar-hover);
+}
+.blocs-palette.trash-armed .blocs-palette-trash-overlay { display:flex; }
 .blocs-palette-cat { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-dim); margin:12px 4px 6px; }
 .blocs-palette-cat:first-child { margin-top:2px; }
 .blocs-palette-item {
@@ -194,6 +201,15 @@ body {
   width:20px; height:20px; border-radius:50%; background:var(--accent); color:var(--surface);
   display:flex; align-items:center; justify-content:center; font-size:10px; box-shadow:0 1px 4px rgba(0,0,0,.3);
 }
+.bloc-height-handle {
+  position:absolute; left:0; right:0; bottom:-11px; height:22px; z-index:5; cursor:row-resize;
+  display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .15s;
+}
+.bloc-item:hover .bloc-height-handle, .bloc-item.selected .bloc-height-handle { opacity:1; }
+.bloc-height-handle i {
+  width:20px; height:20px; border-radius:50%; background:var(--accent); color:var(--surface);
+  display:flex; align-items:center; justify-content:center; font-size:10px; box-shadow:0 1px 4px rgba(0,0,0,.3);
+}
 .bloc-item.dragging { opacity:.4; }
 .bloc-item.selected { border-color:var(--accent); box-shadow:0 0 0 2px var(--alt); }
 .bloc-item-hdr { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; cursor:pointer; gap:8px; }
@@ -233,7 +249,7 @@ body {
 
 /* ── Panneau de réglages (droite) ── */
 .blocs-settings {
-  width:290px; flex-shrink:0; border:1px solid var(--border); border-radius:0 8px 8px 0; background:var(--sidebar-hover);
+  width:290px; flex-shrink:0; border:1px solid var(--border); background:var(--sidebar-hover);
   overflow-y:auto; padding:14px;
 }
 .blocs-settings-empty { color:var(--text-dim); font-size:12.5px; text-align:center; padding:30px 10px; }
@@ -270,20 +286,23 @@ body {
   cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:12px;
 }
 .blocs-timeline-hdr .vbtn:hover { background:var(--accent); color:var(--surface); }
-.timeline-time { font-family:'SF Mono',Consolas,monospace; font-size:12px; color:var(--text-dim); }
+.blocs-timeline-hdr .vbtn.active { background:var(--accent); color:var(--surface); }
+.timeline-time { font-family:'SF Mono',Consolas,monospace; font-size:12px; color:var(--text-dim); min-width:64px; }
+.tl-zoom { display:flex; gap:4px; }
+.timeline-ruler-outer { overflow-x:auto; }
 .blocs-timeline-tracks { position:relative; max-height:180px; overflow-y:auto; padding:8px 12px; }
 .tl-links { position:absolute; left:0; top:0; pointer-events:none; }
 .timeline-track { display:flex; align-items:center; gap:10px; height:30px; margin-bottom:4px; }
 .timeline-track-label { width:150px; flex-shrink:0; font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:6px; }
-.timeline-track-ruler { flex:1; position:relative; height:20px; background:var(--sidebar-hover); border-radius:4px; }
+.timeline-track-ruler { flex:0 0 auto; width:600px; position:relative; height:20px; background:var(--sidebar-hover); border-radius:4px; cursor:text; }
 .timeline-clip {
   position:absolute; top:2px; height:16px; width:16px; border-radius:4px; background:var(--accent); cursor:grab;
   box-shadow:0 1px 3px rgba(0,0,0,.3);
 }
 .timeline-clip:active { cursor:grabbing; }
 .timeline-clip.selected { outline:2px solid var(--text); }
-.timeline-playhead { position:absolute; top:-4px; bottom:-4px; width:2px; background:var(--danger); pointer-events:none; }
-.timeline-ruler-wrap { position:relative; margin-left:160px; height:16px; }
+.timeline-playhead { position:absolute; top:-4px; bottom:-4px; width:2px; background:var(--danger); pointer-events:none; z-index:2; }
+.timeline-ruler-wrap { position:relative; margin-left:160px; width:600px; height:16px; cursor:text; }
 
 .champ-image-preview { margin-bottom:6px; }
 .champ-image-preview img { max-width:220px; max-height:130px; border-radius:6px; display:block; }
@@ -642,10 +661,10 @@ let actionsMode = false;
 let tlPlaying = false;
 let tlPlayhead = 0; // ms
 let tlSelectedIdx = -1;
-const TL_MAXMS = 5000;
+const TL_MAXMS = 30000;
 
 function blocDefaut(type) {
-  const base = { type, animation: '', ligne: '', largeur: 100, espace: 16, anim_delai: 0 };
+  const base = { type, animation: '', ligne: '', largeur: 100, espace: 16, anim_delai: 0, hauteur: 0 };
   (BLOC_SPECS[type] || []).forEach(champ => {
     if (champ.type === 'items') base[champ.k] = [];
     else if (champ.type === 'checkgroup') base[champ.k] = champ.defaut ? [...champ.defaut] : [];
@@ -752,8 +771,10 @@ function renderBlocsList() {
 
   const cardHtml = (idx) => {
     const b = blocs[idx];
-    const style = b.ligne ? ` style="flex:0 0 ${b.largeur||100}%;max-width:${b.largeur||100}%;"` : '';
-    const handle = b.ligne ? `<div class="bloc-resize-handle" data-idx="${idx}" title="Glisser pour redimensionner"><i class="fas fa-arrows-left-right"></i></div>` : '';
+    const largeurStyle = b.ligne ? `flex:0 0 ${b.largeur||100}%;max-width:${b.largeur||100}%;` : '';
+    const hauteurStyle = b.hauteur ? `min-height:${b.hauteur}px;` : '';
+    const style = (largeurStyle || hauteurStyle) ? ` style="${largeurStyle}${hauteurStyle}"` : '';
+    const widthHandle = b.ligne ? `<div class="bloc-resize-handle" data-idx="${idx}" title="Glisser pour ajuster la largeur"><i class="fas fa-arrows-left-right"></i></div>` : '';
     return `<div class="bloc-item${selectedIdx===idx?' selected':''}" data-idx="${idx}" draggable="true"${style}>
       <div class="bloc-item-hdr">
         <span class="bloc-item-type">
@@ -768,7 +789,8 @@ function renderBlocsList() {
           <button type="button" class="bloc-act bloc-act-danger" data-act="del" title="${escAttr(I18N.BLOC_SUPPRIMER_TITLE)}"><i class="fas fa-trash"></i></button>
         </div>
       </div>
-      ${handle}
+      ${widthHandle}
+      <div class="bloc-height-handle" data-idx="${idx}" title="Glisser pour ajuster la hauteur"><i class="fas fa-arrows-up-down"></i></div>
     </div>`;
   };
 
@@ -790,11 +812,13 @@ function renderBlocsList() {
       item.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', 'reorder');
+      document.getElementById('blocsPalette')?.classList.add('trash-armed');
     });
     item.addEventListener('dragend', () => {
       item.classList.remove('dragging');
       dragState = null;
       list.querySelectorAll('.blocs-drop-side').forEach(el => el.classList.remove('blocs-drop-side','side-left','side-right'));
+      document.getElementById('blocsPalette')?.classList.remove('trash-armed');
     });
 
     // Survol : bord gauche/droit = rejoindre une rangée, centre = insérer seul
@@ -872,6 +896,34 @@ function renderBlocsList() {
     });
   });
 
+  // Poignée de redimensionnement (hauteur) : glisser = ajuste "hauteur" (px)
+  list.querySelectorAll('.bloc-height-handle').forEach(handle => {
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = Number(handle.dataset.idx);
+      const item = handle.closest('.bloc-item');
+      const startY = e.clientY;
+      const startH = item.getBoundingClientRect().height;
+      const onMove = (ev) => {
+        const hauteur = Math.max(0, Math.round(startH + (ev.clientY - startY)));
+        blocs[idx].hauteur = hauteur;
+        item.style.minHeight = `${hauteur}px`;
+        markDirty();
+        if (selectedIdx === idx) {
+          const el = document.getElementById('setHauteur');
+          if (el) el.value = hauteur;
+        }
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+
   // Zone vide du canevas : dépose = bloc seul en fin de page
   list.ondragover = (e) => { if (!e.target.closest('.bloc-item')) e.preventDefault(); };
   list.ondrop = (e) => {
@@ -916,13 +968,14 @@ function renderBlocsSettings() {
     <div class="blocs-settings-section-title">Disposition</div>
     <div class="layout-grid-2">
       <div><span class="champ-label">Largeur (%)</span><input type="number" id="setLargeur" min="10" max="100" value="${b.largeur||100}" ${enLigne?'':'disabled'}></div>
-      <div><span class="champ-label">Espace ligne (px)</span><input type="number" id="setEspace" min="0" max="80" value="${b.espace||16}" ${enLigne?'':'disabled'}></div>
+      <div><span class="champ-label">Espace ligne (px)</span><input type="number" id="setEspace" min="0" max="1000" value="${b.espace||16}" ${enLigne?'':'disabled'}></div>
     </div>
+    <div style="margin-top:8px"><span class="champ-label">Hauteur forcée (px, 0 = auto)</span><input type="number" id="setHauteur" min="0" max="2000" value="${b.hauteur||0}"></div>
     ${enLigne
       ? `<button type="button" class="btn btn-secondary btn-xs" id="sortirLigneBtn" style="margin-top:8px"><i class="fas fa-arrows-left-right"></i> Sortir de la ligne</button>`
       : `<div class="hint" style="margin-top:6px">Glissez ce bloc sur le bord gauche/droit d'un autre bloc dans le canevas pour les mettre côte à côte.</div>`}
     <div class="blocs-settings-section-title">Délai d'animation</div>
-    <div><span class="champ-label">Avant déclenchement (ms)</span><input type="number" id="setDelai" min="0" max="5000" step="50" value="${b.anim_delai||0}"></div>
+    <div><span class="champ-label">Avant déclenchement (ms)</span><input type="number" id="setDelai" min="0" max="120000" step="50" value="${b.anim_delai||0}"></div>
     <div class="hint" style="margin-top:6px">Réglable aussi en glissant le repère de ce bloc dans le mode Actions (barre d'outils verticale).</div>`;
 
   wireBlocFields(panel, idx);
@@ -931,8 +984,10 @@ function renderBlocsSettings() {
   if (largeurEl) largeurEl.addEventListener('input', (e) => setLargeurLigne(idx, Number(e.target.value)));
   const espaceEl = document.getElementById('setEspace');
   if (espaceEl) espaceEl.addEventListener('input', (e) => setEspaceLigne(idx, Number(e.target.value)));
+  const hauteurEl = document.getElementById('setHauteur');
+  if (hauteurEl) hauteurEl.addEventListener('input', (e) => { blocs[idx].hauteur = Math.max(0, Math.min(2000, Number(e.target.value)||0)); markDirty(); renderBlocsList(); });
   const delaiEl = document.getElementById('setDelai');
-  if (delaiEl) delaiEl.addEventListener('input', (e) => { blocs[idx].anim_delai = Math.max(0, Math.min(5000, Number(e.target.value)||0)); markDirty(); if (actionsMode) renderTimeline(); });
+  if (delaiEl) delaiEl.addEventListener('input', (e) => { blocs[idx].anim_delai = Math.max(0, Math.min(120000, Number(e.target.value)||0)); markDirty(); if (actionsMode) renderTimeline(); });
   const sortirBtn = document.getElementById('sortirLigneBtn');
   if (sortirBtn) sortirBtn.onclick = () => sortirDeLaLigne(idx);
 }
@@ -1074,7 +1129,7 @@ function setLargeurLigne(idx, val) {
 }
 
 function setEspaceLigne(idx, val) {
-  const v = Math.max(0, Math.min(80, val || 0));
+  const v = Math.max(0, Math.min(1000, val || 0));
   const ligneId = blocs[idx].ligne;
   blocs.forEach(b => { if (b.ligne && b.ligne === ligneId) b.espace = v; });
   markDirty();
@@ -1098,7 +1153,7 @@ function ajouterBloc(type, apres) {
 function renderPalette() {
   const el = document.getElementById('blocsPalette');
   if (!el) return;
-  el.innerHTML = CATEGORIES.map(cat => `
+  el.innerHTML = `<div class="blocs-palette-trash-overlay"><i class="fas fa-trash"></i></div>` + CATEGORIES.map(cat => `
     <div class="blocs-palette-cat">${escAttr(cat.nom)}</div>
     ${cat.types.map(type => `
       <div class="blocs-palette-item" draggable="true" data-type="${type}">
@@ -1116,6 +1171,22 @@ function renderPalette() {
     item.addEventListener('dragend', () => item.classList.remove('dragging'));
     item.addEventListener('click', () => ajouterBloc(item.dataset.type));
   });
+
+  // Glisser un bloc du canevas jusqu'ici = le supprimer (poubelle).
+  el.ondragover = (e) => {
+    if (dragState && dragState.fromIdx !== undefined) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+  };
+  el.ondrop = (e) => {
+    if (!dragState || dragState.fromIdx === undefined) return;
+    e.preventDefault();
+    const idx = dragState.fromIdx;
+    blocs.splice(idx, 1);
+    if (selectedIdx === idx) selectedIdx = -1; else if (selectedIdx > idx) selectedIdx--;
+    dragState = null;
+    markDirty();
+    renderBlocsList();
+    renderBlocsSettings();
+  };
 }
 
 // ── Sélecteur d'image (URL / téléchargement / mes fichiers) ────────
@@ -1377,22 +1448,13 @@ function renderBlocsFullView() {
 
       <div id="blocsFields">
         <div class="blocs-editor-layout">
-          <div class="blocs-palette" id="blocsPalette"></div>
           <div class="blocs-toolbar-v" id="blocsToolbarV">
             <button type="button" class="vbtn active" id="vbtnVisuel" title="Vue visuelle"><i class="fas fa-eye"></i></button>
             <button type="button" class="vbtn" id="vbtnCode" title="Éditeur de code (JSON)"><i class="fas fa-code"></i></button>
             <div class="vsep"></div>
-            <button type="button" class="vbtn" id="vbtnAjouter" title="Ajouter un bloc texte"><i class="fas fa-plus"></i></button>
             <button type="button" class="vbtn" id="vbtnActions" title="Mode Actions (délais d'animation)"><i class="fas fa-clapperboard"></i></button>
-            <div class="vsep"></div>
-            <button type="button" class="vbtn" id="vbtnRaccourcis" title="Raccourcis clavier"><i class="fas fa-keyboard"></i></button>
           </div>
-          <div class="blocs-center">
-            <div class="blocs-viewtabs">
-              <button type="button" class="blocs-viewtab active" data-view="visuel"><i class="fas fa-eye"></i> Vue</button>
-              <button type="button" class="blocs-viewtab" data-view="code"><i class="fas fa-code"></i> Code</button>
-              <span class="hint" style="margin-left:auto;align-self:center;">${I18N.BLOCS_HINT}</span>
-            </div>
+          <div class="blocs-center" id="blocsCenter">
             <div class="blocs-canvas-wrap">
               <div class="blocs-canvas" id="blocsCanvasVisuel">
                 <div class="blocs-list" id="blocsList"></div>
@@ -1401,15 +1463,23 @@ function renderBlocsFullView() {
             </div>
             <div class="blocs-timeline-wrap" id="blocsTimeline">
               <div class="blocs-timeline-hdr">
+                <button type="button" class="vbtn" id="tlPlayBackBtn" title="Lecture arrière"><i class="fas fa-backward"></i></button>
                 <button type="button" class="vbtn" id="tlPlayBtn" title="Lecture (Espace)"><i class="fas fa-play"></i></button>
                 <span class="timeline-time" id="tlTime">0 ms</span>
-                <span class="hint" style="margin-left:auto;">Glissez un repère (ou I) pour régler son délai d'entrée · ←/→ pour avancer le curseur · Espace pour lire</span>
+                <div class="tl-zoom">
+                  <button type="button" class="vbtn" id="tlZoomOutBtn" title="Zoom arrière"><i class="fas fa-magnifying-glass-minus"></i></button>
+                  <button type="button" class="vbtn" id="tlZoomInBtn" title="Zoom avant"><i class="fas fa-magnifying-glass-plus"></i></button>
+                </div>
+                <span class="hint">Glissez un repère (ou I) · Suppr pour l'enlever · clic/glisser sur la règle pour déplacer le curseur · Espace pour lire</span>
               </div>
-              <div class="timeline-ruler-wrap"><div class="timeline-playhead" id="tlPlayhead" style="left:0"></div></div>
-              <div class="blocs-timeline-tracks" id="tlTracks"></div>
+              <div class="timeline-ruler-outer" id="tlRulerOuter">
+                <div class="timeline-ruler-wrap" id="tlRulerWrap"><div class="timeline-playhead" id="tlPlayhead" style="left:0"></div></div>
+                <div class="blocs-timeline-tracks" id="tlTracks"></div>
+              </div>
             </div>
           </div>
           <div class="blocs-settings" id="blocsSettings"></div>
+          <div class="blocs-palette" id="blocsPalette"></div>
         </div>
       </div>
     </div>`;
@@ -1417,6 +1487,7 @@ function renderBlocsFullView() {
   renderPalette();
   renderBlocsList();
   renderBlocsSettings();
+  wireTlSeek();
 
   document.getElementById('retourBtn').onclick = quitterBlocsFullView;
   document.getElementById('titreInput').oninput = markDirty;
@@ -1427,12 +1498,12 @@ function renderBlocsFullView() {
     window.open(`${window.location.origin}/page/${p.id}`, '_blank');
   };
 
-  document.querySelectorAll('.blocs-viewtab').forEach(tab => tab.onclick = () => basculerVue(tab.dataset.view));
   document.getElementById('vbtnVisuel').onclick = () => basculerVue('visuel');
   document.getElementById('vbtnCode').onclick = () => basculerVue('code');
-  document.getElementById('vbtnAjouter').onclick = () => ajouterBloc('texte');
   document.getElementById('vbtnActions').onclick = basculerModeActions;
-  document.getElementById('vbtnRaccourcis').onclick = afficherRaccourcis;
+  document.getElementById('tlPlayBackBtn').onclick = () => tlTogglePlay(true);
+  document.getElementById('tlZoomInBtn').onclick = () => tlZoom(1);
+  document.getElementById('tlZoomOutBtn').onclick = () => tlZoom(-1);
 }
 
 function quitterBlocsFullView() {
@@ -1454,7 +1525,6 @@ function basculerVue(view) {
     } catch (e) { toast('JSON invalide — changements ignorés.', 'err'); }
   }
   blocsViewMode = view;
-  document.querySelectorAll('.blocs-viewtab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
   document.getElementById('vbtnVisuel').classList.toggle('active', view === 'visuel');
   document.getElementById('vbtnCode').classList.toggle('active', view === 'code');
   if (view === 'code') {
@@ -1475,10 +1545,48 @@ function basculerModeActions() {
   document.getElementById('vbtnActions').classList.toggle('active', actionsMode);
   document.getElementById('blocsTimeline').classList.toggle('active', actionsMode);
   // Laisse toute la largeur au canevas + a la frise pendant l'edition des
-  // animations -- le panneau de reglages d'un bloc n'y sert a rien.
+  // animations -- ni le panneau de reglages ni la palette n'y servent.
   const settingsEl = document.getElementById('blocsSettings');
   if (settingsEl) settingsEl.style.display = actionsMode ? 'none' : '';
+  const paletteEl = document.getElementById('blocsPalette');
+  if (paletteEl) paletteEl.style.display = actionsMode ? 'none' : '';
   if (actionsMode) renderTimeline();
+}
+
+const TL_BASE_PX = 600;
+let tlZoomLevel = 1;
+function tlZoom(dir) {
+  tlZoomLevel = Math.max(1, Math.min(8, tlZoomLevel + dir));
+  applyTlZoomWidth();
+  drawTimelineLinks();
+}
+function applyTlZoomWidth() {
+  const px = `${TL_BASE_PX * tlZoomLevel}px`;
+  const rulerWrap = document.getElementById('tlRulerWrap');
+  if (rulerWrap) rulerWrap.style.width = px;
+  document.querySelectorAll('.timeline-track-ruler').forEach(r => r.style.width = px);
+}
+
+// Clic ou glisser sur la règle (hors repère) = déplace le curseur de
+// lecture -- câblé une seule fois, le conteneur #tlRulerOuter reste stable
+// à travers les re-rendus de renderTimeline().
+function wireTlSeek() {
+  const outer = document.getElementById('tlRulerOuter');
+  if (!outer) return;
+  const seek = (ev) => {
+    const wrap = document.getElementById('tlRulerWrap');
+    const rect = wrap.getBoundingClientRect();
+    const rel = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+    tlSetPlayhead(rel * TL_MAXMS);
+  };
+  outer.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.timeline-clip')) return; // la poignée gère son propre glisser
+    seek(e);
+    const onMove = (ev) => seek(ev);
+    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
 }
 
 function renderTimeline() {
@@ -1486,7 +1594,7 @@ function renderTimeline() {
   // Le bouton lecture doit fonctionner meme sans aucun bloc anime -- cable
   // en dehors du bloc "liste des pistes" ci-dessous (qui peut etre vide).
   const playBtn = document.getElementById('tlPlayBtn');
-  if (playBtn) playBtn.onclick = tlTogglePlay;
+  if (playBtn) playBtn.onclick = () => tlTogglePlay(false);
   if (!tracks) return;
 
   const animes = blocs.map((b, i) => ({ b, i })).filter(x => x.b.animation);
@@ -1501,13 +1609,20 @@ function renderTimeline() {
         <div class="timeline-clip${tlSelectedIdx===i?' selected':''}" data-idx="${i}" style="left:calc(${(b.anim_delai||0)/TL_MAXMS*100}% - 8px)" title="${b.anim_delai||0} ms"></div>
       </div>
     </div>`).join('');
+  applyTlZoomWidth();
 
   tracks.querySelectorAll('.timeline-clip').forEach(clip => {
     clip.addEventListener('mousedown', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       const idx = Number(clip.dataset.idx);
+      // Ne PAS appeler selectionnerBloc()/renderBlocsList() ici : ça
+      // re-génère #tlTracks (actionsMode oblige) et détache l'élément
+      // `clip` qu'on vient de saisir, cassant le glissé en plein milieu
+      // (c'était le bug "déplacer une image clé ça bug").
       tlSelectedIdx = idx;
-      selectionnerBloc(idx);
+      selectedIdx = idx;
+      tracks.querySelectorAll('.timeline-clip').forEach(c => c.classList.toggle('selected', c === clip));
       const ruler = clip.parentElement;
       const onMove = (ev) => {
         const rect = ruler.getBoundingClientRect();
@@ -1530,6 +1645,19 @@ function renderTimeline() {
   });
 
   drawTimelineLinks();
+}
+
+// Enlève le repère du bloc actuellement sélectionné dans la frise (Suppr) --
+// désanime le bloc plutôt que de le supprimer entièrement de la page.
+function supprimerRepereSelectionne() {
+  if (tlSelectedIdx < 0 || !blocs[tlSelectedIdx]) return false;
+  blocs[tlSelectedIdx].animation = '';
+  blocs[tlSelectedIdx].anim_delai = 0;
+  tlSelectedIdx = -1;
+  markDirty();
+  renderTimeline();
+  renderBlocsSettings();
+  return true;
 }
 
 // Relie les repères consécutifs (triés par délai) par une ligne, comme les
@@ -1574,25 +1702,33 @@ function tlSetPlayhead(ms) {
   if (t) t.textContent = `${Math.round(tlPlayhead)} ms`;
 }
 
-function tlTogglePlay() {
-  tlPlaying = !tlPlaying;
-  const btn = document.getElementById('tlPlayBtn');
-  if (btn) btn.innerHTML = tlPlaying ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
-  if (!tlPlaying) return;
-  tlSetPlayhead(0);
+// dir=false -> lecture avant depuis la position actuelle du curseur ;
+// dir=true -> lecture arrière (rembobinage) jusqu'à 0.
+function tlTogglePlay(dir = false) {
+  const btnFwd = document.getElementById('tlPlayBtn');
+  const btnBack = document.getElementById('tlPlayBackBtn');
+  if (tlPlaying) {
+    tlPlaying = false;
+    if (btnFwd) btnFwd.innerHTML = '<i class="fas fa-play"></i>';
+    if (btnBack) btnBack.classList.remove('active');
+    return;
+  }
+  tlPlaying = true;
+  const reverse = !!dir;
+  if (btnFwd) btnFwd.innerHTML = reverse ? '<i class="fas fa-play"></i>' : '<i class="fas fa-pause"></i>';
+  if (btnBack) btnBack.classList.toggle('active', reverse);
   const start = performance.now();
+  const startPlayhead = tlPlayhead;
   function tick(now) {
     if (!tlPlaying) return;
     const elapsed = now - start;
-    tlSetPlayhead(elapsed);
-    if (elapsed >= TL_MAXMS) { tlPlaying = false; if (btn) btn.innerHTML = '<i class="fas fa-play"></i>'; return; }
+    const ms = reverse ? startPlayhead - elapsed : startPlayhead + elapsed;
+    if (ms <= 0) { tlSetPlayhead(0); tlTogglePlay(); return; }
+    if (ms >= TL_MAXMS) { tlSetPlayhead(TL_MAXMS); tlTogglePlay(); return; }
+    tlSetPlayhead(ms);
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
-}
-
-function afficherRaccourcis() {
-  toast("Ctrl+S enregistrer · Suppr supprime le bloc sélectionné · Alt+↑/↓ le déplace · Échap désélectionne · Mode Actions : Espace lecture, ←/→ curseur, I insère/déplace le repère du bloc sélectionné", '', 8000);
 }
 
 function markDirty() { dirty = true; }
@@ -1719,6 +1855,13 @@ document.addEventListener('keydown', (e) => {
       renderBlocsSettings();
       return;
     }
+    // Suppr/Retour arrière sur un repère sélectionné dans la frise = on
+    // l'enlève de la frise (priorité sur la suppression du bloc entier).
+    if ((e.key === 'Delete' || e.key === 'Backspace') && tlSelectedIdx >= 0) {
+      e.preventDefault();
+      supprimerRepereSelectionne();
+      return;
+    }
   }
   if (typing) return;
   if (e.key === 'Escape') { selectedIdx = -1; renderBlocsList(); renderBlocsSettings(); return; }
@@ -1760,6 +1903,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const id2 = p2.get('open');
     if (!id2) {
       current = null; blocsFullView = false; actionsMode = false;
+      const sidebarEl = document.querySelector('.sidebar');
+      if (sidebarEl) sidebarEl.style.display = '';
       renderList();
       document.getElementById('main').innerHTML = `
         <div class="empty-state">
@@ -1772,10 +1917,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     blocsFullView = p2.get('blocs') === '1';
     if (!blocsFullView) actionsMode = false;
     renderEditor();
-  });
-
-  window.addEventListener('beforeunload', (e) => {
-    if (dirty) { e.preventDefault(); e.returnValue=''; }
   });
 });
 </script>

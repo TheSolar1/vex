@@ -230,11 +230,12 @@ __NAV_HTML__
     <div class="sb-a" data-sec="extensions"><img src="/static/img/solid/puzzle-piece.svg" alt=""> <span>{{T_SB_EXTENSIONS_PLUGIN}}</span></div>
     <div class="sb-a" data-sec="roles"><img src="/static/img/solid/id-badge.svg" alt=""> <span>{{T_SB_ROLES_PLANS}}</span></div>
     <div class="sb-a" data-sec="server"><img src="/static/img/solid/server.svg" alt=""> <span>{{T_SB_SERVEUR}}</span></div>
-    <div class="sb-a" id="sb-machine" data-sec="machine" style="display:none"><img src="/static/img/solid/microchip.svg" alt=""> <span>{{T_SB_MACHINE}}</span></div>
     <div class="sb-a" data-sec="logs"><img src="/static/img/solid/scroll.svg" alt=""> <span>{{T_SB_LOGS}}</span></div>
     <div class="sb-a" data-sec="onlyoffice"><img src="/static/img/solid/file-lines.svg" alt=""> <span>{{T_SB_EDITEUR_EN_LIGNE}}</span><span class="sb-pill w" id="pill-oo" style="display:none">!</span></div>
     <div class="sb-a" id="sb-p2p" data-sec="p2p" style="display:none"><img src="/static/img/solid/network-wired.svg" alt=""> <span>{{T_SB_P2P_ANONNET}}</span><span class="sb-pill" id="pill-p2p">0</span></div>
     <div class="sb-a" id="sb-backup" data-sec="backup" style="display:none"><img src="/static/img/solid/box-archive.svg" alt=""> <span>{{T_SB_SAUVEGARDES}}</span></div>
+    <div class="sb-sep" id="sb-sep-machine" style="display:none">{{T_SB_MACHINE}}</div>
+    <div class="sb-a" id="sb-machine" data-sec="machine" style="display:none"><img src="/static/img/solid/microchip.svg" alt=""> <span>{{T_SB_MACHINE}}</span></div>
 </nav>
 
 <main class="main">
@@ -541,7 +542,7 @@ function confirmerDialogue(message,opts={}){
 async function loadDash(){
     const r=await api('/dashboard');if(!r.success){flash(r.error,true);return;}
     const d=r.data;
-    if(d.is_super){document.getElementById('sb-p2p').style.display='';document.getElementById('sb-backup').style.display='';document.getElementById('sb-machine').style.display='';}
+    if(d.is_super){document.getElementById('sb-p2p').style.display='';document.getElementById('sb-backup').style.display='';document.getElementById('sb-machine').style.display='';document.getElementById('sb-sep-machine').style.display='';}
     IS_SUPER=d.is_super||false;
     document.getElementById('sql-zone').style.display=IS_SUPER?'':'none';
     const cfgR=await api('/config');

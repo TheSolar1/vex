@@ -976,15 +976,21 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
             "retour_haut" => "<div class=\"sitec-bloc\"><button type=\"button\" class=\"sitec-retour-haut\" onclick=\"window.scrollTo({top:0,behavior:'smooth'})\">&uarr;</button></div>".to_string(),
             _ => continue,
         };
-        let delai = san_int(b, "anim_delai", 0, 5000, 0);
-        let delai_style = if delai > 0 { format!(" style=\"animation-delay:{}ms\"", delai) } else { String::new() };
+        let delai = san_int(b, "anim_delai", 0, 120_000, 0);
+        let hauteur = san_int(b, "hauteur", 0, 2000, 0);
+        let extra_style = match (delai > 0, hauteur > 0) {
+            (true, true) => format!(" style=\"animation-delay:{}ms;min-height:{}px;\"", delai, hauteur),
+            (true, false) => format!(" style=\"animation-delay:{}ms\"", delai),
+            (false, true) => format!(" style=\"min-height:{}px;\"", hauteur),
+            (false, false) => String::new(),
+        };
         let html = format!(
             "<div class=\"sitec-anim\" data-anim=\"{}\"{}>{}</div>",
-            html_escape(&anim), delai_style, inner
+            html_escape(&anim), extra_style, inner
         );
         let ligne = b["ligne"].as_str().unwrap_or("").to_string();
         let largeur = san_int(b, "largeur", 10, 100, 100);
-        let espace = san_int(b, "espace", 0, 80, 16);
+        let espace = san_int(b, "espace", 0, 1000, 16);
         items.push((ligne, largeur, espace, html));
     }
 
@@ -1613,8 +1619,10 @@ fn sanitiser_blocs(v: &Value) -> String {
         // decale le declenchement de l'animation d'entree (mode "actions").
         bloc["ligne"] = json!(tronque(b["ligne"].as_str().unwrap_or(""), 20));
         bloc["largeur"] = json!(san_int(b, "largeur", 10, 100, 100));
-        bloc["espace"] = json!(san_int(b, "espace", 0, 80, 16));
-        bloc["anim_delai"] = json!(san_int(b, "anim_delai", 0, 5000, 0));
+        bloc["espace"] = json!(san_int(b, "espace", 0, 1000, 16));
+        bloc["anim_delai"] = json!(san_int(b, "anim_delai", 0, 120_000, 0));
+        // Hauteur minimale forcee (px), 0 = automatique (contenu).
+        bloc["hauteur"] = json!(san_int(b, "hauteur", 0, 2000, 0));
         out.push(bloc);
     }
     serde_json::to_string(&out).unwrap_or_else(|_| "[]".to_string())
