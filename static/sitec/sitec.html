@@ -7,6 +7,7 @@
 <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
 <link rel="stylesheet" href="/static/css/theme.css">
 <script src="/static/fa-local.js" defer></script>
+<script src="/static/crypto.js"></script>
 <style>
 .ico    { display:inline-block; width:16px; height:16px; vertical-align:middle; flex-shrink:0; }
 .ico-sm { width:14px; height:14px; }
@@ -200,11 +201,18 @@ body {
 .bloc-resize-handle {
   position:absolute; top:0; right:-11px; bottom:0; width:22px; z-index:5; cursor:col-resize;
 }
+.bloc-resize-handle-left {
+  position:absolute; top:0; left:-11px; bottom:0; width:22px; z-index:5; cursor:col-resize;
+}
 .bloc-height-handle {
   position:absolute; left:0; right:0; bottom:-11px; height:22px; z-index:5; cursor:row-resize;
 }
+.bloc-height-handle-top {
+  position:absolute; left:0; right:0; top:-11px; height:22px; z-index:5; cursor:row-resize;
+}
 .bloc-item.dragging { opacity:.4; }
 .bloc-item.selected { border-color:var(--accent); box-shadow:0 0 0 2px var(--alt); }
+.bloc-item.multi-selected { outline:2px dashed var(--accent); outline-offset:2px; }
 .bloc-item.editing-kf { border-color:#3b82f6; box-shadow:0 0 0 2px rgba(59,130,246,.35); }
 .bloc-item.editing-kf .bloc-item-hdr { cursor:move; }
 .bloc-item-hdr { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; cursor:pointer; gap:8px; }
@@ -686,6 +694,7 @@ let blocs = [];
 let selectedIdx = -1;
 let dragState = null; // { fromPalette:bool, type?, fromIdx? }
 let blocClipboard = null; // copie profonde du bloc sélectionné (Ctrl+C / Ctrl+V)
+let multiSelectedIndices = new Set(); // Maj+clic sur plusieurs blocs libres = les déplacer ensemble
 let blocsViewMode = 'visuel'; // 'visuel' | 'code'
 let posMode = localStorage.getItem('sitecPosMode') || 'libre'; // 'libre' | 'grille' | 'guides'
 const POS_GRID = 20;
@@ -828,12 +837,20 @@ function renderBlocsList() {
       style = ` style="width:${l}%;margin-left:${b.decalage||0}%;${b.hauteur?`min-height:${b.hauteur}px;`:''}"`;
     }
     const widthHandle = `<div class="bloc-resize-handle" data-idx="${idx}" title="Glisser pour ajuster la largeur"></div>`;
+    // Poignées gauche/haut : en plus des poignées droite/bas existantes --
+    // redimensionnent en gardant le bord OPPOSÉ fixe (comme dans un éditeur
+    // graphique classique), au lieu de ne pouvoir agrandir/rétrécir que
+    // vers la droite/le bas.
+    const leftHandle = !b.ligne
+      ? `<div class="bloc-resize-handle-left" data-idx="${idx}" title="Glisser pour ajuster la largeur (depuis la gauche)"></div>` : '';
+    const topHandle = b.libre
+      ? `<div class="bloc-height-handle-top" data-idx="${idx}" title="Glisser pour ajuster la hauteur (depuis le haut)"></div>` : '';
     const moveHandle = (!b.libre && !b.ligne && (b.largeur||100) < 100)
       ? `<button type="button" class="bloc-act bloc-move-handle" data-idx="${idx}" title="Glisser pour déplacer horizontalement"><i class="fas fa-up-down-left-right"></i></button>` : '';
     const libreHandle = b.libre
       ? `<button type="button" class="bloc-act bloc-libre-handle" data-idx="${idx}" title="Glisser pour placer où vous voulez"><i class="fas fa-up-down-left-right"></i></button>` : '';
     const editingKf = actionsMode && tlSelectedIdx === idx && tlSelectedKf >= 0;
-    return `<div class="bloc-item${selectedIdx===idx?' selected':''}${b.libre?' libre':''}${editingKf?' editing-kf':''}" data-idx="${idx}" draggable="${(b.libre||actionsMode)?'false':'true'}"${style}>
+    return `<div class="bloc-item${selectedIdx===idx?' selected':''}${b.libre?' libre':''}${editingKf?' editing-kf':''}${multiSelectedIndices.has(idx)?' multi-selected':''}" data-idx="${idx}" draggable="${(b.libre||actionsMode)?'false':'true'}"${style}>
       <div class="bloc-item-hdr">
         <span class="bloc-item-type">
           <i class="fas fa-grip-vertical bloc-drag-handle"></i>
@@ -848,7 +865,7 @@ function renderBlocsList() {
           <button type="button" class="bloc-act bloc-act-danger" data-act="del" title="${escAttr(I18N.BLOC_SUPPRIMER_TITLE)}"><i class="fas fa-trash"></i></button>
         </div>
       </div>
-      ${widthHandle}
+      ${widthHandle}${leftHandle}${topHandle}
       <div class="bloc-height-handle" data-idx="${idx}" title="Glisser pour ajuster la hauteur"></div>
     </div>`;
   };
@@ -869,6 +886,17 @@ function renderBlocsList() {
 
     item.querySelector('.bloc-item-hdr').addEventListener('click', (e) => {
       if (e.target.closest('.bloc-act')) return;
+      // Maj+clic : sélection multiple (en plus de la sélection normale, qui
+      // pilote le panneau de réglages) -- permet de choisir plusieurs blocs
+      // dans leur état actuel puis de les glisser ensemble par la poignée
+      // libre de l'un d'eux (voir plus bas).
+      if (e.shiftKey) {
+        if (multiSelectedIndices.has(idx)) multiSelectedIndices.delete(idx);
+        else multiSelectedIndices.add(idx);
+        selectionnerBloc(idx);
+        return;
+      }
+      multiSelectedIndices.clear();
       selectionnerBloc(idx);
     });
 
@@ -955,6 +983,7 @@ function renderBlocsList() {
         if (act === 'del') {
           blocs.splice(idx, 1);
           if (selectedIdx === idx) selectedIdx = -1; else if (selectedIdx > idx) selectedIdx--;
+          multiSelectedIndices.clear();
         }
         markDirty();
         renderBlocsList();
@@ -1025,6 +1054,93 @@ function renderBlocsList() {
     });
   });
 
+  // Poignée de redimensionnement DEPUIS LA GAUCHE : garde le bord DROIT
+  // fixe (comme un éditeur graphique classique) au lieu de ne pouvoir
+  // agrandir/rétrécir que vers la droite.
+  list.querySelectorAll('.bloc-resize-handle-left').forEach(handle => {
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = Number(handle.dataset.idx);
+      const item = handle.closest('.bloc-item');
+      if (actionsMode && tlSelectedIdx === idx && tlSelectedKf >= 0) {
+        const kf = blocs[idx].keyframes[tlSelectedKf];
+        const startX = e.clientX;
+        const startW = item.getBoundingClientRect().width;
+        const startKfX = kf.x || 0;
+        const onMoveKf = (ev) => {
+          const dx = ev.clientX - startX;
+          kf.w = Math.max(0, Math.round(startW - dx));
+          kf.x = Math.round(startKfX + dx);
+          item.style.width = `${kf.w}px`;
+          item.style.transform = `translate(${kf.x}px,${kf.y||0}px)`;
+          const elW = document.getElementById('tlKfW'); if (elW) elW.value = kf.w;
+          const elX = document.getElementById('tlKfX'); if (elX) elX.value = kf.x;
+          markDirty();
+        };
+        const onUpKf = () => {
+          document.removeEventListener('mousemove', onMoveKf);
+          document.removeEventListener('mouseup', onUpKf);
+        };
+        document.addEventListener('mousemove', onMoveKf);
+        document.addEventListener('mouseup', onUpKf);
+        return;
+      }
+      const b = blocs[idx];
+      const refRect = document.getElementById('blocsList').getBoundingClientRect();
+      const startX = e.clientX;
+      if (b.libre) {
+        const startLargeur = b.largeur || 100;
+        const startPosX = b.pos_x || 0;
+        const onMove = (ev) => {
+          const dx = ev.clientX - startX;
+          const deltaPct = dx / refRect.width * 100;
+          const largeur = Math.max(10, Math.min(100, Math.round(startLargeur - deltaPct)));
+          blocs[idx].largeur = largeur;
+          blocs[idx].pos_x = Math.round(startPosX + dx);
+          item.style.width = `${largeur}%`;
+          item.style.left = `${blocs[idx].pos_x}px`;
+          markDirty();
+          if (selectedIdx === idx) {
+            const el = document.getElementById('setLargeur'); if (el) el.value = largeur;
+            const ex = document.getElementById('setPosX'); if (ex) ex.value = blocs[idx].pos_x;
+          }
+        };
+        const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        return;
+      }
+      // Bloc seul (hors rangée) : largeur + décalage ajustés ensemble pour
+      // garder le bord droit à la même position pendant qu'on tire le
+      // gauche.
+      const startLargeur = b.largeur || 100;
+      const startDecalage = b.decalage || 0;
+      const onMove = (ev) => {
+        const dx = ev.clientX - startX;
+        const deltaPct = dx / refRect.width * 100;
+        const largeur = Math.max(10, Math.min(100, Math.round(startLargeur - deltaPct)));
+        const decalage = Math.max(0, Math.min(100 - largeur, Math.round(startDecalage + deltaPct)));
+        blocs[idx].largeur = largeur;
+        blocs[idx].decalage = decalage;
+        item.style.width = `${largeur}%`;
+        item.style.marginLeft = `${decalage}%`;
+        markDirty();
+        if (selectedIdx === idx) {
+          const el = document.getElementById('setLargeur'); if (el) el.value = largeur;
+          const ed = document.getElementById('setDecalage'); if (ed) ed.value = decalage;
+        }
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        renderBlocsList();
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+
   // Poignée de déplacement horizontal (bloc seul, rétréci) : glisser = ajuste "decalage"
   list.querySelectorAll('.bloc-move-handle').forEach(handle => {
     handle.addEventListener('mousedown', (e) => {
@@ -1065,6 +1181,17 @@ function renderBlocsList() {
       const startLeft = blocs[idx].pos_x || 0, startTop = blocs[idx].pos_y || 0;
       const itemRect0 = item.getBoundingClientRect();
       const w = itemRect0.width, h = itemRect0.height;
+      // Sélection multiple (Maj+clic, voir plus haut) : les autres blocs
+      // libres sélectionnés suivent le même déplacement brut (sans
+      // grille/guides, qui ne s'appliquent qu'au bloc réellement glissé).
+      const groupe = (multiSelectedIndices.has(idx) && multiSelectedIndices.size > 1)
+        ? [...multiSelectedIndices].filter(i => i !== idx && blocs[i] && blocs[i].libre).map(i => ({
+            idx: i,
+            startX: blocs[i].pos_x || 0,
+            startY: blocs[i].pos_y || 0,
+            el: document.querySelector(`.bloc-item[data-idx="${i}"]`),
+          }))
+        : [];
       const onMove = (ev) => {
         let x = Math.max(-2000, Math.min(8000, Math.round(startLeft + (ev.clientX - startX))));
         let y = Math.max(-2000, Math.min(20000, Math.round(startTop + (ev.clientY - startY))));
@@ -1083,6 +1210,13 @@ function renderBlocsList() {
         blocs[idx].pos_y = y;
         item.style.left = `${x}px`;
         item.style.top = `${y}px`;
+        const netDx = x - startLeft, netDy = y - startTop;
+        groupe.forEach(g => {
+          const gx = g.startX + netDx, gy = g.startY + netDy;
+          blocs[g.idx].pos_x = gx;
+          blocs[g.idx].pos_y = gy;
+          if (g.el) { g.el.style.left = `${gx}px`; g.el.style.top = `${gy}px`; }
+        });
         markDirty();
         if (selectedIdx === idx) {
           const ex = document.getElementById('setPosX'); if (ex) ex.value = x;
@@ -1139,6 +1273,63 @@ function renderBlocsList() {
         if (selectedIdx === idx) {
           const el = document.getElementById('setHauteur');
           if (el) el.value = hauteur;
+        }
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+
+  // Poignée de redimensionnement DEPUIS LE HAUT (blocs libres uniquement --
+  // seuls eux ont une position Y réelle) : garde le bord BAS fixe pendant
+  // qu'on tire le haut.
+  list.querySelectorAll('.bloc-height-handle-top').forEach(handle => {
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = Number(handle.dataset.idx);
+      const item = handle.closest('.bloc-item');
+      if (actionsMode && tlSelectedIdx === idx && tlSelectedKf >= 0) {
+        const kf = blocs[idx].keyframes[tlSelectedKf];
+        const startY = e.clientY;
+        const startH = item.getBoundingClientRect().height;
+        const startKfY = kf.y || 0;
+        const onMoveKf = (ev) => {
+          const dy = ev.clientY - startY;
+          kf.h = Math.max(0, Math.round(startH - dy));
+          kf.y = Math.round(startKfY + dy);
+          item.style.minHeight = `${kf.h}px`;
+          item.style.transform = `translate(${kf.x||0}px,${kf.y}px)`;
+          const elH = document.getElementById('tlKfH'); if (elH) elH.value = kf.h;
+          const elY = document.getElementById('tlKfY'); if (elY) elY.value = kf.y;
+          markDirty();
+        };
+        const onUpKf = () => {
+          document.removeEventListener('mousemove', onMoveKf);
+          document.removeEventListener('mouseup', onUpKf);
+        };
+        document.addEventListener('mousemove', onMoveKf);
+        document.addEventListener('mouseup', onUpKf);
+        return;
+      }
+      const startY = e.clientY;
+      const startH = item.getBoundingClientRect().height;
+      const startPosY = blocs[idx].pos_y || 0;
+      const onMove = (ev) => {
+        const dy = ev.clientY - startY;
+        const hauteur = Math.max(0, Math.round(startH - dy));
+        blocs[idx].hauteur = hauteur;
+        blocs[idx].pos_y = Math.round(startPosY + dy);
+        item.style.minHeight = `${hauteur}px`;
+        item.style.top = `${blocs[idx].pos_y}px`;
+        markDirty();
+        if (selectedIdx === idx) {
+          const el = document.getElementById('setHauteur'); if (el) el.value = hauteur;
+          const ey = document.getElementById('setPosY'); if (ey) ey.value = blocs[idx].pos_y;
         }
       };
       const onUp = () => {
@@ -1449,6 +1640,7 @@ function renderPalette() {
     const idx = dragState.fromIdx;
     blocs.splice(idx, 1);
     if (selectedIdx === idx) selectedIdx = -1; else if (selectedIdx > idx) selectedIdx--;
+    multiSelectedIndices.clear();
     dragState = null;
     markDirty();
     renderBlocsList();
@@ -1482,13 +1674,54 @@ async function chargerMesImages() {
     const data = await r.json();
     const fichiers = data.fichiers || [];
     if (!fichiers.length) { el.innerHTML = `<div class="champ-items-empty">Aucune image dans vos fichiers.</div>`; return; }
-    el.innerHTML = fichiers.map(f => `<div class="mes-images-item" data-id="${f.id}" title="${escAttr(f.nom)}"><img src="${API}/fichier_thumb?id=${f.id}" loading="lazy"></div>`).join('');
-    el.querySelectorAll('.mes-images-item').forEach(item => item.onclick = () => importerFichier(Number(item.dataset.id)));
+    // Les fichiers ExoDrive sont chiffrés de bout en bout (le serveur ne
+    // détient jamais la clé) -- une <img src="/api/.../fichier_thumb?..">
+    // classique servirait directement les octets chiffrés, illisibles pour
+    // le navigateur. On récupère et déchiffre chaque miniature côté client
+    // (voir recupererFichierDechiffre) puis on l'affiche via une object URL.
+    el.innerHTML = fichiers.map(f => `<div class="mes-images-item" data-id="${f.id}" title="${escAttr(f.nom)}"><div class="spinner-wrap"><div class="spinner"></div></div></div>`).join('');
+    el.querySelectorAll('.mes-images-item').forEach(item => {
+      item.onclick = () => importerFichier(Number(item.dataset.id));
+      recupererFichierDechiffre(Number(item.dataset.id)).then(({ blob }) => {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(blob);
+        img.loading = 'lazy';
+        item.innerHTML = '';
+        item.appendChild(img);
+      }).catch(() => { item.innerHTML = `<i class="fas fa-triangle-exclamation"></i>`; });
+    });
   } catch(e) { el.innerHTML = `<div class="champ-items-empty">Erreur de chargement.</div>`; }
+}
+// Récupère un fichier ExoDrive par son id et le déchiffre côté client
+// (même logique que le téléchargement dans fchier.html) -- le serveur ne
+// stocke et ne renvoie que du contenu chiffré, jamais la clé.
+async function recupererFichierDechiffre(id) {
+  const r = await apiFetch(`/api/fchier/download?id=${id}`);
+  const data = await r.json();
+  if (!data.success) throw new Error(data.error || I18N.ERREUR);
+  const bytes = VEX.fromBase64(data.contenu);
+  let blob;
+  if (window.VEX && VEX.isConnected()) {
+    try {
+      blob = await VEX.dechiffrerFichier(new Blob([bytes]), data.mime);
+    } catch (e) {
+      if (!e.message || !e.message.includes('non chiffré')) throw e;
+      blob = new Blob([bytes], { type: data.mime || 'application/octet-stream' });
+    }
+  } else {
+    blob = new Blob([bytes], { type: data.mime || 'application/octet-stream' });
+  }
+  return { blob, mime: data.mime, nom: data.nom };
 }
 async function importerFichier(id) {
   try {
-    const r = await apiFetch(`${API}/import_fichier`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({fichier_id:id}) });
+    const { blob, mime, nom } = await recupererFichierDechiffre(id);
+    if (blob.size > 5 * 1024 * 1024) { toast('Fichier trop volumineux (5 Mo maximum).', 'err'); return; }
+    const b64 = VEX.toBase64(new Uint8Array(await blob.arrayBuffer()));
+    const r = await apiFetch(`${API}/media_upload`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({file_b64:b64, mime_type: mime, file_name: nom}),
+    });
     const data = await r.json();
     if (data.success) { if (imgPickerCallback) imgPickerCallback(data.url); fermerSelecteurImage(); }
     else toast(data.error || I18N.ERREUR, 'err');
@@ -2522,12 +2755,13 @@ document.addEventListener('keydown', (e) => {
     }
   }
   if (typing) return;
-  if (e.key === 'Escape') { selectedIdx = -1; renderBlocsList(); renderBlocsSettings(); return; }
+  if (e.key === 'Escape') { selectedIdx = -1; multiSelectedIndices.clear(); renderBlocsList(); renderBlocsSettings(); return; }
   if (selectedIdx < 0) return;
   if (e.key === 'Delete' || e.key === 'Backspace') {
     e.preventDefault();
     blocs.splice(selectedIdx, 1);
     selectedIdx = -1;
+    multiSelectedIndices.clear();
     markDirty(); renderBlocsList(); renderBlocsSettings();
   } else if (e.altKey && e.key === 'ArrowUp' && selectedIdx > 0) {
     e.preventDefault();
@@ -2540,8 +2774,29 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// Réamorce la session de chiffrement ExoDrive (même pattern que fchier.html)
+// à partir des valeurs posées en sessionStorage au login -- nécessaire pour
+// déchiffrer côté client un fichier importé depuis "Mes fichiers" (voir
+// importerFichier) : le serveur ne détient jamais la clé, chiffrement de
+// bout en bout.
+function initCryptoSession() {
+  try {
+    if (!window.VEX) throw new Error('module crypto absent');
+    const mdp = sessionStorage.getItem('vex_mdp');
+    const hash = sessionStorage.getItem('vex_hash');
+    const email = sessionStorage.getItem('vex_email');
+    if (!mdp || !hash || !email) throw new Error('session crypto incomplète');
+    VEX.setSession(mdp, hash, email);
+    return VEX.isConnected();
+  } catch (e) {
+    console.warn('VEX : session crypto indisponible :', e);
+    return false;
+  }
+}
+
 // ── Bootstrap ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  initCryptoSession();
   await initUI();
   await loadPages();
   document.getElementById('createBtn').onclick = createPage;

@@ -230,11 +230,6 @@ pub fn handle(pool: &DbPool, request: &mut Request) -> Response<std::io::Cursor<
             handle_media_upload(&session, &body, &langue)
         }
         "/api/sitec/mes_images" => handle_mes_images(pool, &session),
-        "/api/sitec/import_fichier" => {
-            let body = read_body(request);
-            handle_import_fichier(pool, &session, &body, &langue)
-        }
-        "/api/sitec/fichier_thumb" => handle_fichier_thumb(pool, &session, &url),
         _ => json_resp(json!({"success":false,"error":"Route inconnue"}), 404),
     }
 }
@@ -540,76 +535,6 @@ fn handle_mes_images(pool: &DbPool, session: &SessionInfo) -> Response<std::io::
     )
     .unwrap_or_default();
     json_resp(json!({"success":true,"fichiers":rows}), 200)
-}
-
-fn handle_import_fichier(pool: &DbPool, session: &SessionInfo, body: &str, langue: &str) -> Response<std::io::Cursor<Vec<u8>>> {
-    let data: Value = serde_json::from_str(body).unwrap_or_default();
-    let fichier_id = match data["fichier_id"].as_i64() {
-        Some(id) => id,
-        None => return json_resp(json!({"success":false,"error":"id manquant"}), 400),
-    };
-    let row = match selectionner(
-        pool,
-        "fichiers",
-        &[("id", mysql::Value::from(fichier_id)), ("id_utilisateur", mysql::Value::from(session.user_id))],
-        &["type_fichier", "fichier"],
-        None,
-        Some(1),
-    )
-    .into_iter()
-    .next()
-    {
-        Some(r) => r,
-        None => return json_resp(json!({"success":false,"error":t(langue, Cle::SitecErreurPageIntrouvable)}), 404),
-    };
-    let mime_type = row.get("type_fichier").and_then(|v| v.as_str()).unwrap_or("").to_ascii_lowercase();
-    if !MEDIA_MIME_EXT.iter().any(|(m, _)| *m == mime_type) {
-        return json_resp(json!({"success":false,"error":t(langue, Cle::SitecErreurTypeFichierInvalide)}), 400);
-    }
-    let b64 = row.get("fichier").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let bytes = match B64.decode(b64.as_bytes()) {
-        Ok(b) => b,
-        Err(_) => return err500(),
-    };
-    if bytes.is_empty() || bytes.len() > MAX_MEDIA_BYTES {
-        return json_resp(json!({"success":false,"error":t(langue, Cle::SitecErreurFichierTropGros)}), 400);
-    }
-    match enregistrer_media(session.user_id, &bytes, &mime_type) {
-        Some(url) => json_resp(json!({"success":true,"url":url}), 200),
-        None => err500(),
-    }
-}
-
-/// Vignette pour le sélecteur "mes fichiers" -- sert l'image d'origine
-/// (privee, cote fchier) uniquement a son proprietaire, contrairement aux
-/// URLs MEDIA_DIR qui elles sont publiques une fois importees dans un bloc.
-fn handle_fichier_thumb(pool: &DbPool, session: &SessionInfo, url: &str) -> Response<std::io::Cursor<Vec<u8>>> {
-    let params = utils::parse_query(url);
-    let fichier_id = match params.get("id").and_then(|v| v.parse::<i64>().ok()) {
-        Some(id) => id,
-        None => return html_resp("id manquant", 400),
-    };
-    let row = match selectionner(
-        pool,
-        "fichiers",
-        &[("id", mysql::Value::from(fichier_id)), ("id_utilisateur", mysql::Value::from(session.user_id))],
-        &["type_fichier", "fichier"],
-        None,
-        Some(1),
-    )
-    .into_iter()
-    .next()
-    {
-        Some(r) => r,
-        None => return html_resp("Introuvable", 404),
-    };
-    let mime_type = row.get("type_fichier").and_then(|v| v.as_str()).unwrap_or("application/octet-stream").to_string();
-    if !mime_type.starts_with("image/") {
-        return html_resp("Type invalide", 400);
-    }
-    let b64 = row.get("fichier").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let bytes = B64.decode(b64.as_bytes()).unwrap_or_default();
-    bytes_resp(bytes, &mime_type)
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1408,10 +1333,19 @@ fn safe_url(u: &str) -> String {
     let u = u.trim();
     let lower = u.to_ascii_lowercase();
     if lower.starts_with("http://") || lower.starts_with("https://") {
-        u.chars().take(2000).collect()
-    } else {
-        String::new()
+        return u.chars().take(2000).collect();
     }
+    // Médias hébergés par VEX lui-même (upload direct ou import depuis
+    // ExoDrive, voir `enregistrer_media`) : chemin relatif généré côté
+    // serveur, jamais saisi tel quel par l'utilisateur -- sans danger à
+    // autoriser en plus des URL absolues. Sans ce cas, un bloc image/
+    // vidéo/audio utilisant un fichier importé depuis ses propres fichiers
+    // (au lieu d'une URL externe) était silencieusement retiré de la page
+    // publiée (voir `render_blocs_html`, `if url.is_empty() { continue; }`).
+    if u.starts_with("/static/sitec_media/") {
+        return u.chars().take(2000).collect();
+    }
+    String::new()
 }
 
 /// YouTube/Vimeo -> iframe d'integration ; sinon on suppose un fichier
@@ -2008,14 +1942,6 @@ fn html_resp(body: &str, code: u16) -> Response<std::io::Cursor<Vec<u8>>> {
         .with_status_code(code)
         .with_header(tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap())
         .with_header(tiny_http::Header::from_bytes("Cache-Control", "no-cache, no-store, must-revalidate").unwrap())
-}
-
-fn bytes_resp(data: Vec<u8>, content_type: &str) -> Response<std::io::Cursor<Vec<u8>>> {
-    // with_chunked_threshold : voir appareil.rs -- evite le Transfer-Encoding
-    // chunked (>32 Ko) qui corrompt les reponses derriere Apache.
-    Response::from_data(data)
-        .with_header(tiny_http::Header::from_bytes("Content-Type", content_type).unwrap())
-        .with_chunked_threshold(usize::MAX)
 }
 
 fn err500() -> Response<std::io::Cursor<Vec<u8>>> {
