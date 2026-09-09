@@ -1838,40 +1838,15 @@ function supprimerRepereSelectionne() {
   return true;
 }
 
-// Relie les repères consécutifs (triés par délai) par une ligne, comme les
-// images clés reliées dans le dopesheet de Blender -- aide à visualiser
-// l'ordre de déclenchement des animations entre blocs différents.
+// Le dopesheet de Blender ne relie jamais les images clés par une ligne --
+// chaque objet a sa propre piste de losanges, point final. La version
+// précédente reliait par erreur les repères de blocs DIFFÉRENTS entre eux
+// (zigzag diagonal illisible entre les pistes) : on se contente de retirer
+// le tracé précédent, sans le remplacer.
 function drawTimelineLinks() {
   const wrap = document.getElementById('tlTracks');
   if (!wrap) return;
   wrap.querySelector('svg.tl-links')?.remove();
-  const clips = Array.from(wrap.querySelectorAll('.timeline-clip'));
-  if (clips.length < 2) return;
-  const wrapRect = wrap.getBoundingClientRect();
-  const pts = clips.map(clip => {
-    const idx = Number(clip.dataset.idx);
-    const kfAttr = clip.dataset.kf;
-    const delai = kfAttr === 'entry' ? (blocs[idx].anim_delai || 0) : (blocs[idx].keyframes[Number(kfAttr)]?.t || 0);
-    const r = clip.getBoundingClientRect();
-    return {
-      delai,
-      x: r.left + r.width / 2 - wrapRect.left,
-      y: r.top + r.height / 2 - wrapRect.top + wrap.scrollTop,
-    };
-  }).sort((a, b) => a.delai - b.delai);
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('class', 'tl-links');
-  svg.setAttribute('width', '100%');
-  svg.setAttribute('height', String(wrap.scrollHeight));
-  const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-  line.setAttribute('points', pts.map(p => `${p.x},${p.y}`).join(' '));
-  line.setAttribute('fill', 'none');
-  line.setAttribute('stroke', 'var(--accent)');
-  line.setAttribute('stroke-width', '2');
-  line.setAttribute('stroke-dasharray', '4 3');
-  line.setAttribute('opacity', '0.55');
-  svg.appendChild(line);
-  wrap.insertBefore(svg, wrap.firstChild);
 }
 
 // % de position dans la plage [tlStart, tlEnd] visible sur la règle.
