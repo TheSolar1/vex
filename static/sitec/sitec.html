@@ -1646,7 +1646,7 @@ function renderBlocsFullView() {
                   <button type="button" class="vbtn" id="tlZoomOutBtn" title="Zoom arrière"><i class="fas fa-magnifying-glass-minus"></i></button>
                   <button type="button" class="vbtn" id="tlZoomInBtn" title="Zoom avant"><i class="fas fa-magnifying-glass-plus"></i></button>
                 </div>
-                <span class="hint">Délai : I (insérer) · Position : + sur la piste · Repère sélectionné : glisser ou G · Suppr (enlever) · Espace (lire)</span>
+                <span class="hint">I ou + : pose un repère de position à l'instant du curseur (autant que vous voulez) · Repère sélectionné : glisser ou G · Suppr (enlever) · Espace (lire)</span>
               </div>
               <div class="tl-kf-editor" id="tlKfEditor" style="display:none"></div>
               <div class="timeline-ruler-outer" id="tlRulerOuter">
@@ -1783,6 +1783,36 @@ function wireTlSeek() {
   });
 }
 
+// Insère (ou enchaîne après le dernier si un repère existe déjà exactement
+// à cet instant) un repère de POSITION sur le bloc `idx`, à la position
+// actuelle du curseur -- logique commune au bouton "+" de la piste et au
+// raccourci I (qui, comme dans Blender, doit pouvoir en poser autant qu'on
+// veut : avant, I ne touchait que le délai d'entrée, une seule valeur, donc
+// impossible d'avoir "plusieurs images clés" en le pressant plusieurs fois).
+function ajouterRepereDePosition(idx) {
+  const b = blocs[idx];
+  if (!b.keyframes) b.keyframes = [];
+  let t = Math.round(tlPlayhead / 50) * 50;
+  if (b.keyframes.some(k => k.t === t)) {
+    const maxT = Math.max(...b.keyframes.map(k => k.t || 0));
+    t = Math.min(TL_ABS_MAX, maxT + 1000);
+    while (b.keyframes.some(k => k.t === t) && t < TL_ABS_MAX) t += 1000;
+  }
+  const last = b.keyframes.length ? b.keyframes[b.keyframes.length - 1] : { x: 0, y: 0, w: 0, h: 0 };
+  b.keyframes.push({ t, x: last.x || 0, y: last.y || 0, w: last.w || 0, h: last.h || 0 });
+  if (t > tlEnd) {
+    tlEnd = Math.min(TL_ABS_MAX, t + 1000);
+    const endInput = document.getElementById('tlEndInput');
+    if (endInput) endInput.value = tlEnd;
+  }
+  b.keyframes.sort((a, c) => (a.t||0) - (c.t||0));
+  tlSelectedIdx = idx;
+  tlSelectedKf = b.keyframes.findIndex(k => k.t === t);
+  selectedIdx = idx;
+  markDirty();
+  renderTimeline();
+}
+
 function renderTimeline() {
   const tracks = document.getElementById('tlTracks');
   // Le bouton lecture doit fonctionner meme sans aucun bloc anime -- cable
@@ -1860,37 +1890,7 @@ function renderTimeline() {
   tracks.querySelectorAll('.timeline-track-add').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const idx = Number(btn.dataset.idx);
-      const b = blocs[idx];
-      if (!b.keyframes) b.keyframes = [];
-      let t = Math.round(tlPlayhead / 50) * 50;
-      // Si un repère existe déjà exactement à cet instant (curseur pas
-      // déplacé entre deux clics sur "+"), on empilerait un doublon invisible
-      // au même endroit -- ça donnait l'impression que "+" ne faisait rien
-      // au 2e clic. On enchaîne plutôt après le dernier repère existant.
-      if (b.keyframes.some(k => k.t === t)) {
-        const maxT = Math.max(...b.keyframes.map(k => k.t || 0));
-        t = Math.min(TL_ABS_MAX, maxT + 1000);
-        while (b.keyframes.some(k => k.t === t) && t < TL_ABS_MAX) t += 1000;
-      }
-      // Valeur de depart : celle du dernier repere existant (continuite),
-      // ou 0 (position/deformation neutre) si c'est le tout premier.
-      const last = b.keyframes.length ? b.keyframes[b.keyframes.length - 1] : { x: 0, y: 0, w: 0, h: 0 };
-      b.keyframes.push({ t, x: last.x || 0, y: last.y || 0, w: last.w || 0, h: last.h || 0 });
-      // Si le nouveau repère tombe hors de la plage Début/Fin actuellement
-      // affichée, il apparaîtrait hors écran (comme s'il n'avait pas été
-      // créé) -- on élargit la fin de la plage pour le garder visible.
-      if (t > tlEnd) {
-        tlEnd = Math.min(TL_ABS_MAX, t + 1000);
-        const endInput = document.getElementById('tlEndInput');
-        if (endInput) endInput.value = tlEnd;
-      }
-      b.keyframes.sort((a, c) => (a.t||0) - (c.t||0));
-      tlSelectedIdx = idx;
-      tlSelectedKf = b.keyframes.findIndex(k => k.t === t);
-      selectedIdx = idx;
-      markDirty();
-      renderTimeline();
+      ajouterRepereDePosition(Number(btn.dataset.idx));
     });
   });
 
@@ -2192,18 +2192,14 @@ document.addEventListener('keydown', (e) => {
     if (e.code === 'Space') { e.preventDefault(); tlTogglePlay(); return; }
     if (e.key === 'ArrowLeft') { e.preventDefault(); tlSetPlayhead(tlPlayhead - 100); return; }
     if (e.key === 'ArrowRight') { e.preventDefault(); tlSetPlayhead(tlPlayhead + 100); return; }
-    // "I" façon Blender (Insert Keyframe) : place -- ou déplace si déjà
-    // présent -- le repère du bloc sélectionné sur la position actuelle
-    // du curseur de lecture.
+    // "I" façon Blender (Insert Keyframe) : pose un repère de POSITION sur
+    // le bloc sélectionné à l'instant courant -- exactement comme le bouton
+    // "+" de sa piste, pour qu'on puisse en poser autant qu'on veut en
+    // avançant le curseur et en repressant I (avant, I ne gérait que le
+    // délai d'entrée, une seule valeur : impossible d'en avoir plusieurs).
     if ((e.key === 'i' || e.key === 'I') && selectedIdx >= 0) {
       e.preventDefault();
-      const b = blocs[selectedIdx];
-      if (!b.animation) b.animation = 'fade';
-      b.anim_delai = Math.round(tlPlayhead / 50) * 50;
-      tlSelectedIdx = selectedIdx;
-      tlSelectedKf = -1;
-      markDirty();
-      renderTimeline();
+      ajouterRepereDePosition(selectedIdx);
       renderBlocsSettings();
       return;
     }
