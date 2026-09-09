@@ -194,21 +194,9 @@ body {
 .bloc-item { position:relative; border:1px solid var(--border); border-radius:8px; background:var(--sidebar-hover); flex:1; }
 .bloc-resize-handle {
   position:absolute; top:0; right:-11px; bottom:0; width:22px; z-index:5; cursor:col-resize;
-  display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .15s;
-}
-.bloc-item:hover .bloc-resize-handle, .bloc-item.selected .bloc-resize-handle { opacity:1; }
-.bloc-resize-handle i, .bloc-resize-handle svg {
-  width:20px; height:20px; border-radius:50%; background:var(--accent); color:var(--surface);
-  display:flex; align-items:center; justify-content:center; font-size:10px; box-shadow:0 1px 4px rgba(0,0,0,.3);
 }
 .bloc-height-handle {
   position:absolute; left:0; right:0; bottom:-11px; height:22px; z-index:5; cursor:row-resize;
-  display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .15s;
-}
-.bloc-item:hover .bloc-height-handle, .bloc-item.selected .bloc-height-handle { opacity:1; }
-.bloc-height-handle i, .bloc-height-handle svg {
-  width:20px; height:20px; border-radius:50%; background:var(--accent); color:var(--surface);
-  display:flex; align-items:center; justify-content:center; font-size:10px; box-shadow:0 1px 4px rgba(0,0,0,.3);
 }
 .bloc-item.dragging { opacity:.4; }
 .bloc-item.selected { border-color:var(--accent); box-shadow:0 0 0 2px var(--alt); }
@@ -817,7 +805,7 @@ function renderBlocsList() {
       const l = b.largeur || 100;
       style = ` style="width:${l}%;margin-left:${b.decalage||0}%;${b.hauteur?`min-height:${b.hauteur}px;`:''}"`;
     }
-    const widthHandle = `<div class="bloc-resize-handle" data-idx="${idx}" title="Glisser pour ajuster la largeur"><i class="fas fa-arrows-left-right"></i></div>`;
+    const widthHandle = `<div class="bloc-resize-handle" data-idx="${idx}" title="Glisser pour ajuster la largeur"></div>`;
     const moveHandle = (!b.ligne && (b.largeur||100) < 100)
       ? `<button type="button" class="bloc-act bloc-move-handle" data-idx="${idx}" title="Glisser pour déplacer horizontalement"><i class="fas fa-up-down-left-right"></i></button>` : '';
     return `<div class="bloc-item${selectedIdx===idx?' selected':''}" data-idx="${idx}" draggable="true"${style}>
@@ -836,7 +824,7 @@ function renderBlocsList() {
         </div>
       </div>
       ${widthHandle}
-      <div class="bloc-height-handle" data-idx="${idx}" title="Glisser pour ajuster la hauteur"><i class="fas fa-arrows-up-down"></i></div>
+      <div class="bloc-height-handle" data-idx="${idx}" title="Glisser pour ajuster la hauteur"></div>
     </div>`;
   };
 
