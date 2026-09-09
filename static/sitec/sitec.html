@@ -189,7 +189,11 @@ body {
   border:1px solid var(--border); border-radius:6px; padding:12px; background:var(--input); color:var(--text); resize:none; }
 
 .blocs-list { position:relative; display:flex; flex-direction:column; gap:10px; min-height:60px; }
+.blocs-list.pos-mode-grille { background-image:radial-gradient(circle, var(--border) 1px, transparent 1px); background-size:20px 20px; }
 .bloc-item.libre { box-shadow:0 4px 14px rgba(0,0,0,.18); }
+.align-guide-v, .align-guide-h { position:absolute; background:#ff3b8d; z-index:50; pointer-events:none; }
+.align-guide-v { top:0; bottom:0; width:1px; }
+.align-guide-h { left:0; right:0; height:1px; }
 .blocs-row { display:flex; gap:10px; align-items:stretch; flex-wrap:wrap; }
 .blocs-row .bloc-item { min-width:0; }
 .bloc-item { position:relative; border:1px solid var(--border); border-radius:8px; background:var(--sidebar-hover); flex:1; }
@@ -682,6 +686,9 @@ let blocs = [];
 let selectedIdx = -1;
 let dragState = null; // { fromPalette:bool, type?, fromIdx? }
 let blocsViewMode = 'visuel'; // 'visuel' | 'code'
+let posMode = localStorage.getItem('sitecPosMode') || 'libre'; // 'libre' | 'grille' | 'guides'
+const POS_GRID = 20;
+const POS_SNAP_SEUIL = 6; // px, distance de déclenchement d'un guide
 let actionsMode = false;
 let tlPlaying = false;
 let tlPlayhead = 0; // ms
@@ -1055,9 +1062,22 @@ function renderBlocsList() {
       const listEl = document.getElementById('blocsList');
       const startX = e.clientX, startY = e.clientY;
       const startLeft = blocs[idx].pos_x || 0, startTop = blocs[idx].pos_y || 0;
+      const itemRect0 = item.getBoundingClientRect();
+      const w = itemRect0.width, h = itemRect0.height;
       const onMove = (ev) => {
-        const x = Math.max(-2000, Math.min(8000, Math.round(startLeft + (ev.clientX - startX))));
-        const y = Math.max(-2000, Math.min(20000, Math.round(startTop + (ev.clientY - startY))));
+        let x = Math.max(-2000, Math.min(8000, Math.round(startLeft + (ev.clientX - startX))));
+        let y = Math.max(-2000, Math.min(20000, Math.round(startTop + (ev.clientY - startY))));
+        if (posMode === 'grille') {
+          x = Math.round(x / POS_GRID) * POS_GRID;
+          y = Math.round(y / POS_GRID) * POS_GRID;
+          effacerGuides();
+        } else if (posMode === 'guides') {
+          const listRect = listEl.getBoundingClientRect();
+          const snap = calculerGuides(idx, w, h, listRect, x, y);
+          x = snap.x; y = snap.y;
+        } else {
+          effacerGuides();
+        }
         blocs[idx].pos_x = x;
         blocs[idx].pos_y = y;
         item.style.left = `${x}px`;
@@ -1071,6 +1091,7 @@ function renderBlocsList() {
       const onUp = () => {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
+        effacerGuides();
         // Redimensionne le canevas si besoin (le bloc a peut-être fini plus bas).
         listEl.style.minHeight = `${Math.max(60, y_bottom())}px`;
       };
@@ -1693,6 +1714,10 @@ function renderBlocsFullView() {
             <button type="button" class="vbtn" id="vbtnCode" title="Éditeur de code (JSON)"><i class="fas fa-code"></i></button>
             <div class="vsep"></div>
             <button type="button" class="vbtn" id="vbtnActions" title="Mode Actions (délais d'animation)"><i class="fas fa-clapperboard"></i></button>
+            <div class="vsep"></div>
+            <button type="button" class="vbtn" id="posModeLibre" title="Positionnement libre (aucun alignement)"><i class="fas fa-arrows-up-down-left-right"></i></button>
+            <button type="button" class="vbtn" id="posModeGrille" title="Aligner sur une grille"><i class="fas fa-table-cells"></i></button>
+            <button type="button" class="vbtn" id="posModeGuides" title="Guides d'alignement (comme PowerPoint)"><i class="fas fa-ruler-combined"></i></button>
           </div>
           <div class="blocs-center" id="blocsCenter">
             <div class="blocs-canvas-wrap">
@@ -1751,6 +1776,10 @@ function renderBlocsFullView() {
   document.getElementById('vbtnVisuel').onclick = () => basculerVue('visuel');
   document.getElementById('vbtnCode').onclick = () => basculerVue('code');
   document.getElementById('vbtnActions').onclick = basculerModeActions;
+  document.getElementById('posModeLibre').onclick = () => definirPosMode('libre');
+  document.getElementById('posModeGrille').onclick = () => definirPosMode('grille');
+  document.getElementById('posModeGuides').onclick = () => definirPosMode('guides');
+  appliquerPosModeUi();
   document.getElementById('tlPlayBackBtn').onclick = () => tlTogglePlay(true);
   document.getElementById('tlZoomInBtn').onclick = () => tlZoom(1);
   document.getElementById('tlZoomOutBtn').onclick = () => tlZoom(-1);
@@ -2091,6 +2120,80 @@ function tlSetPlayhead(ms) {
 // des repères de position/déformation doit visuellement suivre le curseur
 // de la frise -- avant, seule la page publiée montrait le mouvement, le
 // canevas de l'éditeur restait figé sur la forme/position statique du bloc.
+// ── Modes de positionnement des blocs libres : Libre / Grille / Guides ──
+function definirPosMode(m) {
+  posMode = m;
+  localStorage.setItem('sitecPosMode', m);
+  effacerGuides();
+  appliquerPosModeUi();
+}
+function appliquerPosModeUi() {
+  const bLibre = document.getElementById('posModeLibre');
+  const bGrille = document.getElementById('posModeGrille');
+  const bGuides = document.getElementById('posModeGuides');
+  if (bLibre) bLibre.classList.toggle('active', posMode === 'libre');
+  if (bGrille) bGrille.classList.toggle('active', posMode === 'grille');
+  if (bGuides) bGuides.classList.toggle('active', posMode === 'guides');
+  const listEl = document.getElementById('blocsList');
+  if (listEl) listEl.classList.toggle('pos-mode-grille', posMode === 'grille');
+}
+// Calcule, pour le bloc idx en cours de glissement (largeur w, hauteur h,
+// à la position brute x/y), la position alignée sur les bords/centres des
+// autres blocs libres (et le centre du canevas) -- comme les guides
+// magenta de PowerPoint -- et dessine les lignes de guide correspondantes.
+function calculerGuides(idx, w, h, listRect, x, y) {
+  const targetsX = [listRect.width / 2];
+  const targetsY = [];
+  blocs.forEach((b2, idx2) => {
+    if (idx2 === idx || !b2.libre) return;
+    const el2 = document.querySelector(`.bloc-item[data-idx="${idx2}"]`);
+    if (!el2) return;
+    const r2 = el2.getBoundingClientRect();
+    const left2 = r2.left - listRect.left, top2 = r2.top - listRect.top;
+    targetsX.push(left2, left2 + r2.width / 2, left2 + r2.width);
+    targetsY.push(top2, top2 + r2.height / 2, top2 + r2.height);
+  });
+  const mineX = [x, x + w / 2, x + w];
+  const mineY = [y, y + h / 2, y + h];
+  let bestX = null, bestY = null;
+  mineX.forEach((mx, edge) => {
+    targetsX.forEach(tx => {
+      const d = Math.abs(mx - tx);
+      if (d <= POS_SNAP_SEUIL && (!bestX || d < bestX.d)) bestX = { d, target: tx, edge };
+    });
+  });
+  mineY.forEach((my, edge) => {
+    targetsY.forEach(ty => {
+      const d = Math.abs(my - ty);
+      if (d <= POS_SNAP_SEUIL && (!bestY || d < bestY.d)) bestY = { d, target: ty, edge };
+    });
+  });
+  const decale = (best, taille) => best.edge === 0 ? best.target : best.edge === 1 ? best.target - taille / 2 : best.target - taille;
+  const nx = bestX ? Math.round(decale(bestX, w)) : x;
+  const ny = bestY ? Math.round(decale(bestY, h)) : y;
+  dessinerGuides(bestX ? bestX.target : null, bestY ? bestY.target : null);
+  return { x: nx, y: ny };
+}
+function dessinerGuides(vx, hy) {
+  effacerGuides();
+  const listEl = document.getElementById('blocsList');
+  if (!listEl) return;
+  if (vx !== null && vx !== undefined) {
+    const g = document.createElement('div');
+    g.className = 'align-guide-v'; g.id = 'alignGuideV'; g.style.left = `${vx}px`;
+    listEl.appendChild(g);
+  }
+  if (hy !== null && hy !== undefined) {
+    const g = document.createElement('div');
+    g.className = 'align-guide-h'; g.id = 'alignGuideH'; g.style.top = `${hy}px`;
+    listEl.appendChild(g);
+  }
+}
+function effacerGuides() {
+  const v = document.getElementById('alignGuideV'); if (v) v.remove();
+  const h = document.getElementById('alignGuideH'); if (h) h.remove();
+}
+
 function appliquerApercuKeyframes() {
   if (!actionsMode) return;
   blocs.forEach((b, idx) => {
