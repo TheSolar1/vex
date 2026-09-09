@@ -1783,6 +1783,29 @@ function wireTlSeek() {
   });
 }
 
+// Valeur interpolée (x/y/w/h) d'une liste de repères à l'instant `t` --
+// même interpolation linéaire que le CSS @keyframes généré côté serveur,
+// pour que "insérer ici" capture ce qui est réellement affiché à cet
+// instant (état courant, éventuellement à mi-transition), pas la valeur
+// du tout dernier repère de la liste.
+function interpolerRepere(keyframes, t) {
+  if (!keyframes.length) return { x: 0, y: 0, w: 0, h: 0 };
+  const tries = [...keyframes].sort((a, c) => (a.t||0) - (c.t||0));
+  if (t <= (tries[0].t||0)) return { x: tries[0].x||0, y: tries[0].y||0, w: tries[0].w||0, h: tries[0].h||0 };
+  const dernier = tries[tries.length - 1];
+  if (t >= (dernier.t||0)) return { x: dernier.x||0, y: dernier.y||0, w: dernier.w||0, h: dernier.h||0 };
+  for (let i = 0; i < tries.length - 1; i++) {
+    const a = tries[i], b2 = tries[i+1];
+    if (t >= (a.t||0) && t <= (b2.t||0)) {
+      const span = (b2.t||0) - (a.t||0) || 1;
+      const f = (t - (a.t||0)) / span;
+      const mix = (av, bv) => Math.round((av||0) + ((bv||0) - (av||0)) * f);
+      return { x: mix(a.x, b2.x), y: mix(a.y, b2.y), w: mix(a.w, b2.w), h: mix(a.h, b2.h) };
+    }
+  }
+  return { x: 0, y: 0, w: 0, h: 0 };
+}
+
 // Insère (ou enchaîne après le dernier si un repère existe déjà exactement
 // à cet instant) un repère de POSITION sur le bloc `idx`, à la position
 // actuelle du curseur -- logique commune au bouton "+" de la piste et au
@@ -1793,13 +1816,17 @@ function ajouterRepereDePosition(idx) {
   const b = blocs[idx];
   if (!b.keyframes) b.keyframes = [];
   let t = Math.round(tlPlayhead / 50) * 50;
+  // Capture l'état actuellement affiché (interpolé si le curseur est entre
+  // deux repères existants) comme point de départ du nouveau repère, avant
+  // de calculer son "t" final -- on veut la valeur AU CURSEUR, pas après
+  // l'avoir potentiellement décalé pour éviter un doublon.
+  const depart = interpolerRepere(b.keyframes, t);
   if (b.keyframes.some(k => k.t === t)) {
     const maxT = Math.max(...b.keyframes.map(k => k.t || 0));
     t = Math.min(TL_ABS_MAX, maxT + 1000);
     while (b.keyframes.some(k => k.t === t) && t < TL_ABS_MAX) t += 1000;
   }
-  const last = b.keyframes.length ? b.keyframes[b.keyframes.length - 1] : { x: 0, y: 0, w: 0, h: 0 };
-  b.keyframes.push({ t, x: last.x || 0, y: last.y || 0, w: last.w || 0, h: last.h || 0 });
+  b.keyframes.push({ t, x: depart.x, y: depart.y, w: depart.w, h: depart.h });
   if (t > tlEnd) {
     tlEnd = Math.min(TL_ABS_MAX, t + 1000);
     const endInput = document.getElementById('tlEndInput');
