@@ -310,15 +310,27 @@ body {
 .tl-links { position:absolute; left:0; top:0; pointer-events:none; }
 .timeline-track { display:flex; align-items:center; gap:10px; height:30px; margin-bottom:4px; }
 .timeline-track-label { width:150px; flex-shrink:0; font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:6px; }
+.timeline-track-add {
+  margin-left:auto; width:18px; height:18px; border-radius:4px; border:1px solid var(--border); background:var(--surface);
+  color:var(--text-dim); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:9px; flex-shrink:0;
+}
+.timeline-track-add:hover { background:var(--accent); color:var(--surface); border-color:var(--accent); }
 .timeline-track-ruler { flex:0 0 auto; width:600px; position:relative; height:20px; background:var(--sidebar-hover); border-radius:4px; cursor:text; }
 .timeline-clip {
   position:absolute; top:2px; height:16px; width:16px; border-radius:3px; background:var(--accent); cursor:grab;
   box-shadow:0 1px 3px rgba(0,0,0,.3); transform:rotate(45deg);
 }
+.timeline-clip.pos { background:#3b82f6; }
 .timeline-clip:active { cursor:grabbing; }
 .timeline-clip.selected { outline:2px solid var(--text); }
 .timeline-playhead { position:absolute; top:-4px; bottom:-4px; width:2px; background:var(--danger); pointer-events:none; z-index:2; }
 .timeline-ruler-wrap { position:relative; margin-left:160px; width:600px; height:16px; cursor:text; }
+.tl-kf-editor { display:none; align-items:center; gap:6px; padding:6px 12px; border-bottom:1px solid var(--border); background:var(--sidebar-hover); }
+.tl-kf-editor .champ-label { margin:0; }
+.tl-kf-editor input[type=number] {
+  width:66px; padding:5px 6px; border:1px solid var(--border); border-radius:6px; background:var(--input);
+  color:var(--text); font-size:12px; font-family:'SF Mono',Consolas,monospace; outline:none;
+}
 
 .champ-image-preview { margin-bottom:6px; }
 .champ-image-preview img { max-width:220px; max-height:130px; border-radius:6px; display:block; }
@@ -677,13 +689,14 @@ let actionsMode = false;
 let tlPlaying = false;
 let tlPlayhead = 0; // ms
 let tlSelectedIdx = -1;
+let tlSelectedKf = -1; // index dans blocs[idx].keyframes, -1 = repère d'entrée (délai) sélectionné
 let tlGrabbing = false;
 const TL_ABS_MAX = 120000; // plafond serveur (san_int anim_delai)
 let tlStart = 0;
 let tlEnd = 30000;
 
 function blocDefaut(type) {
-  const base = { type, animation: '', ligne: '', largeur: 100, espace: 16, anim_delai: 0, hauteur: 0, decalage: 0 };
+  const base = { type, animation: '', ligne: '', largeur: 100, espace: 16, anim_delai: 0, hauteur: 0, decalage: 0, keyframes: [] };
   (BLOC_SPECS[type] || []).forEach(champ => {
     if (champ.type === 'items') base[champ.k] = [];
     else if (champ.type === 'checkgroup') base[champ.k] = champ.defaut ? [...champ.defaut] : [];
@@ -1551,8 +1564,9 @@ function renderBlocsFullView() {
                   <button type="button" class="vbtn" id="tlZoomOutBtn" title="Zoom arrière"><i class="fas fa-magnifying-glass-minus"></i></button>
                   <button type="button" class="vbtn" id="tlZoomInBtn" title="Zoom avant"><i class="fas fa-magnifying-glass-plus"></i></button>
                 </div>
-                <span class="hint">Repère : glisser ou I (insérer) · G (déplacer) · Suppr (enlever) · Espace (lire)</span>
+                <span class="hint">Délai : I (insérer) · Position : + sur la piste · Repère sélectionné : glisser ou G · Suppr (enlever) · Espace (lire)</span>
               </div>
+              <div class="tl-kf-editor" id="tlKfEditor" style="display:none"></div>
               <div class="timeline-ruler-outer" id="tlRulerOuter">
                 <div class="timeline-ruler-numbers" id="tlRulerNumbers"></div>
                 <div class="timeline-ruler-wrap" id="tlRulerWrap"><div class="timeline-playhead" id="tlPlayhead" style="left:0"></div></div>
@@ -1677,6 +1691,8 @@ function wireTlSeek() {
   };
   outer.addEventListener('mousedown', (e) => {
     if (e.target.closest('.timeline-clip')) return; // la poignée gère son propre glisser
+    if (e.target.closest('.timeline-track-add')) return; // le bouton "+" gère son propre clic
+    if (e.target.closest('.timeline-track-label')) return; // zone d'étiquette, pas la règle
     seek(e);
     const onMove = (ev) => seek(ev);
     const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
@@ -1693,18 +1709,29 @@ function renderTimeline() {
   if (playBtn) playBtn.onclick = () => tlTogglePlay(false);
   if (!tracks) return;
 
-  const animes = blocs.map((b, i) => ({ b, i })).filter(x => x.b.animation);
+  // Toutes les pistes sont affichées (pas seulement celles déjà animées) --
+  // c'est ici, via "+", qu'on ajoute le tout premier repère de position
+  // d'un bloc ; sans ça il n'y avait aucun moyen d'en créer un.
+  const animes = blocs.map((b, i) => ({ b, i }));
   if (!animes.length) {
-    tracks.innerHTML = `<div class="hint">Aucun bloc animé — sélectionnez un bloc puis appuyez sur <strong>I</strong> pour l'ajouter à la frise (ou choisissez une animation d'entrée dans le panneau de droite).</div>`;
+    tracks.innerHTML = `<div class="hint">Aucun bloc sur la page — ajoutez-en un depuis la palette.</div>`;
+    renderTlKfEditor();
     return;
   }
-  tracks.innerHTML = animes.map(({ b, i }) => `
+  tracks.innerHTML = animes.map(({ b, i }) => {
+    const entryClip = b.animation
+      ? `<div class="timeline-clip entry${(tlSelectedIdx===i&&tlSelectedKf===-1)?' selected':''}" data-idx="${i}" data-kf="entry" style="left:calc(${tlPct(b.anim_delai||0)}% - 8px)" title="${b.anim_delai||0} ms"></div>`
+      : '';
+    const posClips = (b.keyframes||[]).map((k, kf) => `
+      <div class="timeline-clip pos${(tlSelectedIdx===i&&tlSelectedKf===kf)?' selected':''}" data-idx="${i}" data-kf="${kf}" style="left:calc(${tlPct(k.t||0)}% - 8px)" title="${k.t||0} ms — x:${k.x||0} y:${k.y||0}"></div>`).join('');
+    return `
     <div class="timeline-track">
-      <div class="timeline-track-label"><i class="fas fa-${BLOC_ICONES[b.type]||'cube'}"></i> ${escAttr(BLOC_LABELS[b.type]||b.type)}</div>
-      <div class="timeline-track-ruler" data-idx="${i}">
-        <div class="timeline-clip${tlSelectedIdx===i?' selected':''}" data-idx="${i}" style="left:calc(${tlPct(b.anim_delai||0)}% - 8px)" title="${b.anim_delai||0} ms"></div>
+      <div class="timeline-track-label"><i class="fas fa-${BLOC_ICONES[b.type]||'cube'}"></i> ${escAttr(BLOC_LABELS[b.type]||b.type)}
+        <button type="button" class="timeline-track-add" data-idx="${i}" title="Ajouter un repère de position ici"><i class="fas fa-plus"></i></button>
       </div>
-    </div>`).join('');
+      <div class="timeline-track-ruler" data-idx="${i}">${entryClip}${posClips}</div>
+    </div>`;
+  }).join('');
   applyTlZoomWidth();
   renderTlRulerNumbers();
 
@@ -1713,44 +1740,102 @@ function renderTimeline() {
       e.preventDefault();
       e.stopPropagation();
       const idx = Number(clip.dataset.idx);
+      const kfAttr = clip.dataset.kf;
+      const isEntry = kfAttr === 'entry';
+      const kf = isEntry ? -1 : Number(kfAttr);
       // Ne PAS appeler selectionnerBloc()/renderBlocsList() ici : ça
       // re-génère #tlTracks (actionsMode oblige) et détache l'élément
       // `clip` qu'on vient de saisir, cassant le glissé en plein milieu
       // (c'était le bug "déplacer une image clé ça bug").
       tlSelectedIdx = idx;
+      tlSelectedKf = kf;
       selectedIdx = idx;
       tracks.querySelectorAll('.timeline-clip').forEach(c => c.classList.toggle('selected', c === clip));
+      renderTlKfEditor();
       const ruler = clip.parentElement;
       const onMove = (ev) => {
         const rect = ruler.getBoundingClientRect();
         let rel = (ev.clientX - rect.left) / rect.width;
         rel = Math.max(0, Math.min(1, rel));
         const ms = Math.round((tlStart + rel * (tlEnd - tlStart)) / 50) * 50;
-        blocs[idx].anim_delai = ms;
+        if (isEntry) blocs[idx].anim_delai = ms;
+        else blocs[idx].keyframes[kf].t = ms;
         clip.style.left = `calc(${tlPct(ms)}% - 8px)`;
-        clip.title = `${ms} ms`;
+        clip.title = isEntry ? `${ms} ms` : `${ms} ms — x:${blocs[idx].keyframes[kf].x||0} y:${blocs[idx].keyframes[kf].y||0}`;
         markDirty();
         drawTimelineLinks();
       };
       const onUp = () => {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
+        if (!isEntry) blocs[idx].keyframes.sort((a, b2) => (a.t||0) - (b2.t||0));
       };
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     });
   });
 
+  tracks.querySelectorAll('.timeline-track-add').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = Number(btn.dataset.idx);
+      const b = blocs[idx];
+      if (!b.keyframes) b.keyframes = [];
+      const t = Math.round(tlPlayhead / 50) * 50;
+      // Valeur de depart : celle du dernier repere existant (continuite),
+      // ou 0,0 si c'est le tout premier.
+      const last = b.keyframes.length ? b.keyframes[b.keyframes.length - 1] : { x: 0, y: 0 };
+      b.keyframes.push({ t, x: last.x || 0, y: last.y || 0 });
+      b.keyframes.sort((a, c) => (a.t||0) - (c.t||0));
+      tlSelectedIdx = idx;
+      tlSelectedKf = b.keyframes.findIndex(k => k.t === t);
+      selectedIdx = idx;
+      markDirty();
+      renderTimeline();
+    });
+  });
+
   drawTimelineLinks();
+  renderTlKfEditor();
 }
 
-// Enlève le repère du bloc actuellement sélectionné dans la frise (Suppr) --
-// désanime le bloc plutôt que de le supprimer entièrement de la page.
+// Petit éditeur X/Y inline dans l'en-tête de la frise, affiché seulement
+// quand un repère de POSITION (pas le délai d'entrée) est sélectionné --
+// le panneau de réglages classique est masqué en mode Actions.
+function renderTlKfEditor() {
+  const el = document.getElementById('tlKfEditor');
+  if (!el) return;
+  if (tlSelectedIdx < 0 || tlSelectedKf < 0 || !blocs[tlSelectedIdx] || !blocs[tlSelectedIdx].keyframes[tlSelectedKf]) {
+    el.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
+  const k = blocs[tlSelectedIdx].keyframes[tlSelectedKf];
+  el.style.display = 'flex';
+  el.innerHTML = `
+    <span class="champ-label">Repère position</span>
+    <input type="number" id="tlKfX" value="${k.x||0}" step="10" title="Décalage X (px)">
+    <input type="number" id="tlKfY" value="${k.y||0}" step="10" title="Décalage Y (px)">
+    <button type="button" class="btn btn-secondary btn-xs" id="tlKfDelBtn"><i class="fas fa-trash"></i></button>`;
+  document.getElementById('tlKfX').addEventListener('input', (e) => { k.x = Number(e.target.value) || 0; markDirty(); });
+  document.getElementById('tlKfY').addEventListener('input', (e) => { k.y = Number(e.target.value) || 0; markDirty(); });
+  document.getElementById('tlKfDelBtn').addEventListener('click', () => supprimerRepereSelectionne());
+}
+
+// Enlève le repère sélectionné dans la frise (Suppr) -- soit le repère
+// d'entrée (désanime le bloc), soit un repère de position (retiré du
+// tableau keyframes), sans supprimer le bloc lui-même de la page.
 function supprimerRepereSelectionne() {
   if (tlSelectedIdx < 0 || !blocs[tlSelectedIdx]) return false;
-  blocs[tlSelectedIdx].animation = '';
-  blocs[tlSelectedIdx].anim_delai = 0;
+  if (tlSelectedKf >= 0) {
+    const kfs = blocs[tlSelectedIdx].keyframes || [];
+    kfs.splice(tlSelectedKf, 1);
+  } else {
+    blocs[tlSelectedIdx].animation = '';
+    blocs[tlSelectedIdx].anim_delai = 0;
+  }
   tlSelectedIdx = -1;
+  tlSelectedKf = -1;
   markDirty();
   renderTimeline();
   renderBlocsSettings();
@@ -1769,9 +1854,11 @@ function drawTimelineLinks() {
   const wrapRect = wrap.getBoundingClientRect();
   const pts = clips.map(clip => {
     const idx = Number(clip.dataset.idx);
+    const kfAttr = clip.dataset.kf;
+    const delai = kfAttr === 'entry' ? (blocs[idx].anim_delai || 0) : (blocs[idx].keyframes[Number(kfAttr)]?.t || 0);
     const r = clip.getBoundingClientRect();
     return {
-      delai: blocs[idx].anim_delai || 0,
+      delai,
       x: r.left + r.width / 2 - wrapRect.left,
       y: r.top + r.height / 2 - wrapRect.top + wrap.scrollTop,
     };
@@ -1849,9 +1936,12 @@ function tlTogglePlay(dir = false) {
   requestAnimationFrame(tick);
 }
 
-// Repère précédent/suivant (parmi les blocs animés), et bornes Début/Fin.
+// Repère précédent/suivant (délais d'entrée + repères de position), et bornes Début/Fin.
 function tlJumpToKeyframe(dir) {
-  const delais = blocs.filter(b => b.animation).map(b => b.anim_delai || 0);
+  const delais = [
+    ...blocs.filter(b => b.animation).map(b => b.anim_delai || 0),
+    ...blocs.flatMap(b => (b.keyframes||[]).map(k => k.t || 0)),
+  ];
   if (!delais.length) return;
   if (dir < 0) {
     const prev = delais.filter(d => d < tlPlayhead);
@@ -1875,19 +1965,22 @@ function tlSetRange(start, end) {
 function tlStartGrab() {
   if (tlSelectedIdx < 0 || tlGrabbing) return;
   const idx = tlSelectedIdx;
-  const clip = document.querySelector(`.timeline-clip[data-idx="${idx}"]`);
+  const kf = tlSelectedKf;
+  const isEntry = kf < 0;
+  const kfAttr = isEntry ? 'entry' : kf;
+  const clip = document.querySelector(`.timeline-clip[data-idx="${idx}"][data-kf="${kfAttr}"]`);
   const ruler = clip ? clip.parentElement : null;
   if (!clip || !ruler) return;
   tlGrabbing = true;
-  const origDelai = blocs[idx].anim_delai || 0;
+  const origVal = isEntry ? (blocs[idx].anim_delai || 0) : (blocs[idx].keyframes[kf].t || 0);
   const onMove = (ev) => {
     const rect = ruler.getBoundingClientRect();
     let rel = (ev.clientX - rect.left) / rect.width;
     rel = Math.max(0, Math.min(1, rel));
     const ms = Math.round((tlStart + rel * (tlEnd - tlStart)) / 50) * 50;
-    blocs[idx].anim_delai = ms;
+    if (isEntry) blocs[idx].anim_delai = ms; else blocs[idx].keyframes[kf].t = ms;
     clip.style.left = `calc(${tlPct(ms)}% - 8px)`;
-    clip.title = `${ms} ms`;
+    clip.title = isEntry ? `${ms} ms` : `${ms} ms — x:${blocs[idx].keyframes[kf].x||0} y:${blocs[idx].keyframes[kf].y||0}`;
     drawTimelineLinks();
   };
   const finish = (cancel) => {
@@ -1895,7 +1988,8 @@ function tlStartGrab() {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mousedown', onClickConfirm, true);
     document.removeEventListener('keydown', onKey, true);
-    if (cancel) blocs[idx].anim_delai = origDelai;
+    if (cancel) { if (isEntry) blocs[idx].anim_delai = origVal; else blocs[idx].keyframes[kf].t = origVal; }
+    else if (!isEntry) blocs[idx].keyframes.sort((a, b2) => (a.t||0) - (b2.t||0));
     markDirty();
     renderTimeline();
   };
@@ -2029,6 +2123,7 @@ document.addEventListener('keydown', (e) => {
       if (!b.animation) b.animation = 'fade';
       b.anim_delai = Math.round(tlPlayhead / 50) * 50;
       tlSelectedIdx = selectedIdx;
+      tlSelectedKf = -1;
       markDirty();
       renderTimeline();
       renderBlocsSettings();

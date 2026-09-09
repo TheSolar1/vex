@@ -629,16 +629,19 @@ fn serve_page_view(pool: &DbPool, id: &str, session: &SessionInfo, langue: &str)
         return html_resp(&error_page_html(t(langue, Cle::SitecErreurAccesNonAutorisePage), langue), 403);
     }
 
-    let body_html = if page.mode == "brut" {
-        page.contenu_html.clone()
+    let (body_html, kf_css) = if page.mode == "brut" {
+        (page.contenu_html.clone(), String::new())
     } else if page.mode == "blocs" {
         render_blocs_html(&page.contenu_blocs)
     } else {
         let titre_esc = html_escape(&page.contenu_titre);
         let corps_html = html_escape(&page.contenu_corps).replace('\n', "<br>");
-        format!(
-            "<div class=\"sitec-view-wrap\"><h1>{}</h1><div class=\"sitec-view-corps\">{}</div></div>",
-            titre_esc, corps_html
+        (
+            format!(
+                "<div class=\"sitec-view-wrap\"><h1>{}</h1><div class=\"sitec-view-corps\">{}</div></div>",
+                titre_esc, corps_html
+            ),
+            String::new(),
         )
     };
 
@@ -683,7 +686,7 @@ fn serve_page_view(pool: &DbPool, id: &str, session: &SessionInfo, langue: &str)
         padding:12px 22px;border-radius:30px;text-decoration:none;font-weight:700;\
         box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:9999;}}\
         .sitec-edit-fab:hover{{filter:brightness(1.08);}}\
-        {extra_css}{anim_css}</style>\
+        {extra_css}{anim_css}{kf_css}</style>\
         </head><body>{body}{edit_fab}{anim_js}</body></html>",
         langue = langue,
         titre = html_escape(&page.titre),
@@ -692,6 +695,7 @@ fn serve_page_view(pool: &DbPool, id: &str, session: &SessionInfo, langue: &str)
         extra_css = if page.mode == "blocs" { BLOCS_EXTRA_CSS } else { "" },
         anim_css = anim_css,
         anim_js = anim_js,
+        kf_css = kf_css,
     );
 
     html_resp(&doc, 200)
@@ -701,13 +705,18 @@ fn serve_page_view(pool: &DbPool, id: &str, session: &SessionInfo, langue: &str)
 /// deja passe par `sanitiser_blocs` a l'enregistrement (type verifie,
 /// URLs limitees a http/https) -- ici on echappe en plus tout texte
 /// affiche, en defense en profondeur.
-fn render_blocs_html(contenu_blocs: &str) -> String {
+fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
     let blocs: Vec<Value> = serde_json::from_str(contenu_blocs).unwrap_or_default();
     // (ligne, largeur%, espace px, decalage gauche %, html du bloc) -- groupe
     // en second temps les blocs consecutifs partageant la meme "ligne" en
     // rangee flex ; un bloc seul (ligne vide) mais retreci (largeur<100) est
     // enveloppe individuellement avec sa largeur + son decalage.
     let mut items: Vec<(String, i64, i64, i64, String)> = Vec::new();
+    // CSS des @keyframes de translation (mode Actions -> repere de position),
+    // generee au fil de la boucle et renvoyee a part pour etre injectee dans
+    // le <style> de la page (voir serve_page_view).
+    let mut kf_css = String::new();
+    let mut kf_counter: usize = 0;
     for b in &blocs {
         let kind = b["type"].as_str().unwrap_or("");
         let anim = safe_animation(b["animation"].as_str().unwrap_or(""));
@@ -978,6 +987,41 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
             "retour_haut" => "<div class=\"sitec-bloc\"><button type=\"button\" class=\"sitec-retour-haut\" onclick=\"window.scrollTo({top:0,behavior:'smooth'})\">&uarr;</button></div>".to_string(),
             _ => continue,
         };
+        // Repères de position (mode Actions -> "translation") : au moins 2
+        // repères = interpolation continue entre eux via un @keyframes
+        // dédié, appliqué sur un wrapper interne (pas le même élément que
+        // l'animation d'entrée : les deux `animation` CSS ne se marchent
+        // pas dessus). Position figée sur le premier repère avant lecture.
+        let keyframes = sanitize_keyframes(&b["keyframes"]);
+        let inner = if keyframes.len() >= 2 {
+            let n = kf_counter;
+            kf_counter += 1;
+            let t0 = keyframes[0]["t"].as_i64().unwrap_or(0);
+            let t_last = keyframes[keyframes.len() - 1]["t"].as_i64().unwrap_or(0);
+            let dur = (t_last - t0).max(100);
+            let x0 = keyframes[0]["x"].as_i64().unwrap_or(0);
+            let y0 = keyframes[0]["y"].as_i64().unwrap_or(0);
+            let stops: String = keyframes
+                .iter()
+                .map(|k| {
+                    let t = k["t"].as_i64().unwrap_or(0);
+                    let x = k["x"].as_i64().unwrap_or(0);
+                    let y = k["y"].as_i64().unwrap_or(0);
+                    let pct = (t - t0) as f64 / dur as f64 * 100.0;
+                    format!("{:.2}%{{transform:translate({}px,{}px);}}", pct, x, y)
+                })
+                .collect();
+            kf_css.push_str(&format!(
+                "@keyframes sitecKf{n}{{{stops}}}[data-kf=\"{n}\"].sitec-kf-play{{animation:sitecKf{n} {dur}ms ease forwards;}}",
+                n = n, stops = stops, dur = dur
+            ));
+            format!(
+                "<div class=\"sitec-kf\" data-kf=\"{}\" style=\"transform:translate({}px,{}px);\">{}</div>",
+                n, x0, y0, inner
+            )
+        } else {
+            inner
+        };
         let delai = san_int(b, "anim_delai", 0, 120_000, 0);
         let hauteur = san_int(b, "hauteur", 0, 2000, 0);
         let extra_style = match (delai > 0, hauteur > 0) {
@@ -1030,7 +1074,7 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
         ));
         i = j;
     }
-    out
+    (out, kf_css)
 }
 
 /// Bouton optionnel partagé par plusieurs types de blocs (carte, hero, CTA,
@@ -1293,14 +1337,21 @@ if(btn.dataset.reseau==='email'){window.location.href=t;}else{window.open(t,'_bl
 
 const BLOCS_ANIM_JS: &str = "\
 <script>(function(){\
-var els=document.querySelectorAll('.sitec-anim[data-anim]:not([data-anim=\"\"])');\
+var all=document.querySelectorAll('.sitec-anim');\
+var els=Array.prototype.filter.call(all,function(el){\
+return (el.dataset.anim&&el.dataset.anim!=='')||el.querySelector('.sitec-kf');\
+});\
 if(!('IntersectionObserver' in window)||!els.length)return;\
-els.forEach(function(el){el.classList.add('sitec-anim-hidden');});\
+els.forEach(function(el){if(el.dataset.anim&&el.dataset.anim!=='')el.classList.add('sitec-anim-hidden');});\
 var obs=new IntersectionObserver(function(entries){\
 entries.forEach(function(entry){\
 if(entry.isIntersecting){\
+if(entry.target.dataset.anim&&entry.target.dataset.anim!==''){\
 entry.target.classList.remove('sitec-anim-hidden');\
 entry.target.classList.add('sitec-anim-play');\
+}\
+var kf=entry.target.querySelector('.sitec-kf');\
+if(kf)kf.classList.add('sitec-kf-play');\
 obs.unobserve(entry.target);\
 }\
 });\
@@ -1394,6 +1445,22 @@ fn san_items(v: &Value, max_items: usize, fields: &[(&str, usize)]) -> Vec<Value
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// Repères de position (mode Actions -> "translation") : liste {t,x,y}
+/// triée par temps croissant, temps/positions bornés, taille limitée.
+fn sanitize_keyframes(v: &Value) -> Vec<Value> {
+    let mut out: Vec<(i64, i64, i64)> = v
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .take(20)
+                .map(|k| (san_int(k, "t", 0, 120_000, 0), san_int(k, "x", -4000, 4000, 0), san_int(k, "y", -4000, 4000, 0)))
+                .collect()
+        })
+        .unwrap_or_default();
+    out.sort_by_key(|(t, _, _)| *t);
+    out.into_iter().map(|(t, x, y)| json!({"t": t, "x": x, "y": y})).collect()
 }
 
 /// Les champs numériques de l'éditeur (select "colonnes", input[type=number])
@@ -1638,6 +1705,7 @@ fn sanitiser_blocs(v: &Value) -> String {
         bloc["anim_delai"] = json!(san_int(b, "anim_delai", 0, 120_000, 0));
         // Hauteur minimale forcee (px), 0 = automatique (contenu).
         bloc["hauteur"] = json!(san_int(b, "hauteur", 0, 2000, 0));
+        bloc["keyframes"] = json!(sanitize_keyframes(&b["keyframes"]));
         out.push(bloc);
     }
     serde_json::to_string(&out).unwrap_or_else(|_| "[]".to_string())
