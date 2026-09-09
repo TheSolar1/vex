@@ -1977,9 +1977,14 @@ fn json_resp(body: Value, code: u16) -> Response<std::io::Cursor<Vec<u8>>> {
 }
 
 fn html_resp(body: &str, code: u16) -> Response<std::io::Cursor<Vec<u8>>> {
+    // no-cache : evite qu'un navigateur (ou Apache en reverse proxy) serve
+    // une vieille version de l'editeur/d'une page publiee apres deploiement
+    // d'un correctif -- l'app se met a jour souvent, ces pages ne doivent
+    // jamais rester en cache silencieusement.
     Response::from_string(body)
         .with_status_code(code)
         .with_header(tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap())
+        .with_header(tiny_http::Header::from_bytes("Cache-Control", "no-cache, no-store, must-revalidate").unwrap())
 }
 
 fn bytes_resp(data: Vec<u8>, content_type: &str) -> Response<std::io::Cursor<Vec<u8>>> {

@@ -862,9 +862,23 @@ fn serve_static(request: tiny_http::Request, path: &str) {
             // with_chunked_threshold : voir appareil.rs -- tiny_http bascule en
             // Transfer-Encoding chunked au-dela de 32 Ko par defaut, ce qui
             // passe mal a travers Apache (fichiers tronques/corrompus).
-            let resp = Response::from_data(data)
+            let mut resp = Response::from_data(data)
                 .with_header(tiny_http::Header::from_bytes("Content-Type", guess_mime(path)).unwrap())
                 .with_chunked_threshold(usize::MAX);
+            // Aucun Cache-Control n'etait envoye pour aucun fichier statique :
+            // le navigateur (et Apache en reverse proxy) pouvaient garder en
+            // cache une vieille version d'un .html/.js meme apres deploiement
+            // d'un correctif -- symptome vu plusieurs fois de suite sur
+            // l'editeur Sitec ("ca marche toujours pas" alors que le serveur
+            // avait bien la derniere version). Les pages HTML/JS de l'appli
+            // (frequemment mises a jour) forcent une revalidation a chaque
+            // fois ; les autres assets (images, polices...) restent en cache
+            // normalement.
+            if path.ends_with(".html") || path.ends_with(".js") {
+                resp = resp.with_header(
+                    tiny_http::Header::from_bytes("Cache-Control", "no-cache, no-store, must-revalidate").unwrap(),
+                );
+            }
             let _ = request.respond(resp);
         }
         Err(_) => {
