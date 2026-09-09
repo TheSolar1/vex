@@ -703,9 +703,11 @@ fn serve_page_view(pool: &DbPool, id: &str, session: &SessionInfo, langue: &str)
 /// affiche, en defense en profondeur.
 fn render_blocs_html(contenu_blocs: &str) -> String {
     let blocs: Vec<Value> = serde_json::from_str(contenu_blocs).unwrap_or_default();
-    // (ligne, largeur%, espace px, html du bloc) -- groupe en second temps
-    // les blocs consecutifs partageant la meme "ligne" en rangee flex.
-    let mut items: Vec<(String, i64, i64, String)> = Vec::new();
+    // (ligne, largeur%, espace px, decalage gauche %, html du bloc) -- groupe
+    // en second temps les blocs consecutifs partageant la meme "ligne" en
+    // rangee flex ; un bloc seul (ligne vide) mais retreci (largeur<100) est
+    // enveloppe individuellement avec sa largeur + son decalage.
+    let mut items: Vec<(String, i64, i64, i64, String)> = Vec::new();
     for b in &blocs {
         let kind = b["type"].as_str().unwrap_or("");
         let anim = safe_animation(b["animation"].as_str().unwrap_or(""));
@@ -991,7 +993,8 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
         let ligne = b["ligne"].as_str().unwrap_or("").to_string();
         let largeur = san_int(b, "largeur", 10, 100, 100);
         let espace = san_int(b, "espace", 0, 1000, 16);
-        items.push((ligne, largeur, espace, html));
+        let decalage = san_int(b, "decalage", 0, 90, 0);
+        items.push((ligne, largeur, espace, decalage, html));
     }
 
     let mut out = String::new();
@@ -999,7 +1002,15 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
     while i < items.len() {
         let ligne = items[i].0.clone();
         if ligne.is_empty() {
-            out.push_str(&items[i].3);
+            let (_, largeur, _, decalage, html) = &items[i];
+            if *largeur < 100 || *decalage > 0 {
+                out.push_str(&format!(
+                    "<div style=\"width:{}%;margin-left:{}%;\">{}</div>",
+                    largeur, decalage, html
+                ));
+            } else {
+                out.push_str(html);
+            }
             i += 1;
             continue;
         }
@@ -1009,7 +1020,7 @@ fn render_blocs_html(contenu_blocs: &str) -> String {
         while j < items.len() && items[j].0 == ligne {
             row_html.push_str(&format!(
                 "<div class=\"sitec-row-item\" style=\"flex:0 0 {l}%;max-width:{l}%;\">{}</div>",
-                items[j].3, l = items[j].1
+                items[j].4, l = items[j].1
             ));
             j += 1;
         }
@@ -1619,6 +1630,10 @@ fn sanitiser_blocs(v: &Value) -> String {
         // decale le declenchement de l'animation d'entree (mode "actions").
         bloc["ligne"] = json!(tronque(b["ligne"].as_str().unwrap_or(""), 20));
         bloc["largeur"] = json!(san_int(b, "largeur", 10, 100, 100));
+        // Decalage a gauche (%) quand le bloc est seul sur sa ligne mais
+        // retreci (largeur<100) -- permet de le positionner horizontalement
+        // au lieu de le laisser colle au bord gauche.
+        bloc["decalage"] = json!(san_int(b, "decalage", 0, 90, 0));
         bloc["espace"] = json!(san_int(b, "espace", 0, 1000, 16));
         bloc["anim_delai"] = json!(san_int(b, "anim_delai", 0, 120_000, 0));
         // Hauteur minimale forcee (px), 0 = automatique (contenu).

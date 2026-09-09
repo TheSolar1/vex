@@ -224,6 +224,8 @@ body {
   transition:all .15s;
 }
 .bloc-act:hover { background:var(--accent); color:var(--surface); border-color:var(--accent); }
+.bloc-move-handle { cursor:grab; }
+.bloc-move-handle:active { cursor:grabbing; }
 .bloc-act-danger:hover { background:var(--danger); border-color:var(--danger); }
 .bloc-item-body { display:none; flex-direction:column; gap:10px; padding:0 12px 14px; }
 .bloc-item.open .bloc-item-body { display:flex; }
@@ -289,15 +291,29 @@ body {
 .blocs-timeline-hdr .vbtn.active { background:var(--accent); color:var(--surface); }
 .timeline-time { font-family:'SF Mono',Consolas,monospace; font-size:12px; color:var(--text-dim); min-width:64px; }
 .tl-zoom { display:flex; gap:4px; }
+.tl-frame-input {
+  width:64px; padding:5px 6px; border:1px solid var(--border); border-radius:6px; background:var(--input);
+  color:var(--text); font-size:12px; font-family:'SF Mono',Consolas,monospace; outline:none; text-align:center;
+}
+.tl-frame-input:focus { border-color:var(--accent); }
+.tl-range { display:flex; align-items:center; gap:5px; }
+.tl-range .champ-label { margin:0; }
+.tl-range-input {
+  width:66px; padding:5px 6px; border:1px solid var(--border); border-radius:6px; background:var(--input);
+  color:var(--text); font-size:12px; font-family:'SF Mono',Consolas,monospace; outline:none;
+}
+.tl-range-input:focus { border-color:var(--accent); }
 .timeline-ruler-outer { overflow-x:auto; }
+.timeline-ruler-numbers { position:relative; margin-left:160px; height:16px; font-size:10px; color:var(--text-dim); font-family:'SF Mono',Consolas,monospace; }
+.timeline-ruler-numbers span { position:absolute; top:0; transform:translateX(-50%); white-space:nowrap; }
 .blocs-timeline-tracks { position:relative; max-height:180px; overflow-y:auto; padding:8px 12px; }
 .tl-links { position:absolute; left:0; top:0; pointer-events:none; }
 .timeline-track { display:flex; align-items:center; gap:10px; height:30px; margin-bottom:4px; }
 .timeline-track-label { width:150px; flex-shrink:0; font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:6px; }
 .timeline-track-ruler { flex:0 0 auto; width:600px; position:relative; height:20px; background:var(--sidebar-hover); border-radius:4px; cursor:text; }
 .timeline-clip {
-  position:absolute; top:2px; height:16px; width:16px; border-radius:4px; background:var(--accent); cursor:grab;
-  box-shadow:0 1px 3px rgba(0,0,0,.3);
+  position:absolute; top:2px; height:16px; width:16px; border-radius:3px; background:var(--accent); cursor:grab;
+  box-shadow:0 1px 3px rgba(0,0,0,.3); transform:rotate(45deg);
 }
 .timeline-clip:active { cursor:grabbing; }
 .timeline-clip.selected { outline:2px solid var(--text); }
@@ -661,10 +677,13 @@ let actionsMode = false;
 let tlPlaying = false;
 let tlPlayhead = 0; // ms
 let tlSelectedIdx = -1;
-const TL_MAXMS = 30000;
+let tlGrabbing = false;
+const TL_ABS_MAX = 120000; // plafond serveur (san_int anim_delai)
+let tlStart = 0;
+let tlEnd = 30000;
 
 function blocDefaut(type) {
-  const base = { type, animation: '', ligne: '', largeur: 100, espace: 16, anim_delai: 0, hauteur: 0 };
+  const base = { type, animation: '', ligne: '', largeur: 100, espace: 16, anim_delai: 0, hauteur: 0, decalage: 0 };
   (BLOC_SPECS[type] || []).forEach(champ => {
     if (champ.type === 'items') base[champ.k] = [];
     else if (champ.type === 'checkgroup') base[champ.k] = champ.defaut ? [...champ.defaut] : [];
@@ -771,10 +790,19 @@ function renderBlocsList() {
 
   const cardHtml = (idx) => {
     const b = blocs[idx];
-    const largeurStyle = b.ligne ? `flex:0 0 ${b.largeur||100}%;max-width:${b.largeur||100}%;` : '';
-    const hauteurStyle = b.hauteur ? `min-height:${b.hauteur}px;` : '';
-    const style = (largeurStyle || hauteurStyle) ? ` style="${largeurStyle}${hauteurStyle}"` : '';
-    const widthHandle = b.ligne ? `<div class="bloc-resize-handle" data-idx="${idx}" title="Glisser pour ajuster la largeur"><i class="fas fa-arrows-left-right"></i></div>` : '';
+    let style;
+    if (b.ligne) {
+      style = ` style="flex:0 0 ${b.largeur||100}%;max-width:${b.largeur||100}%;${b.hauteur?`min-height:${b.hauteur}px;`:''}"`;
+    } else {
+      // Bloc seul : "largeur" (si <100) devient une vraie largeur (pas un
+      // flex-basis de rangée) + "decalage" un margin-left, pour pouvoir le
+      // rétrécir et le déplacer horizontalement même hors d'une rangée.
+      const l = b.largeur || 100;
+      style = ` style="width:${l}%;margin-left:${b.decalage||0}%;${b.hauteur?`min-height:${b.hauteur}px;`:''}"`;
+    }
+    const widthHandle = `<div class="bloc-resize-handle" data-idx="${idx}" title="Glisser pour ajuster la largeur"><i class="fas fa-arrows-left-right"></i></div>`;
+    const moveHandle = (!b.ligne && (b.largeur||100) < 100)
+      ? `<button type="button" class="bloc-act bloc-move-handle" data-idx="${idx}" title="Glisser pour déplacer horizontalement"><i class="fas fa-up-down-left-right"></i></button>` : '';
     return `<div class="bloc-item${selectedIdx===idx?' selected':''}" data-idx="${idx}" draggable="true"${style}>
       <div class="bloc-item-hdr">
         <span class="bloc-item-type">
@@ -784,6 +812,7 @@ function renderBlocsList() {
           ${blocSummary(b) ? `<span class="bloc-item-summary">— ${escAttr(blocSummary(b))}</span>` : ''}
         </span>
         <div class="bloc-item-actions">
+          ${moveHandle}
           <button type="button" class="bloc-act" data-act="up" ${idx===0?'disabled':''} title="${escAttr(I18N.BLOC_MONTER_TITLE)}"><i class="fas fa-arrow-up"></i></button>
           <button type="button" class="bloc-act" data-act="down" ${idx===blocs.length-1?'disabled':''} title="${escAttr(I18N.BLOC_DESCENDRE_TITLE)}"><i class="fas fa-arrow-down"></i></button>
           <button type="button" class="bloc-act bloc-act-danger" data-act="del" title="${escAttr(I18N.BLOC_SUPPRIMER_TITLE)}"><i class="fas fa-trash"></i></button>
@@ -865,27 +894,63 @@ function renderBlocsList() {
     });
   });
 
-  // Poignée de redimensionnement (bloc en rangée) : glisser = ajuste "largeur"
+  // Poignée de redimensionnement (largeur) : marche pour un bloc en rangée
+  // (flex-basis, référence = la rangée) comme pour un bloc seul (largeur
+  // réelle, référence = le canevas) -- avant, seuls les blocs en rangée
+  // étaient redimensionnables.
   list.querySelectorAll('.bloc-resize-handle').forEach(handle => {
     handle.addEventListener('mousedown', (e) => {
       e.preventDefault();
       e.stopPropagation();
       const idx = Number(handle.dataset.idx);
       const item = handle.closest('.bloc-item');
-      const row = item.closest('.blocs-row');
-      if (!row) return;
+      const enLigne = !!blocs[idx].ligne;
+      const ref = enLigne ? item.closest('.blocs-row') : document.getElementById('blocsList');
+      if (!ref) return;
       const onMove = (ev) => {
-        const rowRect = row.getBoundingClientRect();
-        const rel = (ev.clientX - rowRect.left) / rowRect.width;
+        const refRect = ref.getBoundingClientRect();
+        const decalagePx = enLigne ? 0 : (blocs[idx].decalage || 0) / 100 * refRect.width;
+        const rel = (ev.clientX - refRect.left - decalagePx) / refRect.width;
         const largeur = Math.max(10, Math.min(100, Math.round(rel * 100)));
         blocs[idx].largeur = largeur;
-        item.style.flex = `0 0 ${largeur}%`;
-        item.style.maxWidth = `${largeur}%`;
+        if (enLigne) {
+          item.style.flex = `0 0 ${largeur}%`;
+          item.style.maxWidth = `${largeur}%`;
+        } else {
+          item.style.width = `${largeur}%`;
+        }
         markDirty();
         if (selectedIdx === idx) {
           const el = document.getElementById('setLargeur');
           if (el) el.value = largeur;
         }
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        if (!enLigne) renderBlocsList(); // fait apparaître/disparaître la poignée de déplacement
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+
+  // Poignée de déplacement horizontal (bloc seul, rétréci) : glisser = ajuste "decalage"
+  list.querySelectorAll('.bloc-move-handle').forEach(handle => {
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = Number(handle.dataset.idx);
+      const item = handle.closest('.bloc-item');
+      const listEl = document.getElementById('blocsList');
+      const onMove = (ev) => {
+        const listRect = listEl.getBoundingClientRect();
+        const largeur = blocs[idx].largeur || 100;
+        let rel = (ev.clientX - listRect.left) / listRect.width * 100;
+        const decalage = Math.max(0, Math.min(100 - largeur, Math.round(rel)));
+        blocs[idx].decalage = decalage;
+        item.style.marginLeft = `${decalage}%`;
+        markDirty();
       };
       const onUp = () => {
         document.removeEventListener('mousemove', onMove);
@@ -967,13 +1032,15 @@ function renderBlocsSettings() {
     ${blocItemBodyHtml(b)}
     <div class="blocs-settings-section-title">Disposition</div>
     <div class="layout-grid-2">
-      <div><span class="champ-label">Largeur (%)</span><input type="number" id="setLargeur" min="10" max="100" value="${b.largeur||100}" ${enLigne?'':'disabled'}></div>
-      <div><span class="champ-label">Espace ligne (px)</span><input type="number" id="setEspace" min="0" max="1000" value="${b.espace||16}" ${enLigne?'':'disabled'}></div>
+      <div><span class="champ-label">Largeur (%)</span><input type="number" id="setLargeur" min="10" max="100" value="${b.largeur||100}"></div>
+      ${enLigne
+        ? `<div><span class="champ-label">Espace ligne (px)</span><input type="number" id="setEspace" min="0" max="1000" value="${b.espace||16}"></div>`
+        : `<div><span class="champ-label">Décalage gauche (%)</span><input type="number" id="setDecalage" min="0" max="90" value="${b.decalage||0}" ${(b.largeur||100)>=100?'disabled':''}></div>`}
     </div>
     <div style="margin-top:8px"><span class="champ-label">Hauteur forcée (px, 0 = auto)</span><input type="number" id="setHauteur" min="0" max="2000" value="${b.hauteur||0}"></div>
     ${enLigne
       ? `<button type="button" class="btn btn-secondary btn-xs" id="sortirLigneBtn" style="margin-top:8px"><i class="fas fa-arrows-left-right"></i> Sortir de la ligne</button>`
-      : `<div class="hint" style="margin-top:6px">Glissez ce bloc sur le bord gauche/droit d'un autre bloc dans le canevas pour les mettre côte à côte.</div>`}
+      : `<div class="hint" style="margin-top:6px">Glissez ce bloc sur le bord gauche/droit d'un autre bloc dans le canevas pour les mettre côte à côte, ou réduisez sa largeur et utilisez le décalage pour le positionner librement.</div>`}
     <div class="blocs-settings-section-title">Délai d'animation</div>
     <div><span class="champ-label">Avant déclenchement (ms)</span><input type="number" id="setDelai" min="0" max="120000" step="50" value="${b.anim_delai||0}"></div>
     <div class="hint" style="margin-top:6px">Réglable aussi en glissant le repère de ce bloc dans le mode Actions (barre d'outils verticale).</div>`;
@@ -984,6 +1051,12 @@ function renderBlocsSettings() {
   if (largeurEl) largeurEl.addEventListener('input', (e) => setLargeurLigne(idx, Number(e.target.value)));
   const espaceEl = document.getElementById('setEspace');
   if (espaceEl) espaceEl.addEventListener('input', (e) => setEspaceLigne(idx, Number(e.target.value)));
+  const decalageEl = document.getElementById('setDecalage');
+  if (decalageEl) decalageEl.addEventListener('input', (e) => {
+    const largeur = blocs[idx].largeur || 100;
+    blocs[idx].decalage = Math.max(0, Math.min(100 - largeur, Number(e.target.value) || 0));
+    markDirty(); renderBlocsList();
+  });
   const hauteurEl = document.getElementById('setHauteur');
   if (hauteurEl) hauteurEl.addEventListener('input', (e) => { blocs[idx].hauteur = Math.max(0, Math.min(2000, Number(e.target.value)||0)); markDirty(); renderBlocsList(); });
   const delaiEl = document.getElementById('setDelai');
@@ -1463,16 +1536,25 @@ function renderBlocsFullView() {
             </div>
             <div class="blocs-timeline-wrap" id="blocsTimeline">
               <div class="blocs-timeline-hdr">
+                <button type="button" class="vbtn" id="tlJumpStartBtn" title="Aller au début"><i class="fas fa-backward-fast"></i></button>
+                <button type="button" class="vbtn" id="tlPrevKeyBtn" title="Repère précédent"><i class="fas fa-backward-step"></i></button>
                 <button type="button" class="vbtn" id="tlPlayBackBtn" title="Lecture arrière"><i class="fas fa-backward"></i></button>
                 <button type="button" class="vbtn" id="tlPlayBtn" title="Lecture (Espace)"><i class="fas fa-play"></i></button>
-                <span class="timeline-time" id="tlTime">0 ms</span>
+                <button type="button" class="vbtn" id="tlNextKeyBtn" title="Repère suivant"><i class="fas fa-forward-step"></i></button>
+                <button type="button" class="vbtn" id="tlJumpEndBtn" title="Aller à la fin"><i class="fas fa-forward-fast"></i></button>
+                <input type="number" class="tl-frame-input" id="tlFrameInput" value="0" step="50" title="Position actuelle (ms)">
+                <div class="tl-range">
+                  <span class="champ-label">Début</span><input type="number" class="tl-range-input" id="tlStartInput" value="0" step="500">
+                  <span class="champ-label">Fin</span><input type="number" class="tl-range-input" id="tlEndInput" value="30000" step="500" max="120000">
+                </div>
                 <div class="tl-zoom">
                   <button type="button" class="vbtn" id="tlZoomOutBtn" title="Zoom arrière"><i class="fas fa-magnifying-glass-minus"></i></button>
                   <button type="button" class="vbtn" id="tlZoomInBtn" title="Zoom avant"><i class="fas fa-magnifying-glass-plus"></i></button>
                 </div>
-                <span class="hint">Glissez un repère (ou I) · Suppr pour l'enlever · clic/glisser sur la règle pour déplacer le curseur · Espace pour lire</span>
+                <span class="hint">Repère : glisser ou I (insérer) · G (déplacer) · Suppr (enlever) · Espace (lire)</span>
               </div>
               <div class="timeline-ruler-outer" id="tlRulerOuter">
+                <div class="timeline-ruler-numbers" id="tlRulerNumbers"></div>
                 <div class="timeline-ruler-wrap" id="tlRulerWrap"><div class="timeline-playhead" id="tlPlayhead" style="left:0"></div></div>
                 <div class="blocs-timeline-tracks" id="tlTracks"></div>
               </div>
@@ -1504,6 +1586,19 @@ function renderBlocsFullView() {
   document.getElementById('tlPlayBackBtn').onclick = () => tlTogglePlay(true);
   document.getElementById('tlZoomInBtn').onclick = () => tlZoom(1);
   document.getElementById('tlZoomOutBtn').onclick = () => tlZoom(-1);
+  document.getElementById('tlJumpStartBtn').onclick = () => tlSetPlayhead(tlStart);
+  document.getElementById('tlJumpEndBtn').onclick = () => tlSetPlayhead(tlEnd);
+  document.getElementById('tlPrevKeyBtn').onclick = () => tlJumpToKeyframe(-1);
+  document.getElementById('tlNextKeyBtn').onclick = () => tlJumpToKeyframe(1);
+  const frameInput = document.getElementById('tlFrameInput');
+  frameInput.value = Math.round(tlPlayhead);
+  frameInput.addEventListener('change', () => tlSetPlayhead(Number(frameInput.value) || 0));
+  const startInput = document.getElementById('tlStartInput');
+  const endInput = document.getElementById('tlEndInput');
+  startInput.value = tlStart;
+  endInput.value = tlEnd;
+  startInput.addEventListener('change', () => tlSetRange(Number(startInput.value) || 0, tlEnd));
+  endInput.addEventListener('change', () => tlSetRange(tlStart, Number(endInput.value) || tlStart + 100));
 }
 
 function quitterBlocsFullView() {
@@ -1558,6 +1653,7 @@ let tlZoomLevel = 1;
 function tlZoom(dir) {
   tlZoomLevel = Math.max(1, Math.min(8, tlZoomLevel + dir));
   applyTlZoomWidth();
+  renderTlRulerNumbers();
   drawTimelineLinks();
 }
 function applyTlZoomWidth() {
@@ -1577,7 +1673,7 @@ function wireTlSeek() {
     const wrap = document.getElementById('tlRulerWrap');
     const rect = wrap.getBoundingClientRect();
     const rel = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
-    tlSetPlayhead(rel * TL_MAXMS);
+    tlSetPlayhead(tlStart + rel * (tlEnd - tlStart));
   };
   outer.addEventListener('mousedown', (e) => {
     if (e.target.closest('.timeline-clip')) return; // la poignée gère son propre glisser
@@ -1606,10 +1702,11 @@ function renderTimeline() {
     <div class="timeline-track">
       <div class="timeline-track-label"><i class="fas fa-${BLOC_ICONES[b.type]||'cube'}"></i> ${escAttr(BLOC_LABELS[b.type]||b.type)}</div>
       <div class="timeline-track-ruler" data-idx="${i}">
-        <div class="timeline-clip${tlSelectedIdx===i?' selected':''}" data-idx="${i}" style="left:calc(${(b.anim_delai||0)/TL_MAXMS*100}% - 8px)" title="${b.anim_delai||0} ms"></div>
+        <div class="timeline-clip${tlSelectedIdx===i?' selected':''}" data-idx="${i}" style="left:calc(${tlPct(b.anim_delai||0)}% - 8px)" title="${b.anim_delai||0} ms"></div>
       </div>
     </div>`).join('');
   applyTlZoomWidth();
+  renderTlRulerNumbers();
 
   tracks.querySelectorAll('.timeline-clip').forEach(clip => {
     clip.addEventListener('mousedown', (e) => {
@@ -1628,9 +1725,9 @@ function renderTimeline() {
         const rect = ruler.getBoundingClientRect();
         let rel = (ev.clientX - rect.left) / rect.width;
         rel = Math.max(0, Math.min(1, rel));
-        const ms = Math.round(rel * TL_MAXMS / 50) * 50;
+        const ms = Math.round((tlStart + rel * (tlEnd - tlStart)) / 50) * 50;
         blocs[idx].anim_delai = ms;
-        clip.style.left = `calc(${rel*100}% - 8px)`;
+        clip.style.left = `calc(${tlPct(ms)}% - 8px)`;
         clip.title = `${ms} ms`;
         markDirty();
         drawTimelineLinks();
@@ -1694,16 +1791,37 @@ function drawTimelineLinks() {
   wrap.insertBefore(svg, wrap.firstChild);
 }
 
+// % de position dans la plage [tlStart, tlEnd] visible sur la règle.
+function tlPct(ms) {
+  const span = tlEnd - tlStart || 1;
+  return (ms - tlStart) / span * 100;
+}
+
 function tlSetPlayhead(ms) {
-  tlPlayhead = Math.max(0, Math.min(TL_MAXMS, ms));
+  tlPlayhead = Math.max(tlStart, Math.min(tlEnd, ms));
   const ph = document.getElementById('tlPlayhead');
-  if (ph) ph.style.left = `${tlPlayhead/TL_MAXMS*100}%`;
-  const t = document.getElementById('tlTime');
-  if (t) t.textContent = `${Math.round(tlPlayhead)} ms`;
+  if (ph) ph.style.left = `${tlPct(tlPlayhead)}%`;
+  const f = document.getElementById('tlFrameInput');
+  if (f && document.activeElement !== f) f.value = Math.round(tlPlayhead);
+}
+
+// Chiffres au-dessus de la règle (comme la règle d'images de Blender) --
+// ~8 graduations réparties entre Début et Fin.
+function renderTlRulerNumbers() {
+  const el = document.getElementById('tlRulerNumbers');
+  if (!el) return;
+  const n = 8;
+  let html = '';
+  for (let k = 0; k <= n; k++) {
+    const ms = tlStart + (tlEnd - tlStart) * (k / n);
+    html += `<span style="left:${k/n*100}%">${Math.round(ms)}</span>`;
+  }
+  el.innerHTML = html;
+  el.style.width = document.getElementById('tlRulerWrap')?.style.width || '';
 }
 
 // dir=false -> lecture avant depuis la position actuelle du curseur ;
-// dir=true -> lecture arrière (rembobinage) jusqu'à 0.
+// dir=true -> lecture arrière (rembobinage) jusqu'à Début.
 function tlTogglePlay(dir = false) {
   const btnFwd = document.getElementById('tlPlayBtn');
   const btnBack = document.getElementById('tlPlayBackBtn');
@@ -1723,12 +1841,72 @@ function tlTogglePlay(dir = false) {
     if (!tlPlaying) return;
     const elapsed = now - start;
     const ms = reverse ? startPlayhead - elapsed : startPlayhead + elapsed;
-    if (ms <= 0) { tlSetPlayhead(0); tlTogglePlay(); return; }
-    if (ms >= TL_MAXMS) { tlSetPlayhead(TL_MAXMS); tlTogglePlay(); return; }
+    if (ms <= tlStart) { tlSetPlayhead(tlStart); tlTogglePlay(); return; }
+    if (ms >= tlEnd) { tlSetPlayhead(tlEnd); tlTogglePlay(); return; }
     tlSetPlayhead(ms);
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
+}
+
+// Repère précédent/suivant (parmi les blocs animés), et bornes Début/Fin.
+function tlJumpToKeyframe(dir) {
+  const delais = blocs.filter(b => b.animation).map(b => b.anim_delai || 0);
+  if (!delais.length) return;
+  if (dir < 0) {
+    const prev = delais.filter(d => d < tlPlayhead);
+    tlSetPlayhead(prev.length ? Math.max(...prev) : tlStart);
+  } else {
+    const next = delais.filter(d => d > tlPlayhead);
+    tlSetPlayhead(next.length ? Math.min(...next) : tlEnd);
+  }
+}
+
+function tlSetRange(start, end) {
+  tlStart = Math.max(0, Math.min(start, end - 100));
+  tlEnd = Math.max(tlStart + 100, Math.min(TL_ABS_MAX, end));
+  tlSetPlayhead(tlPlayhead);
+  renderTimeline();
+}
+
+// "G" façon Blender (Grab) : la souris déplace le repère sans garder le
+// bouton enfoncé -- clic ou Entrée confirme, Échap annule et restaure la
+// position d'origine.
+function tlStartGrab() {
+  if (tlSelectedIdx < 0 || tlGrabbing) return;
+  const idx = tlSelectedIdx;
+  const clip = document.querySelector(`.timeline-clip[data-idx="${idx}"]`);
+  const ruler = clip ? clip.parentElement : null;
+  if (!clip || !ruler) return;
+  tlGrabbing = true;
+  const origDelai = blocs[idx].anim_delai || 0;
+  const onMove = (ev) => {
+    const rect = ruler.getBoundingClientRect();
+    let rel = (ev.clientX - rect.left) / rect.width;
+    rel = Math.max(0, Math.min(1, rel));
+    const ms = Math.round((tlStart + rel * (tlEnd - tlStart)) / 50) * 50;
+    blocs[idx].anim_delai = ms;
+    clip.style.left = `calc(${tlPct(ms)}% - 8px)`;
+    clip.title = `${ms} ms`;
+    drawTimelineLinks();
+  };
+  const finish = (cancel) => {
+    tlGrabbing = false;
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mousedown', onClickConfirm, true);
+    document.removeEventListener('keydown', onKey, true);
+    if (cancel) blocs[idx].anim_delai = origDelai;
+    markDirty();
+    renderTimeline();
+  };
+  const onClickConfirm = (ev) => { ev.preventDefault(); ev.stopPropagation(); finish(false); };
+  const onKey = (ev) => {
+    if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); finish(true); }
+    else if (ev.key === 'Enter') { ev.preventDefault(); ev.stopPropagation(); finish(false); }
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mousedown', onClickConfirm, true);
+  document.addEventListener('keydown', onKey, true);
 }
 
 function markDirty() { dirty = true; }
@@ -1829,6 +2007,7 @@ function escAttr(s) {
 // ── Raccourcis clavier (actifs uniquement dans l'éditeur de blocs plein écran) ──
 document.addEventListener('keydown', (e) => {
   if (!blocsFullView) return;
+  if (tlGrabbing) return; // le mode "G" gère lui-même Échap/Entrée/clic
   const tag = (e.target.tagName || '').toLowerCase();
   const typing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
 
@@ -1853,6 +2032,13 @@ document.addEventListener('keydown', (e) => {
       markDirty();
       renderTimeline();
       renderBlocsSettings();
+      return;
+    }
+    // "G" façon Blender (Grab) : déplace le repère sélectionné en suivant
+    // la souris jusqu'à clic/Entrée (confirme) ou Échap (annule).
+    if ((e.key === 'g' || e.key === 'G') && tlSelectedIdx >= 0) {
+      e.preventDefault();
+      tlStartGrab();
       return;
     }
     // Suppr/Retour arrière sur un repère sélectionné dans la frise = on
