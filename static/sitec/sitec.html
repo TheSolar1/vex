@@ -1863,11 +1863,28 @@ function renderTimeline() {
       const idx = Number(btn.dataset.idx);
       const b = blocs[idx];
       if (!b.keyframes) b.keyframes = [];
-      const t = Math.round(tlPlayhead / 50) * 50;
+      let t = Math.round(tlPlayhead / 50) * 50;
+      // Si un repère existe déjà exactement à cet instant (curseur pas
+      // déplacé entre deux clics sur "+"), on empilerait un doublon invisible
+      // au même endroit -- ça donnait l'impression que "+" ne faisait rien
+      // au 2e clic. On enchaîne plutôt après le dernier repère existant.
+      if (b.keyframes.some(k => k.t === t)) {
+        const maxT = Math.max(...b.keyframes.map(k => k.t || 0));
+        t = Math.min(TL_ABS_MAX, maxT + 1000);
+        while (b.keyframes.some(k => k.t === t) && t < TL_ABS_MAX) t += 1000;
+      }
       // Valeur de depart : celle du dernier repere existant (continuite),
       // ou 0 (position/deformation neutre) si c'est le tout premier.
       const last = b.keyframes.length ? b.keyframes[b.keyframes.length - 1] : { x: 0, y: 0, w: 0, h: 0 };
       b.keyframes.push({ t, x: last.x || 0, y: last.y || 0, w: last.w || 0, h: last.h || 0 });
+      // Si le nouveau repère tombe hors de la plage Début/Fin actuellement
+      // affichée, il apparaîtrait hors écran (comme s'il n'avait pas été
+      // créé) -- on élargit la fin de la plage pour le garder visible.
+      if (t > tlEnd) {
+        tlEnd = Math.min(TL_ABS_MAX, t + 1000);
+        const endInput = document.getElementById('tlEndInput');
+        if (endInput) endInput.value = tlEnd;
+      }
       b.keyframes.sort((a, c) => (a.t||0) - (c.t||0));
       tlSelectedIdx = idx;
       tlSelectedKf = b.keyframes.findIndex(k => k.t === t);
