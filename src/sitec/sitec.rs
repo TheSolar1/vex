@@ -717,6 +717,11 @@ fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
     // le <style> de la page (voir serve_page_view).
     let mut kf_css = String::new();
     let mut kf_counter: usize = 0;
+    // Blocs en "position libre" (voir plus bas) : sortis du flux normal,
+    // positionnes en absolu n'importe ou sur le canevas -- pas contraints a
+    // etre avant/apres/a cote d'un autre bloc.
+    let mut free_out = String::new();
+    let mut free_bottom: i64 = 0;
     for b in &blocs {
         let kind = b["type"].as_str().unwrap_or("");
         let anim = safe_animation(b["animation"].as_str().unwrap_or(""));
@@ -1049,8 +1054,19 @@ fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
             "<div class=\"sitec-anim\" data-anim=\"{}\"{}>{}</div>",
             html_escape(&anim), extra_style, inner
         );
-        let ligne = b["ligne"].as_str().unwrap_or("").to_string();
         let largeur = san_int(b, "largeur", 10, 100, 100);
+        if b["libre"].as_bool().unwrap_or(false) {
+            let pos_x = san_int(b, "pos_x", -2000, 8000, 0);
+            let pos_y = san_int(b, "pos_y", -2000, 20000, 0);
+            let est_h = if hauteur > 0 { hauteur } else { 80 };
+            free_bottom = free_bottom.max(pos_y + est_h);
+            free_out.push_str(&format!(
+                "<div style=\"position:absolute;left:{}px;top:{}px;width:{}%;\">{}</div>",
+                pos_x, pos_y, largeur, html
+            ));
+            continue;
+        }
+        let ligne = b["ligne"].as_str().unwrap_or("").to_string();
         let espace = san_int(b, "espace", 0, 1000, 16);
         let decalage = san_int(b, "decalage", 0, 90, 0);
         items.push((ligne, largeur, espace, decalage, html));
@@ -1088,6 +1104,12 @@ fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
             espace, row_html
         ));
         i = j;
+    }
+    if !free_out.is_empty() {
+        out = format!(
+            "<div style=\"position:relative;min-height:{}px;\">{}{}</div>",
+            free_bottom, out, free_out
+        );
     }
     (out, kf_css)
 }
@@ -1747,6 +1769,11 @@ fn sanitiser_blocs(v: &Value) -> String {
         // retreci (largeur<100) -- permet de le positionner horizontalement
         // au lieu de le laisser colle au bord gauche.
         bloc["decalage"] = json!(san_int(b, "decalage", 0, 90, 0));
+        // Position libre : sort le bloc du flux normal (plus contraint a
+        // etre avant/apres/a cote d'un autre), positionne en absolu.
+        bloc["libre"] = json!(b["libre"].as_bool().unwrap_or(false));
+        bloc["pos_x"] = json!(san_int(b, "pos_x", -2000, 8000, 0));
+        bloc["pos_y"] = json!(san_int(b, "pos_y", -2000, 20000, 0));
         bloc["espace"] = json!(san_int(b, "espace", 0, 1000, 16));
         bloc["anim_delai"] = json!(san_int(b, "anim_delai", 0, 120_000, 0));
         // Hauteur minimale forcee (px), 0 = automatique (contenu).

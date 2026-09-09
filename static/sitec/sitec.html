@@ -188,7 +188,8 @@ body {
 .blocs-code-view { width:100%; height:100%; min-height:300px; font-family:'SF Mono',Consolas,monospace; font-size:12.5px;
   border:1px solid var(--border); border-radius:6px; padding:12px; background:var(--input); color:var(--text); resize:none; }
 
-.blocs-list { display:flex; flex-direction:column; gap:10px; min-height:60px; }
+.blocs-list { position:relative; display:flex; flex-direction:column; gap:10px; min-height:60px; }
+.bloc-item.libre { box-shadow:0 4px 14px rgba(0,0,0,.18); }
 .blocs-row { display:flex; gap:10px; align-items:stretch; flex-wrap:wrap; }
 .blocs-row .bloc-item { min-width:0; }
 .bloc-item { position:relative; border:1px solid var(--border); border-radius:8px; background:var(--sidebar-hover); flex:1; }
@@ -212,8 +213,8 @@ body {
   transition:all .15s;
 }
 .bloc-act:hover { background:var(--accent); color:var(--surface); border-color:var(--accent); }
-.bloc-move-handle { cursor:grab; }
-.bloc-move-handle:active { cursor:grabbing; }
+.bloc-move-handle, .bloc-libre-handle { cursor:grab; }
+.bloc-move-handle:active, .bloc-libre-handle:active { cursor:grabbing; }
 .bloc-act-danger:hover { background:var(--danger); border-color:var(--danger); }
 .bloc-item-body { display:none; flex-direction:column; gap:10px; padding:0 12px 14px; }
 .bloc-item.open .bloc-item-body { display:flex; }
@@ -251,6 +252,8 @@ body {
 .blocs-settings-section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-dim); margin:14px 0 8px; }
 .blocs-settings-section-title:first-child { margin-top:0; }
 .layout-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.champ-checkbox-row { display:flex; align-items:center; gap:8px; font-size:12.5px; cursor:pointer; line-height:1.4; }
+.champ-checkbox-row input { flex-shrink:0; }
 
 /* ── Icônes (remplace le champ émoji libre) ── */
 .champ-icon-preview {
@@ -688,7 +691,7 @@ let tlStart = 0;
 let tlEnd = 30000;
 
 function blocDefaut(type) {
-  const base = { type, animation: '', ligne: '', largeur: 100, espace: 16, anim_delai: 0, hauteur: 0, decalage: 0, keyframes: [] };
+  const base = { type, animation: '', ligne: '', largeur: 100, espace: 16, anim_delai: 0, hauteur: 0, decalage: 0, keyframes: [], libre: false, pos_x: 0, pos_y: 0 };
   (BLOC_SPECS[type] || []).forEach(champ => {
     if (champ.type === 'items') base[champ.k] = [];
     else if (champ.type === 'checkgroup') base[champ.k] = champ.defaut ? [...champ.defaut] : [];
@@ -780,23 +783,32 @@ function renderBlocsList() {
     return;
   }
 
-  // Regroupe les blocs consécutifs qui partagent "ligne" en rangées visuelles.
+  // Regroupe les blocs consécutifs qui partagent "ligne" en rangées visuelles
+  // -- les blocs en "position libre" n'y participent pas du tout, ils sont
+  // sortis du flux et positionnés en absolu (voir plus bas).
+  const flowIdx = blocs.map((b, i) => i).filter(i => !blocs[i].libre);
+  const libreIdx = blocs.map((b, i) => i).filter(i => blocs[i].libre);
   const rows = [];
-  let i = 0;
-  while (i < blocs.length) {
-    const ligne = blocs[i].ligne || '';
-    if (!ligne) { rows.push([i]); i++; continue; }
-    const grp = [i];
-    let j = i + 1;
-    while (j < blocs.length && (blocs[j].ligne || '') === ligne) { grp.push(j); j++; }
-    rows.push(grp);
-    i = j;
+  {
+    let k = 0;
+    while (k < flowIdx.length) {
+      const i = flowIdx[k];
+      const ligne = blocs[i].ligne || '';
+      if (!ligne) { rows.push([i]); k++; continue; }
+      const grp = [i];
+      let k2 = k + 1;
+      while (k2 < flowIdx.length && (blocs[flowIdx[k2]].ligne || '') === ligne) { grp.push(flowIdx[k2]); k2++; }
+      rows.push(grp);
+      k = k2;
+    }
   }
 
-  const cardHtml = (idx) => {
+  const cardHtml = (idx, forceStyle) => {
     const b = blocs[idx];
     let style;
-    if (b.ligne) {
+    if (forceStyle) {
+      style = ` style="${forceStyle}"`;
+    } else if (b.ligne) {
       style = ` style="flex:0 0 ${b.largeur||100}%;max-width:${b.largeur||100}%;${b.hauteur?`min-height:${b.hauteur}px;`:''}"`;
     } else {
       // Bloc seul : "largeur" (si <100) devient une vraie largeur (pas un
@@ -806,9 +818,11 @@ function renderBlocsList() {
       style = ` style="width:${l}%;margin-left:${b.decalage||0}%;${b.hauteur?`min-height:${b.hauteur}px;`:''}"`;
     }
     const widthHandle = `<div class="bloc-resize-handle" data-idx="${idx}" title="Glisser pour ajuster la largeur"></div>`;
-    const moveHandle = (!b.ligne && (b.largeur||100) < 100)
+    const moveHandle = (!b.libre && !b.ligne && (b.largeur||100) < 100)
       ? `<button type="button" class="bloc-act bloc-move-handle" data-idx="${idx}" title="Glisser pour déplacer horizontalement"><i class="fas fa-up-down-left-right"></i></button>` : '';
-    return `<div class="bloc-item${selectedIdx===idx?' selected':''}" data-idx="${idx}" draggable="true"${style}>
+    const libreHandle = b.libre
+      ? `<button type="button" class="bloc-act bloc-libre-handle" data-idx="${idx}" title="Glisser pour placer où vous voulez"><i class="fas fa-up-down-left-right"></i></button>` : '';
+    return `<div class="bloc-item${selectedIdx===idx?' selected':''}${b.libre?' libre':''}" data-idx="${idx}" draggable="${b.libre?'false':'true'}"${style}>
       <div class="bloc-item-hdr">
         <span class="bloc-item-type">
           <i class="fas fa-grip-vertical bloc-drag-handle"></i>
@@ -817,7 +831,7 @@ function renderBlocsList() {
           ${blocSummary(b) ? `<span class="bloc-item-summary">— ${escAttr(blocSummary(b))}</span>` : ''}
         </span>
         <div class="bloc-item-actions">
-          ${moveHandle}
+          ${libreHandle}${moveHandle}
           <button type="button" class="bloc-act" data-act="up" ${idx===0?'disabled':''} title="${escAttr(I18N.BLOC_MONTER_TITLE)}"><i class="fas fa-arrow-up"></i></button>
           <button type="button" class="bloc-act" data-act="down" ${idx===blocs.length-1?'disabled':''} title="${escAttr(I18N.BLOC_DESCENDRE_TITLE)}"><i class="fas fa-arrow-down"></i></button>
           <button type="button" class="bloc-act bloc-act-danger" data-act="del" title="${escAttr(I18N.BLOC_SUPPRIMER_TITLE)}"><i class="fas fa-trash"></i></button>
@@ -828,10 +842,16 @@ function renderBlocsList() {
     </div>`;
   };
 
-  list.innerHTML = rows.map(grp => grp.length === 1
+  const flowHtml = rows.map(grp => grp.length === 1
     ? cardHtml(grp[0])
-    : `<div class="blocs-row">${grp.map(cardHtml).join('')}</div>`
+    : `<div class="blocs-row">${grp.map(i => cardHtml(i)).join('')}</div>`
   ).join('');
+  const libreHtml = libreIdx.map(idx => {
+    const b = blocs[idx];
+    const style = `position:absolute;left:${b.pos_x||0}px;top:${b.pos_y||0}px;width:${b.largeur||100}%;${b.hauteur?`min-height:${b.hauteur}px;`:''}z-index:${10+idx};`;
+    return cardHtml(idx, style);
+  }).join('');
+  list.innerHTML = flowHtml + libreHtml;
 
   list.querySelectorAll('.bloc-item').forEach(item => {
     const idx = Number(item.dataset.idx);
@@ -856,7 +876,9 @@ function renderBlocsList() {
     });
 
     // Survol : bord gauche/droit = rejoindre une rangée, centre = insérer seul
+    // (les blocs en position libre ne participent pas au flux/aux rangées).
     item.addEventListener('dragover', (e) => {
+      if (blocs[idx].libre) return;
       e.preventDefault();
       const rect = item.getBoundingClientRect();
       const rel = (e.clientX - rect.left) / rect.width;
@@ -867,6 +889,7 @@ function renderBlocsList() {
     item.addEventListener('dragleave', () => item.classList.remove('blocs-drop-side','side-left','side-right'));
 
     item.addEventListener('drop', (e) => {
+      if (blocs[idx].libre) return;
       e.preventDefault();
       e.stopPropagation();
       const rect = item.getBoundingClientRect();
@@ -966,6 +989,45 @@ function renderBlocsList() {
     });
   });
 
+  // Poignée de position libre : glisser = place le bloc n'importe où sur le
+  // canevas (position:absolute left/top en px), sans contrainte d'être
+  // avant/après/à côté d'un autre bloc.
+  list.querySelectorAll('.bloc-libre-handle').forEach(handle => {
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = Number(handle.dataset.idx);
+      const item = handle.closest('.bloc-item');
+      const listEl = document.getElementById('blocsList');
+      const startX = e.clientX, startY = e.clientY;
+      const startLeft = blocs[idx].pos_x || 0, startTop = blocs[idx].pos_y || 0;
+      const onMove = (ev) => {
+        const x = Math.max(-2000, Math.min(8000, Math.round(startLeft + (ev.clientX - startX))));
+        const y = Math.max(-2000, Math.min(20000, Math.round(startTop + (ev.clientY - startY))));
+        blocs[idx].pos_x = x;
+        blocs[idx].pos_y = y;
+        item.style.left = `${x}px`;
+        item.style.top = `${y}px`;
+        markDirty();
+        if (selectedIdx === idx) {
+          const ex = document.getElementById('setPosX'); if (ex) ex.value = x;
+          const ey = document.getElementById('setPosY'); if (ey) ey.value = y;
+        }
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        // Redimensionne le canevas si besoin (le bloc a peut-être fini plus bas).
+        listEl.style.minHeight = `${Math.max(60, y_bottom())}px`;
+      };
+      function y_bottom() {
+        return Math.max(...blocs.filter(b => b.libre).map(b => (b.pos_y||0) + (b.hauteur||80)), 60);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+
   // Poignée de redimensionnement (hauteur) : glisser = ajuste "hauteur" (px)
   list.querySelectorAll('.bloc-height-handle').forEach(handle => {
     handle.addEventListener('mousedown', (e) => {
@@ -1011,6 +1073,11 @@ function renderBlocsList() {
     dragState = null;
   };
 
+  // Le canevas doit rester assez grand pour contenir les blocs en position
+  // libre les plus bas, même s'ils sont bien en dessous du flux normal.
+  const libreBottoms = blocs.filter(b => b.libre).map(b => (b.pos_y||0) + (b.hauteur||80) + 40);
+  if (libreBottoms.length) list.style.minHeight = `${Math.max(60, ...libreBottoms)}px`;
+
   if (actionsMode) renderTimeline();
 }
 
@@ -1036,7 +1103,19 @@ function renderBlocsSettings() {
     <div class="blocs-settings-section-title">Contenu</div>
     ${blocItemBodyHtml(b)}
     <div class="blocs-settings-section-title">Disposition</div>
-    <div class="layout-grid-2">
+    <label class="champ-checkbox-row"><input type="checkbox" id="setLibre" ${b.libre?'checked':''}> Position libre — placer où je veux, indépendamment des autres blocs</label>
+    ${b.libre ? `
+    <div class="layout-grid-2" style="margin-top:8px">
+      <div><span class="champ-label">X (px)</span><input type="number" id="setPosX" value="${b.pos_x||0}" step="10"></div>
+      <div><span class="champ-label">Y (px)</span><input type="number" id="setPosY" value="${b.pos_y||0}" step="10"></div>
+    </div>
+    <div class="hint" style="margin-top:6px">Glissez le bloc par la poignée <i class="fas fa-up-down-left-right"></i> dans son en-tête pour le placer n'importe où sur le canevas, y compris tout en bas.</div>
+    <div class="layout-grid-2" style="margin-top:8px">
+      <div><span class="champ-label">Largeur (%)</span><input type="number" id="setLargeur" min="10" max="100" value="${b.largeur||100}"></div>
+      <div><span class="champ-label">Hauteur forcée (px, 0 = auto)</span><input type="number" id="setHauteur" min="0" max="2000" value="${b.hauteur||0}"></div>
+    </div>
+    ` : `
+    <div class="layout-grid-2" style="margin-top:8px">
       <div><span class="champ-label">Largeur (%)</span><input type="number" id="setLargeur" min="10" max="100" value="${b.largeur||100}"></div>
       ${enLigne
         ? `<div><span class="champ-label">Espace ligne (px)</span><input type="number" id="setEspace" min="0" max="1000" value="${b.espace||16}"></div>`
@@ -1046,12 +1125,23 @@ function renderBlocsSettings() {
     ${enLigne
       ? `<button type="button" class="btn btn-secondary btn-xs" id="sortirLigneBtn" style="margin-top:8px"><i class="fas fa-arrows-left-right"></i> Sortir de la ligne</button>`
       : `<div class="hint" style="margin-top:6px">Glissez ce bloc sur le bord gauche/droit d'un autre bloc dans le canevas pour les mettre côte à côte, ou réduisez sa largeur et utilisez le décalage pour le positionner librement.</div>`}
+    `}
     <div class="blocs-settings-section-title">Délai d'animation</div>
     <div><span class="champ-label">Avant déclenchement (ms)</span><input type="number" id="setDelai" min="0" max="120000" step="50" value="${b.anim_delai||0}"></div>
     <div class="hint" style="margin-top:6px">Réglable aussi en glissant le repère de ce bloc dans le mode Actions (barre d'outils verticale).</div>`;
 
   wireBlocFields(panel, idx);
 
+  const libreEl = document.getElementById('setLibre');
+  if (libreEl) libreEl.addEventListener('change', (e) => {
+    blocs[idx].libre = e.target.checked;
+    if (blocs[idx].libre) { blocs[idx].ligne = ''; blocs[idx].decalage = 0; }
+    markDirty(); renderBlocsList(); renderBlocsSettings();
+  });
+  const posXEl = document.getElementById('setPosX');
+  if (posXEl) posXEl.addEventListener('input', (e) => { blocs[idx].pos_x = Number(e.target.value) || 0; markDirty(); renderBlocsList(); });
+  const posYEl = document.getElementById('setPosY');
+  if (posYEl) posYEl.addEventListener('input', (e) => { blocs[idx].pos_y = Number(e.target.value) || 0; markDirty(); renderBlocsList(); });
   const largeurEl = document.getElementById('setLargeur');
   if (largeurEl) largeurEl.addEventListener('input', (e) => setLargeurLigne(idx, Number(e.target.value)));
   const espaceEl = document.getElementById('setEspace');
