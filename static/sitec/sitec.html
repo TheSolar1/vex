@@ -1078,7 +1078,7 @@ function renderBlocsList() {
   const libreBottoms = blocs.filter(b => b.libre).map(b => (b.pos_y||0) + (b.hauteur||80) + 40);
   if (libreBottoms.length) list.style.minHeight = `${Math.max(60, ...libreBottoms)}px`;
 
-  if (actionsMode) renderTimeline();
+  if (actionsMode) { renderTimeline(); appliquerApercuKeyframes(); }
 }
 
 function selectionnerBloc(idx) {
@@ -1741,7 +1741,16 @@ function basculerModeActions() {
   if (settingsEl) settingsEl.style.display = actionsMode ? 'none' : '';
   const paletteEl = document.getElementById('blocsPalette');
   if (paletteEl) paletteEl.style.display = actionsMode ? 'none' : '';
-  if (actionsMode) renderTimeline();
+  if (actionsMode) {
+    renderTimeline();
+    appliquerApercuKeyframes();
+  } else {
+    // Revient à la forme/position statique du bloc (celle des champs
+    // Largeur/Hauteur du panneau de réglages) en quittant le mode Actions
+    // -- sinon le canevas resterait visuellement figé sur le dernier
+    // instant de la frise, ce qui serait trompeur hors de ce mode.
+    renderBlocsList();
+  }
 }
 
 const TL_BASE_PX = 600;
@@ -1995,6 +2004,26 @@ function tlSetPlayhead(ms) {
   if (ph) ph.style.left = `${tlPct(tlPlayhead)}%`;
   const f = document.getElementById('tlFrameInput');
   if (f && document.activeElement !== f) f.value = Math.round(tlPlayhead);
+  appliquerApercuKeyframes();
+}
+
+// Aperçu en direct dans le canevas : comme dans Blender où l'objet bouge
+// réellement dans la vue 3D quand on déplace le curseur, chaque bloc ayant
+// des repères de position/déformation doit visuellement suivre le curseur
+// de la frise -- avant, seule la page publiée montrait le mouvement, le
+// canevas de l'éditeur restait figé sur la forme/position statique du bloc.
+function appliquerApercuKeyframes() {
+  if (!actionsMode) return;
+  blocs.forEach((b, idx) => {
+    if (!b.keyframes || b.keyframes.length < 2) return;
+    const el = document.querySelector(`#blocsList > .bloc-item[data-idx="${idx}"], #blocsList .blocs-row > .bloc-item[data-idx="${idx}"]`);
+    if (!el) return;
+    const v = interpolerRepere(b.keyframes, tlPlayhead);
+    let t = `translate(${v.x}px,${v.y}px)`;
+    el.style.transform = t;
+    if (v.w > 0) { el.style.width = `${v.w}px`; el.style.flex = 'none'; el.style.maxWidth = 'none'; }
+    if (v.h > 0) { el.style.minHeight = `${v.h}px`; }
+  });
 }
 
 // Chiffres au-dessus de la règle (comme la règle d'images de Blender) --
