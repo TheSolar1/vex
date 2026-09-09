@@ -999,25 +999,40 @@ fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
             let t0 = keyframes[0]["t"].as_i64().unwrap_or(0);
             let t_last = keyframes[keyframes.len() - 1]["t"].as_i64().unwrap_or(0);
             let dur = (t_last - t0).max(100);
+            // Largeur/hauteur "trouées" comblées avant/apres : si aucun
+            // repere ne fixe la dimension, tout reste a 0 -> pas de style
+            // largeur/hauteur genere, comportement translation seule inchange.
+            let ws = fill_dimension(keyframes.iter().map(|k| k["w"].as_i64().unwrap_or(0)).collect());
+            let hs = fill_dimension(keyframes.iter().map(|k| k["h"].as_i64().unwrap_or(0)).collect());
+            let has_size = ws.iter().any(|w| *w > 0) || hs.iter().any(|h| *h > 0);
             let x0 = keyframes[0]["x"].as_i64().unwrap_or(0);
             let y0 = keyframes[0]["y"].as_i64().unwrap_or(0);
+            let w0 = ws[0];
+            let h0 = hs[0];
             let stops: String = keyframes
                 .iter()
-                .map(|k| {
+                .enumerate()
+                .map(|(idx, k)| {
                     let t = k["t"].as_i64().unwrap_or(0);
                     let x = k["x"].as_i64().unwrap_or(0);
                     let y = k["y"].as_i64().unwrap_or(0);
                     let pct = (t - t0) as f64 / dur as f64 * 100.0;
-                    format!("{:.2}%{{transform:translate({}px,{}px);}}", pct, x, y)
+                    let size_style = if has_size {
+                        format!("width:{}px;height:{}px;", ws[idx], hs[idx])
+                    } else {
+                        String::new()
+                    };
+                    format!("{:.2}%{{transform:translate({}px,{}px);{}}}", pct, x, y, size_style)
                 })
                 .collect();
             kf_css.push_str(&format!(
                 "@keyframes sitecKf{n}{{{stops}}}[data-kf=\"{n}\"].sitec-kf-play{{animation:sitecKf{n} {dur}ms ease forwards;}}",
                 n = n, stops = stops, dur = dur
             ));
+            let size0 = if has_size { format!("width:{}px;height:{}px;box-sizing:border-box;", w0, h0) } else { String::new() };
             format!(
-                "<div class=\"sitec-kf\" data-kf=\"{}\" style=\"transform:translate({}px,{}px);\">{}</div>",
-                n, x0, y0, inner
+                "<div class=\"sitec-kf\" data-kf=\"{}\" style=\"transform:translate({}px,{}px);{}\">{}</div>",
+                n, x0, y0, size0, inner
             )
         } else {
             inner
@@ -1447,20 +1462,51 @@ fn san_items(v: &Value, max_items: usize, fields: &[(&str, usize)]) -> Vec<Value
         .unwrap_or_default()
 }
 
-/// Repères de position (mode Actions -> "translation") : liste {t,x,y}
-/// triée par temps croissant, temps/positions bornés, taille limitée.
+/// Repères de position/déformation (mode Actions -> "translation") : liste
+/// {t,x,y,w,h} triée par temps croissant. w/h (largeur/hauteur en px, 0 =
+/// non fixée pour ce repère -- voir `fill_dimension`) permettent de faire
+/// suivre le texte lors d'une deformation, contrairement a `transform:
+/// scale()` qui l'etirerait visuellement sans reflow. Pas de plafond de
+/// nombre de reperes autre qu'une limite large anti-abus (200).
 fn sanitize_keyframes(v: &Value) -> Vec<Value> {
-    let mut out: Vec<(i64, i64, i64)> = v
+    let mut out: Vec<(i64, i64, i64, i64, i64)> = v
         .as_array()
         .map(|a| {
             a.iter()
-                .take(20)
-                .map(|k| (san_int(k, "t", 0, 120_000, 0), san_int(k, "x", -4000, 4000, 0), san_int(k, "y", -4000, 4000, 0)))
+                .take(200)
+                .map(|k| {
+                    (
+                        san_int(k, "t", 0, 120_000, 0),
+                        san_int(k, "x", -4000, 4000, 0),
+                        san_int(k, "y", -4000, 4000, 0),
+                        san_int(k, "w", 0, 3000, 0),
+                        san_int(k, "h", 0, 3000, 0),
+                    )
+                })
                 .collect()
         })
         .unwrap_or_default();
-    out.sort_by_key(|(t, _, _)| *t);
-    out.into_iter().map(|(t, x, y)| json!({"t": t, "x": x, "y": y})).collect()
+    out.sort_by_key(|(t, _, _, _, _)| *t);
+    out.into_iter()
+        .map(|(t, x, y, w, h)| json!({"t": t, "x": x, "y": y, "w": w, "h": h}))
+        .collect()
+}
+
+/// Comble les "0" (largeur/hauteur de repère non fixée) avec la valeur
+/// définie la plus proche (avant puis après) -- pour que l'animation CSS
+/// interpole entre des nombres concrets partout au lieu de sauter vers/
+/// depuis une valeur absente. Si aucun repère ne fixe la dimension, le
+/// résultat reste tout à 0 (aucune animation de taille générée).
+fn fill_dimension(mut vals: Vec<i64>) -> Vec<i64> {
+    let mut last = 0;
+    for v in vals.iter_mut() {
+        if *v > 0 { last = *v; } else if last > 0 { *v = last; }
+    }
+    let mut next = 0;
+    for v in vals.iter_mut().rev() {
+        if *v > 0 { next = *v; } else if next > 0 { *v = next; }
+    }
+    vals
 }
 
 /// Les champs numériques de l'éditeur (select "colonnes", input[type=number])

@@ -327,6 +327,7 @@ body {
 .timeline-ruler-wrap { position:relative; margin-left:160px; width:600px; height:16px; cursor:text; }
 .tl-kf-editor { display:none; align-items:center; gap:6px; padding:6px 12px; border-bottom:1px solid var(--border); background:var(--sidebar-hover); }
 .tl-kf-editor .champ-label { margin:0; }
+.tl-kf-editor-lbl { font-size:10px; font-weight:700; color:var(--text-dim); }
 .tl-kf-editor input[type=number] {
   width:66px; padding:5px 6px; border:1px solid var(--border); border-radius:6px; background:var(--input);
   color:var(--text); font-size:12px; font-family:'SF Mono',Consolas,monospace; outline:none;
@@ -1783,9 +1784,9 @@ function renderTimeline() {
       if (!b.keyframes) b.keyframes = [];
       const t = Math.round(tlPlayhead / 50) * 50;
       // Valeur de depart : celle du dernier repere existant (continuite),
-      // ou 0,0 si c'est le tout premier.
-      const last = b.keyframes.length ? b.keyframes[b.keyframes.length - 1] : { x: 0, y: 0 };
-      b.keyframes.push({ t, x: last.x || 0, y: last.y || 0 });
+      // ou 0 (position/deformation neutre) si c'est le tout premier.
+      const last = b.keyframes.length ? b.keyframes[b.keyframes.length - 1] : { x: 0, y: 0, w: 0, h: 0 };
+      b.keyframes.push({ t, x: last.x || 0, y: last.y || 0, w: last.w || 0, h: last.h || 0 });
       b.keyframes.sort((a, c) => (a.t||0) - (c.t||0));
       tlSelectedIdx = idx;
       tlSelectedKf = b.keyframes.findIndex(k => k.t === t);
@@ -1813,12 +1814,16 @@ function renderTlKfEditor() {
   const k = blocs[tlSelectedIdx].keyframes[tlSelectedKf];
   el.style.display = 'flex';
   el.innerHTML = `
-    <span class="champ-label">Repère position</span>
-    <input type="number" id="tlKfX" value="${k.x||0}" step="10" title="Décalage X (px)">
-    <input type="number" id="tlKfY" value="${k.y||0}" step="10" title="Décalage Y (px)">
+    <span class="champ-label">Repère</span>
+    <span class="tl-kf-editor-lbl">X</span><input type="number" id="tlKfX" value="${k.x||0}" step="10" title="Décalage X (px)">
+    <span class="tl-kf-editor-lbl">Y</span><input type="number" id="tlKfY" value="${k.y||0}" step="10" title="Décalage Y (px)">
+    <span class="tl-kf-editor-lbl">L</span><input type="number" id="tlKfW" value="${k.w||0}" min="0" step="10" title="Largeur (px, 0 = ne pas déformer)">
+    <span class="tl-kf-editor-lbl">H</span><input type="number" id="tlKfH" value="${k.h||0}" min="0" step="10" title="Hauteur (px, 0 = ne pas déformer)">
     <button type="button" class="btn btn-secondary btn-xs" id="tlKfDelBtn"><i class="fas fa-trash"></i></button>`;
   document.getElementById('tlKfX').addEventListener('input', (e) => { k.x = Number(e.target.value) || 0; markDirty(); });
   document.getElementById('tlKfY').addEventListener('input', (e) => { k.y = Number(e.target.value) || 0; markDirty(); });
+  document.getElementById('tlKfW').addEventListener('input', (e) => { k.w = Math.max(0, Number(e.target.value) || 0); markDirty(); });
+  document.getElementById('tlKfH').addEventListener('input', (e) => { k.h = Math.max(0, Number(e.target.value) || 0); markDirty(); });
   document.getElementById('tlKfDelBtn').addEventListener('click', () => supprimerRepereSelectionne());
 }
 
