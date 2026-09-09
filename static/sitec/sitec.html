@@ -201,6 +201,8 @@ body {
 }
 .bloc-item.dragging { opacity:.4; }
 .bloc-item.selected { border-color:var(--accent); box-shadow:0 0 0 2px var(--alt); }
+.bloc-item.editing-kf { border-color:#3b82f6; box-shadow:0 0 0 2px rgba(59,130,246,.35); }
+.bloc-item.editing-kf .bloc-item-hdr { cursor:move; }
 .bloc-item-hdr { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; cursor:pointer; gap:8px; }
 .bloc-item-type { font-size:12.5px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:8px; overflow:hidden; }
 .bloc-item-type .bloc-drag-handle { cursor:grab; color:var(--text-dim); flex-shrink:0; }
@@ -822,7 +824,8 @@ function renderBlocsList() {
       ? `<button type="button" class="bloc-act bloc-move-handle" data-idx="${idx}" title="Glisser pour déplacer horizontalement"><i class="fas fa-up-down-left-right"></i></button>` : '';
     const libreHandle = b.libre
       ? `<button type="button" class="bloc-act bloc-libre-handle" data-idx="${idx}" title="Glisser pour placer où vous voulez"><i class="fas fa-up-down-left-right"></i></button>` : '';
-    return `<div class="bloc-item${selectedIdx===idx?' selected':''}${b.libre?' libre':''}" data-idx="${idx}" draggable="${b.libre?'false':'true'}"${style}>
+    const editingKf = actionsMode && tlSelectedIdx === idx && tlSelectedKf >= 0;
+    return `<div class="bloc-item${selectedIdx===idx?' selected':''}${b.libre?' libre':''}${editingKf?' editing-kf':''}" data-idx="${idx}" draggable="${(b.libre||actionsMode)?'false':'true'}"${style}>
       <div class="bloc-item-hdr">
         <span class="bloc-item-type">
           <i class="fas fa-grip-vertical bloc-drag-handle"></i>
@@ -859,6 +862,36 @@ function renderBlocsList() {
     item.querySelector('.bloc-item-hdr').addEventListener('click', (e) => {
       if (e.target.closest('.bloc-act')) return;
       selectionnerBloc(idx);
+    });
+
+    // Glisser le bloc DIRECTEMENT dans le canevas pour placer le repère de
+    // position sélectionné -- pas besoin de taper des nombres dans les
+    // champs X/Y : on enregistre une position en le déplaçant à la souris,
+    // comme le déplacement d'un objet dans la vue 3D de Blender.
+    item.querySelector('.bloc-item-hdr').addEventListener('mousedown', (e) => {
+      if (!actionsMode || tlSelectedIdx !== idx || tlSelectedKf < 0) return;
+      if (e.target.closest('.bloc-act')) return;
+      e.preventDefault();
+      const kf = blocs[idx].keyframes[tlSelectedKf];
+      const startX = e.clientX, startY = e.clientY;
+      const origX = kf.x || 0, origY = kf.y || 0;
+      let moved = false;
+      const onMove = (ev) => {
+        moved = true;
+        kf.x = origX + Math.round(ev.clientX - startX);
+        kf.y = origY + Math.round(ev.clientY - startY);
+        item.style.transform = `translate(${kf.x}px,${kf.y}px)`;
+        const ex = document.getElementById('tlKfX'); if (ex) ex.value = kf.x;
+        const ey = document.getElementById('tlKfY'); if (ey) ey.value = kf.y;
+        markDirty();
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        if (moved) drawTimelineLinks();
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
     });
 
     item.addEventListener('dragstart', (e) => {
@@ -932,6 +965,27 @@ function renderBlocsList() {
       e.stopPropagation();
       const idx = Number(handle.dataset.idx);
       const item = handle.closest('.bloc-item');
+      // En mode Actions avec un repère de position sélectionné sur ce bloc,
+      // la poignée règle la largeur (L) DE CE REPÈRE (déformation animée),
+      // pas la largeur statique du bloc.
+      if (actionsMode && tlSelectedIdx === idx && tlSelectedKf >= 0) {
+        const kf = blocs[idx].keyframes[tlSelectedKf];
+        const startX = e.clientX;
+        const startW = item.getBoundingClientRect().width;
+        const onMoveKf = (ev) => {
+          kf.w = Math.max(20, Math.round(startW + (ev.clientX - startX)));
+          item.style.width = `${kf.w}px`;
+          const el = document.getElementById('tlKfW'); if (el) el.value = kf.w;
+          markDirty();
+        };
+        const onUpKf = () => {
+          document.removeEventListener('mousemove', onMoveKf);
+          document.removeEventListener('mouseup', onUpKf);
+        };
+        document.addEventListener('mousemove', onMoveKf);
+        document.addEventListener('mouseup', onUpKf);
+        return;
+      }
       const enLigne = !!blocs[idx].ligne;
       const ref = enLigne ? item.closest('.blocs-row') : document.getElementById('blocsList');
       if (!ref) return;
@@ -1035,6 +1089,24 @@ function renderBlocsList() {
       e.stopPropagation();
       const idx = Number(handle.dataset.idx);
       const item = handle.closest('.bloc-item');
+      if (actionsMode && tlSelectedIdx === idx && tlSelectedKf >= 0) {
+        const kf = blocs[idx].keyframes[tlSelectedKf];
+        const startY0 = e.clientY;
+        const startH0 = item.getBoundingClientRect().height;
+        const onMoveKf = (ev) => {
+          kf.h = Math.max(0, Math.round(startH0 + (ev.clientY - startY0)));
+          item.style.minHeight = `${kf.h}px`;
+          const el = document.getElementById('tlKfH'); if (el) el.value = kf.h;
+          markDirty();
+        };
+        const onUpKf = () => {
+          document.removeEventListener('mousemove', onMoveKf);
+          document.removeEventListener('mouseup', onUpKf);
+        };
+        document.addEventListener('mousemove', onMoveKf);
+        document.addEventListener('mouseup', onUpKf);
+        return;
+      }
       const startY = e.clientY;
       const startH = item.getBoundingClientRect().height;
       const onMove = (ev) => {
@@ -1846,7 +1918,10 @@ function ajouterRepereDePosition(idx) {
   tlSelectedKf = b.keyframes.findIndex(k => k.t === t);
   selectedIdx = idx;
   markDirty();
-  renderTimeline();
+  // renderBlocsList() (et non renderTimeline() seul) : active tout de suite
+  // le glisser-déposer direct du bloc pour ce nouveau repère (classe
+  // "editing-kf"), pas seulement le marqueur sur la frise.
+  renderBlocsList();
 }
 
 function renderTimeline() {
@@ -1917,6 +1992,10 @@ function renderTimeline() {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         if (!isEntry) blocs[idx].keyframes.sort((a, b2) => (a.t||0) - (b2.t||0));
+        // Sûr ici (on n'est plus en train de glisser SUR la frise) : met à
+        // jour le canevas pour activer le glisser-déposer direct du bloc
+        // sélectionné (poignée "editing-kf") sur ce repère de position.
+        renderBlocsList();
       };
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
@@ -2015,7 +2094,7 @@ function tlSetPlayhead(ms) {
 function appliquerApercuKeyframes() {
   if (!actionsMode) return;
   blocs.forEach((b, idx) => {
-    if (!b.keyframes || b.keyframes.length < 2) return;
+    if (!b.keyframes || b.keyframes.length < 1) return;
     const el = document.querySelector(`#blocsList > .bloc-item[data-idx="${idx}"], #blocsList .blocs-row > .bloc-item[data-idx="${idx}"]`);
     if (!el) return;
     const v = interpolerRepere(b.keyframes, tlPlayhead);
