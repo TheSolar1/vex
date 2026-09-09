@@ -1004,16 +1004,19 @@ fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
             let t0 = keyframes[0]["t"].as_i64().unwrap_or(0);
             let t_last = keyframes[keyframes.len() - 1]["t"].as_i64().unwrap_or(0);
             let dur = (t_last - t0).max(100);
-            // Largeur/hauteur "trouées" comblées avant/apres : si aucun
-            // repere ne fixe la dimension, tout reste a 0 -> pas de style
-            // largeur/hauteur genere, comportement translation seule inchange.
-            let ws = fill_dimension(keyframes.iter().map(|k| k["w"].as_i64().unwrap_or(0)).collect());
-            let hs = fill_dimension(keyframes.iter().map(|k| k["h"].as_i64().unwrap_or(0)).collect());
-            let has_size = ws.iter().any(|w| *w > 0) || hs.iter().any(|h| *h > 0);
+            // Largeur/hauteur "trouées" (null = non fixée à ce repère)
+            // comblées avant/apres : si aucun repere ne fixe la dimension,
+            // tout reste a None -> pas de style largeur/hauteur genere,
+            // comportement translation seule inchange. Une valeur explicite
+            // de 0 (largeur/hauteur réellement nulle, ex: "disparition")
+            // n'est en revanche jamais écrasée par ce comblement.
+            let ws = fill_dimension(keyframes.iter().map(|k| k["w"].as_i64()).collect());
+            let hs = fill_dimension(keyframes.iter().map(|k| k["h"].as_i64()).collect());
+            let has_size = ws.iter().any(|w| w.is_some()) || hs.iter().any(|h| h.is_some());
             let x0 = keyframes[0]["x"].as_i64().unwrap_or(0);
             let y0 = keyframes[0]["y"].as_i64().unwrap_or(0);
-            let w0 = ws[0];
-            let h0 = hs[0];
+            let w0 = ws[0].unwrap_or(0);
+            let h0 = hs[0].unwrap_or(0);
             let stops: String = keyframes
                 .iter()
                 .enumerate()
@@ -1023,16 +1026,18 @@ fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
                     let y = k["y"].as_i64().unwrap_or(0);
                     let pct = (t - t0) as f64 / dur as f64 * 100.0;
                     let size_style = if has_size {
-                        format!("width:{}px;height:{}px;", ws[idx], hs[idx])
+                        format!("width:{}px;height:{}px;", ws[idx].unwrap_or(0), hs[idx].unwrap_or(0))
                     } else {
                         String::new()
                     };
                     format!("{:.2}%{{transform:translate({}px,{}px);{}}}", pct, x, y, size_style)
                 })
                 .collect();
+            let boucle = b["boucle"].as_bool().unwrap_or(false);
+            let iter = if boucle { "infinite " } else { "" };
             kf_css.push_str(&format!(
-                "@keyframes sitecKf{n}{{{stops}}}[data-kf=\"{n}\"].sitec-kf-play{{animation:sitecKf{n} {dur}ms ease forwards;}}",
-                n = n, stops = stops, dur = dur
+                "@keyframes sitecKf{n}{{{stops}}}[data-kf=\"{n}\"].sitec-kf-play{{animation:sitecKf{n} {dur}ms ease {iter}forwards;}}",
+                n = n, stops = stops, dur = dur, iter = iter
             ));
             let size0 = if has_size { format!("width:{}px;height:{}px;box-sizing:border-box;", w0, h0) } else { String::new() };
             format!(
@@ -1485,13 +1490,16 @@ fn san_items(v: &Value, max_items: usize, fields: &[(&str, usize)]) -> Vec<Value
 }
 
 /// Repères de position/déformation (mode Actions -> "translation") : liste
-/// {t,x,y,w,h} triée par temps croissant. w/h (largeur/hauteur en px, 0 =
-/// non fixée pour ce repère -- voir `fill_dimension`) permettent de faire
-/// suivre le texte lors d'une deformation, contrairement a `transform:
-/// scale()` qui l'etirerait visuellement sans reflow. Pas de plafond de
-/// nombre de reperes autre qu'une limite large anti-abus (200).
+/// {t,x,y,w,h} triée par temps croissant. w/h (largeur/hauteur en px) sont
+/// `null` quand ce repère ne fixe pas la dimension (taille naturelle du
+/// bloc -- voir `fill_dimension`), distinct d'une largeur/hauteur
+/// explicitement nulle (0, ex: un bloc qui se réduit à rien pour
+/// "disparaître"). Permettent de faire suivre le texte lors d'une
+/// deformation, contrairement a `transform: scale()` qui l'etirerait
+/// visuellement sans reflow. Pas de plafond de nombre de reperes autre
+/// qu'une limite large anti-abus (200).
 fn sanitize_keyframes(v: &Value) -> Vec<Value> {
-    let mut out: Vec<(i64, i64, i64, i64, i64)> = v
+    let mut out: Vec<(i64, i64, i64, Option<i64>, Option<i64>)> = v
         .as_array()
         .map(|a| {
             a.iter()
@@ -1501,8 +1509,8 @@ fn sanitize_keyframes(v: &Value) -> Vec<Value> {
                         san_int(k, "t", 0, 120_000, 0),
                         san_int(k, "x", -4000, 4000, 0),
                         san_int(k, "y", -4000, 4000, 0),
-                        san_int(k, "w", 0, 3000, 0),
-                        san_int(k, "h", 0, 3000, 0),
+                        san_int_opt(k, "w", 0, 3000),
+                        san_int_opt(k, "h", 0, 3000),
                     )
                 })
                 .collect()
@@ -1514,19 +1522,19 @@ fn sanitize_keyframes(v: &Value) -> Vec<Value> {
         .collect()
 }
 
-/// Comble les "0" (largeur/hauteur de repère non fixée) avec la valeur
-/// définie la plus proche (avant puis après) -- pour que l'animation CSS
-/// interpole entre des nombres concrets partout au lieu de sauter vers/
-/// depuis une valeur absente. Si aucun repère ne fixe la dimension, le
-/// résultat reste tout à 0 (aucune animation de taille générée).
-fn fill_dimension(mut vals: Vec<i64>) -> Vec<i64> {
-    let mut last = 0;
+/// Comble les repères "null" (dimension non fixée) avec la valeur définie
+/// la plus proche (avant puis après) -- pour que l'animation CSS interpole
+/// entre des nombres concrets partout au lieu de sauter vers/depuis une
+/// valeur absente. Si aucun repère ne fixe la dimension, le résultat reste
+/// tout à `None` (aucune animation de taille générée).
+fn fill_dimension(mut vals: Vec<Option<i64>>) -> Vec<Option<i64>> {
+    let mut last: Option<i64> = None;
     for v in vals.iter_mut() {
-        if *v > 0 { last = *v; } else if last > 0 { *v = last; }
+        if v.is_some() { last = *v; } else if last.is_some() { *v = last; }
     }
-    let mut next = 0;
+    let mut next: Option<i64> = None;
     for v in vals.iter_mut().rev() {
-        if *v > 0 { next = *v; } else if next > 0 { *v = next; }
+        if v.is_some() { next = *v; } else if next.is_some() { *v = next; }
     }
     vals
 }
@@ -1541,6 +1549,18 @@ fn san_int(v: &Value, key: &str, min: i64, max: i64, default: i64) -> i64 {
         .or_else(|| v[key].as_str().and_then(|s| s.trim().parse::<i64>().ok()))
         .map(|n| n.clamp(min, max))
         .unwrap_or(default)
+}
+
+/// Comme `san_int`, mais un champ absent/null/chaîne vide reste `None`
+/// (non fixé) plutôt que d'être remplacé par une valeur par défaut -- pour
+/// les dimensions de repère où "non fixé" doit rester distinct de 0.
+fn san_int_opt(v: &Value, key: &str, min: i64, max: i64) -> Option<i64> {
+    if v[key].is_null() { return None; }
+    v[key]
+        .as_i64()
+        .or_else(|| v[key].as_f64().map(|f| f as i64))
+        .or_else(|| v[key].as_str().and_then(|s| { let s = s.trim(); if s.is_empty() { None } else { s.parse::<i64>().ok() } }))
+        .map(|n| n.clamp(min, max))
 }
 
 fn san_choice(v: &Value, key: &str, choices: &[&str], default: &str) -> String {
@@ -1779,6 +1799,9 @@ fn sanitiser_blocs(v: &Value) -> String {
         // Hauteur minimale forcee (px), 0 = automatique (contenu).
         bloc["hauteur"] = json!(san_int(b, "hauteur", 0, 2000, 0));
         bloc["keyframes"] = json!(sanitize_keyframes(&b["keyframes"]));
+        // Boucle l'animation de repères (translation/déformation) au lieu de
+        // s'arrêter une fois sur le dernier repère.
+        bloc["boucle"] = json!(b["boucle"].as_bool().unwrap_or(false));
         out.push(bloc);
     }
     serde_json::to_string(&out).unwrap_or_else(|_| "[]".to_string())
