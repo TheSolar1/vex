@@ -179,7 +179,8 @@ body {
   color:var(--text-dim); display:inline-flex; align-items:center; gap:6px;
 }
 .blocs-viewtab.active { background:var(--alt); color:var(--accent); }
-.blocs-canvas-wrap { flex:1; overflow:auto; padding:16px; }
+.blocs-canvas-wrap { flex:1; overflow:auto; padding:16px; cursor:grab; }
+.blocs-canvas-wrap.panning { cursor:grabbing; user-select:none; }
 .blocs-list-zoom { transform-origin:0 0; }
 .canvas-zoom-bar {
   position:absolute; bottom:16px; right:16px; z-index:20; display:flex; align-items:center; gap:2px;
@@ -200,11 +201,11 @@ body {
 .bloc-item.libre { box-shadow:0 4px 14px rgba(0,0,0,.18); }
 .page-boundary-rect {
   position:absolute; left:50%; top:0; transform:translateX(-50%); width:820px; max-width:100%;
-  border:2px dashed var(--accent); opacity:.4; z-index:0; pointer-events:none; box-sizing:border-box;
+  border:2px dashed var(--accent); background:rgba(59,130,246,.04); z-index:0; pointer-events:none; box-sizing:border-box;
 }
 .page-boundary-rect span {
-  position:absolute; top:-1px; left:8px; transform:translateY(-100%); font-size:11px; color:var(--accent);
-  background:var(--surface); padding:1px 6px; border-radius:4px 4px 0 0; white-space:nowrap;
+  position:absolute; top:0; left:8px; transform:translateY(-100%); font-size:12px; font-weight:600; color:var(--accent);
+  background:var(--surface); padding:2px 8px; border-radius:4px 4px 0 0; white-space:nowrap; border:1px solid var(--accent); border-bottom:none;
 }
 .align-guide-v, .align-guide-h { position:absolute; background:#ff3b8d; z-index:50; pointer-events:none; }
 .align-guide-v { top:0; bottom:0; width:1px; }
@@ -843,12 +844,38 @@ function blocItemBodyHtml(b) {
   return `${champs}${animationSelectHtml(b)}`;
 }
 
+// Dépose sur une zone vide du canevas (pas sur un bloc existant) : nouveau
+// bloc depuis la palette, ou bloc existant renvoyé en fin de page. Câblée
+// systématiquement (canevas vide ou non) -- voir les deux appels dans
+// renderBlocsList().
+function wireCanvasEmptyDrop(list) {
+  list.ondragover = (e) => { if (!e.target.closest('.bloc-item')) e.preventDefault(); };
+  list.ondrop = (e) => {
+    if (e.target.closest('.bloc-item')) return;
+    e.preventDefault();
+    if (dragState && dragState.type) {
+      ajouterBloc(dragState.type);
+    } else if (dragState && dragState.fromIdx !== undefined) {
+      const [moved] = blocs.splice(dragState.fromIdx, 1);
+      moved.ligne = ''; moved.largeur = 100;
+      blocs.push(moved);
+      markDirty();
+      renderBlocsList();
+    }
+    dragState = null;
+  };
+}
+
 // ── Rendu du canevas : rangées de blocs, sélection, glisser-déposer ────
 function renderBlocsList() {
   const list = document.getElementById('blocsList');
   if (!list) return;
   if (!blocs.length) {
     list.innerHTML = `<div class="blocs-empty">${I18N.BLOCS_VIDE}</div>`;
+    // Sans ça, glisser un bloc depuis la palette sur un canevas encore vide
+    // ne faisait rien : cette poignée n'était câblée que plus bas, dans la
+    // branche jamais atteinte tant qu'aucun bloc n'existe déjà.
+    wireCanvasEmptyDrop(list);
     return;
   }
 
@@ -977,7 +1004,13 @@ function renderBlocsList() {
     // champs X/Y : on enregistre une position en le déplaçant à la souris,
     // comme le déplacement d'un objet dans la vue 3D de Blender.
     item.querySelector('.bloc-item-hdr').addEventListener('mousedown', (e) => {
-      if (!actionsMode || tlSelectedIdx !== idx || tlSelectedKf < 0) return;
+      if (!(actionsMode && tlSelectedIdx === idx && tlSelectedKf >= 0)) {
+        // Hors édition de repère : glisser l'en-tête d'un bloc libre le
+        // déplace directement (pos_x/pos_y), sans avoir à viser la petite
+        // poignée dédiée -- on peut l'attraper n'importe où sur le bloc.
+        if (blocs[idx].libre && !e.target.closest('.bloc-act')) demarrerDeplacementLibre(e, idx, item);
+        return;
+      }
       if (e.target.closest('.bloc-act')) return;
       e.preventDefault();
       const kf = blocs[idx].keyframes[tlSelectedKf];
@@ -1227,73 +1260,12 @@ function renderBlocsList() {
 
   // Poignée de position libre : glisser = place le bloc n'importe où sur le
   // canevas (position:absolute left/top en px), sans contrainte d'être
-  // avant/après/à côté d'un autre bloc.
+  // avant/après/à côté d'un autre bloc. La même logique est aussi câblée
+  // sur l'en-tête entier du bloc (voir demarrerDeplacementLibre) : la
+  // poignée reste disponible mais n'est plus le seul endroit où attraper
+  // le bloc pour le déplacer.
   list.querySelectorAll('.bloc-libre-handle').forEach(handle => {
-    handle.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const idx = Number(handle.dataset.idx);
-      const item = handle.closest('.bloc-item');
-      const listEl = document.getElementById('blocsList');
-      const startX = e.clientX, startY = e.clientY;
-      const startLeft = blocs[idx].pos_x || 0, startTop = blocs[idx].pos_y || 0;
-      const itemRect0 = item.getBoundingClientRect();
-      const w = itemRect0.width, h = itemRect0.height;
-      // Sélection multiple (Maj+clic, voir plus haut) : les autres blocs
-      // libres sélectionnés suivent le même déplacement brut (sans
-      // grille/guides, qui ne s'appliquent qu'au bloc réellement glissé).
-      const groupe = (multiSelectedIndices.has(idx) && multiSelectedIndices.size > 1)
-        ? [...multiSelectedIndices].filter(i => i !== idx && blocs[i] && blocs[i].libre).map(i => ({
-            idx: i,
-            startX: blocs[i].pos_x || 0,
-            startY: blocs[i].pos_y || 0,
-            el: document.querySelector(`.bloc-item[data-idx="${i}"]`),
-          }))
-        : [];
-      const onMove = (ev) => {
-        let x = Math.max(-2000, Math.min(8000, Math.round(startLeft + (ev.clientX - startX) / canvasZoom)));
-        let y = Math.max(-2000, Math.min(20000, Math.round(startTop + (ev.clientY - startY) / canvasZoom)));
-        if (posMode === 'grille') {
-          x = Math.round(x / POS_GRID) * POS_GRID;
-          y = Math.round(y / POS_GRID) * POS_GRID;
-          effacerGuides();
-        } else if (posMode === 'guides') {
-          const listRect = listEl.getBoundingClientRect();
-          const snap = calculerGuides(idx, w, h, listRect, x, y);
-          x = snap.x; y = snap.y;
-        } else {
-          effacerGuides();
-        }
-        blocs[idx].pos_x = x;
-        blocs[idx].pos_y = y;
-        item.style.left = `${x}px`;
-        item.style.top = `${y}px`;
-        const netDx = x - startLeft, netDy = y - startTop;
-        groupe.forEach(g => {
-          const gx = g.startX + netDx, gy = g.startY + netDy;
-          blocs[g.idx].pos_x = gx;
-          blocs[g.idx].pos_y = gy;
-          if (g.el) { g.el.style.left = `${gx}px`; g.el.style.top = `${gy}px`; }
-        });
-        markDirty();
-        if (selectedIdx === idx) {
-          const ex = document.getElementById('setPosX'); if (ex) ex.value = x;
-          const ey = document.getElementById('setPosY'); if (ey) ey.value = y;
-        }
-      };
-      const onUp = () => {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-        effacerGuides();
-        // Redimensionne le canevas si besoin (le bloc a peut-être fini plus bas).
-        listEl.style.minHeight = `${Math.max(60, y_bottom())}px`;
-      };
-      function y_bottom() {
-        return Math.max(...blocs.filter(b => b.libre).map(b => (b.pos_y||0) + (b.hauteur||80)), 60);
-      }
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    });
+    handle.addEventListener('mousedown', (e) => demarrerDeplacementLibre(e, Number(handle.dataset.idx), handle.closest('.bloc-item')));
   });
 
   // Poignée de redimensionnement (hauteur) : glisser = ajuste "hauteur" (px)
@@ -1431,21 +1403,7 @@ function renderBlocsList() {
   });
 
   // Zone vide du canevas : dépose = bloc seul en fin de page
-  list.ondragover = (e) => { if (!e.target.closest('.bloc-item')) e.preventDefault(); };
-  list.ondrop = (e) => {
-    if (e.target.closest('.bloc-item')) return;
-    e.preventDefault();
-    if (dragState && dragState.type) {
-      ajouterBloc(dragState.type);
-    } else if (dragState && dragState.fromIdx !== undefined) {
-      const [moved] = blocs.splice(dragState.fromIdx, 1);
-      moved.ligne = ''; moved.largeur = 100;
-      blocs.push(moved);
-      markDirty();
-      renderBlocsList();
-    }
-    dragState = null;
-  };
+  wireCanvasEmptyDrop(list);
 
   // Le canevas doit rester assez grand pour contenir les blocs en position
   // libre les plus bas, même s'ils sont bien en dessous du flux normal.
@@ -2131,11 +2089,14 @@ function renderBlocsFullView() {
   document.getElementById('canvasZoomInBtn').onclick = () => definirCanvasZoom(canvasZoom + 0.1);
   document.getElementById('canvasZoomOutBtn').onclick = () => definirCanvasZoom(canvasZoom - 0.1);
   document.getElementById('canvasZoomResetBtn').onclick = () => definirCanvasZoom(1);
+  // Molette seule = zoome (pas besoin de Ctrl/Cmd) -- se déplacer dans le
+  // canevas se fait en glissant une zone vide avec la souris, voir plus
+  // bas (wireCanvasPan).
   document.querySelector('.blocs-canvas-wrap').addEventListener('wheel', (e) => {
-    if (!e.ctrlKey && !e.metaKey) return; // molette seule = défilement normal
     e.preventDefault();
     definirCanvasZoom(canvasZoom + (e.deltaY < 0 ? 0.1 : -0.1));
   }, { passive: false });
+  wireCanvasPan();
   document.getElementById('tlPlayBackBtn').onclick = () => tlTogglePlay(true);
   document.getElementById('tlZoomInBtn').onclick = () => tlZoom(1);
   document.getElementById('tlZoomOutBtn').onclick = () => tlZoom(-1);
@@ -2515,6 +2476,32 @@ function definirPosMode(m) {
 // 1) : voir les divisions par `canvasZoom` dans demarrerRedimLibre et les
 // poignées de glissement, qui convertissent le déplacement souris (en
 // pixels ÉCRAN) vers ce repère réel.
+// Glisser une zone VIDE du canevas (pas un bloc) = se déplacer dans
+// l'espace de travail -- la molette servant désormais au zoom, c'est le
+// seul moyen de naviguer au clavier/souris sans passer par les barres de
+// défilement.
+function wireCanvasPan() {
+  const wrap = document.querySelector('.blocs-canvas-wrap');
+  if (!wrap) return;
+  wrap.onmousedown = (e) => {
+    if (e.target.closest('.bloc-item') || e.button !== 0) return;
+    e.preventDefault();
+    const startX = e.clientX, startY = e.clientY;
+    const startScrollLeft = wrap.scrollLeft, startScrollTop = wrap.scrollTop;
+    wrap.classList.add('panning');
+    const onMove = (ev) => {
+      wrap.scrollLeft = startScrollLeft - (ev.clientX - startX);
+      wrap.scrollTop = startScrollTop - (ev.clientY - startY);
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      wrap.classList.remove('panning');
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+}
 function definirCanvasZoom(z) {
   canvasZoom = Math.max(0.25, Math.min(2, Math.round(z * 100) / 100));
   const el = document.getElementById('blocsListZoom');
@@ -2604,6 +2591,73 @@ function effacerGuides() {
 // opposés bougent en symétrie) ; Maj = garde le ratio largeur/hauteur
 // d'origine (uniquement quand un coin -- donc largeur ET hauteur -- est
 // actif).
+// Déplacement d'un bloc libre (glisser = pos_x/pos_y n'importe où sur le
+// canevas) -- partagé par la poignée dédiée (icône "déplacer") ET
+// l'en-tête entier du bloc, pour pouvoir l'attraper n'importe où dessus
+// plutôt que seulement sur une petite icône facile à manquer.
+function demarrerDeplacementLibre(e, idx, item) {
+  e.preventDefault();
+  e.stopPropagation();
+  const listEl = document.getElementById('blocsList');
+  const startX = e.clientX, startY = e.clientY;
+  const startLeft = blocs[idx].pos_x || 0, startTop = blocs[idx].pos_y || 0;
+  const itemRect0 = item.getBoundingClientRect();
+  const w = itemRect0.width, h = itemRect0.height;
+  // Sélection multiple (Maj+clic) : les autres blocs libres sélectionnés
+  // suivent le même déplacement brut (sans grille/guides, qui ne
+  // s'appliquent qu'au bloc réellement glissé).
+  const groupe = (multiSelectedIndices.has(idx) && multiSelectedIndices.size > 1)
+    ? [...multiSelectedIndices].filter(i => i !== idx && blocs[i] && blocs[i].libre).map(i => ({
+        idx: i,
+        startX: blocs[i].pos_x || 0,
+        startY: blocs[i].pos_y || 0,
+        el: document.querySelector(`.bloc-item[data-idx="${i}"]`),
+      }))
+    : [];
+  let moved = false;
+  const onMove = (ev) => {
+    moved = true;
+    let x = Math.max(-2000, Math.min(8000, Math.round(startLeft + (ev.clientX - startX) / canvasZoom)));
+    let y = Math.max(-2000, Math.min(20000, Math.round(startTop + (ev.clientY - startY) / canvasZoom)));
+    if (posMode === 'grille') {
+      x = Math.round(x / POS_GRID) * POS_GRID;
+      y = Math.round(y / POS_GRID) * POS_GRID;
+      effacerGuides();
+    } else if (posMode === 'guides') {
+      const listRect = listEl.getBoundingClientRect();
+      const snap = calculerGuides(idx, w, h, listRect, x, y);
+      x = snap.x; y = snap.y;
+    } else {
+      effacerGuides();
+    }
+    blocs[idx].pos_x = x;
+    blocs[idx].pos_y = y;
+    item.style.left = `${x}px`;
+    item.style.top = `${y}px`;
+    const netDx = x - startLeft, netDy = y - startTop;
+    groupe.forEach(g => {
+      const gx = g.startX + netDx, gy = g.startY + netDy;
+      blocs[g.idx].pos_x = gx;
+      blocs[g.idx].pos_y = gy;
+      if (g.el) { g.el.style.left = `${gx}px`; g.el.style.top = `${gy}px`; }
+    });
+    markDirty();
+    if (selectedIdx === idx) {
+      const ex = document.getElementById('setPosX'); if (ex) ex.value = x;
+      const ey = document.getElementById('setPosY'); if (ey) ey.value = y;
+    }
+  };
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    effacerGuides();
+    // Redimensionne le canevas si besoin (le bloc a peut-être fini plus bas).
+    listEl.style.minHeight = `${Math.max(60, Math.max(...blocs.filter(b => b.libre).map(b => (b.pos_y||0) + (b.hauteur||80)), 60))}px`;
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
 function demarrerRedimLibre(e, idx, item, edges) {
   e.preventDefault();
   e.stopPropagation();
