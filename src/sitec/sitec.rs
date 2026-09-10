@@ -988,11 +988,13 @@ fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
         if b["libre"].as_bool().unwrap_or(false) {
             let pos_x = san_int(b, "pos_x", -2000, 8000, 0);
             let pos_y = san_int(b, "pos_y", -2000, 20000, 0);
+            let rotation = san_int(b, "rotation", 0, 359, 0);
             let est_h = if hauteur > 0 { hauteur } else { 80 };
             free_bottom = free_bottom.max(pos_y + est_h);
+            let rotate_style = if rotation > 0 { format!("transform:rotate({}deg);", rotation) } else { String::new() };
             free_out.push_str(&format!(
-                "<div style=\"position:absolute;left:{}px;top:{}px;width:{}%;\">{}</div>",
-                pos_x, pos_y, largeur, html
+                "<div style=\"position:absolute;left:{}px;top:{}px;width:{}%;{}\">{}</div>",
+                pos_x, pos_y, largeur, rotate_style, html
             ));
             continue;
         }
@@ -1728,6 +1730,8 @@ fn sanitiser_blocs(v: &Value) -> String {
         bloc["libre"] = json!(b["libre"].as_bool().unwrap_or(false));
         bloc["pos_x"] = json!(san_int(b, "pos_x", -2000, 8000, 0));
         bloc["pos_y"] = json!(san_int(b, "pos_y", -2000, 20000, 0));
+        // Rotation (degrés, blocs libres uniquement).
+        bloc["rotation"] = json!(san_int(b, "rotation", 0, 359, 0));
         bloc["espace"] = json!(san_int(b, "espace", 0, 1000, 16));
         bloc["anim_delai"] = json!(san_int(b, "anim_delai", 0, 120_000, 0));
         // Hauteur minimale forcee (px), 0 = automatique (contenu).

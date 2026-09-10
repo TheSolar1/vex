@@ -192,6 +192,14 @@ body {
 .blocs-list { position:relative; display:flex; flex-direction:column; gap:10px; min-height:60px; }
 .blocs-list.pos-mode-grille { background-image:radial-gradient(circle, var(--border) 1px, transparent 1px); background-size:20px 20px; }
 .bloc-item.libre { box-shadow:0 4px 14px rgba(0,0,0,.18); }
+.page-boundary-rect {
+  position:absolute; left:50%; top:0; transform:translateX(-50%); width:820px; max-width:100%;
+  border:2px dashed var(--accent); opacity:.4; z-index:0; pointer-events:none; box-sizing:border-box;
+}
+.page-boundary-rect span {
+  position:absolute; top:-1px; left:8px; transform:translateY(-100%); font-size:11px; color:var(--accent);
+  background:var(--surface); padding:1px 6px; border-radius:4px 4px 0 0; white-space:nowrap;
+}
 .align-guide-v, .align-guide-h { position:absolute; background:#ff3b8d; z-index:50; pointer-events:none; }
 .align-guide-v { top:0; bottom:0; width:1px; }
 .align-guide-h { left:0; right:0; height:1px; }
@@ -210,6 +218,27 @@ body {
 .bloc-height-handle-top {
   position:absolute; left:0; right:0; top:-11px; height:22px; z-index:5; cursor:row-resize;
 }
+/* Poignées de coin (blocs libres) : déforment largeur ET hauteur ensemble,
+   en gardant le coin OPPOSÉ fixe -- "mode déformation" en plus des
+   poignées de bord (largeur OU hauteur seule). */
+.bloc-corner-handle { position:absolute; width:14px; height:14px; z-index:6; background:var(--accent); border:2px solid var(--surface); border-radius:50%; }
+.bloc-corner-tl { top:-7px; left:-7px; cursor:nwse-resize; }
+.bloc-corner-tr { top:-7px; right:-7px; cursor:nesw-resize; }
+.bloc-corner-bl { bottom:-7px; left:-7px; cursor:nesw-resize; }
+.bloc-corner-br { bottom:-7px; right:-7px; cursor:nwse-resize; }
+/* Poignée de rotation (blocs libres) : glisser en cercle autour du centre
+   du bloc pour tourner. Maj = accroche par pas de 15°. */
+.bloc-rotate-handle {
+  position:absolute; top:-34px; left:50%; transform:translateX(-50%);
+  width:22px; height:22px; border-radius:50%; z-index:6;
+  background:var(--surface); border:1px solid var(--border); color:var(--text-dim);
+  display:flex; align-items:center; justify-content:center; font-size:11px; cursor:grab;
+}
+.bloc-rotate-handle::after {
+  content:''; position:absolute; top:100%; left:50%; width:1px; height:12px; background:var(--border);
+}
+.bloc-rotate-handle:hover { background:var(--accent); color:var(--surface); border-color:var(--accent); }
+.bloc-rotate-handle:active { cursor:grabbing; }
 .bloc-item-apercu { padding:0 12px 12px; }
 .bloc-item-apercu img { display:block; max-width:100%; max-height:280px; margin:0 auto; border-radius:6px; }
 .bloc-item-apercu-vide { display:flex; align-items:center; gap:8px; padding:14px 12px; color:var(--text-dim); font-size:12.5px; background:var(--surface); border:1px dashed var(--border); border-radius:6px; margin:0 12px 12px; }
@@ -713,7 +742,7 @@ let tlStart = 0;
 let tlEnd = 30000;
 
 function blocDefaut(type) {
-  const base = { type, animation: '', ligne: '', largeur: 100, espace: 16, anim_delai: 0, hauteur: 0, decalage: 0, keyframes: [], boucle: false, libre: false, pos_x: 0, pos_y: 0 };
+  const base = { type, animation: '', ligne: '', largeur: 100, espace: 16, anim_delai: 0, hauteur: 0, decalage: 0, keyframes: [], boucle: false, libre: false, pos_x: 0, pos_y: 0, rotation: 0 };
   (BLOC_SPECS[type] || []).forEach(champ => {
     if (champ.type === 'items') base[champ.k] = [];
     else if (champ.type === 'checkgroup') base[champ.k] = champ.defaut ? [...champ.defaut] : [];
@@ -863,6 +892,17 @@ function renderBlocsList() {
       ? `<button type="button" class="bloc-act bloc-move-handle" data-idx="${idx}" title="Glisser pour déplacer horizontalement"><i class="fas fa-up-down-left-right"></i></button>` : '';
     const libreHandle = b.libre
       ? `<button type="button" class="bloc-act bloc-libre-handle" data-idx="${idx}" title="Glisser pour placer où vous voulez"><i class="fas fa-up-down-left-right"></i></button>` : '';
+    // Poignées de coin (déformation : largeur+hauteur ensemble) et de
+    // rotation -- blocs libres uniquement (seuls eux ont une position/
+    // taille réelles, indépendantes du flux normal de la page).
+    const cornerHandles = b.libre ? `
+      <div class="bloc-corner-handle bloc-corner-tl" data-idx="${idx}" data-corner="tl" title="Glisser pour déformer (largeur + hauteur)"></div>
+      <div class="bloc-corner-handle bloc-corner-tr" data-idx="${idx}" data-corner="tr" title="Glisser pour déformer (largeur + hauteur)"></div>
+      <div class="bloc-corner-handle bloc-corner-bl" data-idx="${idx}" data-corner="bl" title="Glisser pour déformer (largeur + hauteur)"></div>
+      <div class="bloc-corner-handle bloc-corner-br" data-idx="${idx}" data-corner="br" title="Glisser pour déformer (largeur + hauteur)"></div>
+    ` : '';
+    const rotateHandle = b.libre
+      ? `<div class="bloc-rotate-handle" data-idx="${idx}" title="Glisser en cercle pour tourner (Maj = pas de 15°)"><i class="fas fa-rotate"></i></div>` : '';
     const editingKf = actionsMode && tlSelectedIdx === idx && tlSelectedKf >= 0;
     return `<div class="bloc-item${selectedIdx===idx?' selected':''}${b.libre?' libre':''}${editingKf?' editing-kf':''}${multiSelectedIndices.has(idx)?' multi-selected':''}" data-idx="${idx}" draggable="${(b.libre||actionsMode)?'false':'true'}"${style}>
       <div class="bloc-item-hdr">
@@ -880,7 +920,7 @@ function renderBlocsList() {
         </div>
       </div>
       ${blocApercuHtml(b)}
-      ${widthHandle}${leftHandle}${topHandle}
+      ${widthHandle}${leftHandle}${topHandle}${cornerHandles}${rotateHandle}
       <div class="bloc-height-handle" data-idx="${idx}" title="Glisser pour ajuster la hauteur"></div>
     </div>`;
   };
@@ -891,10 +931,20 @@ function renderBlocsList() {
   ).join('');
   const libreHtml = libreIdx.map(idx => {
     const b = blocs[idx];
-    const style = `position:absolute;left:${b.pos_x||0}px;top:${b.pos_y||0}px;width:${b.largeur||100}%;${b.hauteur?`min-height:${b.hauteur}px;`:''}z-index:${10+idx};`;
+    const style = `position:absolute;left:${b.pos_x||0}px;top:${b.pos_y||0}px;width:${b.largeur||100}%;${b.hauteur?`min-height:${b.hauteur}px;`:''}${b.rotation?`transform:rotate(${b.rotation}deg);`:''}z-index:${10+idx};`;
     return cardHtml(idx, style);
   }).join('');
-  list.innerHTML = flowHtml + libreHtml;
+  // Rectangle repère (blocs libres seulement) : matérialise la largeur
+  // réelle de la zone de contenu de la page publiée (820px, voir le CSS
+  // généré par serve_page_view) -- le canevas de l'éditeur, lui, n'a pas
+  // cette limite (les blocs libres peuvent être placés n'importe où, même
+  // en dehors), d'où ce repère visuel pour savoir ce qui sera dans le cadre
+  // une fois publié.
+  const pageRectHtml = libreIdx.length ? (() => {
+    const bas = Math.max(900, ...libreIdx.map(idx => (blocs[idx].pos_y || 0) + (blocs[idx].hauteur || 80) + 100));
+    return `<div class="page-boundary-rect" style="height:${bas}px"><span>Zone de la page publiée (820px)</span></div>`;
+  })() : '';
+  list.innerHTML = pageRectHtml + flowHtml + libreHtml;
 
   list.querySelectorAll('.bloc-item').forEach(item => {
     const idx = Number(item.dataset.idx);
@@ -931,7 +981,7 @@ function renderBlocsList() {
         moved = true;
         kf.x = origX + Math.round(ev.clientX - startX);
         kf.y = origY + Math.round(ev.clientY - startY);
-        item.style.transform = `translate(${kf.x}px,${kf.y}px)`;
+        item.style.transform = `${blocs[idx].rotation ? `rotate(${blocs[idx].rotation}deg) ` : ''}translate(${kf.x}px,${kf.y}px)`;
         const ex = document.getElementById('tlKfX'); if (ex) ex.value = kf.x;
         const ey = document.getElementById('tlKfY'); if (ey) ey.value = kf.y;
         markDirty();
@@ -1038,6 +1088,10 @@ function renderBlocsList() {
         document.addEventListener('mouseup', onUpKf);
         return;
       }
+      if (blocs[idx].libre) {
+        demarrerRedimLibre(e, idx, item, { right: true });
+        return;
+      }
       const enLigne = !!blocs[idx].ligne;
       const ref = enLigne ? item.closest('.blocs-row') : document.getElementById('blocsList');
       if (!ref) return;
@@ -1088,7 +1142,7 @@ function renderBlocsList() {
           kf.w = Math.max(0, Math.round(startW - dx));
           kf.x = Math.round(startKfX + dx);
           item.style.width = `${kf.w}px`;
-          item.style.transform = `translate(${kf.x}px,${kf.y||0}px)`;
+          item.style.transform = `${blocs[idx].rotation ? `rotate(${blocs[idx].rotation}deg) ` : ''}translate(${kf.x}px,${kf.y||0}px)`;
           const elW = document.getElementById('tlKfW'); if (elW) elW.value = kf.w;
           const elX = document.getElementById('tlKfX'); if (elX) elX.value = kf.x;
           markDirty();
@@ -1102,30 +1156,12 @@ function renderBlocsList() {
         return;
       }
       const b = blocs[idx];
-      const refRect = document.getElementById('blocsList').getBoundingClientRect();
-      const startX = e.clientX;
       if (b.libre) {
-        const startLargeur = b.largeur || 100;
-        const startPosX = b.pos_x || 0;
-        const onMove = (ev) => {
-          const dx = ev.clientX - startX;
-          const deltaPct = dx / refRect.width * 100;
-          const largeur = Math.max(10, Math.min(100, Math.round(startLargeur - deltaPct)));
-          blocs[idx].largeur = largeur;
-          blocs[idx].pos_x = Math.round(startPosX + dx);
-          item.style.width = `${largeur}%`;
-          item.style.left = `${blocs[idx].pos_x}px`;
-          markDirty();
-          if (selectedIdx === idx) {
-            const el = document.getElementById('setLargeur'); if (el) el.value = largeur;
-            const ex = document.getElementById('setPosX'); if (ex) ex.value = blocs[idx].pos_x;
-          }
-        };
-        const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
+        demarrerRedimLibre(e, idx, item, { left: true });
         return;
       }
+      const refRect = document.getElementById('blocsList').getBoundingClientRect();
+      const startX = e.clientX;
       // Bloc seul (hors rangée) : largeur + décalage ajustés ensemble pour
       // garder le bord droit à la même position pendant qu'on tire le
       // gauche.
@@ -1278,6 +1314,10 @@ function renderBlocsList() {
         document.addEventListener('mouseup', onUpKf);
         return;
       }
+      if (blocs[idx].libre) {
+        demarrerRedimLibre(e, idx, item, { bottom: true });
+        return;
+      }
       const startY = e.clientY;
       const startH = item.getBoundingClientRect().height;
       const onMove = (ev) => {
@@ -1318,7 +1358,7 @@ function renderBlocsList() {
           kf.h = Math.max(0, Math.round(startH - dy));
           kf.y = Math.round(startKfY + dy);
           item.style.minHeight = `${kf.h}px`;
-          item.style.transform = `translate(${kf.x||0}px,${kf.y}px)`;
+          item.style.transform = `${blocs[idx].rotation ? `rotate(${blocs[idx].rotation}deg) ` : ''}translate(${kf.x||0}px,${kf.y}px)`;
           const elH = document.getElementById('tlKfH'); if (elH) elH.value = kf.h;
           const elY = document.getElementById('tlKfY'); if (elY) elY.value = kf.y;
           markDirty();
@@ -1331,20 +1371,47 @@ function renderBlocsList() {
         document.addEventListener('mouseup', onUpKf);
         return;
       }
-      const startY = e.clientY;
-      const startH = item.getBoundingClientRect().height;
-      const startPosY = blocs[idx].pos_y || 0;
+      demarrerRedimLibre(e, idx, item, { top: true });
+    });
+  });
+
+  // Poignées de coin (blocs libres) : déforment largeur + hauteur ensemble
+  // (voir demarrerRedimLibre -- Alt = centre, Maj = garde le ratio).
+  list.querySelectorAll('.bloc-corner-handle').forEach(handle => {
+    handle.addEventListener('mousedown', (e) => {
+      const idx = Number(handle.dataset.idx);
+      const item = handle.closest('.bloc-item');
+      const corner = handle.dataset.corner; // 'tl' | 'tr' | 'bl' | 'br'
+      demarrerRedimLibre(e, idx, item, {
+        left: corner.includes('l'), right: corner.includes('r'),
+        top: corner.includes('t'), bottom: corner.includes('b'),
+      });
+    });
+  });
+
+  // Poignée de rotation (blocs libres) : glisser en cercle autour du
+  // centre du bloc. Maj = accroche par pas de 15°.
+  list.querySelectorAll('.bloc-rotate-handle').forEach(handle => {
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = Number(handle.dataset.idx);
+      const item = handle.closest('.bloc-item');
+      const startRotation = blocs[idx].rotation || 0;
       const onMove = (ev) => {
-        const dy = ev.clientY - startY;
-        const hauteur = Math.max(0, Math.round(startH - dy));
-        blocs[idx].hauteur = hauteur;
-        blocs[idx].pos_y = Math.round(startPosY + dy);
-        item.style.minHeight = `${hauteur}px`;
-        item.style.top = `${blocs[idx].pos_y}px`;
+        const rect = item.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+        // 0° pointe vers le haut (poignée au-dessus du bloc) -- +90 pour
+        // recaler l'angle atan2 (0 = droite) sur cette convention.
+        let deg = Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180 / Math.PI + 90;
+        deg = Math.round(deg);
+        if (ev.shiftKey) deg = Math.round(deg / 15) * 15;
+        deg = ((deg % 360) + 360) % 360;
+        blocs[idx].rotation = deg;
+        item.style.transform = `rotate(${deg}deg)`;
         markDirty();
         if (selectedIdx === idx) {
-          const el = document.getElementById('setHauteur'); if (el) el.value = hauteur;
-          const ey = document.getElementById('setPosY'); if (ey) ey.value = blocs[idx].pos_y;
+          const el = document.getElementById('setRotation'); if (el) el.value = deg;
         }
       };
       const onUp = () => {
@@ -1414,6 +1481,8 @@ function renderBlocsSettings() {
       <div><span class="champ-label">Largeur (%)</span><input type="number" id="setLargeur" min="10" max="100" value="${b.largeur||100}"></div>
       <div><span class="champ-label">Hauteur forcée (px, 0 = auto)</span><input type="number" id="setHauteur" min="0" max="2000" value="${b.hauteur||0}"></div>
     </div>
+    <div style="margin-top:8px"><span class="champ-label">Rotation (°)</span><input type="number" id="setRotation" min="0" max="359" step="5" value="${b.rotation||0}"></div>
+    <div class="hint" style="margin-top:6px">Ou glissez la poignée <i class="fas fa-rotate"></i> au-dessus du bloc (Maj = pas de 15°) ; les poignées de coin déforment largeur+hauteur ensemble (Alt = depuis le centre, Maj = garde le ratio).</div>
     ` : `
     <div class="layout-grid-2" style="margin-top:8px">
       <div><span class="champ-label">Largeur (%)</span><input type="number" id="setLargeur" min="10" max="100" value="${b.largeur||100}"></div>
@@ -1445,6 +1514,8 @@ function renderBlocsSettings() {
   if (posXEl) posXEl.addEventListener('input', (e) => { blocs[idx].pos_x = Number(e.target.value) || 0; markDirty(); renderBlocsList(); });
   const posYEl = document.getElementById('setPosY');
   if (posYEl) posYEl.addEventListener('input', (e) => { blocs[idx].pos_y = Number(e.target.value) || 0; markDirty(); renderBlocsList(); });
+  const rotationEl = document.getElementById('setRotation');
+  if (rotationEl) rotationEl.addEventListener('input', (e) => { blocs[idx].rotation = ((Number(e.target.value) || 0) % 360 + 360) % 360; markDirty(); renderBlocsList(); });
   const largeurEl = document.getElementById('setLargeur');
   if (largeurEl) largeurEl.addEventListener('input', (e) => setLargeurLigne(idx, Number(e.target.value)));
   const espaceEl = document.getElementById('setEspace');
@@ -2485,6 +2556,74 @@ function effacerGuides() {
   const h = document.getElementById('alignGuideH'); if (h) h.remove();
 }
 
+// Redimensionnement unifié des blocs libres (largeur/hauteur/position),
+// utilisé par les 4 poignées de bord ET les 4 poignées de coin -- un seul
+// bord actif ({right:true}) = ne change qu'une dimension en gardant le
+// bord opposé fixe ; deux bords actifs (coin, ex: {right:true,bottom:true})
+// = "déformation" (largeur+hauteur ensemble).
+// Modificateurs : Alt = redimensionne depuis le CENTRE (les deux bords
+// opposés bougent en symétrie) ; Maj = garde le ratio largeur/hauteur
+// d'origine (uniquement quand un coin -- donc largeur ET hauteur -- est
+// actif).
+function demarrerRedimLibre(e, idx, item, edges) {
+  e.preventDefault();
+  e.stopPropagation();
+  const b = blocs[idx];
+  const refRect = document.getElementById('blocsList').getBoundingClientRect();
+  const startX = e.clientX, startY = e.clientY;
+  const startLeft = b.pos_x || 0;
+  const startTop = b.pos_y || 0;
+  const startWidthPx = (b.largeur || 100) / 100 * refRect.width;
+  const startHeightPx = item.getBoundingClientRect().height || 40;
+  const aspect = startWidthPx / startHeightPx;
+  const estCoin = (edges.left || edges.right) && (edges.top || edges.bottom);
+  const onMove = (ev) => {
+    const dx = ev.clientX - startX, dy = ev.clientY - startY;
+    const alt = ev.altKey, shift = ev.shiftKey;
+    let leftPx = startLeft, rightPx = startLeft + startWidthPx;
+    let topPx = startTop, bottomPx = startTop + startHeightPx;
+    if (edges.right) { rightPx = startLeft + startWidthPx + dx; if (alt) leftPx = startLeft - dx; }
+    if (edges.left) { leftPx = startLeft + dx; if (alt) rightPx = (startLeft + startWidthPx) - dx; }
+    if (edges.bottom) { bottomPx = startTop + startHeightPx + dy; if (alt) topPx = startTop - dy; }
+    if (edges.top) { topPx = startTop + dy; if (alt) bottomPx = (startTop + startHeightPx) - dy; }
+    if (rightPx - leftPx < 20) { if (edges.left) leftPx = rightPx - 20; else rightPx = leftPx + 20; }
+    if (bottomPx - topPx < 20) { if (edges.top) topPx = bottomPx - 20; else bottomPx = topPx + 20; }
+    let widthPx = rightPx - leftPx, heightPx = bottomPx - topPx;
+    if (shift && estCoin) {
+      const wRatio = widthPx / startWidthPx, hRatio = heightPx / startHeightPx;
+      if (Math.abs(wRatio - 1) >= Math.abs(hRatio - 1)) {
+        heightPx = widthPx / aspect;
+        if (edges.top) topPx = bottomPx - heightPx; else bottomPx = topPx + heightPx;
+      } else {
+        widthPx = heightPx * aspect;
+        if (edges.left) leftPx = rightPx - widthPx; else rightPx = leftPx + widthPx;
+      }
+    }
+    const largeurPct = Math.max(5, Math.min(100, Math.round(widthPx / refRect.width * 100)));
+    b.largeur = largeurPct;
+    b.hauteur = Math.max(10, Math.round(heightPx));
+    b.pos_x = Math.round(leftPx);
+    b.pos_y = Math.round(topPx);
+    item.style.width = `${largeurPct}%`;
+    item.style.minHeight = `${b.hauteur}px`;
+    item.style.left = `${b.pos_x}px`;
+    item.style.top = `${b.pos_y}px`;
+    markDirty();
+    if (selectedIdx === idx) {
+      const elL = document.getElementById('setLargeur'); if (elL) elL.value = largeurPct;
+      const elH = document.getElementById('setHauteur'); if (elH) elH.value = b.hauteur;
+      const elX = document.getElementById('setPosX'); if (elX) elX.value = b.pos_x;
+      const elY = document.getElementById('setPosY'); if (elY) elY.value = b.pos_y;
+    }
+  };
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
 function appliquerApercuKeyframes() {
   if (!actionsMode) return;
   blocs.forEach((b, idx) => {
@@ -2492,7 +2631,7 @@ function appliquerApercuKeyframes() {
     const el = document.querySelector(`#blocsList > .bloc-item[data-idx="${idx}"], #blocsList .blocs-row > .bloc-item[data-idx="${idx}"]`);
     if (!el) return;
     const v = interpolerRepere(b.keyframes, tlPlayhead);
-    el.style.transform = `translate(${v.x}px,${v.y}px)`;
+    el.style.transform = `${b.rotation ? `rotate(${b.rotation}deg) ` : ''}translate(${v.x}px,${v.y}px)`;
     // v.w/h === null = ce repère ne fixe pas la dimension (taille naturelle
     // du bloc) -- distinct de 0 (largeur/hauteur réellement nulle, ex: un
     // bloc qui se réduit à rien pour "disparaître"). Dans le cas null, on
