@@ -172,14 +172,20 @@ body {
 .blocs-toolbar-v .vbtn.active { background:var(--accent); color:var(--surface); }
 .blocs-toolbar-v .vsep { width:22px; height:1px; background:var(--border); margin:4px 0; }
 
-.blocs-center { flex:1; min-width:0; display:flex; flex-direction:column; border-top:1px solid var(--border); border-bottom:1px solid var(--border); background:var(--surface); }
+.blocs-center { flex:1; min-width:0; display:flex; flex-direction:column; border-top:1px solid var(--border); border-bottom:1px solid var(--border); background:var(--surface); position:relative; }
 .blocs-viewtabs { display:flex; gap:4px; padding:8px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
 .blocs-viewtab {
   padding:6px 13px; border-radius:6px; border:none; background:none; cursor:pointer; font-size:12.5px; font-weight:600;
   color:var(--text-dim); display:inline-flex; align-items:center; gap:6px;
 }
 .blocs-viewtab.active { background:var(--alt); color:var(--accent); }
-.blocs-canvas-wrap { flex:1; overflow-y:auto; padding:16px; }
+.blocs-canvas-wrap { flex:1; overflow:auto; padding:16px; }
+.blocs-list-zoom { transform-origin:0 0; }
+.canvas-zoom-bar {
+  position:absolute; bottom:16px; right:16px; z-index:20; display:flex; align-items:center; gap:2px;
+  background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:3px; box-shadow:0 2px 8px rgba(0,0,0,.12);
+}
+.canvas-zoom-bar #canvasZoomLabel { font-size:11.5px; color:var(--text-dim); width:38px; text-align:center; user-select:none; }
 .blocs-canvas.drop-over { background:var(--alt); border-radius:8px; }
 .blocs-drop-indicator { height:3px; background:var(--accent); border-radius:2px; margin:4px 0; }
 .blocs-drop-side { position:relative; }
@@ -728,6 +734,7 @@ let dragState = null; // { fromPalette:bool, type?, fromIdx? }
 let blocClipboard = null; // copie profonde du bloc sélectionné (Ctrl+C / Ctrl+V)
 let multiSelectedIndices = new Set(); // Maj+clic sur plusieurs blocs libres = les déplacer ensemble
 let blocsViewMode = 'visuel'; // 'visuel' | 'code'
+let canvasZoom = 1; // 0.25 - 2 ; zoom du canevas (pas de la frise, voir tlZoomLevel)
 let posMode = localStorage.getItem('sitecPosMode') || 'libre'; // 'libre' | 'grille' | 'guides'
 const POS_GRID = 20;
 const POS_SNAP_SEUIL = 6; // px, distance de déclenchement d'un guide
@@ -979,8 +986,8 @@ function renderBlocsList() {
       let moved = false;
       const onMove = (ev) => {
         moved = true;
-        kf.x = origX + Math.round(ev.clientX - startX);
-        kf.y = origY + Math.round(ev.clientY - startY);
+        kf.x = origX + Math.round((ev.clientX - startX) / canvasZoom);
+        kf.y = origY + Math.round((ev.clientY - startY) / canvasZoom);
         item.style.transform = `${blocs[idx].rotation ? `rotate(${blocs[idx].rotation}deg) ` : ''}translate(${kf.x}px,${kf.y}px)`;
         const ex = document.getElementById('tlKfX'); if (ex) ex.value = kf.x;
         const ey = document.getElementById('tlKfY'); if (ey) ey.value = kf.y;
@@ -1075,7 +1082,7 @@ function renderBlocsList() {
         const startX = e.clientX;
         const startW = item.getBoundingClientRect().width;
         const onMoveKf = (ev) => {
-          kf.w = Math.max(0, Math.round(startW + (ev.clientX - startX)));
+          kf.w = Math.max(0, Math.round((startW + (ev.clientX - startX)) / canvasZoom));
           item.style.width = `${kf.w}px`;
           const el = document.getElementById('tlKfW'); if (el) el.value = kf.w;
           markDirty();
@@ -1138,8 +1145,8 @@ function renderBlocsList() {
         const startW = item.getBoundingClientRect().width;
         const startKfX = kf.x || 0;
         const onMoveKf = (ev) => {
-          const dx = ev.clientX - startX;
-          kf.w = Math.max(0, Math.round(startW - dx));
+          const dx = (ev.clientX - startX) / canvasZoom;
+          kf.w = Math.max(0, Math.round(startW / canvasZoom - dx));
           kf.x = Math.round(startKfX + dx);
           item.style.width = `${kf.w}px`;
           item.style.transform = `${blocs[idx].rotation ? `rotate(${blocs[idx].rotation}deg) ` : ''}translate(${kf.x}px,${kf.y||0}px)`;
@@ -1244,8 +1251,8 @@ function renderBlocsList() {
           }))
         : [];
       const onMove = (ev) => {
-        let x = Math.max(-2000, Math.min(8000, Math.round(startLeft + (ev.clientX - startX))));
-        let y = Math.max(-2000, Math.min(20000, Math.round(startTop + (ev.clientY - startY))));
+        let x = Math.max(-2000, Math.min(8000, Math.round(startLeft + (ev.clientX - startX) / canvasZoom)));
+        let y = Math.max(-2000, Math.min(20000, Math.round(startTop + (ev.clientY - startY) / canvasZoom)));
         if (posMode === 'grille') {
           x = Math.round(x / POS_GRID) * POS_GRID;
           y = Math.round(y / POS_GRID) * POS_GRID;
@@ -1301,7 +1308,7 @@ function renderBlocsList() {
         const startY0 = e.clientY;
         const startH0 = item.getBoundingClientRect().height;
         const onMoveKf = (ev) => {
-          kf.h = Math.max(0, Math.round(startH0 + (ev.clientY - startY0)));
+          kf.h = Math.max(0, Math.round((startH0 + (ev.clientY - startY0)) / canvasZoom));
           item.style.minHeight = `${kf.h}px`;
           const el = document.getElementById('tlKfH'); if (el) el.value = kf.h;
           markDirty();
@@ -1321,7 +1328,7 @@ function renderBlocsList() {
       const startY = e.clientY;
       const startH = item.getBoundingClientRect().height;
       const onMove = (ev) => {
-        const hauteur = Math.max(0, Math.round(startH + (ev.clientY - startY)));
+        const hauteur = Math.max(0, Math.round((startH + (ev.clientY - startY)) / canvasZoom));
         blocs[idx].hauteur = hauteur;
         item.style.minHeight = `${hauteur}px`;
         markDirty();
@@ -1354,8 +1361,8 @@ function renderBlocsList() {
         const startH = item.getBoundingClientRect().height;
         const startKfY = kf.y || 0;
         const onMoveKf = (ev) => {
-          const dy = ev.clientY - startY;
-          kf.h = Math.max(0, Math.round(startH - dy));
+          const dy = (ev.clientY - startY) / canvasZoom;
+          kf.h = Math.max(0, Math.round(startH / canvasZoom - dy));
           kf.y = Math.round(startKfY + dy);
           item.style.minHeight = `${kf.h}px`;
           item.style.transform = `${blocs[idx].rotation ? `rotate(${blocs[idx].rotation}deg) ` : ''}translate(${kf.x||0}px,${kf.y}px)`;
@@ -2052,9 +2059,15 @@ function renderBlocsFullView() {
           <div class="blocs-center" id="blocsCenter">
             <div class="blocs-canvas-wrap">
               <div class="blocs-canvas" id="blocsCanvasVisuel">
-                <div class="blocs-list" id="blocsList"></div>
+                <div class="blocs-list-zoom" id="blocsListZoom"><div class="blocs-list" id="blocsList"></div></div>
               </div>
               <textarea class="blocs-code-view" id="blocsCanvasCode" style="display:none" spellcheck="false"></textarea>
+            </div>
+            <div class="canvas-zoom-bar">
+              <button type="button" class="vbtn" id="canvasZoomOutBtn" title="Zoom arrière"><i class="fas fa-magnifying-glass-minus"></i></button>
+              <span id="canvasZoomLabel">100%</span>
+              <button type="button" class="vbtn" id="canvasZoomInBtn" title="Zoom avant"><i class="fas fa-magnifying-glass-plus"></i></button>
+              <button type="button" class="vbtn" id="canvasZoomResetBtn" title="Réinitialiser le zoom (100%)"><i class="fas fa-compress"></i></button>
             </div>
             <div class="blocs-timeline-wrap" id="blocsTimeline">
               <div class="blocs-timeline-hdr">
@@ -2115,6 +2128,14 @@ function renderBlocsFullView() {
   document.getElementById('posModeGrille').onclick = () => definirPosMode('grille');
   document.getElementById('posModeGuides').onclick = () => definirPosMode('guides');
   appliquerPosModeUi();
+  document.getElementById('canvasZoomInBtn').onclick = () => definirCanvasZoom(canvasZoom + 0.1);
+  document.getElementById('canvasZoomOutBtn').onclick = () => definirCanvasZoom(canvasZoom - 0.1);
+  document.getElementById('canvasZoomResetBtn').onclick = () => definirCanvasZoom(1);
+  document.querySelector('.blocs-canvas-wrap').addEventListener('wheel', (e) => {
+    if (!e.ctrlKey && !e.metaKey) return; // molette seule = défilement normal
+    e.preventDefault();
+    definirCanvasZoom(canvasZoom + (e.deltaY < 0 ? 0.1 : -0.1));
+  }, { passive: false });
   document.getElementById('tlPlayBackBtn').onclick = () => tlTogglePlay(true);
   document.getElementById('tlZoomInBtn').onclick = () => tlZoom(1);
   document.getElementById('tlZoomOutBtn').onclick = () => tlZoom(-1);
@@ -2489,6 +2510,18 @@ function definirPosMode(m) {
   effacerGuides();
   appliquerPosModeUi();
 }
+// Zoom du canevas (molette + Ctrl/Cmd, ou boutons) -- purement visuel, les
+// données (pos_x/pos_y/largeur/...) restent dans le repère "réel" (zoom
+// 1) : voir les divisions par `canvasZoom` dans demarrerRedimLibre et les
+// poignées de glissement, qui convertissent le déplacement souris (en
+// pixels ÉCRAN) vers ce repère réel.
+function definirCanvasZoom(z) {
+  canvasZoom = Math.max(0.25, Math.min(2, Math.round(z * 100) / 100));
+  const el = document.getElementById('blocsListZoom');
+  if (el) el.style.transform = `scale(${canvasZoom})`;
+  const lbl = document.getElementById('canvasZoomLabel');
+  if (lbl) lbl.textContent = `${Math.round(canvasZoom * 100)}%`;
+}
 function appliquerPosModeUi() {
   const bLibre = document.getElementById('posModeLibre');
   const bGrille = document.getElementById('posModeGrille');
@@ -2503,17 +2536,23 @@ function appliquerPosModeUi() {
 // à la position brute x/y), la position alignée sur les bords/centres des
 // autres blocs libres (et le centre du canevas) -- comme les guides
 // magenta de PowerPoint -- et dessine les lignes de guide correspondantes.
-function calculerGuides(idx, w, h, listRect, x, y) {
-  const targetsX = [listRect.width / 2];
+function calculerGuides(idx, wEcran, hEcran, listRect, x, y) {
+  // x/y/wEcran/hEcran arrivent en unités écran (pixels réels de la souris/
+  // getBoundingClientRect) -- tout est ramené au repère "réel" (zoom 1, le
+  // même que pos_x/pos_y) en divisant par canvasZoom, pour que
+  // l'alignement reste précis quel que soit le niveau de zoom du canevas.
+  const w = wEcran / canvasZoom, h = hEcran / canvasZoom;
+  const targetsX = [listRect.width / canvasZoom / 2];
   const targetsY = [];
   blocs.forEach((b2, idx2) => {
     if (idx2 === idx || !b2.libre) return;
     const el2 = document.querySelector(`.bloc-item[data-idx="${idx2}"]`);
     if (!el2) return;
     const r2 = el2.getBoundingClientRect();
-    const left2 = r2.left - listRect.left, top2 = r2.top - listRect.top;
-    targetsX.push(left2, left2 + r2.width / 2, left2 + r2.width);
-    targetsY.push(top2, top2 + r2.height / 2, top2 + r2.height);
+    const left2 = (r2.left - listRect.left) / canvasZoom, top2 = (r2.top - listRect.top) / canvasZoom;
+    const w2 = r2.width / canvasZoom, h2 = r2.height / canvasZoom;
+    targetsX.push(left2, left2 + w2 / 2, left2 + w2);
+    targetsY.push(top2, top2 + h2 / 2, top2 + h2);
   });
   const mineX = [x, x + w / 2, x + w];
   const mineY = [y, y + h / 2, y + h];
@@ -2569,16 +2608,20 @@ function demarrerRedimLibre(e, idx, item, edges) {
   e.preventDefault();
   e.stopPropagation();
   const b = blocs[idx];
-  const refRect = document.getElementById('blocsList').getBoundingClientRect();
+  // Repère "réel" (zoom 1, le même que pos_x/pos_y/largeur) -- toutes les
+  // mesures écran (getBoundingClientRect, delta souris) sont ramenées à ce
+  // repère en divisant par canvasZoom, pour que le redimensionnement reste
+  // précis quel que soit le niveau de zoom du canevas.
+  const refWidth = document.getElementById('blocsList').getBoundingClientRect().width / canvasZoom;
   const startX = e.clientX, startY = e.clientY;
   const startLeft = b.pos_x || 0;
   const startTop = b.pos_y || 0;
-  const startWidthPx = (b.largeur || 100) / 100 * refRect.width;
-  const startHeightPx = item.getBoundingClientRect().height || 40;
+  const startWidthPx = (b.largeur || 100) / 100 * refWidth;
+  const startHeightPx = (item.getBoundingClientRect().height || 40) / canvasZoom;
   const aspect = startWidthPx / startHeightPx;
   const estCoin = (edges.left || edges.right) && (edges.top || edges.bottom);
   const onMove = (ev) => {
-    const dx = ev.clientX - startX, dy = ev.clientY - startY;
+    const dx = (ev.clientX - startX) / canvasZoom, dy = (ev.clientY - startY) / canvasZoom;
     const alt = ev.altKey, shift = ev.shiftKey;
     let leftPx = startLeft, rightPx = startLeft + startWidthPx;
     let topPx = startTop, bottomPx = startTop + startHeightPx;
@@ -2599,7 +2642,7 @@ function demarrerRedimLibre(e, idx, item, edges) {
         if (edges.left) leftPx = rightPx - widthPx; else rightPx = leftPx + widthPx;
       }
     }
-    const largeurPct = Math.max(5, Math.min(100, Math.round(widthPx / refRect.width * 100)));
+    const largeurPct = Math.max(5, Math.min(100, Math.round(widthPx / refWidth * 100)));
     b.largeur = largeurPct;
     b.hauteur = Math.max(10, Math.round(heightPx));
     b.pos_x = Math.round(leftPx);
