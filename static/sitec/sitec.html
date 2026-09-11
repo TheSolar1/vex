@@ -199,6 +199,7 @@ body {
 .blocs-list { position:relative; display:flex; flex-direction:column; gap:10px; min-height:60px; }
 .blocs-list.pos-mode-grille { background-image:radial-gradient(circle, var(--border) 1px, transparent 1px); background-size:20px 20px; }
 .bloc-item.libre { box-shadow:0 4px 14px rgba(0,0,0,.18); }
+.canvas-espace-travail { position:absolute; left:0; top:0; z-index:-1; pointer-events:none; }
 .page-boundary-rect {
   position:absolute; left:50%; top:0; transform:translateX(-50%); width:820px; max-width:100%;
   border:2px dashed var(--accent); background:rgba(59,130,246,.04); z-index:0; pointer-events:none; box-sizing:border-box;
@@ -339,14 +340,14 @@ body {
 .timeline-time { font-family:'SF Mono',Consolas,monospace; font-size:12px; color:var(--text-dim); min-width:64px; }
 .tl-zoom { display:flex; gap:4px; }
 .tl-frame-input {
-  width:64px; padding:5px 6px; border:1px solid var(--border); border-radius:6px; background:var(--input);
+  width:76px; padding:5px 6px; border:1px solid var(--border); border-radius:6px; background:var(--input);
   color:var(--text); font-size:12px; font-family:'SF Mono',Consolas,monospace; outline:none; text-align:center;
 }
 .tl-frame-input:focus { border-color:var(--accent); }
 .tl-range { display:flex; align-items:center; gap:5px; }
 .tl-range .champ-label { margin:0; }
 .tl-range-input {
-  width:66px; padding:5px 6px; border:1px solid var(--border); border-radius:6px; background:var(--input);
+  width:82px; padding:5px 6px; border:1px solid var(--border); border-radius:6px; background:var(--input);
   color:var(--text); font-size:12px; font-family:'SF Mono',Consolas,monospace; outline:none;
 }
 .tl-range-input:focus { border-color:var(--accent); }
@@ -968,17 +969,21 @@ function renderBlocsList() {
     const style = `position:absolute;left:${b.pos_x||0}px;top:${b.pos_y||0}px;width:${b.largeur||100}%;${b.hauteur?`min-height:${b.hauteur}px;`:''}${b.rotation?`transform:rotate(${b.rotation}deg);`:''}z-index:${10+idx};`;
     return cardHtml(idx, style);
   }).join('');
-  // Rectangle repère (blocs libres seulement) : matérialise la largeur
-  // réelle de la zone de contenu de la page publiée (820px, voir le CSS
-  // généré par serve_page_view) -- le canevas de l'éditeur, lui, n'a pas
-  // cette limite (les blocs libres peuvent être placés n'importe où, même
-  // en dehors), d'où ce repère visuel pour savoir ce qui sera dans le cadre
-  // une fois publié.
-  const pageRectHtml = libreIdx.length ? (() => {
-    const bas = Math.max(900, ...libreIdx.map(idx => (blocs[idx].pos_y || 0) + (blocs[idx].hauteur || 80) + 100));
-    return `<div class="page-boundary-rect" style="height:${bas}px"><span>Zone de la page publiée (820px)</span></div>`;
-  })() : '';
-  list.innerHTML = pageRectHtml + flowHtml + libreHtml;
+  // Rectangle repère : matérialise la largeur réelle de la zone de contenu
+  // de la page publiée (820px, voir le CSS généré par serve_page_view) --
+  // le canevas de l'éditeur, lui, n'a pas cette limite (les blocs libres
+  // peuvent être placés n'importe où, même en dehors), d'où ce repère
+  // visuel pour savoir ce qui sera dans le cadre une fois publié. Toujours
+  // affiché (pas seulement s'il y a des blocs libres) pour qu'on voie la
+  // largeur de page même en éditant des blocs normaux.
+  const pageRectBas = Math.max(900, ...libreIdx.map(idx => (blocs[idx].pos_y || 0) + (blocs[idx].hauteur || 80) + 100));
+  const pageRectHtml = `<div class="page-boundary-rect" style="height:${pageRectBas}px"><span>Zone de la page publiée (820px)</span></div>`;
+  // Espace de travail garanti : un espace vide qu'on peut voir/atteindre en
+  // se déplaçant (glisser une zone vide, voir wireCanvasPan) même si aucun
+  // bloc n'y est encore placé -- sans ça, il n'y a rien à faire défiler
+  // tant qu'un bloc libre n'a pas déjà été positionné loin.
+  const espaceTravailHtml = `<div class="canvas-espace-travail" style="width:2400px;height:${Math.max(1600, pageRectBas)}px"></div>`;
+  list.innerHTML = espaceTravailHtml + pageRectHtml + flowHtml + libreHtml;
 
   list.querySelectorAll('.bloc-item').forEach(item => {
     const idx = Number(item.dataset.idx);
@@ -2094,7 +2099,8 @@ function renderBlocsFullView() {
   // bas (wireCanvasPan).
   document.querySelector('.blocs-canvas-wrap').addEventListener('wheel', (e) => {
     e.preventDefault();
-    definirCanvasZoom(canvasZoom + (e.deltaY < 0 ? 0.1 : -0.1));
+    const rect = e.currentTarget.getBoundingClientRect();
+    definirCanvasZoom(canvasZoom + (e.deltaY < 0 ? 0.1 : -0.1), { x: e.clientX - rect.left, y: e.clientY - rect.top });
   }, { passive: false });
   wireCanvasPan();
   document.getElementById('tlPlayBackBtn').onclick = () => tlTogglePlay(true);
@@ -2502,12 +2508,27 @@ function wireCanvasPan() {
     document.addEventListener('mouseup', onUp);
   };
 }
-function definirCanvasZoom(z) {
+// `focal` (optionnel) = point écran {x,y} relatif au coin haut-gauche du
+// canevas visible à garder immobile pendant le zoom (position du curseur
+// pour la molette) -- sans lui, le zoom partirait toujours du coin
+// haut-gauche du contenu (transform-origin:0 0) au lieu de rester centré
+// sur ce qu'on regarde déjà : on compense en ajustant le défilement.
+function definirCanvasZoom(z, focal) {
+  const wrap = document.querySelector('.blocs-canvas-wrap');
+  const oldZoom = canvasZoom;
   canvasZoom = Math.max(0.25, Math.min(2, Math.round(z * 100) / 100));
   const el = document.getElementById('blocsListZoom');
   if (el) el.style.transform = `scale(${canvasZoom})`;
   const lbl = document.getElementById('canvasZoomLabel');
   if (lbl) lbl.textContent = `${Math.round(canvasZoom * 100)}%`;
+  if (wrap && oldZoom !== canvasZoom) {
+    const fx = focal ? focal.x : wrap.clientWidth / 2;
+    const fy = focal ? focal.y : wrap.clientHeight / 2;
+    const contentX = (wrap.scrollLeft + fx) / oldZoom;
+    const contentY = (wrap.scrollTop + fy) / oldZoom;
+    wrap.scrollLeft = contentX * canvasZoom - fx;
+    wrap.scrollTop = contentY * canvasZoom - fy;
+  }
 }
 function appliquerPosModeUi() {
   const bLibre = document.getElementById('posModeLibre');
