@@ -976,7 +976,11 @@ function renderBlocsList() {
   // visuel pour savoir ce qui sera dans le cadre une fois publié. Toujours
   // affiché (pas seulement s'il y a des blocs libres) pour qu'on voie la
   // largeur de page même en éditant des blocs normaux.
-  const pageRectBas = Math.max(900, ...libreIdx.map(idx => (blocs[idx].pos_y || 0) + (blocs[idx].hauteur || 80) + 100));
+  // Hauteur minimale = la zone visible du canevas (pas une valeur fixe
+  // arbitraire) -- sinon le rectangle dépassait toujours l'écran à 100% de
+  // zoom et forçait un défilement vertical sans raison.
+  const canvasVisibleH = document.querySelector('.blocs-canvas-wrap')?.clientHeight || 400;
+  const pageRectBas = Math.max(canvasVisibleH - 32, ...libreIdx.map(idx => (blocs[idx].pos_y || 0) + (blocs[idx].hauteur || 80) + 100));
   const pageRectHtml = `<div class="page-boundary-rect" style="height:${pageRectBas}px"><span>Zone de la page publiée (820px)</span></div>`;
   // Espace de travail élargi : un espace vide qu'on peut atteindre en se
   // déplaçant (glisser une zone vide, voir wireCanvasPan) même si aucun
@@ -2647,7 +2651,11 @@ function demarrerDeplacementLibre(e, idx, item) {
     moved = true;
     let x = Math.max(-2000, Math.min(8000, Math.round(startLeft + (ev.clientX - startX) / canvasZoom)));
     let y = Math.max(-2000, Math.min(20000, Math.round(startTop + (ev.clientY - startY) / canvasZoom)));
-    if (posMode === 'grille') {
+    // Alt = ignore temporairement la grille/les guides pour ce glisser --
+    // pouvoir bouger librement sans changer de mode.
+    if (ev.altKey) {
+      effacerGuides();
+    } else if (posMode === 'grille') {
       x = Math.round(x / POS_GRID) * POS_GRID;
       y = Math.round(y / POS_GRID) * POS_GRID;
       effacerGuides();
