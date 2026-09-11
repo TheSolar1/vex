@@ -738,6 +738,7 @@ let blocClipboard = null; // copie profonde du bloc sélectionné (Ctrl+C / Ctrl
 let multiSelectedIndices = new Set(); // Maj+clic sur plusieurs blocs libres = les déplacer ensemble
 let blocsViewMode = 'visuel'; // 'visuel' | 'code'
 let canvasZoom = 1; // 0.25 - 2 ; zoom du canevas (pas de la frise, voir tlZoomLevel)
+let canvasScrollCentre = false; // recalage une seule fois (voir renderBlocsList)
 let posMode = localStorage.getItem('sitecPosMode') || 'libre'; // 'libre' | 'grille' | 'guides'
 const POS_GRID = 20;
 const POS_SNAP_SEUIL = 6; // px, distance de déclenchement d'un guide
@@ -992,7 +993,7 @@ function renderBlocsList() {
   // bloc n'y est encore placé -- toujours présent (la barre de défilement
   // qu'il implique est masquée visuellement, voir .blocs-canvas-wrap, pour
   // ne pas gêner l'édition normale).
-  const espaceTravailHtml = `<div class="canvas-espace-travail" style="width:2400px;height:${Math.max(1600, pageRectBas)}px"></div>`;
+  const espaceTravailHtml = `<div class="canvas-espace-travail" style="left:-1200px;top:-1200px;width:4800px;height:${Math.max(3200, pageRectBas + 1200)}px"></div>`;
   list.innerHTML = espaceTravailHtml + pageRectHtml + flowHtml + libreHtml;
 
   list.querySelectorAll('.bloc-item').forEach(item => {
@@ -1020,10 +1021,10 @@ function renderBlocsList() {
     // comme le déplacement d'un objet dans la vue 3D de Blender.
     item.querySelector('.bloc-item-hdr').addEventListener('mousedown', (e) => {
       if (!(actionsMode && tlSelectedIdx === idx && tlSelectedKf >= 0)) {
-        // Hors édition de repère : glisser l'en-tête d'un bloc libre le
-        // déplace directement (pos_x/pos_y), sans avoir à viser la petite
-        // poignée dédiée -- on peut l'attraper n'importe où sur le bloc.
-        if (blocs[idx].libre && !e.target.closest('.bloc-act')) demarrerDeplacementLibre(e, idx, item);
+        if (e.target.closest('.bloc-act')) return;
+        // Hors édition de repère : glisser l'en-tête de N'IMPORTE QUEL bloc
+        // le déplace librement (voir demarrerDeplacementBloc).
+        demarrerDeplacementBloc(e, idx, item);
         return;
       }
       if (e.target.closest('.bloc-act')) return;
@@ -1426,6 +1427,19 @@ function renderBlocsList() {
   if (libreBottoms.length) list.style.minHeight = `${Math.max(60, ...libreBottoms)}px`;
 
   if (actionsMode) { renderTimeline(); appliquerApercuKeyframes(); }
+  // Recale une seule fois le défilement sur le contenu réel (0,0) : l'espace
+  // de travail déborde de 1200px vers le haut/la gauche (voir
+  // .canvas-espace-travail) pour pouvoir s'y déplacer -- sans ce recalage,
+  // la vue s'ouvrirait sur ce vide la première fois qu'il devient assez
+  // grand pour être défilable.
+  if (!canvasScrollCentre) {
+    const wrap = document.querySelector('.blocs-canvas-wrap');
+    if (wrap && wrap.scrollHeight > wrap.clientHeight) {
+      wrap.scrollLeft = 1200 * canvasZoom;
+      wrap.scrollTop = 1200 * canvasZoom;
+      canvasScrollCentre = true;
+    }
+  }
 }
 
 function selectionnerBloc(idx) {
@@ -2631,6 +2645,36 @@ function effacerGuides() {
 // canevas) -- partagé par la poignée dédiée (icône "déplacer") ET
 // l'en-tête entier du bloc, pour pouvoir l'attraper n'importe où dessus
 // plutôt que seulement sur une petite icône facile à manquer.
+// Glisser l'en-tête de n'importe quel bloc (pas seulement ceux déjà en
+// "position libre") le déplace librement -- convertit le bloc en position
+// libre au premier VRAI mouvement (seuil anti-clic de 3px, pour qu'un
+// simple clic de sélection ne convertisse pas le bloc par erreur), en
+// gardant sa position actuelle comme point de départ.
+function demarrerDeplacementBloc(e, idx, item) {
+  const b = blocs[idx];
+  if (b.libre) { demarrerDeplacementLibre(e, idx, item); return; }
+  const startX = e.clientX, startY = e.clientY;
+  const onFirstMove = (ev) => {
+    if (Math.abs(ev.clientX - startX) < 3 && Math.abs(ev.clientY - startY) < 3) return;
+    document.removeEventListener('mousemove', onFirstMove);
+    document.removeEventListener('mouseup', onNoMove);
+    const listRect = document.getElementById('blocsList').getBoundingClientRect();
+    const r = item.getBoundingClientRect();
+    b.libre = true;
+    b.pos_x = Math.round((r.left - listRect.left) / canvasZoom);
+    b.pos_y = Math.round((r.top - listRect.top) / canvasZoom);
+    b.ligne = ''; b.decalage = 0;
+    renderBlocsList();
+    const newItem = document.querySelector(`.bloc-item[data-idx="${idx}"]`);
+    if (newItem) demarrerDeplacementLibre(e, idx, newItem);
+  };
+  const onNoMove = () => {
+    document.removeEventListener('mousemove', onFirstMove);
+    document.removeEventListener('mouseup', onNoMove);
+  };
+  document.addEventListener('mousemove', onFirstMove);
+  document.addEventListener('mouseup', onNoMove);
+}
 function demarrerDeplacementLibre(e, idx, item) {
   e.preventDefault();
   e.stopPropagation();
