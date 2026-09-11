@@ -201,7 +201,7 @@ body {
 .bloc-item.libre { box-shadow:0 4px 14px rgba(0,0,0,.18); }
 .canvas-espace-travail { position:absolute; left:0; top:0; z-index:-1; pointer-events:none; }
 .page-boundary-rect {
-  position:absolute; left:50%; top:0; transform:translateX(-50%); width:820px; max-width:100%;
+  position:absolute; left:0; top:0; width:100%;
   border:2px dashed var(--accent); background:rgba(59,130,246,.04); z-index:0; pointer-events:none; box-sizing:border-box;
 }
 .page-boundary-rect span {
@@ -873,7 +873,7 @@ function renderBlocsList() {
   if (!list) return;
   if (!blocs.length) {
     const canvasVisibleH0 = document.querySelector('.blocs-canvas-wrap')?.clientHeight || 400;
-    const rect0 = canvasZoom === 1 ? '' : `<div class="page-boundary-rect" style="height:${canvasVisibleH0 - 32}px"><span>Zone de la page publiée (820px)</span></div>`;
+    const rect0 = canvasZoom === 1 ? '' : `<div class="page-boundary-rect" style="height:${canvasVisibleH0 - 32}px"><span>Zone de la page publiée</span></div>`;
     list.innerHTML = rect0 + `<div class="blocs-empty">${I18N.BLOCS_VIDE}</div>`;
     // Sans ça, glisser un bloc depuis la palette sur un canevas encore vide
     // ne faisait rien : cette poignée n'était câblée que plus bas, dans la
@@ -985,7 +985,7 @@ function renderBlocsList() {
   const pageRectBas = Math.max(canvasVisibleH - 32, ...libreIdx.map(idx => (blocs[idx].pos_y || 0) + (blocs[idx].hauteur || 80) + 100));
   // Masqué à 100% de zoom (poids visuel inutile en travaillant "taille
   // réelle") -- affiché aux autres niveaux de zoom, où il sert de repère.
-  const pageRectHtml = canvasZoom === 1 ? '' : `<div class="page-boundary-rect" style="height:${pageRectBas}px"><span>Zone de la page publiée (820px)</span></div>`;
+  const pageRectHtml = canvasZoom === 1 ? '' : `<div class="page-boundary-rect" style="height:${pageRectBas}px"><span>Zone de la page publiée</span></div>`;
   // Espace de travail élargi : un espace vide qu'on peut atteindre en se
   // déplaçant (glisser une zone vide, voir wireCanvasPan) même si aucun
   // bloc n'y est encore placé -- uniquement en mode "Élargir" (vbtnWide),
