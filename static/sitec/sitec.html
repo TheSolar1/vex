@@ -978,11 +978,14 @@ function renderBlocsList() {
   // largeur de page même en éditant des blocs normaux.
   const pageRectBas = Math.max(900, ...libreIdx.map(idx => (blocs[idx].pos_y || 0) + (blocs[idx].hauteur || 80) + 100));
   const pageRectHtml = `<div class="page-boundary-rect" style="height:${pageRectBas}px"><span>Zone de la page publiée (820px)</span></div>`;
-  // Espace de travail garanti : un espace vide qu'on peut voir/atteindre en
-  // se déplaçant (glisser une zone vide, voir wireCanvasPan) même si aucun
-  // bloc n'y est encore placé -- sans ça, il n'y a rien à faire défiler
-  // tant qu'un bloc libre n'a pas déjà été positionné loin.
-  const espaceTravailHtml = `<div class="canvas-espace-travail" style="width:2400px;height:${Math.max(1600, pageRectBas)}px"></div>`;
+  // Espace de travail élargi : un espace vide qu'on peut atteindre en se
+  // déplaçant (glisser une zone vide, voir wireCanvasPan) même si aucun
+  // bloc n'y est encore placé -- uniquement en mode "Élargir" (vbtnWide),
+  // sinon ça forçait une barre de défilement visible en permanence même en
+  // édition normale (zoom 100%, panneau de réglages affiché), sans qu'il y
+  // ait de vraie raison de défiler.
+  const espaceTravailHtml = actionsWideMode
+    ? `<div class="canvas-espace-travail" style="width:2400px;height:${Math.max(1600, pageRectBas)}px"></div>` : '';
   list.innerHTML = espaceTravailHtml + pageRectHtml + flowHtml + libreHtml;
 
   list.querySelectorAll('.bloc-item').forEach(item => {
@@ -2086,6 +2089,7 @@ function renderBlocsFullView() {
     actionsWideMode = !actionsWideMode;
     document.getElementById('vbtnWide').classList.toggle('active', actionsWideMode);
     appliquerLayoutActions();
+    renderBlocsList(); // fait apparaître/disparaître l'espace de travail élargi
   };
   document.getElementById('posModeLibre').onclick = () => definirPosMode('libre');
   document.getElementById('posModeGrille').onclick = () => definirPosMode('grille');
@@ -2179,7 +2183,10 @@ function basculerModeActions() {
   }
 }
 function appliquerLayoutActions() {
-  const hide = actionsMode && actionsWideMode;
+  // Bouton "Élargir" (voir vbtnWide) : marche à tout moment, pas seulement
+  // en mode Actions -- avant, ça ne faisait rien tant que la frise n'était
+  // pas ouverte.
+  const hide = actionsWideMode;
   const settingsEl = document.getElementById('blocsSettings');
   if (settingsEl) settingsEl.style.display = hide ? 'none' : '';
   const paletteEl = document.getElementById('blocsPalette');
