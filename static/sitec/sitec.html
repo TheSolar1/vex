@@ -182,7 +182,7 @@ body {
 .blocs-canvas-wrap { flex:1; overflow:auto; padding:16px; cursor:grab; scrollbar-width:none; }
 .blocs-canvas-wrap::-webkit-scrollbar { display:none; }
 .blocs-canvas-wrap.panning { cursor:grabbing; user-select:none; }
-.blocs-list-zoom { transform-origin:0 0; }
+.blocs-list-zoom { transform-origin:0 0; margin-top:1200px; margin-left:1200px; width:100%; }
 .canvas-zoom-bar {
   position:absolute; bottom:16px; right:16px; z-index:20; display:flex; align-items:center; gap:2px;
   background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:3px; box-shadow:0 2px 8px rgba(0,0,0,.12);
@@ -885,7 +885,7 @@ function wireCanvasEmptyDrop(list) {
 // Rectangle repère (largeur de contenu de la page publiée, voir pageWidth)
 // -- poignées gauche/droite pour l'ajuster par glisser.
 function pageRectHtml(hauteurPx) {
-  return `<div class="page-boundary-rect" style="width:${pageWidth}px;height:${hauteurPx}px;top:${CANVAS_OFFSET}px">
+  return `<div class="page-boundary-rect" style="width:${pageWidth}px;height:${hauteurPx}px">
     <span>Zone de la page publiée (${pageWidth}px)</span>
     <div class="page-boundary-resize page-boundary-resize-l"></div>
     <div class="page-boundary-resize page-boundary-resize-r"></div>
@@ -1014,7 +1014,7 @@ function renderBlocsList() {
   ).join('');
   const libreHtml = libreIdx.map(idx => {
     const b = blocs[idx];
-    const style = `position:absolute;left:${(b.pos_x||0)+CANVAS_OFFSET}px;top:${(b.pos_y||0)+CANVAS_OFFSET}px;width:${b.largeur||100}%;${b.hauteur?`min-height:${b.hauteur}px;`:''}${b.rotation?`transform:rotate(${b.rotation}deg);`:''}z-index:${10+idx};`;
+    const style = `position:absolute;left:${b.pos_x||0}px;top:${b.pos_y||0}px;width:${b.largeur||100}%;${b.hauteur?`min-height:${b.hauteur}px;`:''}${b.rotation?`transform:rotate(${b.rotation}deg);`:''}z-index:${10+idx};`;
     return cardHtml(idx, style);
   }).join('');
   // Rectangle repère : matérialise la largeur réelle de la zone de contenu
@@ -1034,7 +1034,7 @@ function renderBlocsList() {
   // bloc n'y est encore placé -- toujours présent (la barre de défilement
   // qu'il implique est masquée visuellement, voir .blocs-canvas-wrap, pour
   // ne pas gêner l'édition normale).
-  const espaceTravailHtml = `<div class="canvas-espace-travail" style="width:${CANVAS_OFFSET + 2400}px;height:${CANVAS_OFFSET + Math.max(1600, pageRectBas)}px"></div>`;
+  const espaceTravailHtml = `<div class="canvas-espace-travail" style="width:2400px;height:${Math.max(1600, pageRectBas)}px"></div>`;
   list.innerHTML = espaceTravailHtml + pageRectHtml(pageRectBas) + flowHtml + libreHtml;
   wirePageRectResize(list);
 
@@ -1475,8 +1475,11 @@ function renderBlocsList() {
   if (!canvasScrollCentre) {
     const wrap = document.querySelector('.blocs-canvas-wrap');
     if (wrap && wrap.scrollHeight > wrap.clientHeight) {
-      wrap.scrollLeft = CANVAS_OFFSET * canvasZoom;
-      wrap.scrollTop = CANVAS_OFFSET * canvasZoom;
+      // La marge (voir .blocs-list-zoom) n'est pas mise à l'échelle par le
+      // zoom (transform:scale) de l'élément qui la porte -- contrairement
+      // à son contenu, vérifié.
+      wrap.scrollLeft = CANVAS_OFFSET;
+      wrap.scrollTop = CANVAS_OFFSET;
       canvasScrollCentre = true;
     }
   }
@@ -2757,14 +2760,14 @@ function demarrerDeplacementLibre(e, idx, item) {
     }
     blocs[idx].pos_x = x;
     blocs[idx].pos_y = y;
-    item.style.left = `${x + CANVAS_OFFSET}px`;
-    item.style.top = `${y + CANVAS_OFFSET}px`;
+    item.style.left = `${x}px`;
+    item.style.top = `${y}px`;
     const netDx = x - startLeft, netDy = y - startTop;
     groupe.forEach(g => {
       const gx = g.startX + netDx, gy = g.startY + netDy;
       blocs[g.idx].pos_x = gx;
       blocs[g.idx].pos_y = gy;
-      if (g.el) { g.el.style.left = `${gx + CANVAS_OFFSET}px`; g.el.style.top = `${gy + CANVAS_OFFSET}px`; }
+      if (g.el) { g.el.style.left = `${gx}px`; g.el.style.top = `${gy}px`; }
     });
     markDirty();
     if (selectedIdx === idx) {
@@ -2828,8 +2831,8 @@ function demarrerRedimLibre(e, idx, item, edges) {
     b.pos_y = Math.round(topPx);
     item.style.width = `${largeurPct}%`;
     item.style.minHeight = `${b.hauteur}px`;
-    item.style.left = `${b.pos_x + CANVAS_OFFSET}px`;
-    item.style.top = `${b.pos_y + CANVAS_OFFSET}px`;
+    item.style.left = `${b.pos_x}px`;
+    item.style.top = `${b.pos_y}px`;
     markDirty();
     if (selectedIdx === idx) {
       const elL = document.getElementById('setLargeur'); if (elL) elL.value = largeurPct;
