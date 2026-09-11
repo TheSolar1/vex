@@ -872,7 +872,9 @@ function renderBlocsList() {
   const list = document.getElementById('blocsList');
   if (!list) return;
   if (!blocs.length) {
-    list.innerHTML = `<div class="blocs-empty">${I18N.BLOCS_VIDE}</div>`;
+    const canvasVisibleH0 = document.querySelector('.blocs-canvas-wrap')?.clientHeight || 400;
+    const rect0 = canvasZoom === 1 ? '' : `<div class="page-boundary-rect" style="height:${canvasVisibleH0 - 32}px"><span>Zone de la page publiée (820px)</span></div>`;
+    list.innerHTML = rect0 + `<div class="blocs-empty">${I18N.BLOCS_VIDE}</div>`;
     // Sans ça, glisser un bloc depuis la palette sur un canevas encore vide
     // ne faisait rien : cette poignée n'était câblée que plus bas, dans la
     // branche jamais atteinte tant qu'aucun bloc n'existe déjà.
