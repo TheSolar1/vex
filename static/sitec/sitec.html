@@ -179,7 +179,8 @@ body {
   color:var(--text-dim); display:inline-flex; align-items:center; gap:6px;
 }
 .blocs-viewtab.active { background:var(--alt); color:var(--accent); }
-.blocs-canvas-wrap { flex:1; overflow:auto; padding:16px; cursor:grab; }
+.blocs-canvas-wrap { flex:1; overflow:auto; padding:16px; cursor:grab; scrollbar-width:none; }
+.blocs-canvas-wrap::-webkit-scrollbar { display:none; }
 .blocs-canvas-wrap.panning { cursor:grabbing; user-select:none; }
 .blocs-list-zoom { transform-origin:0 0; }
 .canvas-zoom-bar {
@@ -988,12 +989,10 @@ function renderBlocsList() {
   const pageRectHtml = canvasZoom === 1 ? '' : `<div class="page-boundary-rect" style="height:${pageRectBas}px"><span>Zone de la page publiée</span></div>`;
   // Espace de travail élargi : un espace vide qu'on peut atteindre en se
   // déplaçant (glisser une zone vide, voir wireCanvasPan) même si aucun
-  // bloc n'y est encore placé -- uniquement en mode "Élargir" (vbtnWide),
-  // sinon ça forçait une barre de défilement visible en permanence même en
-  // édition normale (zoom 100%, panneau de réglages affiché), sans qu'il y
-  // ait de vraie raison de défiler.
-  const espaceTravailHtml = actionsWideMode
-    ? `<div class="canvas-espace-travail" style="width:2400px;height:${Math.max(1600, pageRectBas)}px"></div>` : '';
+  // bloc n'y est encore placé -- toujours présent (la barre de défilement
+  // qu'il implique est masquée visuellement, voir .blocs-canvas-wrap, pour
+  // ne pas gêner l'édition normale).
+  const espaceTravailHtml = `<div class="canvas-espace-travail" style="width:2400px;height:${Math.max(1600, pageRectBas)}px"></div>`;
   list.innerHTML = espaceTravailHtml + pageRectHtml + flowHtml + libreHtml;
 
   list.querySelectorAll('.bloc-item').forEach(item => {
