@@ -202,13 +202,18 @@ body {
 .bloc-item.libre { box-shadow:0 4px 14px rgba(0,0,0,.18); }
 .canvas-espace-travail { position:absolute; left:0; top:0; z-index:-1; pointer-events:none; }
 .page-boundary-rect {
-  position:absolute; left:0; top:0; width:100%;
+  position:absolute; left:50%; top:0; transform:translateX(-50%); max-width:none;
   border:2px dashed var(--accent); background:rgba(59,130,246,.04); z-index:0; pointer-events:none; box-sizing:border-box;
 }
 .page-boundary-rect span {
   position:absolute; top:0; left:8px; transform:translateY(-100%); font-size:12px; font-weight:600; color:var(--accent);
-  background:var(--surface); padding:2px 8px; border-radius:4px 4px 0 0; white-space:nowrap; border:1px solid var(--accent); border-bottom:none;
+  background:var(--surface); padding:2px 8px; border-radius:4px 4px 0 0; white-space:nowrap; border:1px solid var(--accent); border-bottom:none; pointer-events:none;
 }
+.page-boundary-resize {
+  position:absolute; top:0; bottom:0; width:14px; cursor:col-resize; z-index:1; pointer-events:auto;
+}
+.page-boundary-resize-l { left:-7px; }
+.page-boundary-resize-r { right:-7px; }
 .align-guide-v, .align-guide-h { position:absolute; background:#ff3b8d; z-index:50; pointer-events:none; }
 .align-guide-v { top:0; bottom:0; width:1px; }
 .align-guide-h { left:0; right:0; height:1px; }
@@ -739,6 +744,7 @@ let multiSelectedIndices = new Set(); // Maj+clic sur plusieurs blocs libres = l
 let blocsViewMode = 'visuel'; // 'visuel' | 'code'
 let canvasZoom = 1; // 0.25 - 2 ; zoom du canevas (pas de la frise, voir tlZoomLevel)
 let canvasScrollCentre = false; // recalage une seule fois (voir renderBlocsList)
+let pageWidth = 820; // largeur de contenu (px) de la page publiée, réglable via le rectangle repère
 let posMode = localStorage.getItem('sitecPosMode') || 'libre'; // 'libre' | 'grille' | 'guides'
 const POS_GRID = 20;
 const POS_SNAP_SEUIL = 6; // px, distance de déclenchement d'un guide
@@ -869,14 +875,45 @@ function wireCanvasEmptyDrop(list) {
   };
 }
 
+// Rectangle repère (largeur de contenu de la page publiée, voir pageWidth)
+// -- poignées gauche/droite pour l'ajuster par glisser.
+function pageRectHtml(hauteurPx) {
+  return `<div class="page-boundary-rect" style="width:${pageWidth}px;height:${hauteurPx}px">
+    <span>Zone de la page publiée (${pageWidth}px)</span>
+    <div class="page-boundary-resize page-boundary-resize-l"></div>
+    <div class="page-boundary-resize page-boundary-resize-r"></div>
+  </div>`;
+}
+function wirePageRectResize(list) {
+  list.querySelectorAll('.page-boundary-resize').forEach(handle => {
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const gauche = handle.classList.contains('page-boundary-resize-l');
+      const startX = e.clientX, startW = pageWidth;
+      const onMove = (ev) => {
+        const dx = (ev.clientX - startX) / canvasZoom;
+        // Symétrique (le rectangle reste centré) : glisser un bord de dx
+        // change la largeur totale de 2×dx.
+        pageWidth = Math.max(320, Math.min(1600, Math.round(startW + (gauche ? -2 * dx : 2 * dx))));
+        renderBlocsList();
+        markDirty();
+      };
+      const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+}
+
 // ── Rendu du canevas : rangées de blocs, sélection, glisser-déposer ────
 function renderBlocsList() {
   const list = document.getElementById('blocsList');
   if (!list) return;
   if (!blocs.length) {
     const canvasVisibleH0 = document.querySelector('.blocs-canvas-wrap')?.clientHeight || 400;
-    const rect0 = canvasZoom === 1 ? '' : `<div class="page-boundary-rect" style="height:${canvasVisibleH0 - 32}px"><span>Zone de la page publiée</span></div>`;
-    list.innerHTML = rect0 + `<div class="blocs-empty">${I18N.BLOCS_VIDE}</div>`;
+    list.innerHTML = pageRectHtml(canvasVisibleH0 - 32) + `<div class="blocs-empty">${I18N.BLOCS_VIDE}</div>`;
+    wirePageRectResize(list);
     // Sans ça, glisser un bloc depuis la palette sur un canevas encore vide
     // ne faisait rien : cette poignée n'était câblée que plus bas, dans la
     // branche jamais atteinte tant qu'aucun bloc n'existe déjà.
@@ -985,16 +1022,14 @@ function renderBlocsList() {
   // zoom et forçait un défilement vertical sans raison.
   const canvasVisibleH = document.querySelector('.blocs-canvas-wrap')?.clientHeight || 400;
   const pageRectBas = Math.max(canvasVisibleH - 32, ...libreIdx.map(idx => (blocs[idx].pos_y || 0) + (blocs[idx].hauteur || 80) + 100));
-  // Masqué à 100% de zoom (poids visuel inutile en travaillant "taille
-  // réelle") -- affiché aux autres niveaux de zoom, où il sert de repère.
-  const pageRectHtml = canvasZoom === 1 ? '' : `<div class="page-boundary-rect" style="height:${pageRectBas}px"><span>Zone de la page publiée</span></div>`;
   // Espace de travail élargi : un espace vide qu'on peut atteindre en se
   // déplaçant (glisser une zone vide, voir wireCanvasPan) même si aucun
   // bloc n'y est encore placé -- toujours présent (la barre de défilement
   // qu'il implique est masquée visuellement, voir .blocs-canvas-wrap, pour
   // ne pas gêner l'édition normale).
-  const espaceTravailHtml = `<div class="canvas-espace-travail" style="left:-1200px;top:-1200px;width:4800px;height:${Math.max(3200, pageRectBas + 1200)}px"></div>`;
-  list.innerHTML = espaceTravailHtml + pageRectHtml + flowHtml + libreHtml;
+  const espaceTravailHtml = `<div class="canvas-espace-travail" style="width:3600px;height:${Math.max(2400, pageRectBas)}px"></div>`;
+  list.innerHTML = espaceTravailHtml + pageRectHtml(pageRectBas) + flowHtml + libreHtml;
+  wirePageRectResize(list);
 
   list.querySelectorAll('.bloc-item').forEach(item => {
     const idx = Number(item.dataset.idx);
@@ -1427,19 +1462,6 @@ function renderBlocsList() {
   if (libreBottoms.length) list.style.minHeight = `${Math.max(60, ...libreBottoms)}px`;
 
   if (actionsMode) { renderTimeline(); appliquerApercuKeyframes(); }
-  // Recale une seule fois le défilement sur le contenu réel (0,0) : l'espace
-  // de travail déborde de 1200px vers le haut/la gauche (voir
-  // .canvas-espace-travail) pour pouvoir s'y déplacer -- sans ce recalage,
-  // la vue s'ouvrirait sur ce vide la première fois qu'il devient assez
-  // grand pour être défilable.
-  if (!canvasScrollCentre) {
-    const wrap = document.querySelector('.blocs-canvas-wrap');
-    if (wrap && wrap.scrollHeight > wrap.clientHeight) {
-      wrap.scrollLeft = 1200 * canvasZoom;
-      wrap.scrollTop = 1200 * canvasZoom;
-      canvasScrollCentre = true;
-    }
-  }
 }
 
 function selectionnerBloc(idx) {
@@ -1880,6 +1902,7 @@ function renderEditor() {
   const p = current;
   blocs = Array.isArray(p.contenu_blocs) ? p.contenu_blocs.map(b => ({...b})) : [];
   selectedIdx = -1;
+  pageWidth = Math.max(320, Math.min(1600, parseInt(p.contenu_corps, 10) || 820));
 
   // Écran dédié : la liste des pages n'apporte rien pendant l'édition de
   // blocs et prend de la place utile au canevas.
@@ -2951,7 +2974,9 @@ async function savePage(mode) {
     mode,
     public: publicToggle ? publicToggle.checked : !!current.public,
     contenu_titre: document.getElementById('contenuTitreInput')?.value || '',
-    contenu_corps: document.getElementById('contenuCorpsInput')?.value || '',
+    // En mode "blocs", ce champ (inutilisé pour le texte) porte la largeur
+    // de page réglée via le rectangle repère du canevas.
+    contenu_corps: mode === 'blocs' ? String(pageWidth) : (document.getElementById('contenuCorpsInput')?.value || ''),
     contenu_html:  document.getElementById('contenuHtmlInput')?.value || '',
     contenu_blocs: blocs,
   };

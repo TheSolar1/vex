@@ -586,13 +586,21 @@ fn serve_page_view(pool: &DbPool, id: &str, session: &SessionInfo, langue: &str)
         String::new()
     };
 
+    // Largeur de contenu de la page (px) : reglable dans l'editeur de blocs
+    // (rectangle repere redimensionnable) -- stockee dans contenu_corps,
+    // inutilise en mode "blocs" (sert au texte en mode "simple" seulement).
+    let largeur_page: i64 = if page.mode == "blocs" {
+        page.contenu_corps.trim().parse::<i64>().unwrap_or(820).clamp(320, 1600)
+    } else {
+        820
+    };
     let doc = format!(
         "<!DOCTYPE html>\n<html lang=\"{langue}\"><head><meta charset=\"UTF-8\">\
         <meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\">\
         <title>{titre}</title>\
         <script src=\"/static/fa-local.js\" defer></script>\
         <style>body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;\
-        max-width:820px;margin:40px auto;padding:0 20px;color:#1c1e21;line-height:1.6;}}\
+        max-width:{largeur_page}px;margin:40px auto;padding:0 20px;color:#1c1e21;line-height:1.6;}}\
         .sitec-view-wrap h1{{margin-bottom:16px;}}\
         .sitec-view-corps{{font-size:16px;white-space:pre-wrap;}}\
         .sitec-anim{{opacity:1;}}\
