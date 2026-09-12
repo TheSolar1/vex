@@ -396,13 +396,14 @@ body {
 .blocs-timeline-tracks { position:relative; max-height:180px; overflow-y:auto; padding:8px 12px; }
 .tl-links { position:absolute; left:0; top:0; pointer-events:none; }
 .timeline-track { display:flex; align-items:center; gap:10px; height:30px; margin-bottom:4px; }
-.timeline-track-label { width:150px; flex-shrink:0; font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:6px; }
-.timeline-track-add, .timeline-track-mode {
+.timeline-track-label { width:190px; flex-shrink:0; font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:5px; }
+.timeline-track-add, .timeline-track-mode, .timeline-track-wheel-cible {
   width:18px; height:18px; border-radius:4px; border:1px solid var(--border); background:var(--surface);
   color:var(--text-dim); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:9px; flex-shrink:0;
 }
-.timeline-track-mode { margin-left:auto; cursor:ns-resize; }
-.timeline-track-add:hover, .timeline-track-mode:hover { background:var(--accent); color:var(--surface); border-color:var(--accent); }
+.timeline-track-mode, .timeline-track-wheel-cible { cursor:ns-resize; }
+.timeline-track-wheel-cible { margin-left:auto; }
+.timeline-track-add:hover, .timeline-track-mode:hover, .timeline-track-wheel-cible:hover { background:var(--accent); color:var(--surface); border-color:var(--accent); }
 .timeline-track-ruler { flex:0 0 auto; width:600px; position:relative; height:20px; background:var(--sidebar-hover); border-radius:4px; cursor:text; }
 .timeline-clip {
   position:absolute; top:2px; height:16px; width:16px; border-radius:3px; background:var(--accent); cursor:grab;
@@ -807,7 +808,7 @@ let tlStart = 0;
 let tlEnd = 30000;
 
 function blocDefaut(type) {
-  const base = { type, animation: '', ligne: '', largeur: 100, espace: 16, anim_delai: 0, hauteur: 0, decalage: 0, keyframes: [], boucle: false, libre: false, pos_x: 0, pos_y: 0, rotation: 0, kfMode: 'absolu' };
+  const base = { type, animation: '', ligne: '', largeur: 100, espace: 16, anim_delai: 0, hauteur: 0, decalage: 0, keyframes: [], boucle: false, libre: false, pos_x: 0, pos_y: 0, rotation: 0, kfMode: 'absolu', wheelCible: 'mode' };
   (BLOC_SPECS[type] || []).forEach(champ => {
     if (champ.type === 'items') base[champ.k] = [];
     else if (champ.type === 'checkgroup') base[champ.k] = champ.defaut ? [...champ.defaut] : [];
@@ -2683,8 +2684,9 @@ function renderTimeline() {
     return `
     <div class="timeline-track">
       <div class="timeline-track-label"><i class="fas fa-${BLOC_ICONES[b.type]||'cube'}"></i> ${escAttr(BLOC_LABELS[b.type]||b.type)}
+        <button type="button" class="timeline-track-wheel-cible" data-idx="${i}" title="Ce que règle la molette sur le bouton + : ${b.wheelCible==='temps'?'Temps (instant du prochain repère)':'Mode (absolu/relatif)'} — clic pour changer"><i class="fas fa-${b.wheelCible==='temps'?'clock':'computer-mouse'}"></i></button>
         <button type="button" class="timeline-track-mode" data-idx="${i}" title="Mode des repères : ${b.kfMode==='relatif'?'Relatif (déplacement depuis la position actuelle)':'Absolu (position exacte enregistrée)'} — clic ou molette pour changer"><i class="fas fa-${b.kfMode==='relatif'?'arrows-up-down-left-right':'anchor'}"></i></button>
-        <button type="button" class="timeline-track-add" data-idx="${i}" title="Ajouter un repère de position ici"><i class="fas fa-plus"></i></button>
+        <button type="button" class="timeline-track-add" data-idx="${i}" title="Ajouter un repère de position ici (molette : ${b.wheelCible==='temps'?'régler l\'instant':'changer le mode'})"><i class="fas fa-plus"></i></button>
       </div>
       <div class="timeline-track-ruler" data-idx="${i}">${entryClip}${posClips}</div>
     </div>`;
@@ -2752,6 +2754,19 @@ function renderTimeline() {
     renderTimeline();
     appliquerApercuKeyframes();
   };
+  // Choix, par élément, de ce que règle la molette sur le "+" : le TEMPS
+  // (instant où se posera le prochain repère) ou le MODE (absolu/relatif).
+  // Un clic sur ce bouton bascule le choix ; le "+" applique ensuite le
+  // bon comportement à la molette selon ce réglage.
+  tracks.querySelectorAll('.timeline-track-wheel-cible').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = Number(btn.dataset.idx);
+      blocs[idx].wheelCible = blocs[idx].wheelCible === 'temps' ? 'mode' : 'temps';
+      markDirty();
+      renderTimeline();
+    });
+  });
   tracks.querySelectorAll('.timeline-track-add').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -2760,7 +2775,14 @@ function renderTimeline() {
     btn.addEventListener('wheel', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      basculerMode(Number(btn.dataset.idx));
+      const idx = Number(btn.dataset.idx);
+      if (blocs[idx].wheelCible === 'temps') {
+        tlSetPlayhead(tlPlayhead + (e.deltaY < 0 ? 50 : -50));
+        const f = document.getElementById('tlFrameInput');
+        if (f) f.value = Math.round(tlPlayhead);
+      } else {
+        basculerMode(idx);
+      }
     }, { passive: false });
   });
   tracks.querySelectorAll('.timeline-track-mode').forEach(btn => {
