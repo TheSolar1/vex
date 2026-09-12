@@ -373,6 +373,8 @@ body {
 }
 .blocs-timeline-hdr .vbtn:hover { background:var(--accent); color:var(--surface); }
 .blocs-timeline-hdr .vbtn.active { background:var(--accent); color:var(--surface); }
+.tl-playback-btn { width:auto !important; gap:6px; padding:0 10px; font-size:12.5px; font-weight:600; }
+.tl-playback-btn span { white-space:nowrap; }
 .timeline-time { font-family:'SF Mono',Consolas,monospace; font-size:12px; color:var(--text-dim); min-width:64px; }
 .tl-zoom { display:flex; gap:4px; }
 .tl-frame-input {
@@ -2333,7 +2335,7 @@ function renderBlocsFullView() {
               <div class="blocs-timeline-hdr">
                 <button type="button" class="vbtn" id="tlJumpStartBtn" title="Aller au début"><i class="fas fa-backward-fast"></i></button>
                 <button type="button" class="vbtn" id="tlPrevKeyBtn" title="Repère précédent"><i class="fas fa-backward-step"></i></button>
-                <button type="button" class="vbtn" id="tlPlayBackBtn" title="Lecture arrière"><i class="fas fa-backward"></i></button>
+                <button type="button" class="vbtn tl-playback-btn" id="tlPlayBackBtn" title="Lecture arrière"><i class="fas fa-backward"></i><span>Arrière</span></button>
                 <button type="button" class="vbtn" id="tlPlayBtn" title="Lecture (Espace)"><i class="fas fa-play"></i></button>
                 <button type="button" class="vbtn" id="tlNextKeyBtn" title="Repère suivant"><i class="fas fa-forward-step"></i></button>
                 <button type="button" class="vbtn" id="tlJumpEndBtn" title="Aller à la fin"><i class="fas fa-forward-fast"></i></button>
