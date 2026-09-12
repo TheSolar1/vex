@@ -182,7 +182,11 @@ body {
 .blocs-canvas-wrap { flex:1; overflow:auto; padding:16px; cursor:grab; scrollbar-width:none; position:relative; }
 .blocs-canvas-wrap::-webkit-scrollbar { display:none; }
 .blocs-canvas-wrap.panning { cursor:grabbing; user-select:none; }
-.blocs-list-zoom { transform-origin:0 0; margin-top:1200px; margin-left:1200px; width:100%; }
+.blocs-list-zoom { transform-origin:0 0; margin-top:1200px; margin-left:1200px; }
+/* Largeur posee en JS (voir mesurerLargeurCanevasReference), pas "width:100%"
+   fixe ici : sans ca, la largeur suit celle -- variable -- de .blocs-canvas,
+   qui change reellement avec le bouton Elargir, deplacant la Zone de la
+   page publiee (centree dedans) a chaque clic. */
 .canvas-zoom-bar {
   position:absolute; bottom:16px; right:16px; z-index:20; display:flex; align-items:center; gap:2px;
   background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:3px; box-shadow:0 2px 8px rgba(0,0,0,.12);
@@ -996,9 +1000,24 @@ function wirePageRectResize(list) {
 }
 
 // ── Rendu du canevas : rangées de blocs, sélection, glisser-déposer ────
+// Largeur figee du canevas (hors mode Elargir) : la Zone de la page
+// publiee se centre toujours sur CETTE largeur, jamais sur la largeur
+// reelle de .blocs-canvas (qui, elle, grandit quand Elargir masque
+// palette/reglages) -- Elargir redonne donc bien de la place utile sans
+// jamais faire bouger la zone visuellement.
+let canvasWidthRef = 0;
+function mesurerLargeurCanevasReference() {
+  if (actionsWideMode) return; // jamais mesuree en mode Elargir (largeur faussee)
+  const canvas = document.getElementById('blocsCanvasVisuel');
+  if (canvas && canvas.clientWidth > 0) canvasWidthRef = canvas.clientWidth;
+}
+
 function renderBlocsList() {
   const list = document.getElementById('blocsList');
   if (!list) return;
+  mesurerLargeurCanevasReference();
+  const zoomEl = document.getElementById('blocsListZoom');
+  if (zoomEl && canvasWidthRef) zoomEl.style.width = `${canvasWidthRef}px`;
   if (!blocs.length) {
     const canvasVisibleH0 = document.querySelector('.blocs-canvas-wrap')?.clientHeight || 400;
     const hauteurRect0 = Math.max(pageHeight, canvasVisibleH0 - 32);
@@ -2253,6 +2272,13 @@ function renderBlocsFullView() {
   const p = current;
   selectedIdx = -1;
   blocsViewMode = 'visuel';
+  // Repart toujours d'Elargir desactive a l'ouverture d'une page : sinon,
+  // si un etat "Elargir actif" trainait d'une page precedente, la toute
+  // premiere mesure de canvasWidthRef se ferait sur la largeur elargie
+  // (faussee), et la Zone de la page publiee ne serait alors jamais bien
+  // centree tant qu'on n'a pas desactive puis reactive Elargir a la main.
+  actionsWideMode = false;
+  canvasWidthRef = 0;
   document.getElementById('main').innerHTML = `
     <div class="editor-card wide" id="editorCard">
       <div class="editor-hdr">
@@ -2449,19 +2475,19 @@ function basculerModeActions() {
   }
 }
 function appliquerLayoutActions() {
-  // Bouton "Élargir" (voir vbtnWide) : masque la palette/les réglages sans
-  // jamais changer la largeur du canevas (visibility, pas display) -- avant,
-  // "display:none" retirait ces panneaux du calcul de largeur (flex:1 sur
-  // .blocs-center), donc le canevas s'élargissait et la Zone de la page
-  // publiée (centrée dedans) se retrouvait à une position différente à
-  // l'écran -- signalé comme "la zone bouge avec Élargir". Avec
-  // visibility:hidden, l'espace reste réservé : le canevas ne change jamais
-  // de largeur, la zone ne bouge donc plus jamais.
+  // Bouton "Élargir" (voir vbtnWide) : redonne réellement de la place
+  // (display:none, le canevas grandit) -- le coup precedent (visibility
+  // au lieu de display) empechait bien la Zone de la page publiee de
+  // bouger, mais rendait le bouton totalement inutile (plus aucune place
+  // gagnee). La zone ne bouge plus grace a canvasWidthRef (largeur figee
+  // du canevas, voir mesurerLargeurCanevasReference) : elle continue a se
+  // centrer sur cette largeur de reference, jamais sur la largeur reelle
+  // (qui, elle, grandit bel et bien avec Elargir).
   const hide = actionsWideMode && !actionsMode;
   const settingsEl = document.getElementById('blocsSettings');
-  if (settingsEl) settingsEl.style.visibility = hide ? 'hidden' : '';
+  if (settingsEl) settingsEl.style.display = hide ? 'none' : '';
   const paletteEl = document.getElementById('blocsPalette');
-  if (paletteEl) paletteEl.style.visibility = hide ? 'hidden' : '';
+  if (paletteEl) paletteEl.style.display = hide ? 'none' : '';
 }
 
 const TL_BASE_PX = 600;
