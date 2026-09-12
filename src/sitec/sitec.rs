@@ -611,7 +611,8 @@ fn serve_page_view(pool: &DbPool, id: &str, session: &SessionInfo, langue: &str)
         <script src=\"/static/fa-local.js\" defer></script>\
         <style>body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;\
         max-width:{largeur_page}px;margin:40px auto;padding:0 20px;color:#1c1e21;line-height:1.6;\
-        overflow-wrap:anywhere;word-break:break-word;overflow-x:hidden;}}\
+        overflow-wrap:anywhere;word-wrap:break-word;word-break:break-word;overflow-x:hidden;}}\
+        .sitec-bloc,.sitec-bloc *{{overflow-wrap:anywhere;word-wrap:break-word;word-break:break-word;min-width:0;}}\
         .sitec-view-wrap h1{{margin-bottom:16px;}}\
         .sitec-view-corps{{font-size:16px;white-space:pre-wrap;}}\
         .sitec-anim{{opacity:1;}}\
