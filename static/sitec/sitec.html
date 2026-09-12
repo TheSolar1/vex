@@ -773,7 +773,7 @@ let blocsViewMode = 'visuel'; // 'visuel' | 'code'
 let canvasZoom = 1; // 0.25 - 2 ; zoom du canevas (pas de la frise, voir tlZoomLevel)
 let canvasScrollCentre = false; // recalage une seule fois (voir renderBlocsList)
 let pageWidth = 820; // largeur de contenu (px) de la page publiée, réglable via le rectangle repère
-let pageHeight = 900; // hauteur du "pli" (px) -- ce qui est visible sans défiler, réglable via le rectangle repère ou les préréglages d'appareil
+let pageHeight = 1600; // hauteur du "pli" (px) -- ce qui est visible sans défiler, réglable via le rectangle repère ou les préréglages d'appareil
 const DEVICE_PRESETS = { pc: [1200, 800], tablette: [768, 1024], mobile: [390, 844] };
 // Repère fixe (non réglable, contrairement au "pli" personnalisable) :
 // hauteur d'écran visible typique sur un PC courant, pour situer d'un coup
@@ -931,7 +931,7 @@ function pageRectHtml(hauteurContenu) {
     <div class="page-boundary-resize page-boundary-resize-l"></div>
     <div class="page-boundary-resize page-boundary-resize-r"></div>
     <div class="page-fold-line" style="top:${pageHeight}px" title="Le pli -- glisser pour ajuster la hauteur visible sans défiler"></div>
-    ${h > ECRAN_STANDARD_H ? `<div class="page-screen-line" style="top:${ECRAN_STANDARD_H}px" title="Repère : hauteur d'écran standard (${ECRAN_STANDARD_H}px) -- ce que voit un visiteur sans défiler sur un écran PC courant"></div>` : ''}
+    <div class="page-screen-line" style="top:${ECRAN_STANDARD_H}px" title="Repère : hauteur d'écran standard (${ECRAN_STANDARD_H}px) -- ce que voit un visiteur sans défiler sur un écran PC courant"></div>
   </div>`;
 }
 function wirePageRectResize(list) {
@@ -2087,7 +2087,7 @@ function parsePageMeta(raw) {
   return {
     width: Math.max(320, Math.min(1600, (m && parseInt(m[1], 10)) || 820)),
     tlEnd: Math.max(1000, Math.min(TL_ABS_MAX, (m && m[2] && parseInt(m[2], 10)) || 30000)),
-    height: Math.max(200, Math.min(4000, (m && m[3] && parseInt(m[3], 10)) || 900)),
+    height: Math.max(200, Math.min(4000, (m && m[3] && parseInt(m[3], 10)) || 1600)),
   };
 }
 
@@ -3002,6 +3002,7 @@ function demarrerDeplacementLibre(e, idx, item) {
     dragHudUpdate(x - startLeft, (val) => appliquer(startLeft + val, y));
   };
   const onMove = (ev) => {
+    if (dragHudLocked) return; // une valeur tapée au clavier ignore totalement la souris
     moved = true;
     let x = Math.max(-2000, Math.min(8000, Math.round(startLeft + (ev.clientX - startX) / canvasZoom)));
     let y = Math.max(-2000, Math.min(20000, Math.round(startTop + (ev.clientY - startY) / canvasZoom)));
@@ -3050,7 +3051,35 @@ function demarrerRedimLibre(e, idx, item, edges) {
   const startHeightPx = (item.getBoundingClientRect().height || 40) / canvasZoom;
   const aspect = startWidthPx / startHeightPx;
   const estCoin = (edges.left || edges.right) && (edges.top || edges.bottom);
+  const appliquer = (widthPx, heightPx, leftPx, topPx) => {
+    const largeurPct = Math.max(5, Math.min(100, Math.round(widthPx / refWidth * 100)));
+    b.largeur = largeurPct;
+    b.hauteur = Math.max(10, Math.round(heightPx));
+    b.pos_x = Math.round(leftPx);
+    b.pos_y = Math.round(topPx);
+    item.style.width = `${largeurPct}%`;
+    item.style.minHeight = `${b.hauteur}px`;
+    item.style.left = `${b.pos_x}px`;
+    item.style.top = `${b.pos_y}px`;
+    markDirty();
+    if (selectedIdx === idx) {
+      const elL = document.getElementById('setLargeur'); if (elL) elL.value = largeurPct;
+      const elH = document.getElementById('setHauteur'); if (elH) elH.value = b.hauteur;
+      const elX = document.getElementById('setPosX'); if (elX) elX.value = b.pos_x;
+      const elY = document.getElementById('setPosY'); if (elY) elY.value = b.pos_y;
+    }
+    dragHudUpdateResize(Math.round(widthPx - startWidthPx), Math.round(heightPx - startHeightPx),
+      // Taper un nombre règle la largeur (le cas le plus demandé) en gardant
+      // le bord opposé au bord saisi comme ancre -- la déformation par
+      // coin/le verrou de ratio (Maj) restent réservés à la souris.
+      (val) => {
+        const w = Math.max(20, startWidthPx + val);
+        const l = edges.left && !edges.right ? startLeft + (startWidthPx - w) : leftPx;
+        appliquer(w, heightPx, l, topPx);
+      });
+  };
   const onMove = (ev) => {
+    if (dragHudLocked) return; // une valeur tapée au clavier ignore totalement la souris
     const dx = (ev.clientX - startX) / canvasZoom, dy = (ev.clientY - startY) / canvasZoom;
     const alt = ev.altKey, shift = ev.shiftKey;
     let leftPx = startLeft, rightPx = startLeft + startWidthPx;
@@ -3072,23 +3101,7 @@ function demarrerRedimLibre(e, idx, item, edges) {
         if (edges.left) leftPx = rightPx - widthPx; else rightPx = leftPx + widthPx;
       }
     }
-    const largeurPct = Math.max(5, Math.min(100, Math.round(widthPx / refWidth * 100)));
-    b.largeur = largeurPct;
-    b.hauteur = Math.max(10, Math.round(heightPx));
-    b.pos_x = Math.round(leftPx);
-    b.pos_y = Math.round(topPx);
-    item.style.width = `${largeurPct}%`;
-    item.style.minHeight = `${b.hauteur}px`;
-    item.style.left = `${b.pos_x}px`;
-    item.style.top = `${b.pos_y}px`;
-    markDirty();
-    if (selectedIdx === idx) {
-      const elL = document.getElementById('setLargeur'); if (elL) elL.value = largeurPct;
-      const elH = document.getElementById('setHauteur'); if (elH) elH.value = b.hauteur;
-      const elX = document.getElementById('setPosX'); if (elX) elX.value = b.pos_x;
-      const elY = document.getElementById('setPosY'); if (elY) elY.value = b.pos_y;
-    }
-    dragHudUpdateResize(Math.round(widthPx - startWidthPx), Math.round(heightPx - startHeightPx));
+    appliquer(widthPx, heightPx, leftPx, topPx);
   };
   const onUp = () => {
     document.removeEventListener('mousemove', onMove);
@@ -3103,11 +3116,12 @@ function demarrerRedimLibre(e, idx, item, edges) {
 // deplacement) : largeur/hauteur combinent 4 bords possibles + verrou de
 // ratio (Maj), une surcharge clavier fiable pour chaque cas demanderait un
 // travail separe.
-function dragHudUpdateResize(dw, dh) {
+function dragHudUpdateResize(dw, dh, applyFn) {
+  dragHudApplyFn = applyFn;
   const el = document.getElementById('dragHud');
   if (!el) return;
   const fmt = (v) => `${v >= 0 ? '+' : ''}${v}`;
-  el.textContent = `L: ${fmt(dw)} px   H: ${fmt(dh)} px`;
+  el.textContent = `L: ${fmt(dw)} px   H: ${fmt(dh)} px${dragHudBuffer ? ' (tapé : ' + dragHudBuffer + ')' : ''}`;
 }
 
 function appliquerApercuKeyframes() {
@@ -3260,6 +3274,11 @@ function tlStartGrab() {
 // valeur tapée tant qu'on n'a pas relâché).
 let dragHudApplyFn = null;
 let dragHudBuffer = '';
+// Une fois qu'on a tapé un premier chiffre, la souris est totalement
+// ignorée jusqu'au relâchement -- avant, les deux se disputaient (chaque
+// mousemove réécrasait aussitôt la valeur tapée), rendant la saisie
+// clavier inutilisable dès que la souris bougeait même très légèrement.
+let dragHudLocked = false;
 // En haut à gauche DU CANEVAS (pas de tout l'écran, et pas collé au
 // curseur -- les deux essais précédents ne correspondaient pas à la
 // demande) : ancré une fois au début du glisser sur le coin du canevas
@@ -3267,6 +3286,7 @@ let dragHudBuffer = '';
 function dragHudShow() {
   dragHudBuffer = '';
   dragHudApplyFn = null;
+  dragHudLocked = false;
   const el = document.getElementById('dragHud');
   const wrap = document.querySelector('.blocs-canvas-wrap');
   if (!el) return;
@@ -3296,12 +3316,15 @@ function dragHudHide() {
   if (el) el.style.display = 'none';
   dragHudApplyFn = null;
   dragHudBuffer = '';
+  dragHudLocked = false;
 }
 document.addEventListener('keydown', (e) => {
   if (!dragHudApplyFn) return;
   if (e.key >= '0' && e.key <= '9') {
+    dragHudLocked = true;
     dragHudBuffer += e.key;
   } else if (e.key === '-') {
+    dragHudLocked = true;
     dragHudBuffer = dragHudBuffer.startsWith('-') ? dragHudBuffer.slice(1) : '-' + dragHudBuffer;
   } else if (e.key === 'Backspace') {
     dragHudBuffer = dragHudBuffer.slice(0, -1);
@@ -3310,9 +3333,10 @@ document.addEventListener('keydown', (e) => {
   }
   e.preventDefault();
   const val = dragHudBuffer === '' || dragHudBuffer === '-' ? 0 : Number(dragHudBuffer);
+  // applyFn se charge lui-même de rafraîchir le texte du HUD (via
+  // dragHudUpdate/dragHudUpdateResize, qui savent chacun l'afficher dans
+  // leur propre format) -- pas de texte générique écrasé ici par-dessus.
   dragHudApplyFn(val);
-  const el = document.getElementById('dragHud');
-  if (el) el.textContent = `${val >= 0 ? '+' : ''}${val} px (tapé : ${dragHudBuffer || '0'})`;
 });
 
 function markDirty() { dirty = true; }
