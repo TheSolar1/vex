@@ -481,7 +481,7 @@ body {
 </div>
 
 <div id="toast-area"></div>
-<div id="dragHud" style="display:none;position:fixed;top:70px;left:16px;z-index:7000;background:var(--surface);border:1px solid var(--accent);color:var(--accent);font-weight:700;font-size:13px;font-family:'SF Mono',Consolas,monospace;padding:8px 14px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.2);"></div>
+<div id="dragHud" style="display:none;position:fixed;top:70px;left:16px;z-index:7000;background:var(--surface);border:1px solid var(--accent);color:var(--accent);font-weight:700;font-size:13px;font-family:'SF Mono',Consolas,monospace;padding:8px 14px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.2);pointer-events:none;"></div>
 
 <div class="img-picker-overlay" id="imgPickerOverlay">
   <div class="img-picker-modal">
@@ -2952,7 +2952,7 @@ function demarrerDeplacementLibre(e, idx, item) {
       }))
     : [];
   let moved = false;
-  dragHudShow();
+  dragHudShow(e.clientX, e.clientY);
   const appliquer = (x, y) => {
     blocs[idx].pos_x = x;
     blocs[idx].pos_y = y;
@@ -2974,6 +2974,7 @@ function demarrerDeplacementLibre(e, idx, item) {
   };
   const onMove = (ev) => {
     moved = true;
+    dragHudMove(ev.clientX, ev.clientY);
     let x = Math.max(-2000, Math.min(8000, Math.round(startLeft + (ev.clientX - startX) / canvasZoom)));
     let y = Math.max(-2000, Math.min(20000, Math.round(startTop + (ev.clientY - startY) / canvasZoom)));
     // Alt = ignore temporairement la grille/les guides pour ce glisser --
@@ -3022,6 +3023,7 @@ function demarrerRedimLibre(e, idx, item, edges) {
   const aspect = startWidthPx / startHeightPx;
   const estCoin = (edges.left || edges.right) && (edges.top || edges.bottom);
   const onMove = (ev) => {
+    dragHudMove(ev.clientX, ev.clientY);
     const dx = (ev.clientX - startX) / canvasZoom, dy = (ev.clientY - startY) / canvasZoom;
     const alt = ev.altKey, shift = ev.shiftKey;
     let leftPx = startLeft, rightPx = startLeft + startWidthPx;
@@ -3066,7 +3068,7 @@ function demarrerRedimLibre(e, idx, item, edges) {
     document.removeEventListener('mouseup', onUp);
     dragHudHide();
   };
-  dragHudShow();
+  dragHudShow(e.clientX, e.clientY);
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
 }
@@ -3222,18 +3224,32 @@ function tlStartGrab() {
   document.addEventListener('keydown', onKey, true);
 }
 
-// ── HUD de glisser : affiche le nombre de pixels ajoutés/enlevés en haut à
-// gauche pendant un déplacement/redimensionnement libre, et permet de taper
-// une valeur au clavier pour l'appliquer instantanément à la place de la
-// souris -- la frappe reste active jusqu'au relâchement du bouton (on peut
-// continuer à corriger la valeur tapée tant qu'on n'a pas relâché).
+// ── HUD de glisser : affiche le nombre de pixels ajoutés/enlevés, collé au
+// curseur SUR LE CANEVAS (pas fixe dans un coin de l'écran, pour rester
+// dans le champ de vision pendant le glisser) pendant un déplacement/
+// redimensionnement libre, et permet de taper une valeur au clavier pour
+// l'appliquer instantanément à la place de la souris -- la frappe reste
+// active jusqu'au relâchement du bouton (on peut continuer à corriger la
+// valeur tapée tant qu'on n'a pas relâché).
 let dragHudApplyFn = null;
 let dragHudBuffer = '';
-function dragHudShow() {
+function dragHudShow(clientX, clientY) {
   dragHudBuffer = '';
   dragHudApplyFn = null;
   const el = document.getElementById('dragHud');
-  if (el) { el.style.display = 'block'; el.textContent = '+0 px'; }
+  if (!el) return;
+  el.style.display = 'block';
+  el.textContent = '+0 px';
+  if (clientX != null) dragHudMove(clientX, clientY);
+}
+// Positionne le HUD près du curseur (décalé pour ne pas être sous le
+// pointeur) -- à appeler à chaque mousemove pendant le glisser, avec les
+// coordonnées écran de l'événement.
+function dragHudMove(clientX, clientY) {
+  const el = document.getElementById('dragHud');
+  if (!el) return;
+  el.style.left = `${clientX + 18}px`;
+  el.style.top = `${clientY + 18}px`;
 }
 function dragHudUpdate(deltaPx, applyFn) {
   dragHudApplyFn = applyFn;
