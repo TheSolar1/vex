@@ -2345,12 +2345,10 @@ function renderBlocsFullView() {
     actionsWideMode = !actionsWideMode;
     document.getElementById('vbtnWide').classList.toggle('active', actionsWideMode);
     appliquerLayoutActions();
-    renderBlocsList(); // fait apparaître/disparaître l'espace de travail élargi
-    // La largeur du canevas change (palette/réglages masqués ou non) --
-    // sans recentrer, la Zone de la page publiée semble "bouger" (elle se
-    // recentre bien via CSS sur la nouvelle largeur, mais le défilement,
-    // lui, ne suit pas) au lieu de rester visuellement stable.
-    requestAnimationFrame(centrerSurPageRectAvecFiletDeSecurite);
+    renderBlocsList();
+    // Plus besoin de recentrer : la largeur du canevas ne change plus du
+    // tout (voir appliquerLayoutActions, visibility au lieu de display) --
+    // la Zone de la page publiée ne bouge donc plus jamais avec ce bouton.
   };
   document.getElementById('posModeLibre').onclick = () => definirPosMode('libre');
   document.getElementById('posModeGrille').onclick = () => definirPosMode('grille');
@@ -2445,15 +2443,19 @@ function basculerModeActions() {
   }
 }
 function appliquerLayoutActions() {
-  // Bouton "Élargir" (voir vbtnWide) : sans effet en mode Actions -- masquer
-  // palette/réglages y change la largeur du canevas (flex:1 sur
-  // .blocs-center), ce qui déplace la frise/le repère de lecture sous la
-  // souris de façon geanante pendant qu'on regle une animation.
+  // Bouton "Élargir" (voir vbtnWide) : masque la palette/les réglages sans
+  // jamais changer la largeur du canevas (visibility, pas display) -- avant,
+  // "display:none" retirait ces panneaux du calcul de largeur (flex:1 sur
+  // .blocs-center), donc le canevas s'élargissait et la Zone de la page
+  // publiée (centrée dedans) se retrouvait à une position différente à
+  // l'écran -- signalé comme "la zone bouge avec Élargir". Avec
+  // visibility:hidden, l'espace reste réservé : le canevas ne change jamais
+  // de largeur, la zone ne bouge donc plus jamais.
   const hide = actionsWideMode && !actionsMode;
   const settingsEl = document.getElementById('blocsSettings');
-  if (settingsEl) settingsEl.style.display = hide ? 'none' : '';
+  if (settingsEl) settingsEl.style.visibility = hide ? 'hidden' : '';
   const paletteEl = document.getElementById('blocsPalette');
-  if (paletteEl) paletteEl.style.display = hide ? 'none' : '';
+  if (paletteEl) paletteEl.style.visibility = hide ? 'hidden' : '';
 }
 
 const TL_BASE_PX = 600;
