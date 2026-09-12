@@ -481,6 +481,7 @@ body {
 </div>
 
 <div id="toast-area"></div>
+<div id="dragHud" style="display:none;position:fixed;top:70px;left:16px;z-index:7000;background:var(--surface);border:1px solid var(--accent);color:var(--accent);font-weight:700;font-size:13px;font-family:'SF Mono',Consolas,monospace;padding:8px 14px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.2);"></div>
 
 <div class="img-picker-overlay" id="imgPickerOverlay">
   <div class="img-picker-modal">
@@ -1851,6 +1852,12 @@ function centreDeLaPage() {
 function ajouterBloc(type) {
   const bloc = blocDefaut(type);
   bloc.libre = true;
+  // Largeur par défaut (200px, exprimée en % de la page comme le veut le
+  // champ "largeur") -- sans ça (bug trouvé par un test automatisé), un
+  // bloc libre gardait la largeur 100% de blocDefaut : une "carte" qui
+  // s'étend sur tout le canevas dès sa création, débordant même sur le
+  // panneau de réglages, au lieu d'un bloc compact qu'on positionne ensuite.
+  bloc.largeur = Math.max(15, Math.min(100, Math.round(200 / pageWidth * 100)));
   const c = centreDeLaPage();
   bloc.pos_x = Math.max(0, c.x - 100);
   bloc.pos_y = Math.max(0, c.y);
@@ -2941,6 +2948,26 @@ function demarrerDeplacementLibre(e, idx, item) {
       }))
     : [];
   let moved = false;
+  dragHudShow();
+  const appliquer = (x, y) => {
+    blocs[idx].pos_x = x;
+    blocs[idx].pos_y = y;
+    item.style.left = `${x}px`;
+    item.style.top = `${y}px`;
+    const netDx = x - startLeft, netDy = y - startTop;
+    groupe.forEach(g => {
+      const gx = g.startX + netDx, gy = g.startY + netDy;
+      blocs[g.idx].pos_x = gx;
+      blocs[g.idx].pos_y = gy;
+      if (g.el) { g.el.style.left = `${gx}px`; g.el.style.top = `${gy}px`; }
+    });
+    markDirty();
+    if (selectedIdx === idx) {
+      const ex = document.getElementById('setPosX'); if (ex) ex.value = x;
+      const ey = document.getElementById('setPosY'); if (ey) ey.value = y;
+    }
+    dragHudUpdate(x - startLeft, (val) => appliquer(startLeft + val, y));
+  };
   const onMove = (ev) => {
     moved = true;
     let x = Math.max(-2000, Math.min(8000, Math.round(startLeft + (ev.clientX - startX) / canvasZoom)));
@@ -2960,27 +2987,13 @@ function demarrerDeplacementLibre(e, idx, item) {
     } else {
       effacerGuides();
     }
-    blocs[idx].pos_x = x;
-    blocs[idx].pos_y = y;
-    item.style.left = `${x}px`;
-    item.style.top = `${y}px`;
-    const netDx = x - startLeft, netDy = y - startTop;
-    groupe.forEach(g => {
-      const gx = g.startX + netDx, gy = g.startY + netDy;
-      blocs[g.idx].pos_x = gx;
-      blocs[g.idx].pos_y = gy;
-      if (g.el) { g.el.style.left = `${gx}px`; g.el.style.top = `${gy}px`; }
-    });
-    markDirty();
-    if (selectedIdx === idx) {
-      const ex = document.getElementById('setPosX'); if (ex) ex.value = x;
-      const ey = document.getElementById('setPosY'); if (ey) ey.value = y;
-    }
+    appliquer(x, y);
   };
   const onUp = () => {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     effacerGuides();
+    dragHudHide();
     // Redimensionne le canevas si besoin (le bloc a peut-être fini plus bas).
     listEl.style.minHeight = `${Math.max(60, Math.max(...blocs.filter(b => b.libre).map(b => (b.pos_y||0) + (b.hauteur||80)), 60))}px`;
   };
@@ -3042,13 +3055,26 @@ function demarrerRedimLibre(e, idx, item, edges) {
       const elX = document.getElementById('setPosX'); if (elX) elX.value = b.pos_x;
       const elY = document.getElementById('setPosY'); if (elY) elY.value = b.pos_y;
     }
+    dragHudUpdateResize(Math.round(widthPx - startWidthPx), Math.round(heightPx - startHeightPx));
   };
   const onUp = () => {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
+    dragHudHide();
   };
+  dragHudShow();
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
+}
+// Affichage seul (pas de saisie clavier pour l'instant, contrairement au
+// deplacement) : largeur/hauteur combinent 4 bords possibles + verrou de
+// ratio (Maj), une surcharge clavier fiable pour chaque cas demanderait un
+// travail separe.
+function dragHudUpdateResize(dw, dh) {
+  const el = document.getElementById('dragHud');
+  if (!el) return;
+  const fmt = (v) => `${v >= 0 ? '+' : ''}${v}`;
+  el.textContent = `L: ${fmt(dw)} px   H: ${fmt(dh)} px`;
 }
 
 function appliquerApercuKeyframes() {
@@ -3191,6 +3217,50 @@ function tlStartGrab() {
   document.addEventListener('mousedown', onClickConfirm, true);
   document.addEventListener('keydown', onKey, true);
 }
+
+// ── HUD de glisser : affiche le nombre de pixels ajoutés/enlevés en haut à
+// gauche pendant un déplacement/redimensionnement libre, et permet de taper
+// une valeur au clavier pour l'appliquer instantanément à la place de la
+// souris -- la frappe reste active jusqu'au relâchement du bouton (on peut
+// continuer à corriger la valeur tapée tant qu'on n'a pas relâché).
+let dragHudApplyFn = null;
+let dragHudBuffer = '';
+function dragHudShow() {
+  dragHudBuffer = '';
+  dragHudApplyFn = null;
+  const el = document.getElementById('dragHud');
+  if (el) { el.style.display = 'block'; el.textContent = '+0 px'; }
+}
+function dragHudUpdate(deltaPx, applyFn) {
+  dragHudApplyFn = applyFn;
+  const el = document.getElementById('dragHud');
+  if (!el) return;
+  const arrondi = Math.round(deltaPx);
+  el.textContent = `${arrondi >= 0 ? '+' : ''}${arrondi} px${dragHudBuffer ? ' (tapé : ' + dragHudBuffer + ')' : ''}`;
+}
+function dragHudHide() {
+  const el = document.getElementById('dragHud');
+  if (el) el.style.display = 'none';
+  dragHudApplyFn = null;
+  dragHudBuffer = '';
+}
+document.addEventListener('keydown', (e) => {
+  if (!dragHudApplyFn) return;
+  if (e.key >= '0' && e.key <= '9') {
+    dragHudBuffer += e.key;
+  } else if (e.key === '-') {
+    dragHudBuffer = dragHudBuffer.startsWith('-') ? dragHudBuffer.slice(1) : '-' + dragHudBuffer;
+  } else if (e.key === 'Backspace') {
+    dragHudBuffer = dragHudBuffer.slice(0, -1);
+  } else {
+    return;
+  }
+  e.preventDefault();
+  const val = dragHudBuffer === '' || dragHudBuffer === '-' ? 0 : Number(dragHudBuffer);
+  dragHudApplyFn(val);
+  const el = document.getElementById('dragHud');
+  if (el) el.textContent = `${val >= 0 ? '+' : ''}${val} px (tapé : ${dragHudBuffer || '0'})`;
+});
 
 function markDirty() { dirty = true; }
 
