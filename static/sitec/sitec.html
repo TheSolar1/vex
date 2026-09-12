@@ -963,6 +963,17 @@ function wirePageRectResize(list) {
       [pageWidth, pageHeight] = preset;
       markDirty();
       renderBlocsList();
+      // Sans ajuster le zoom, un changement de largeur ne SE VOIT pas si le
+      // zoom était déjà petit (30%, 50%...) -- la valeur change mais la
+      // zone parait toujours aussi petite à l'écran, d'où l'impression
+      // récurrente "pas assez grande pour un PC" malgré la vraie valeur
+      // 1920px. Cale le zoom pour que la largeur choisie remplisse la zone
+      // visible du canevas, puis recentre dessus.
+      const wrap = document.querySelector('.blocs-canvas-wrap');
+      if (wrap) {
+        const zoomAdapte = Math.max(0.25, Math.min(1.5, (wrap.clientWidth - 60) / pageWidth));
+        definirCanvasZoom(Math.round(zoomAdapte * 100) / 100);
+      }
     });
   });
   const fold = list.querySelector('.page-fold-line');
