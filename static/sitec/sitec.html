@@ -231,6 +231,11 @@ body {
   content:'Pli'; position:absolute; right:4px; top:-15px; font-size:10px; font-weight:600; color:var(--accent);
   background:var(--surface); padding:1px 6px; border-radius:3px;
 }
+.page-screen-line { position:absolute; left:0; right:0; height:0; border-top:2px solid #9333ea; opacity:.5; z-index:1; pointer-events:none; }
+.page-screen-line::after {
+  content:'Écran standard'; position:absolute; left:4px; top:-15px; font-size:10px; font-weight:600; color:#9333ea;
+  background:var(--surface); padding:1px 6px; border-radius:3px;
+}
 .align-guide-v, .align-guide-h { position:absolute; background:#ff3b8d; z-index:50; pointer-events:none; }
 .align-guide-v { top:0; bottom:0; width:1px; }
 .align-guide-h { left:0; right:0; height:1px; }
@@ -770,6 +775,10 @@ let canvasScrollCentre = false; // recalage une seule fois (voir renderBlocsList
 let pageWidth = 820; // largeur de contenu (px) de la page publiée, réglable via le rectangle repère
 let pageHeight = 900; // hauteur du "pli" (px) -- ce qui est visible sans défiler, réglable via le rectangle repère ou les préréglages d'appareil
 const DEVICE_PRESETS = { pc: [1200, 800], tablette: [768, 1024], mobile: [390, 844] };
+// Repère fixe (non réglable, contrairement au "pli" personnalisable) :
+// hauteur d'écran visible typique sur un PC courant, pour situer d'un coup
+// d'œil ce qu'un visiteur voit vraiment sans défiler à sa première arrivée.
+const ECRAN_STANDARD_H = 1080;
 // Décalage purement visuel appliqué au CANEVAS DE L'ÉDITEUR (jamais aux
 // données pos_x/pos_y stockées, ni à la page publiée) : un bloc libre
 // peut avoir des coordonnées négatives (au-dessus/à gauche du contenu
@@ -922,6 +931,7 @@ function pageRectHtml(hauteurContenu) {
     <div class="page-boundary-resize page-boundary-resize-l"></div>
     <div class="page-boundary-resize page-boundary-resize-r"></div>
     <div class="page-fold-line" style="top:${pageHeight}px" title="Le pli -- glisser pour ajuster la hauteur visible sans défiler"></div>
+    ${h > ECRAN_STANDARD_H ? `<div class="page-screen-line" style="top:${ECRAN_STANDARD_H}px" title="Repère : hauteur d'écran standard (${ECRAN_STANDARD_H}px) -- ce que voit un visiteur sans défiler sur un écran PC courant"></div>` : ''}
   </div>`;
 }
 function wirePageRectResize(list) {
