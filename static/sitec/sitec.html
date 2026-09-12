@@ -1873,8 +1873,21 @@ function ajouterBloc(type) {
   // par test automatisé.
   bloc.largeur = Math.max(25, Math.min(100, Math.round(340 / pageWidth * 100)));
   const c = centreDeLaPage();
-  bloc.pos_x = Math.max(0, c.x - 100);
-  bloc.pos_y = Math.max(0, c.y);
+  // Décalage en cascade : sans lui (trouvé en testant l'ajout de plusieurs
+  // blocs à la suite), chaque nouveau bloc atterrit exactement à la même
+  // position que les précédents (centreDeLaPage() renvoie toujours le même
+  // point) -- ils s'empilent parfaitement les uns sur les autres, cachant
+  // tout sauf le dernier ajouté et rendant les autres injoignables sans
+  // déjà savoir qu'il faut les faire glisser.
+  // 90px (pas moins) : la poignée de rotation flotte 34px au-dessus du bloc
+  // (donc jusqu'à 34+46=80px de zone occupée verticalement en comptant
+  // l'en-tête) -- des decalages plus petits (24px, puis 50px) faisaient
+  // encore chevaucher les poignees de blocs voisins entre elles, verifie
+  // par test automatise a chaque fois.
+  const nbLibres = blocs.filter(b => b.libre).length;
+  const decal = (nbLibres % 6) * 90;
+  bloc.pos_x = Math.max(0, c.x - 100 + decal);
+  bloc.pos_y = Math.max(0, c.y + decal);
   blocs.push(bloc);
   selectedIdx = blocs.length - 1;
   markDirty();
