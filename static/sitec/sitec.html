@@ -992,6 +992,16 @@ function renderBlocsList() {
     // ne faisait rien : cette poignée n'était câblée que plus bas, dans la
     // branche jamais atteinte tant qu'aucun bloc n'existe déjà.
     wireCanvasEmptyDrop(list);
+    // Bug corrige : ce centrage ne s'executait JAMAIS sur une page encore
+    // vide (ce `return` s'executait avant d'atteindre le meme appel plus
+    // bas, ecrit uniquement pour la branche "au moins un bloc") -- c'etait
+    // la vraie cause de "le canevas est completement vide" a l'ouverture
+    // d'une page toute neuve, confirme par un test automatise en navigateur
+    // reel (Playwright).
+    if (!canvasScrollCentre) {
+      canvasScrollCentre = true;
+      requestAnimationFrame(centrerSurPageRectAvecFiletDeSecurite);
+    }
     return;
   }
 
@@ -2774,21 +2784,20 @@ function definirCanvasZoom(z, focal) {
   if (el) el.style.transform = `scale(${canvasZoom})`;
   const lbl = document.getElementById('canvasZoomLabel');
   if (lbl) lbl.textContent = `${Math.round(canvasZoom * 100)}%`;
-  if (wrap && oldZoom !== canvasZoom) {
-    const fx = focal ? focal.x : wrap.clientWidth / 2;
-    const fy = focal ? focal.y : wrap.clientHeight / 2;
-    // CANVAS_OFFSET (marge de .blocs-list-zoom) n'est PAS mis à l'échelle
-    // par le zoom (transform:scale porte seulement sur le contenu) -- il
-    // faut le soustraire avant de diviser par l'ancien zoom, sinon le calcul
-    // mélange une distance fixe et une distance mise à l'échelle, ce qui
-    // fait sauter la vue de façon erratique à chaque zoom/dézoom (surtout
-    // visible en dehors de 100%, où l'écart entre les deux devient net).
-    const contentX = (wrap.scrollLeft + fx - CANVAS_OFFSET) / oldZoom;
-    const contentY = (wrap.scrollTop + fy - CANVAS_OFFSET) / oldZoom;
-    wrap.scrollLeft = contentX * canvasZoom + CANVAS_OFFSET - fx;
-    wrap.scrollTop = contentY * canvasZoom + CANVAS_OFFSET - fy;
+  const zoomChange = !!(wrap && oldZoom !== canvasZoom);
+  const franchitCent = (oldZoom === 1) !== (canvasZoom === 1);
+  if (franchitCent) renderBlocsList(); // rectangle de page : masqué/affiché selon le zoom
+  if (zoomChange) {
+    // Recentre directement sur la "Zone de la page publiée" (mesure réelle,
+    // même filet de sécurité que le centrage initial) à chaque pas de zoom,
+    // plutôt que de calculer un point focal à préserver : ce calcul (marge
+    // CANVAS_OFFSET non mise à l'échelle + repère qui change de DOM quand le
+    // zoom franchit 100%, voir franchitCent ci-dessus) dérivait de plus en
+    // plus a chaque etape, verifie par un test automatise -- au bout de
+    // quelques zooms le rectangle finissait hors champ. Un recentrage direct
+    // est plus simple et ne peut pas dériver.
+    centrerSurPageRectAvecFiletDeSecurite();
   }
-  if ((oldZoom === 1) !== (canvasZoom === 1)) renderBlocsList(); // rectangle de page : masqué/affiché selon le zoom
 }
 function appliquerPosModeUi() {
   const bLibre = document.getElementById('posModeLibre');
