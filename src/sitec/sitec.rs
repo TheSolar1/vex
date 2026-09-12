@@ -587,10 +587,20 @@ fn serve_page_view(pool: &DbPool, id: &str, session: &SessionInfo, langue: &str)
     };
 
     // Largeur de contenu de la page (px) : reglable dans l'editeur de blocs
-    // (rectangle repere redimensionnable) -- stockee dans contenu_corps,
-    // inutilise en mode "blocs" (sert au texte en mode "simple" seulement).
+    // (rectangle repere redimensionnable) -- stockee dans contenu_corps au
+    // format "LARGEURxFIN_FRISE" (la fin de frise est un reglage d'editeur
+    // pur, ignore ici), inutilise en mode "blocs" (sert au texte en mode
+    // "simple" seulement). Ne garde que la partie avant un eventuel "x"
+    // pour rester compatible avec les pages enregistrees avant son ajout.
     let largeur_page: i64 = if page.mode == "blocs" {
-        page.contenu_corps.trim().parse::<i64>().unwrap_or(820).clamp(320, 1600)
+        page.contenu_corps
+            .trim()
+            .split('x')
+            .next()
+            .unwrap_or("")
+            .parse::<i64>()
+            .unwrap_or(820)
+            .clamp(320, 1600)
     } else {
         820
     };

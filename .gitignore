@@ -10,6 +10,11 @@
 # Sauvegardes DB (mysqldump) -- contiennent tout, jamais dans git
 /backups/
 
+# Images/medias uploades par les utilisateurs via les blocs Sitec (voir
+# enregistrer_media dans sitec.rs) -- contenu genere a l'usage, propre a
+# chaque serveur, jamais dans git.
+/static/sitec_media/
+
 # Secrets & config locale
 db.json
 config.json

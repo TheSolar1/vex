@@ -179,7 +179,7 @@ body {
   color:var(--text-dim); display:inline-flex; align-items:center; gap:6px;
 }
 .blocs-viewtab.active { background:var(--alt); color:var(--accent); }
-.blocs-canvas-wrap { flex:1; overflow:auto; padding:16px; cursor:grab; scrollbar-width:none; }
+.blocs-canvas-wrap { flex:1; overflow:auto; padding:16px; cursor:grab; scrollbar-width:none; position:relative; }
 .blocs-canvas-wrap::-webkit-scrollbar { display:none; }
 .blocs-canvas-wrap.panning { cursor:grabbing; user-select:none; }
 .blocs-list-zoom { transform-origin:0 0; margin-top:1200px; margin-left:1200px; width:100%; }
@@ -1475,14 +1475,30 @@ function renderBlocsList() {
   if (!canvasScrollCentre) {
     const wrap = document.querySelector('.blocs-canvas-wrap');
     if (wrap && wrap.scrollHeight > wrap.clientHeight) {
-      // La marge (voir .blocs-list-zoom) n'est pas mise à l'échelle par le
-      // zoom (transform:scale) de l'élément qui la porte -- contrairement
-      // à son contenu, vérifié.
-      wrap.scrollLeft = CANVAS_OFFSET;
+      // Centre horizontalement sur la "Zone de la page publiée" (pas sur
+      // l'origine brute du canevas) -- la marge (voir .blocs-list-zoom)
+      // n'est pas mise à l'échelle par le zoom (transform:scale), contrairement
+      // à son contenu, vérifié, d'où le calcul séparé marge + contenu×zoom.
+      const listW = list.clientWidth || 0;
+      const pageLeftReel = Math.max(0, (listW - pageWidth) / 2);
+      const pageCentrePx = CANVAS_OFFSET + (pageLeftReel + pageWidth / 2) * canvasZoom;
+      wrap.scrollLeft = Math.max(0, pageCentrePx - wrap.clientWidth / 2);
       wrap.scrollTop = CANVAS_OFFSET;
       canvasScrollCentre = true;
     }
   }
+}
+
+// Point écran (relatif à .blocs-canvas-wrap) sur le centre horizontal de la
+// "Zone de la page publiée" -- focal par défaut des boutons de zoom, pour
+// rester centré sur la page plutôt que sur un point arbitraire du canevas.
+function focalSurPageRect() {
+  const wrap = document.querySelector('.blocs-canvas-wrap');
+  const rect = document.querySelector('.page-boundary-rect');
+  if (!wrap || !rect) return undefined;
+  const wrapR = wrap.getBoundingClientRect();
+  const pageR = rect.getBoundingClientRect();
+  return { x: pageR.left + pageR.width / 2 - wrapR.left, y: wrap.clientHeight / 2 };
 }
 
 function selectionnerBloc(idx) {
@@ -1721,15 +1737,32 @@ function setEspaceLigne(idx, val) {
   renderBlocsList();
 }
 
-function ajouterBloc(type, apres) {
+// Centre de la "Zone de la page publiée" en coordonnées réelles (repère
+// pos_x/pos_y, zoom 1) -- utilisé pour faire apparaître un nouveau bloc
+// directement dedans plutôt qu'à l'origine du canevas (hors champ de vue).
+function centreDeLaPage() {
+  const list = document.getElementById('blocsList');
+  const rect = document.querySelector('.page-boundary-rect');
+  if (!list || !rect) return { x: 100, y: 100 };
+  const listR = list.getBoundingClientRect();
+  const pageR = rect.getBoundingClientRect();
+  return {
+    x: Math.round((pageR.left + pageR.width / 2 - listR.left) / canvasZoom),
+    y: Math.round((pageR.top + 80 - listR.top) / canvasZoom),
+  };
+}
+
+// Un nouveau bloc depuis la palette (clic ou glisser sur une zone vide)
+// apparaît directement en position libre, déjà sélectionné -- avec ses
+// poignées de déplacement/déformation visibles sans manip supplémentaire.
+function ajouterBloc(type) {
   const bloc = blocDefaut(type);
-  if (apres === undefined || apres >= blocs.length - 1) {
-    blocs.push(bloc);
-    selectedIdx = blocs.length - 1;
-  } else {
-    blocs.splice(apres + 1, 0, bloc);
-    selectedIdx = apres + 1;
-  }
+  bloc.libre = true;
+  const c = centreDeLaPage();
+  bloc.pos_x = Math.max(0, c.x - 100);
+  bloc.pos_y = Math.max(0, c.y);
+  blocs.push(bloc);
+  selectedIdx = blocs.length - 1;
   markDirty();
   renderBlocsList();
   renderBlocsSettings();
@@ -1919,11 +1952,25 @@ function renderIconPickerGrid(filter) {
 
 let blocsFullView = false;
 
+// "LARGEURxFIN" (ex: "820x30000") -- rétro-compatible avec les pages
+// enregistrées avant l'ajout de la fin de frise (juste un nombre = largeur).
+function parsePageMeta(raw) {
+  const m = /^(\d+)(?:x(\d+))?$/.exec(String(raw || '').trim());
+  return {
+    width: Math.max(320, Math.min(1600, (m && parseInt(m[1], 10)) || 820)),
+    tlEnd: Math.max(1000, Math.min(TL_ABS_MAX, (m && m[2] && parseInt(m[2], 10)) || 30000)),
+  };
+}
+
 function renderEditor() {
   const p = current;
   blocs = Array.isArray(p.contenu_blocs) ? p.contenu_blocs.map(b => ({...b})) : [];
   selectedIdx = -1;
-  pageWidth = Math.max(320, Math.min(1600, parseInt(p.contenu_corps, 10) || 820));
+  const meta = parsePageMeta(p.contenu_corps);
+  pageWidth = meta.width;
+  tlStart = 0;
+  tlEnd = meta.tlEnd;
+  tlPlayhead = Math.min(tlPlayhead, tlEnd);
 
   // Écran dédié : la liste des pages n'apporte rien pendant l'édition de
   // blocs et prend de la place utile au canevas.
@@ -2093,12 +2140,12 @@ function renderBlocsFullView() {
                 <div class="blocs-list-zoom" id="blocsListZoom"><div class="blocs-list" id="blocsList"></div></div>
               </div>
               <textarea class="blocs-code-view" id="blocsCanvasCode" style="display:none" spellcheck="false"></textarea>
-            </div>
-            <div class="canvas-zoom-bar">
-              <button type="button" class="vbtn" id="canvasZoomOutBtn" title="Zoom arrière"><i class="fas fa-magnifying-glass-minus"></i></button>
-              <span id="canvasZoomLabel">100%</span>
-              <button type="button" class="vbtn" id="canvasZoomInBtn" title="Zoom avant"><i class="fas fa-magnifying-glass-plus"></i></button>
-              <button type="button" class="vbtn" id="canvasZoomResetBtn" title="Réinitialiser le zoom (100%)"><i class="fas fa-compress"></i></button>
+              <div class="canvas-zoom-bar">
+                <button type="button" class="vbtn" id="canvasZoomOutBtn" title="Zoom arrière"><i class="fas fa-magnifying-glass-minus"></i></button>
+                <span id="canvasZoomLabel">100%</span>
+                <button type="button" class="vbtn" id="canvasZoomInBtn" title="Zoom avant"><i class="fas fa-magnifying-glass-plus"></i></button>
+                <button type="button" class="vbtn" id="canvasZoomResetBtn" title="Réinitialiser le zoom (100%)"><i class="fas fa-compress"></i></button>
+              </div>
             </div>
             <div class="blocs-timeline-wrap" id="blocsTimeline">
               <div class="blocs-timeline-hdr">
@@ -2160,9 +2207,9 @@ function renderBlocsFullView() {
   document.getElementById('posModeGrille').onclick = () => definirPosMode('grille');
   document.getElementById('posModeGuides').onclick = () => definirPosMode('guides');
   appliquerPosModeUi();
-  document.getElementById('canvasZoomInBtn').onclick = () => definirCanvasZoom(canvasZoom + 0.1);
-  document.getElementById('canvasZoomOutBtn').onclick = () => definirCanvasZoom(canvasZoom - 0.1);
-  document.getElementById('canvasZoomResetBtn').onclick = () => definirCanvasZoom(1);
+  document.getElementById('canvasZoomInBtn').onclick = () => definirCanvasZoom(canvasZoom + 0.1, focalSurPageRect());
+  document.getElementById('canvasZoomOutBtn').onclick = () => definirCanvasZoom(canvasZoom - 0.1, focalSurPageRect());
+  document.getElementById('canvasZoomResetBtn').onclick = () => definirCanvasZoom(1, focalSurPageRect());
   // Molette seule = zoome (pas besoin de Ctrl/Cmd) -- se déplacer dans le
   // canevas se fait en glissant une zone vide avec la souris, voir plus
   // bas (wireCanvasPan).
@@ -2248,10 +2295,11 @@ function basculerModeActions() {
   }
 }
 function appliquerLayoutActions() {
-  // Bouton "Élargir" (voir vbtnWide) : marche à tout moment, pas seulement
-  // en mode Actions -- avant, ça ne faisait rien tant que la frise n'était
-  // pas ouverte.
-  const hide = actionsWideMode;
+  // Bouton "Élargir" (voir vbtnWide) : sans effet en mode Actions -- masquer
+  // palette/réglages y change la largeur du canevas (flex:1 sur
+  // .blocs-center), ce qui déplace la frise/le repère de lecture sous la
+  // souris de façon geanante pendant qu'on regle une animation.
+  const hide = actionsWideMode && !actionsMode;
   const settingsEl = document.getElementById('blocsSettings');
   if (settingsEl) settingsEl.style.display = hide ? 'none' : '';
   const paletteEl = document.getElementById('blocsPalette');
@@ -2623,8 +2671,14 @@ function calculerGuides(idx, wEcran, hEcran, listRect, x, y) {
   // même que pos_x/pos_y) en divisant par canvasZoom, pour que
   // l'alignement reste précis quel que soit le niveau de zoom du canevas.
   const w = wEcran / canvasZoom, h = hEcran / canvasZoom;
-  const targetsX = [listRect.width / canvasZoom / 2];
-  const targetsY = [];
+  // Bords + centre de la "Zone de la page publiée" -- pas seulement le
+  // centre du canevas -- pour pouvoir aligner un bloc sur les marges
+  // gauche/droite réelles de la page, pas seulement au milieu.
+  const listWReel = listRect.width / canvasZoom;
+  const pageLeft = (listWReel - pageWidth) / 2;
+  const pageRight = pageLeft + pageWidth;
+  const targetsX = [listWReel / 2, pageLeft, pageRight];
+  const targetsY = [0];
   blocs.forEach((b2, idx2) => {
     if (idx2 === idx || !b2.libre) return;
     const el2 = document.querySelector(`.bloc-item[data-idx="${idx2}"]`);
@@ -2899,7 +2953,12 @@ function tlTogglePlay(dir = false) {
   }
   tlPlaying = true;
   const reverse = !!dir;
-  if (btnFwd) btnFwd.innerHTML = reverse ? '<i class="fas fa-play"></i>' : '<i class="fas fa-pause"></i>';
+  // Un seul bouton pause visible pendant la lecture, qu'elle soit avant ou
+  // arrière (avant : le bouton principal remontrait "play" pendant une
+  // lecture arrière en cours, ambigu -- "2 boutons play" plutôt qu'un
+  // vrai bouton pause unique). Le bouton "lecture arrière" reste surligné
+  // (.active) pour indiquer le sens en cours.
+  if (btnFwd) btnFwd.innerHTML = '<i class="fas fa-pause"></i>';
   if (btnBack) btnBack.classList.toggle('active', reverse);
   const start = performance.now();
   const startPlayhead = tlPlayhead;
@@ -2996,8 +3055,9 @@ async function savePage(mode) {
     public: publicToggle ? publicToggle.checked : !!current.public,
     contenu_titre: document.getElementById('contenuTitreInput')?.value || '',
     // En mode "blocs", ce champ (inutilisé pour le texte) porte la largeur
-    // de page réglée via le rectangle repère du canevas.
-    contenu_corps: mode === 'blocs' ? String(pageWidth) : (document.getElementById('contenuCorpsInput')?.value || ''),
+    // de page (rectangle repère) et la fin de frise réglées dans l'éditeur,
+    // au format "LARGEURxFIN" -- voir parsePageMeta au chargement.
+    contenu_corps: mode === 'blocs' ? `${pageWidth}x${tlEnd}` : (document.getElementById('contenuCorpsInput')?.value || ''),
     contenu_html:  document.getElementById('contenuHtmlInput')?.value || '',
     contenu_blocs: blocs,
   };
