@@ -2478,7 +2478,13 @@ function wireTlHeightResize() {
     const startH = tracks.getBoundingClientRect().height;
     const onMove = (ev) => {
       const h = Math.max(30, Math.min(600, Math.round(startH - (ev.clientY - startY))));
-      tracks.style.maxHeight = `${h}px`;
+      // "height" (pas "max-height", bug corrige : un plafond plus haut ne
+      // change rien tant que le contenu ne le remplit pas deja -- avec 1 ou
+      // 2 pistes seulement, ca ne faisait visuellement rien) -- une vraie
+      // hauteur fixe, avec defilement interne (overflow-y deja en place) si
+      // le contenu depasse.
+      tracks.style.height = `${h}px`;
+      tracks.style.maxHeight = 'none';
     };
     const onUp = () => {
       handle.classList.remove('dragging');
@@ -2952,7 +2958,7 @@ function demarrerDeplacementLibre(e, idx, item) {
       }))
     : [];
   let moved = false;
-  dragHudShow(e.clientX, e.clientY);
+  dragHudShow();
   const appliquer = (x, y) => {
     blocs[idx].pos_x = x;
     blocs[idx].pos_y = y;
@@ -2974,7 +2980,6 @@ function demarrerDeplacementLibre(e, idx, item) {
   };
   const onMove = (ev) => {
     moved = true;
-    dragHudMove(ev.clientX, ev.clientY);
     let x = Math.max(-2000, Math.min(8000, Math.round(startLeft + (ev.clientX - startX) / canvasZoom)));
     let y = Math.max(-2000, Math.min(20000, Math.round(startTop + (ev.clientY - startY) / canvasZoom)));
     // Alt = ignore temporairement la grille/les guides pour ce glisser --
@@ -3023,7 +3028,6 @@ function demarrerRedimLibre(e, idx, item, edges) {
   const aspect = startWidthPx / startHeightPx;
   const estCoin = (edges.left || edges.right) && (edges.top || edges.bottom);
   const onMove = (ev) => {
-    dragHudMove(ev.clientX, ev.clientY);
     const dx = (ev.clientX - startX) / canvasZoom, dy = (ev.clientY - startY) / canvasZoom;
     const alt = ev.altKey, shift = ev.shiftKey;
     let leftPx = startLeft, rightPx = startLeft + startWidthPx;
@@ -3068,7 +3072,7 @@ function demarrerRedimLibre(e, idx, item, edges) {
     document.removeEventListener('mouseup', onUp);
     dragHudHide();
   };
-  dragHudShow(e.clientX, e.clientY);
+  dragHudShow();
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
 }
@@ -3233,18 +3237,24 @@ function tlStartGrab() {
 // valeur tapée tant qu'on n'a pas relâché).
 let dragHudApplyFn = null;
 let dragHudBuffer = '';
-function dragHudShow(clientX, clientY) {
+// En haut à gauche DU CANEVAS (pas de tout l'écran, et pas collé au
+// curseur -- les deux essais précédents ne correspondaient pas à la
+// demande) : ancré une fois au début du glisser sur le coin du canevas
+// visible, puis fixe pendant toute la durée du glisser.
+function dragHudShow() {
   dragHudBuffer = '';
   dragHudApplyFn = null;
   const el = document.getElementById('dragHud');
+  const wrap = document.querySelector('.blocs-canvas-wrap');
   if (!el) return;
   el.style.display = 'block';
   el.textContent = '+0 px';
-  if (clientX != null) dragHudMove(clientX, clientY);
+  if (wrap) {
+    const r = wrap.getBoundingClientRect();
+    el.style.left = `${r.left + 12}px`;
+    el.style.top = `${r.top + 12}px`;
+  }
 }
-// Positionne le HUD près du curseur (décalé pour ne pas être sous le
-// pointeur) -- à appeler à chaque mousemove pendant le glisser, avec les
-// coordonnées écran de l'événement.
 function dragHudMove(clientX, clientY) {
   const el = document.getElementById('dragHud');
   if (!el) return;
