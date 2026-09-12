@@ -604,13 +604,24 @@ fn serve_page_view(pool: &DbPool, id: &str, session: &SessionInfo, langue: &str)
     } else {
         820
     };
+    // Au-dela d'une largeur "colonne de lecture" classique, la page est
+    // pensee comme une vraie mise en page pleine largeur (repere "Mon
+    // ecran"/PC dans l'editeur) -- les marges/rembourrage confortables pour
+    // du texte deviendraient un bandeau vide inutile qui empeche la page de
+    // remplir reellement l'ecran du visiteur, malgre une largeur de page
+    // deja grande.
+    let (marge_body, pad_body) = if largeur_page >= 1200 {
+        ("0", "0 16px")
+    } else {
+        ("40px auto", "0 20px")
+    };
     let doc = format!(
         "<!DOCTYPE html>\n<html lang=\"{langue}\"><head><meta charset=\"UTF-8\">\
         <meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\">\
         <title>{titre}</title>\
         <script src=\"/static/fa-local.js\" defer></script>\
         <style>body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;\
-        max-width:{largeur_page}px;margin:40px auto;padding:0 20px;color:#1c1e21;line-height:1.6;\
+        max-width:{largeur_page}px;margin:{marge_body};padding:{pad_body};color:#1c1e21;line-height:1.6;\
         overflow-wrap:anywhere;word-wrap:break-word;word-break:break-word;overflow-x:hidden;}}\
         .sitec-bloc,.sitec-bloc *{{overflow-wrap:anywhere;word-wrap:break-word;word-break:break-word;min-width:0;}}\
         .sitec-view-wrap h1{{margin-bottom:16px;}}\

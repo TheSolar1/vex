@@ -932,6 +932,7 @@ function pageRectHtml(hauteurContenu) {
       <button type="button" class="pbd-btn${pageWidth===1920&&pageHeight===1080?' active':''}" data-device="pc" title="Ordinateur (1920×1080)"><i class="fas fa-desktop"></i> PC</button>
       <button type="button" class="pbd-btn${pageWidth===768&&pageHeight===1024?' active':''}" data-device="tablette" title="Tablette (768×1024)"><i class="fas fa-tablet-screen-button"></i> Tablette</button>
       <button type="button" class="pbd-btn${pageWidth===390&&pageHeight===844?' active':''}" data-device="mobile" title="Mobile (390×844)"><i class="fas fa-mobile-screen-button"></i> Mobile</button>
+      <button type="button" class="pbd-btn" data-device="ecran" title="S'adapte à la taille réelle de votre écran"><i class="fas fa-expand"></i> Mon écran</button>
     </div>
     <div class="page-boundary-resize page-boundary-resize-l"></div>
     <div class="page-boundary-resize page-boundary-resize-r"></div>
@@ -962,7 +963,13 @@ function wirePageRectResize(list) {
   list.querySelectorAll('.pbd-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const preset = DEVICE_PRESETS[btn.dataset.device];
+      // "Mon écran" : pas une taille fixe comme les autres préréglages --
+      // détecte la vraie largeur/hauteur de l'écran de la personne qui
+      // règle la page, pour s'en servir directement plutôt que de deviner
+      // une valeur générique "PC".
+      const preset = btn.dataset.device === 'ecran'
+        ? [window.screen.width, window.screen.height]
+        : DEVICE_PRESETS[btn.dataset.device];
       if (!preset) return;
       [pageWidth, pageHeight] = preset;
       markDirty();
