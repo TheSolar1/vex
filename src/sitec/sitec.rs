@@ -1913,9 +1913,15 @@ fn serve_sitec_html(langue: &str) -> Response<std::io::Cursor<Vec<u8>>> {
                 ],
             );
             let html = html.replacen("{{I18N_JS}}", &i18n_js, 1);
-            Response::from_string(html).with_header(
-                tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap(),
-            )
+            // Cache-Control manquant ici (present seulement sur le chemin
+            // d'erreur juste en dessous, via html_resp) -- trouve comme la
+            // vraie cause probable des "rien n'est applique" repetes tout
+            // au long de la session malgre des deploiements verifies cote
+            // serveur : le navigateur pouvait garder cette page (servie a
+            // CHAQUE chargement normal de l'editeur) en cache indefiniment.
+            Response::from_string(html)
+                .with_header(tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap())
+                .with_header(tiny_http::Header::from_bytes("Cache-Control", "no-cache, no-store, must-revalidate").unwrap())
         }
         Err(_) => html_resp("<h1>sitec.html introuvable</h1>", 404),
     }
