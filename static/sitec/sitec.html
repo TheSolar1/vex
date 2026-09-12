@@ -391,11 +391,12 @@ body {
 .tl-links { position:absolute; left:0; top:0; pointer-events:none; }
 .timeline-track { display:flex; align-items:center; gap:10px; height:30px; margin-bottom:4px; }
 .timeline-track-label { width:150px; flex-shrink:0; font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:6px; }
-.timeline-track-add {
-  margin-left:auto; width:18px; height:18px; border-radius:4px; border:1px solid var(--border); background:var(--surface);
+.timeline-track-add, .timeline-track-mode {
+  width:18px; height:18px; border-radius:4px; border:1px solid var(--border); background:var(--surface);
   color:var(--text-dim); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:9px; flex-shrink:0;
 }
-.timeline-track-add:hover { background:var(--accent); color:var(--surface); border-color:var(--accent); }
+.timeline-track-mode { margin-left:auto; cursor:ns-resize; }
+.timeline-track-add:hover, .timeline-track-mode:hover { background:var(--accent); color:var(--surface); border-color:var(--accent); }
 .timeline-track-ruler { flex:0 0 auto; width:600px; position:relative; height:20px; background:var(--sidebar-hover); border-radius:4px; cursor:text; }
 .timeline-clip {
   position:absolute; top:2px; height:16px; width:16px; border-radius:3px; background:var(--accent); cursor:grab;
@@ -774,7 +775,7 @@ let canvasZoom = 1; // 0.25 - 2 ; zoom du canevas (pas de la frise, voir tlZoomL
 let canvasScrollCentre = false; // recalage une seule fois (voir renderBlocsList)
 let pageWidth = 820; // largeur de contenu (px) de la page publiée, réglable via le rectangle repère
 let pageHeight = 1600; // hauteur du "pli" (px) -- ce qui est visible sans défiler, réglable via le rectangle repère ou les préréglages d'appareil
-const DEVICE_PRESETS = { pc: [1200, 800], tablette: [768, 1024], mobile: [390, 844] };
+const DEVICE_PRESETS = { pc: [1920, 1080], tablette: [768, 1024], mobile: [390, 844] };
 // Repère fixe (non réglable, contrairement au "pli" personnalisable) :
 // hauteur d'écran visible typique sur un PC courant, pour situer d'un coup
 // d'œil ce qu'un visiteur voit vraiment sans défiler à sa première arrivée.
@@ -800,7 +801,7 @@ let tlStart = 0;
 let tlEnd = 30000;
 
 function blocDefaut(type) {
-  const base = { type, animation: '', ligne: '', largeur: 100, espace: 16, anim_delai: 0, hauteur: 0, decalage: 0, keyframes: [], boucle: false, libre: false, pos_x: 0, pos_y: 0, rotation: 0 };
+  const base = { type, animation: '', ligne: '', largeur: 100, espace: 16, anim_delai: 0, hauteur: 0, decalage: 0, keyframes: [], boucle: false, libre: false, pos_x: 0, pos_y: 0, rotation: 0, kfMode: 'absolu' };
   (BLOC_SPECS[type] || []).forEach(champ => {
     if (champ.type === 'items') base[champ.k] = [];
     else if (champ.type === 'checkgroup') base[champ.k] = champ.defaut ? [...champ.defaut] : [];
@@ -924,7 +925,7 @@ function pageRectHtml(hauteurContenu) {
   return `<div class="page-boundary-rect" style="width:${pageWidth}px;height:${h}px">
     <span>Zone de la page publiée (${pageWidth}×${pageHeight}px)</span>
     <div class="page-boundary-devices">
-      <button type="button" class="pbd-btn${pageWidth===1200&&pageHeight===800?' active':''}" data-device="pc" title="Ordinateur (1200×800)"><i class="fas fa-desktop"></i> PC</button>
+      <button type="button" class="pbd-btn${pageWidth===1920&&pageHeight===1080?' active':''}" data-device="pc" title="Ordinateur (1920×1080)"><i class="fas fa-desktop"></i> PC</button>
       <button type="button" class="pbd-btn${pageWidth===768&&pageHeight===1024?' active':''}" data-device="tablette" title="Tablette (768×1024)"><i class="fas fa-tablet-screen-button"></i> Tablette</button>
       <button type="button" class="pbd-btn${pageWidth===390&&pageHeight===844?' active':''}" data-device="mobile" title="Mobile (390×844)"><i class="fas fa-mobile-screen-button"></i> Mobile</button>
     </div>
@@ -945,7 +946,7 @@ function wirePageRectResize(list) {
         const dx = (ev.clientX - startX) / canvasZoom;
         // Symétrique (le rectangle reste centré) : glisser un bord de dx
         // change la largeur totale de 2×dx.
-        pageWidth = Math.max(320, Math.min(1600, Math.round(startW + (gauche ? -2 * dx : 2 * dx))));
+        pageWidth = Math.max(320, Math.min(2000, Math.round(startW + (gauche ? -2 * dx : 2 * dx))));
         renderBlocsList();
         markDirty();
       };
@@ -996,7 +997,7 @@ function renderBlocsList() {
     // demander un défilement hors de la plage réellement disponible, que le
     // navigateur ramène à sa valeur max, montrant une zone vide sans rapport
     // avec le rectangle au lieu de le centrer.
-    const espaceTravailHtml0 = `<div class="canvas-espace-travail" style="width:2400px;height:${Math.max(1600, hauteurRect0)}px"></div>`;
+    const espaceTravailHtml0 = `<div class="canvas-espace-travail" style="width:3000px;height:${Math.max(1600, hauteurRect0)}px"></div>`;
     list.innerHTML = espaceTravailHtml0 + pageRectHtml(hauteurRect0) + `<div class="blocs-empty">${I18N.BLOCS_VIDE}</div>`;
     wirePageRectResize(list);
     // Sans ça, glisser un bloc depuis la palette sur un canevas encore vide
@@ -1122,7 +1123,7 @@ function renderBlocsList() {
   // bloc n'y est encore placé -- toujours présent (la barre de défilement
   // qu'il implique est masquée visuellement, voir .blocs-canvas-wrap, pour
   // ne pas gêner l'édition normale).
-  const espaceTravailHtml = `<div class="canvas-espace-travail" style="width:2400px;height:${Math.max(1600, pageRectBas)}px"></div>`;
+  const espaceTravailHtml = `<div class="canvas-espace-travail" style="width:3000px;height:${Math.max(1600, pageRectBas)}px"></div>`;
   list.innerHTML = espaceTravailHtml + pageRectHtml(pageRectBas) + flowHtml + libreHtml;
   wirePageRectResize(list);
 
@@ -2085,7 +2086,7 @@ let blocsFullView = false;
 function parsePageMeta(raw) {
   const m = /^(\d+)(?:x(\d+)(?:x(\d+))?)?$/.exec(String(raw || '').trim());
   return {
-    width: Math.max(320, Math.min(1600, (m && parseInt(m[1], 10)) || 820)),
+    width: Math.max(320, Math.min(2000, (m && parseInt(m[1], 10)) || 820)),
     tlEnd: Math.max(1000, Math.min(TL_ABS_MAX, (m && m[2] && parseInt(m[2], 10)) || 30000)),
     height: Math.max(200, Math.min(4000, (m && m[3] && parseInt(m[3], 10)) || 1600)),
   };
@@ -2334,6 +2335,11 @@ function renderBlocsFullView() {
     document.getElementById('vbtnWide').classList.toggle('active', actionsWideMode);
     appliquerLayoutActions();
     renderBlocsList(); // fait apparaître/disparaître l'espace de travail élargi
+    // La largeur du canevas change (palette/réglages masqués ou non) --
+    // sans recentrer, la Zone de la page publiée semble "bouger" (elle se
+    // recentre bien via CSS sur la nouvelle largeur, mais le défilement,
+    // lui, ne suit pas) au lieu de rester visuellement stable.
+    requestAnimationFrame(centrerSurPageRectAvecFiletDeSecurite);
   };
   document.getElementById('posModeLibre').onclick = () => definirPosMode('libre');
   document.getElementById('posModeGrille').onclick = () => definirPosMode('grille');
@@ -2623,6 +2629,7 @@ function renderTimeline() {
     return `
     <div class="timeline-track">
       <div class="timeline-track-label"><i class="fas fa-${BLOC_ICONES[b.type]||'cube'}"></i> ${escAttr(BLOC_LABELS[b.type]||b.type)}
+        <button type="button" class="timeline-track-mode" data-idx="${i}" title="Mode des repères : ${b.kfMode==='relatif'?'Relatif (déplacement depuis la position actuelle)':'Absolu (position exacte enregistrée)'} — clic ou molette pour changer"><i class="fas fa-${b.kfMode==='relatif'?'arrows-up-down-left-right':'anchor'}"></i></button>
         <button type="button" class="timeline-track-add" data-idx="${i}" title="Ajouter un repère de position ici"><i class="fas fa-plus"></i></button>
       </div>
       <div class="timeline-track-ruler" data-idx="${i}">${entryClip}${posClips}</div>
@@ -2682,6 +2689,26 @@ function renderTimeline() {
       e.stopPropagation();
       ajouterRepereDePosition(Number(btn.dataset.idx));
     });
+  });
+
+  // Mode des repères (absolu/relatif) par bloc : clic OU un petit coup de
+  // molette (un cran = un changement) font la même chose, comme demandé --
+  // absolu = reprend la position exacte enregistrée dans le repère ;
+  // relatif = applique seulement le déplacement enregistré par rapport à
+  // la position actuelle du bloc (utile si le bloc a été repositionné
+  // depuis l'enregistrement des repères).
+  tracks.querySelectorAll('.timeline-track-mode').forEach(btn => {
+    const bascule = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = Number(btn.dataset.idx);
+      blocs[idx].kfMode = blocs[idx].kfMode === 'relatif' ? 'absolu' : 'relatif';
+      markDirty();
+      renderTimeline();
+      appliquerApercuKeyframes();
+    };
+    btn.addEventListener('click', bascule);
+    btn.addEventListener('wheel', bascule, { passive: false });
   });
 
   drawTimelineLinks();
@@ -3131,7 +3158,14 @@ function appliquerApercuKeyframes() {
     const el = document.querySelector(`#blocsList > .bloc-item[data-idx="${idx}"], #blocsList .blocs-row > .bloc-item[data-idx="${idx}"]`);
     if (!el) return;
     const v = interpolerRepere(b.keyframes, tlPlayhead);
-    el.style.transform = `${b.rotation ? `rotate(${b.rotation}deg) ` : ''}translate(${v.x}px,${v.y}px)`;
+    // Mode "absolu" (voir le bouton à côté du "+" de la frise) : x/y du
+    // repère sont la position ABSOLUE visée sur le canevas (comme pos_x/
+    // pos_y), donc on calcule le décalage nécessaire depuis la position
+    // statique actuelle du bloc -- sinon (mode "relatif", comportement
+    // d'origine), x/y sont déjà directement le décalage à appliquer.
+    const tx = b.kfMode === 'absolu' ? v.x - (b.pos_x || 0) : v.x;
+    const ty = b.kfMode === 'absolu' ? v.y - (b.pos_y || 0) : v.y;
+    el.style.transform = `${b.rotation ? `rotate(${b.rotation}deg) ` : ''}translate(${tx}px,${ty}px)`;
     // v.w/h === null = ce repère ne fixe pas la dimension (taille naturelle
     // du bloc) -- distinct de 0 (largeur/hauteur réellement nulle, ex: un
     // bloc qui se réduit à rien pour "disparaître"). Dans le cas null, on

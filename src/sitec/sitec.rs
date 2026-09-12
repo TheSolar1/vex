@@ -600,7 +600,7 @@ fn serve_page_view(pool: &DbPool, id: &str, session: &SessionInfo, langue: &str)
             .unwrap_or("")
             .parse::<i64>()
             .unwrap_or(820)
-            .clamp(320, 1600)
+            .clamp(320, 2000)
     } else {
         820
     };
