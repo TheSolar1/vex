@@ -1540,22 +1540,35 @@ function renderBlocsList() {
   // CANVAS_OFFSET,CANVAS_OFFSET à l'écran) -- sinon la vue s'ouvrirait sur
   // l'espace vide ajouté pour pouvoir se déplacer vers le haut/la gauche.
   if (!canvasScrollCentre) {
-    const wrap = document.querySelector('.blocs-canvas-wrap');
-    const rectEl = document.querySelector('.page-boundary-rect');
-    if (wrap && rectEl && wrap.scrollHeight > wrap.clientHeight) {
-      // Centre horizontalement sur la "Zone de la page publiée" réellement
-      // affichée (mesurée via getBoundingClientRect, comme focalSurPageRect)
-      // -- au lieu de recalculer sa position à la main (marge CANVAS_OFFSET
-      // non mise à l'échelle + largeur × zoom), calcul fragile qui pouvait
-      // scroller hors de la zone réellement défilable sur une page encore
-      // vide (dont l'espace de travail panoramique est plus petit).
-      const wrapR = wrap.getBoundingClientRect();
-      const pageR = rectEl.getBoundingClientRect();
-      const centreX = pageR.left + pageR.width / 2 - wrapR.left + wrap.scrollLeft;
-      wrap.scrollLeft = Math.max(0, centreX - wrap.clientWidth / 2);
-      wrap.scrollTop = CANVAS_OFFSET;
-      canvasScrollCentre = true;
-    }
+    canvasScrollCentre = true;
+    // requestAnimationFrame : laisse le navigateur terminer la mise en page
+    // (feuilles de style, flex du conteneur...) avant de mesurer quoi que ce
+    // soit -- mesurer trop tot peut donner une geometrie fausse (vu dans la
+    // console : "mise en page forcee avant le chargement complet").
+    requestAnimationFrame(centrerSurPageRectAvecFiletDeSecurite);
+  }
+}
+
+// Centre le canevas sur la "Zone de la page publiée" (mesure réelle via
+// getBoundingClientRect), puis VÉRIFIE que le rectangle est effectivement
+// visible après coup -- si un bug de géométrie quelconque a mal calculé la
+// position, on se rabat sur le centrage brut d'origine plutôt que de
+// laisser l'utilisateur face à un canevas vide sans le savoir.
+function centrerSurPageRectAvecFiletDeSecurite() {
+  const wrap = document.querySelector('.blocs-canvas-wrap');
+  const rectEl = document.querySelector('.page-boundary-rect');
+  if (!wrap || !rectEl) return;
+  const wrapR = wrap.getBoundingClientRect();
+  const pageR = rectEl.getBoundingClientRect();
+  const centreX = pageR.left + pageR.width / 2 - wrapR.left + wrap.scrollLeft;
+  wrap.scrollLeft = Math.max(0, centreX - wrap.clientWidth / 2);
+  wrap.scrollTop = CANVAS_OFFSET;
+  const pageR2 = rectEl.getBoundingClientRect();
+  const visible = pageR2.right > wrapR.left && pageR2.left < wrapR.right
+    && pageR2.bottom > wrapR.top && pageR2.top < wrapR.bottom;
+  if (!visible) {
+    wrap.scrollLeft = CANVAS_OFFSET;
+    wrap.scrollTop = CANVAS_OFFSET;
   }
 }
 
