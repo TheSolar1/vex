@@ -1024,8 +1024,8 @@ fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
             free_bottom = free_bottom.max(pos_y + est_h);
             let rotate_style = if rotation > 0 { format!("transform:rotate({}deg);", rotation) } else { String::new() };
             free_out.push_str(&format!(
-                "<div style=\"position:absolute;left:{}px;top:{}px;width:{}%;{}\">{}</div>",
-                pos_x, pos_y, largeur, rotate_style, html
+                "<div style=\"position:absolute;left:{}px;top:{}px;width:{}%;max-width:calc(100% - {}px);min-width:0;{}\">{}</div>",
+                pos_x, pos_y, largeur, pos_x, rotate_style, html
             ));
             continue;
         }
@@ -1057,7 +1057,7 @@ fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
         let mut j = i;
         while j < items.len() && items[j].0 == ligne {
             row_html.push_str(&format!(
-                "<div class=\"sitec-row-item\" style=\"flex:0 0 {l}%;max-width:{l}%;\">{}</div>",
+                "<div class=\"sitec-row-item\" style=\"flex:0 0 {l}%;max-width:{l}%;min-width:0;\">{}</div>",
                 items[j].4, l = items[j].1
             ));
             j += 1;
