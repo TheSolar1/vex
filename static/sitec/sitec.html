@@ -978,7 +978,15 @@ function renderBlocsList() {
   if (!list) return;
   if (!blocs.length) {
     const canvasVisibleH0 = document.querySelector('.blocs-canvas-wrap')?.clientHeight || 400;
-    list.innerHTML = pageRectHtml(canvasVisibleH0 - 32) + `<div class="blocs-empty">${I18N.BLOCS_VIDE}</div>`;
+    const hauteurRect0 = Math.max(pageHeight, canvasVisibleH0 - 32);
+    // Espace de travail panoramique : sans lui (bug corrigé), une page vide
+    // n'avait presque aucune zone de défilement autour du rectangle repère
+    // -- le calcul de recentrage initial (voir plus bas) pouvait alors
+    // demander un défilement hors de la plage réellement disponible, que le
+    // navigateur ramène à sa valeur max, montrant une zone vide sans rapport
+    // avec le rectangle au lieu de le centrer.
+    const espaceTravailHtml0 = `<div class="canvas-espace-travail" style="width:2400px;height:${Math.max(1600, hauteurRect0)}px"></div>`;
+    list.innerHTML = espaceTravailHtml0 + pageRectHtml(hauteurRect0) + `<div class="blocs-empty">${I18N.BLOCS_VIDE}</div>`;
     wirePageRectResize(list);
     // Sans ça, glisser un bloc depuis la palette sur un canevas encore vide
     // ne faisait rien : cette poignée n'était câblée que plus bas, dans la
@@ -1533,15 +1541,18 @@ function renderBlocsList() {
   // l'espace vide ajouté pour pouvoir se déplacer vers le haut/la gauche.
   if (!canvasScrollCentre) {
     const wrap = document.querySelector('.blocs-canvas-wrap');
-    if (wrap && wrap.scrollHeight > wrap.clientHeight) {
-      // Centre horizontalement sur la "Zone de la page publiée" (pas sur
-      // l'origine brute du canevas) -- la marge (voir .blocs-list-zoom)
-      // n'est pas mise à l'échelle par le zoom (transform:scale), contrairement
-      // à son contenu, vérifié, d'où le calcul séparé marge + contenu×zoom.
-      const listW = list.clientWidth || 0;
-      const pageLeftReel = Math.max(0, (listW - pageWidth) / 2);
-      const pageCentrePx = CANVAS_OFFSET + (pageLeftReel + pageWidth / 2) * canvasZoom;
-      wrap.scrollLeft = Math.max(0, pageCentrePx - wrap.clientWidth / 2);
+    const rectEl = document.querySelector('.page-boundary-rect');
+    if (wrap && rectEl && wrap.scrollHeight > wrap.clientHeight) {
+      // Centre horizontalement sur la "Zone de la page publiée" réellement
+      // affichée (mesurée via getBoundingClientRect, comme focalSurPageRect)
+      // -- au lieu de recalculer sa position à la main (marge CANVAS_OFFSET
+      // non mise à l'échelle + largeur × zoom), calcul fragile qui pouvait
+      // scroller hors de la zone réellement défilable sur une page encore
+      // vide (dont l'espace de travail panoramique est plus petit).
+      const wrapR = wrap.getBoundingClientRect();
+      const pageR = rectEl.getBoundingClientRect();
+      const centreX = pageR.left + pageR.width / 2 - wrapR.left + wrap.scrollLeft;
+      wrap.scrollLeft = Math.max(0, centreX - wrap.clientWidth / 2);
       wrap.scrollTop = CANVAS_OFFSET;
       canvasScrollCentre = true;
     }
