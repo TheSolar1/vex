@@ -1056,8 +1056,12 @@ fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
         i = j;
     }
     if !free_out.is_empty() {
+        // overflow:hidden -- un bloc libre pos_x/pos_y hors de la largeur de
+        // page (repere visuel seulement dans l'editeur) ne doit pas deborder
+        // sur la page publiee. Sans danger verticalement : min-height vaut
+        // deja free_bottom, la hauteur la plus basse parmi les blocs libres.
         out = format!(
-            "<div style=\"position:relative;min-height:{}px;\">{}{}</div>",
+            "<div style=\"position:relative;min-height:{}px;overflow:hidden;\">{}{}</div>",
             free_bottom, out, free_out
         );
     }

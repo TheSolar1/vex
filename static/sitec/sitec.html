@@ -214,6 +214,18 @@ body {
 }
 .page-boundary-resize-l { left:-7px; }
 .page-boundary-resize-r { right:-7px; }
+.page-boundary-devices { position:absolute; top:0; right:8px; transform:translateY(-100%); display:flex; gap:4px; pointer-events:auto; }
+.pbd-btn {
+  font-size:11px; padding:3px 9px; border-radius:4px 4px 0 0; border:1px solid var(--accent); border-bottom:none;
+  background:var(--surface); color:var(--accent); cursor:pointer; display:flex; align-items:center; gap:5px; font-family:inherit;
+}
+.pbd-btn:hover, .pbd-btn.active { background:var(--accent); color:#fff; }
+.page-fold-line { position:absolute; left:0; right:0; height:0; border-top:2px dashed var(--accent); opacity:.55; cursor:row-resize; z-index:1; pointer-events:auto; }
+.page-fold-line:hover { opacity:1; }
+.page-fold-line::after {
+  content:'Pli'; position:absolute; right:4px; top:-15px; font-size:10px; font-weight:600; color:var(--accent);
+  background:var(--surface); padding:1px 6px; border-radius:3px;
+}
 .align-guide-v, .align-guide-h { position:absolute; background:#ff3b8d; z-index:50; pointer-events:none; }
 .align-guide-v { top:0; bottom:0; width:1px; }
 .align-guide-h { left:0; right:0; height:1px; }
@@ -253,7 +265,9 @@ body {
 }
 .bloc-rotate-handle:hover { background:var(--accent); color:var(--surface); border-color:var(--accent); }
 .bloc-rotate-handle:active { cursor:grabbing; }
-.bloc-item-apercu { padding:0 12px 12px; }
+.bloc-item-apercu { padding:0 12px 12px; flex:1; min-height:0; }
+.bloc-item.libre .bloc-item-apercu { display:flex; height:calc(100% - 44px); }
+.bloc-item.libre .bloc-item-apercu img { width:100%; height:100%; object-fit:cover; max-height:none; }
 .bloc-item-apercu img { display:block; max-width:100%; max-height:280px; margin:0 auto; border-radius:6px; }
 .bloc-item-apercu-vide { display:flex; align-items:center; gap:8px; padding:14px 12px; color:var(--text-dim); font-size:12.5px; background:var(--surface); border:1px dashed var(--border); border-radius:6px; margin:0 12px 12px; }
 .bloc-item.dragging { opacity:.4; }
@@ -334,8 +348,10 @@ body {
 .icon-picker-item:hover { border-color:var(--accent); color:var(--accent); }
 
 /* ── Mode Actions : timeline façon Blender ── */
-.blocs-timeline-wrap { border-top:1px solid var(--border); background:var(--surface); flex-shrink:0; display:none; }
+.blocs-timeline-wrap { border-top:1px solid var(--border); background:var(--surface); flex-shrink:0; display:none; position:relative; }
 .blocs-timeline-wrap.active { display:block; }
+.tl-height-resize { height:6px; margin-top:-6px; cursor:row-resize; position:relative; z-index:6; }
+.tl-height-resize:hover, .tl-height-resize.dragging { background:var(--accent); opacity:.4; }
 .blocs-timeline-hdr { display:flex; align-items:center; gap:10px; padding:8px 12px; border-bottom:1px solid var(--border); }
 .blocs-timeline-hdr .vbtn {
   width:30px; height:30px; border-radius:6px; border:1px solid var(--border); background:var(--sidebar-hover); color:var(--text);
@@ -357,9 +373,10 @@ body {
   color:var(--text); font-size:12px; font-family:'SF Mono',Consolas,monospace; outline:none;
 }
 .tl-range-input:focus { border-color:var(--accent); }
-.timeline-ruler-outer { overflow-x:auto; }
+.timeline-ruler-outer { overflow-x:auto; position:relative; }
 .timeline-ruler-numbers { position:relative; margin-left:160px; height:16px; font-size:10px; color:var(--text-dim); font-family:'SF Mono',Consolas,monospace; }
 .timeline-ruler-numbers span { position:absolute; top:0; transform:translateX(-50%); white-space:nowrap; }
+.timeline-ruler-numbers span::after { content:''; position:absolute; top:100%; left:50%; width:1px; height:4px; background:var(--border); }
 .blocs-timeline-tracks { position:relative; max-height:180px; overflow-y:auto; padding:8px 12px; }
 .tl-links { position:absolute; left:0; top:0; pointer-events:none; }
 .timeline-track { display:flex; align-items:center; gap:10px; height:30px; margin-bottom:4px; }
@@ -377,7 +394,7 @@ body {
 .timeline-clip.pos { background:#3b82f6; }
 .timeline-clip:active { cursor:grabbing; }
 .timeline-clip.selected { outline:2px solid var(--text); }
-.timeline-playhead { position:absolute; top:-4px; bottom:-4px; width:2px; background:var(--danger); pointer-events:none; z-index:2; }
+.timeline-playhead { position:absolute; top:0; bottom:0; width:2px; background:var(--danger); pointer-events:none; z-index:2; }
 .timeline-ruler-wrap { position:relative; margin-left:160px; width:600px; height:16px; cursor:text; }
 .tl-kf-editor { display:none; align-items:center; gap:6px; padding:6px 12px; border-bottom:1px solid var(--border); background:var(--sidebar-hover); }
 .tl-kf-editor .champ-label { margin:0; }
@@ -745,6 +762,8 @@ let blocsViewMode = 'visuel'; // 'visuel' | 'code'
 let canvasZoom = 1; // 0.25 - 2 ; zoom du canevas (pas de la frise, voir tlZoomLevel)
 let canvasScrollCentre = false; // recalage une seule fois (voir renderBlocsList)
 let pageWidth = 820; // largeur de contenu (px) de la page publiée, réglable via le rectangle repère
+let pageHeight = 900; // hauteur du "pli" (px) -- ce qui est visible sans défiler, réglable via le rectangle repère ou les préréglages d'appareil
+const DEVICE_PRESETS = { pc: [1200, 800], tablette: [768, 1024], mobile: [390, 844] };
 // Décalage purement visuel appliqué au CANEVAS DE L'ÉDITEUR (jamais aux
 // données pos_x/pos_y stockées, ni à la page publiée) : un bloc libre
 // peut avoir des coordonnées négatives (au-dessus/à gauche du contenu
@@ -883,12 +902,20 @@ function wireCanvasEmptyDrop(list) {
 }
 
 // Rectangle repère (largeur de contenu de la page publiée, voir pageWidth)
-// -- poignées gauche/droite pour l'ajuster par glisser.
-function pageRectHtml(hauteurPx) {
-  return `<div class="page-boundary-rect" style="width:${pageWidth}px;height:${hauteurPx}px">
-    <span>Zone de la page publiée (${pageWidth}px)</span>
+// -- poignées gauche/droite pour la largeur, préréglages d'appareil, et
+// ligne de pli (pageHeight, ce qui est visible sans défiler) glissable.
+function pageRectHtml(hauteurContenu) {
+  const h = Math.max(pageHeight, hauteurContenu);
+  return `<div class="page-boundary-rect" style="width:${pageWidth}px;height:${h}px">
+    <span>Zone de la page publiée (${pageWidth}×${pageHeight}px)</span>
+    <div class="page-boundary-devices">
+      <button type="button" class="pbd-btn${pageWidth===1200&&pageHeight===800?' active':''}" data-device="pc" title="Ordinateur (1200×800)"><i class="fas fa-desktop"></i> PC</button>
+      <button type="button" class="pbd-btn${pageWidth===768&&pageHeight===1024?' active':''}" data-device="tablette" title="Tablette (768×1024)"><i class="fas fa-tablet-screen-button"></i> Tablette</button>
+      <button type="button" class="pbd-btn${pageWidth===390&&pageHeight===844?' active':''}" data-device="mobile" title="Mobile (390×844)"><i class="fas fa-mobile-screen-button"></i> Mobile</button>
+    </div>
     <div class="page-boundary-resize page-boundary-resize-l"></div>
     <div class="page-boundary-resize page-boundary-resize-r"></div>
+    <div class="page-fold-line" style="top:${pageHeight}px" title="Le pli -- glisser pour ajuster la hauteur visible sans défiler"></div>
   </div>`;
 }
 function wirePageRectResize(list) {
@@ -911,6 +938,33 @@ function wirePageRectResize(list) {
       document.addEventListener('mouseup', onUp);
     });
   });
+  list.querySelectorAll('.pbd-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const preset = DEVICE_PRESETS[btn.dataset.device];
+      if (!preset) return;
+      [pageWidth, pageHeight] = preset;
+      markDirty();
+      renderBlocsList();
+    });
+  });
+  const fold = list.querySelector('.page-fold-line');
+  if (fold) {
+    fold.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const startY = e.clientY, startH = pageHeight;
+      const onMove = (ev) => {
+        const dy = (ev.clientY - startY) / canvasZoom;
+        pageHeight = Math.max(200, Math.min(4000, Math.round(startH + dy)));
+        renderBlocsList();
+        markDirty();
+      };
+      const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
 }
 
 // ── Rendu du canevas : rangées de blocs, sélection, glisser-déposer ────
@@ -1952,13 +2006,15 @@ function renderIconPickerGrid(filter) {
 
 let blocsFullView = false;
 
-// "LARGEURxFIN" (ex: "820x30000") -- rétro-compatible avec les pages
-// enregistrées avant l'ajout de la fin de frise (juste un nombre = largeur).
+// "LARGEURxFINxHAUTEUR" (ex: "820x30000x900") -- rétro-compatible avec les
+// pages enregistrées avant l'ajout de la fin de frise et/ou de la hauteur de
+// pli (juste un nombre = largeur seule ; "largeurxfin" = sans hauteur).
 function parsePageMeta(raw) {
-  const m = /^(\d+)(?:x(\d+))?$/.exec(String(raw || '').trim());
+  const m = /^(\d+)(?:x(\d+)(?:x(\d+))?)?$/.exec(String(raw || '').trim());
   return {
     width: Math.max(320, Math.min(1600, (m && parseInt(m[1], 10)) || 820)),
     tlEnd: Math.max(1000, Math.min(TL_ABS_MAX, (m && m[2] && parseInt(m[2], 10)) || 30000)),
+    height: Math.max(200, Math.min(4000, (m && m[3] && parseInt(m[3], 10)) || 900)),
   };
 }
 
@@ -1968,6 +2024,7 @@ function renderEditor() {
   selectedIdx = -1;
   const meta = parsePageMeta(p.contenu_corps);
   pageWidth = meta.width;
+  pageHeight = meta.height;
   tlStart = 0;
   tlEnd = meta.tlEnd;
   tlPlayhead = Math.min(tlPlayhead, tlEnd);
@@ -2148,6 +2205,7 @@ function renderBlocsFullView() {
               </div>
             </div>
             <div class="blocs-timeline-wrap" id="blocsTimeline">
+              <div class="tl-height-resize" id="tlHeightResize" title="Glisser pour régler la hauteur de la frise"></div>
               <div class="blocs-timeline-hdr">
                 <button type="button" class="vbtn" id="tlJumpStartBtn" title="Aller au début"><i class="fas fa-backward-fast"></i></button>
                 <button type="button" class="vbtn" id="tlPrevKeyBtn" title="Repère précédent"><i class="fas fa-backward-step"></i></button>
@@ -2169,8 +2227,9 @@ function renderBlocsFullView() {
               <div class="tl-kf-editor" id="tlKfEditor" style="display:none"></div>
               <div class="timeline-ruler-outer" id="tlRulerOuter">
                 <div class="timeline-ruler-numbers" id="tlRulerNumbers"></div>
-                <div class="timeline-ruler-wrap" id="tlRulerWrap"><div class="timeline-playhead" id="tlPlayhead" style="left:0"></div></div>
+                <div class="timeline-ruler-wrap" id="tlRulerWrap"></div>
                 <div class="blocs-timeline-tracks" id="tlTracks"></div>
+                <div class="timeline-playhead" id="tlPlayhead" style="left:160px"></div>
               </div>
             </div>
           </div>
@@ -2219,6 +2278,7 @@ function renderBlocsFullView() {
     definirCanvasZoom(canvasZoom + (e.deltaY < 0 ? 0.1 : -0.1), { x: e.clientX - rect.left, y: e.clientY - rect.top });
   }, { passive: false });
   wireCanvasPan();
+  wireTlHeightResize();
   document.getElementById('tlPlayBackBtn').onclick = () => tlTogglePlay(true);
   document.getElementById('tlZoomInBtn').onclick = () => tlZoom(1);
   document.getElementById('tlZoomOutBtn').onclick = () => tlZoom(-1);
@@ -2313,6 +2373,8 @@ function tlZoom(dir) {
   applyTlZoomWidth();
   renderTlRulerNumbers();
   drawTimelineLinks();
+  const ph = document.getElementById('tlPlayhead');
+  if (ph) ph.style.left = `${tlPlayheadLeftPx()}px`;
 }
 function applyTlZoomWidth() {
   const px = `${TL_BASE_PX * tlZoomLevel}px`;
@@ -2340,6 +2402,39 @@ function wireTlSeek() {
     seek(e);
     const onMove = (ev) => seek(ev);
     const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+  // Molette = zoom de la frise (comme la molette sur le canevas), sans avoir
+  // à passer par les petits boutons +/- dédiés.
+  outer.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    tlZoom(e.deltaY < 0 ? 1 : -1);
+  }, { passive: false });
+}
+
+// Glisser la poignée en haut de la frise = régler sa hauteur (celle de la
+// zone des pistes, qui scrolle déjà verticalement si besoin -- voir
+// .blocs-timeline-tracks). Purement une préférence d'affichage, pas
+// enregistrée avec la page.
+function wireTlHeightResize() {
+  const handle = document.getElementById('tlHeightResize');
+  const tracks = document.getElementById('tlTracks');
+  if (!handle || !tracks) return;
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    handle.classList.add('dragging');
+    const startY = e.clientY;
+    const startH = tracks.getBoundingClientRect().height;
+    const onMove = (ev) => {
+      const h = Math.max(30, Math.min(600, Math.round(startH - (ev.clientY - startY))));
+      tracks.style.maxHeight = `${h}px`;
+    };
+    const onUp = () => {
+      handle.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   });
@@ -2456,6 +2551,8 @@ function renderTimeline() {
   }).join('');
   applyTlZoomWidth();
   renderTlRulerNumbers();
+  const ph = document.getElementById('tlPlayhead');
+  if (ph) ph.style.left = `${tlPlayheadLeftPx()}px`;
 
   tracks.querySelectorAll('.timeline-clip').forEach(clip => {
     clip.addEventListener('mousedown', (e) => {
@@ -2576,10 +2673,17 @@ function tlPct(ms) {
   return (ms - tlStart) / span * 100;
 }
 
+// Le curseur (#tlPlayhead) vit maintenant hors de .timeline-ruler-wrap (pour
+// s'étendre visuellement jusqu'en bas des pistes, voir #10) -- sa position
+// s'exprime donc en pixels absolus (marge de 160px pour la colonne
+// d'étiquettes + position dans la règle elle-même), pas en % de ce wrap.
+function tlPlayheadLeftPx() {
+  return 160 + (tlPct(tlPlayhead) / 100) * (TL_BASE_PX * tlZoomLevel);
+}
 function tlSetPlayhead(ms) {
   tlPlayhead = Math.max(tlStart, Math.min(tlEnd, ms));
   const ph = document.getElementById('tlPlayhead');
-  if (ph) ph.style.left = `${tlPct(tlPlayhead)}%`;
+  if (ph) ph.style.left = `${tlPlayheadLeftPx()}px`;
   const f = document.getElementById('tlFrameInput');
   if (f && document.activeElement !== f) f.value = Math.round(tlPlayhead);
   appliquerApercuKeyframes();
@@ -2926,15 +3030,18 @@ function appliquerApercuKeyframes() {
 }
 
 // Chiffres au-dessus de la règle (comme la règle d'images de Blender) --
-// ~8 graduations réparties entre Début et Fin.
+// graduations à un pas "rond" (10, 50, 100, 500, 1000ms…) choisi selon le
+// zoom, plutôt qu'un nombre fixe de graduations réparties uniformément.
+const TL_PALIERS = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000];
 function renderTlRulerNumbers() {
   const el = document.getElementById('tlRulerNumbers');
   if (!el) return;
-  const n = 8;
+  const span = tlEnd - tlStart || 1;
+  const pasApprox = span / 10;
+  const pas = TL_PALIERS.find(p => p >= pasApprox) || TL_PALIERS[TL_PALIERS.length - 1];
   let html = '';
-  for (let k = 0; k <= n; k++) {
-    const ms = tlStart + (tlEnd - tlStart) * (k / n);
-    html += `<span style="left:${k/n*100}%">${Math.round(ms)}</span>`;
+  for (let ms = Math.ceil(tlStart / pas) * pas; ms <= tlEnd; ms += pas) {
+    html += `<span style="left:${(ms - tlStart) / span * 100}%">${ms}</span>`;
   }
   el.innerHTML = html;
   el.style.width = document.getElementById('tlRulerWrap')?.style.width || '';
@@ -3057,7 +3164,7 @@ async function savePage(mode) {
     // En mode "blocs", ce champ (inutilisé pour le texte) porte la largeur
     // de page (rectangle repère) et la fin de frise réglées dans l'éditeur,
     // au format "LARGEURxFIN" -- voir parsePageMeta au chargement.
-    contenu_corps: mode === 'blocs' ? `${pageWidth}x${tlEnd}` : (document.getElementById('contenuCorpsInput')?.value || ''),
+    contenu_corps: mode === 'blocs' ? `${pageWidth}x${tlEnd}x${pageHeight}` : (document.getElementById('contenuCorpsInput')?.value || ''),
     contenu_html:  document.getElementById('contenuHtmlInput')?.value || '',
     contenu_blocs: blocs,
   };
