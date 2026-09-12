@@ -2764,10 +2764,16 @@ function definirCanvasZoom(z, focal) {
   if (wrap && oldZoom !== canvasZoom) {
     const fx = focal ? focal.x : wrap.clientWidth / 2;
     const fy = focal ? focal.y : wrap.clientHeight / 2;
-    const contentX = (wrap.scrollLeft + fx) / oldZoom;
-    const contentY = (wrap.scrollTop + fy) / oldZoom;
-    wrap.scrollLeft = contentX * canvasZoom - fx;
-    wrap.scrollTop = contentY * canvasZoom - fy;
+    // CANVAS_OFFSET (marge de .blocs-list-zoom) n'est PAS mis à l'échelle
+    // par le zoom (transform:scale porte seulement sur le contenu) -- il
+    // faut le soustraire avant de diviser par l'ancien zoom, sinon le calcul
+    // mélange une distance fixe et une distance mise à l'échelle, ce qui
+    // fait sauter la vue de façon erratique à chaque zoom/dézoom (surtout
+    // visible en dehors de 100%, où l'écart entre les deux devient net).
+    const contentX = (wrap.scrollLeft + fx - CANVAS_OFFSET) / oldZoom;
+    const contentY = (wrap.scrollTop + fy - CANVAS_OFFSET) / oldZoom;
+    wrap.scrollLeft = contentX * canvasZoom + CANVAS_OFFSET - fx;
+    wrap.scrollTop = contentY * canvasZoom + CANVAS_OFFSET - fy;
   }
   if ((oldZoom === 1) !== (canvasZoom === 1)) renderBlocsList(); // rectangle de page : masqué/affiché selon le zoom
 }

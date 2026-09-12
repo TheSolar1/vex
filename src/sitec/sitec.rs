@@ -610,7 +610,8 @@ fn serve_page_view(pool: &DbPool, id: &str, session: &SessionInfo, langue: &str)
         <title>{titre}</title>\
         <script src=\"/static/fa-local.js\" defer></script>\
         <style>body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;\
-        max-width:{largeur_page}px;margin:40px auto;padding:0 20px;color:#1c1e21;line-height:1.6;}}\
+        max-width:{largeur_page}px;margin:40px auto;padding:0 20px;color:#1c1e21;line-height:1.6;\
+        overflow-wrap:anywhere;word-break:break-word;overflow-x:hidden;}}\
         .sitec-view-wrap h1{{margin-bottom:16px;}}\
         .sitec-view-corps{{font-size:16px;white-space:pre-wrap;}}\
         .sitec-anim{{opacity:1;}}\
@@ -1199,6 +1200,7 @@ const BLOCS_EXTRA_CSS: &str = "\
 .sitec-bloc-citation cite{display:block;margin-top:8px;font-style:normal;font-weight:600;color:#65676b;}\
 .sitec-bloc-liste{padding-left:22px;}\
 .sitec-bloc-icone-texte{display:flex;gap:14px;align-items:flex-start;}\
+.sitec-bloc-icone-texte>div{min-width:0;}\
 .sitec-icone{font-size:28px;line-height:1;}\
 .sitec-bloc-carte{border:1px solid #e4e6eb;border-radius:10px;overflow:hidden;}\
 .sitec-bloc-carte img{width:100%;display:block;}\
