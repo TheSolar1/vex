@@ -1898,7 +1898,13 @@ function ajouterBloc(type) {
   // par test automatise a chaque fois.
   const nbLibres = blocs.filter(b => b.libre).length;
   const decal = (nbLibres % 6) * 90;
-  bloc.pos_x = Math.max(0, c.x - 100 + decal);
+  // Empêche le bloc de sortir de la Zone de la page publiée horizontalement
+  // -- sans ça (vu en capture d'écran), la cascade finissait par pousser le
+  // bloc bien au-delà du bord droit de la zone sur une page pas assez
+  // large pour absorber le décalage cumulé.
+  const largeurBlocPx = (bloc.largeur / 100) * pageWidth;
+  const maxX = Math.max(0, pageWidth - largeurBlocPx);
+  bloc.pos_x = Math.max(0, Math.min(maxX, c.x - 100 + decal));
   bloc.pos_y = Math.max(0, c.y + decal);
   blocs.push(bloc);
   selectedIdx = blocs.length - 1;
@@ -2702,6 +2708,16 @@ function renderTimeline() {
       e.stopPropagation();
       ajouterRepereDePosition(Number(btn.dataset.idx));
     });
+    // Molette sur le "+" = règle finement l'instant où le prochain repère
+    // sera posé (un cran = 50ms, le même pas que le glisser d'un repère
+    // existant), sans avoir à viser précisément la règle avec la souris.
+    btn.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      tlSetPlayhead(tlPlayhead + (e.deltaY < 0 ? 50 : -50));
+      const f = document.getElementById('tlFrameInput');
+      if (f) f.value = Math.round(tlPlayhead);
+    }, { passive: false });
   });
 
   // Mode des repères (absolu/relatif) par bloc : clic OU un petit coup de
