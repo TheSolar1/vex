@@ -1852,12 +1852,16 @@ function centreDeLaPage() {
 function ajouterBloc(type) {
   const bloc = blocDefaut(type);
   bloc.libre = true;
-  // Largeur par défaut (200px, exprimée en % de la page comme le veut le
+  // Largeur par défaut (340px, exprimée en % de la page comme le veut le
   // champ "largeur") -- sans ça (bug trouvé par un test automatisé), un
   // bloc libre gardait la largeur 100% de blocDefaut : une "carte" qui
   // s'étend sur tout le canevas dès sa création, débordant même sur le
   // panneau de réglages, au lieu d'un bloc compact qu'on positionne ensuite.
-  bloc.largeur = Math.max(15, Math.min(100, Math.round(200 / pageWidth * 100)));
+  // 340px (pas moins) : en dessous, l'en-tête (icône+libellé+4 boutons pour
+  // un bloc libre) n'a presque plus de place cliquable pour déplier le
+  // bloc, un clic tombant systématiquement sur un bouton -- trouvé aussi
+  // par test automatisé.
+  bloc.largeur = Math.max(25, Math.min(100, Math.round(340 / pageWidth * 100)));
   const c = centreDeLaPage();
   bloc.pos_x = Math.max(0, c.x - 100);
   bloc.pos_y = Math.max(0, c.y);
