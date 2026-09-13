@@ -1069,12 +1069,15 @@ fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
         i = j;
     }
     if !free_out.is_empty() {
-        // overflow:hidden -- un bloc libre pos_x/pos_y hors de la largeur de
-        // page (repere visuel seulement dans l'editeur) ne doit pas deborder
-        // sur la page publiee. Sans danger verticalement : min-height vaut
-        // deja free_bottom, la hauteur la plus basse parmi les blocs libres.
+        // overflow-x seulement -- empeche un bloc libre pos_x hors largeur de
+        // deborder horizontalement, sans jamais rogner verticalement : une
+        // image en largeur % avec height:auto peut rendre PLUS haute que le
+        // champ "Hauteur" (simple estimation utilisateur pour free_bottom,
+        // pas la vraie taille rendue) -- overflow:hidden sur les deux axes
+        // coupait alors le bas de l'image. Signale comme "image cropee/coupee
+        // en bas sur la page publiee".
         out = format!(
-            "<div style=\"position:relative;min-height:{}px;overflow:hidden;\">{}{}</div>",
+            "<div style=\"position:relative;min-height:{}px;overflow-x:hidden;\">{}{}</div>",
             free_bottom, out, free_out
         );
     }
