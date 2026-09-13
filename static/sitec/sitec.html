@@ -2500,7 +2500,11 @@ function basculerModeActions() {
   appliquerLayoutActions();
   if (actionsMode) {
     renderTimeline();
-    appliquerApercuKeyframes();
+    // PAS d'appliquerApercuKeyframes() ici : demande explicite -- un bloc
+    // garde sa position statique tant qu'on ne bouge pas le curseur de la
+    // frise, meme a l'ouverture. Avant, ouvrir la frise appliquait tout de
+    // suite le repere au temps 0 (souvent un grand decalage, ex: -870px),
+    // ce qui donnait l'impression que "la timeline deplace tous les blocs".
   } else {
     // Revient à la forme/position statique du bloc (celle des champs
     // Largeur/Hauteur du panneau de réglages) en quittant le mode Actions
