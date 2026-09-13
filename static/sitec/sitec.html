@@ -803,9 +803,15 @@ let tlPlayhead = 0; // ms
 let tlSelectedIdx = -1;
 let tlSelectedKf = -1; // index dans blocs[idx].keyframes, -1 = repère d'entrée (délai) sélectionné
 let tlGrabbing = false;
-const TL_ABS_MAX = 120000; // plafond serveur (san_int anim_delai)
+const TL_ABS_MAX = 3600000; // plafond serveur (san_int anim_delai)
 let tlStart = 0;
 let tlEnd = 30000;
+
+// Le temps reste stocké en ms partout en interne (repères, délais, plage) --
+// seul l'AFFICHAGE (frise, champs, infobulles) est converti en secondes,
+// bien plus lisible qu'un nombre de ms brut.
+function msVersS(ms) { return Math.round((Number(ms) || 0) / 10) / 100; }
+function sVersMs(s) { return Math.round((Number(s) || 0) * 1000); }
 
 function blocDefaut(type) {
   const base = { type, animation: '', ligne: '', largeur: 100, espace: 16, anim_delai: 0, hauteur: 0, decalage: 0, keyframes: [], boucle: false, libre: false, pos_x: 0, pos_y: 0, rotation: 0, kfMode: 'absolu', wheelCible: 'mode' };
@@ -1694,7 +1700,7 @@ function renderBlocsSettings() {
       : `<div class="hint" style="margin-top:6px">Glissez ce bloc sur le bord gauche/droit d'un autre bloc dans le canevas pour les mettre côte à côte, ou réduisez sa largeur et utilisez le décalage pour le positionner librement.</div>`}
     `}
     <div class="blocs-settings-section-title">Délai d'animation</div>
-    <div><span class="champ-label">Avant déclenchement (ms)</span><input type="number" id="setDelai" min="0" max="120000" step="50" value="${b.anim_delai||0}"></div>
+    <div><span class="champ-label">Avant déclenchement (s)</span><input type="number" id="setDelai" min="0" max="3600" step="0.05" value="${msVersS(b.anim_delai||0)}"></div>
     <div class="hint" style="margin-top:6px">Réglable aussi en glissant le repère de ce bloc dans le mode Actions (barre d'outils verticale).</div>
     ${(b.keyframes && b.keyframes.length >= 2) ? `
     <label class="champ-checkbox-row" style="margin-top:8px"><input type="checkbox" id="setBoucle" ${b.boucle?'checked':''}> Boucle — répète l'animation de repères en continu</label>
@@ -1727,7 +1733,7 @@ function renderBlocsSettings() {
   const hauteurEl = document.getElementById('setHauteur');
   if (hauteurEl) hauteurEl.addEventListener('input', (e) => { blocs[idx].hauteur = Math.max(0, Math.min(2000, Number(e.target.value)||0)); markDirty(); renderBlocsList(); });
   const delaiEl = document.getElementById('setDelai');
-  if (delaiEl) delaiEl.addEventListener('input', (e) => { blocs[idx].anim_delai = Math.max(0, Math.min(120000, Number(e.target.value)||0)); markDirty(); if (actionsMode) renderTimeline(); });
+  if (delaiEl) delaiEl.addEventListener('input', (e) => { blocs[idx].anim_delai = Math.max(0, Math.min(3600000, sVersMs(e.target.value))); markDirty(); if (actionsMode) renderTimeline(); });
   const boucleEl = document.getElementById('setBoucle');
   if (boucleEl) boucleEl.addEventListener('change', (e) => { blocs[idx].boucle = e.target.checked; markDirty(); });
   const sortirBtn = document.getElementById('sortirLigneBtn');
@@ -2340,10 +2346,10 @@ function renderBlocsFullView() {
                 <button type="button" class="vbtn" id="tlPlayBtn" title="Lecture (Espace)"><i class="fas fa-play"></i></button>
                 <button type="button" class="vbtn" id="tlNextKeyBtn" title="Repère suivant"><i class="fas fa-forward-step"></i></button>
                 <button type="button" class="vbtn" id="tlJumpEndBtn" title="Aller à la fin"><i class="fas fa-forward-fast"></i></button>
-                <input type="number" class="tl-frame-input" id="tlFrameInput" value="0" step="50" title="Position actuelle (ms)">
+                <input type="number" class="tl-frame-input" id="tlFrameInput" value="0" step="0.05" title="Position actuelle (s)">
                 <div class="tl-range">
-                  <span class="champ-label">Début</span><input type="number" class="tl-range-input" id="tlStartInput" value="0" step="500">
-                  <span class="champ-label">Fin</span><input type="number" class="tl-range-input" id="tlEndInput" value="30000" step="500" max="120000">
+                  <span class="champ-label">Début (s)</span><input type="number" class="tl-range-input" id="tlStartInput" value="0" step="0.5">
+                  <span class="champ-label">Fin (s)</span><input type="number" class="tl-range-input" id="tlEndInput" value="30" step="0.5" max="3600">
                 </div>
                 <div class="tl-zoom">
                   <button type="button" class="vbtn" id="tlZoomOutBtn" title="Zoom arrière"><i class="fas fa-magnifying-glass-minus"></i></button>
@@ -2417,14 +2423,14 @@ function renderBlocsFullView() {
   document.getElementById('tlPrevKeyBtn').onclick = () => tlJumpToKeyframe(-1);
   document.getElementById('tlNextKeyBtn').onclick = () => tlJumpToKeyframe(1);
   const frameInput = document.getElementById('tlFrameInput');
-  frameInput.value = Math.round(tlPlayhead);
-  frameInput.addEventListener('change', () => tlSetPlayhead(Number(frameInput.value) || 0));
+  frameInput.value = msVersS(tlPlayhead);
+  frameInput.addEventListener('change', () => tlSetPlayhead(sVersMs(frameInput.value)));
   const startInput = document.getElementById('tlStartInput');
   const endInput = document.getElementById('tlEndInput');
-  startInput.value = tlStart;
-  endInput.value = tlEnd;
-  startInput.addEventListener('change', () => tlSetRange(Number(startInput.value) || 0, tlEnd));
-  endInput.addEventListener('change', () => tlSetRange(tlStart, Number(endInput.value) || tlStart + 100));
+  startInput.value = msVersS(tlStart);
+  endInput.value = msVersS(tlEnd);
+  startInput.addEventListener('change', () => tlSetRange(sVersMs(startInput.value), tlEnd));
+  endInput.addEventListener('change', () => tlSetRange(tlStart, sVersMs(endInput.value) || tlStart + 100));
 }
 
 function quitterBlocsFullView() {
@@ -2485,15 +2491,12 @@ function basculerModeActions() {
   }
 }
 function appliquerLayoutActions() {
-  // Bouton "Élargir" (voir vbtnWide) : redonne réellement de la place
-  // (display:none, le canevas grandit) -- le coup precedent (visibility
-  // au lieu de display) empechait bien la Zone de la page publiee de
-  // bouger, mais rendait le bouton totalement inutile (plus aucune place
-  // gagnee). La zone ne bouge plus grace a canvasWidthRef (largeur figee
-  // du canevas, voir mesurerLargeurCanevasReference) : elle continue a se
-  // centrer sur cette largeur de reference, jamais sur la largeur reelle
-  // (qui, elle, grandit bel et bien avec Elargir).
-  const hide = actionsWideMode && !actionsMode;
+  // Bouton "Élargir" (voir vbtnWide) : masque palette + réglages pour
+  // redonner de la place au canevas, y compris pendant le mode Actions
+  // (avant : desactive pendant ce mode pour "tout garder visible ensemble"
+  // -- signale comme ne fonctionnant pas du tout, l'utilisateur s'attend a
+  // ce qu'Elargir marche peu importe si la frise est ouverte).
+  const hide = actionsWideMode;
   const settingsEl = document.getElementById('blocsSettings');
   if (settingsEl) settingsEl.style.display = hide ? 'none' : '';
   const paletteEl = document.getElementById('blocsPalette');
@@ -2677,10 +2680,10 @@ function renderTimeline() {
   }
   tracks.innerHTML = animes.map(({ b, i }) => {
     const entryClip = b.animation
-      ? `<div class="timeline-clip entry${(tlSelectedIdx===i&&tlSelectedKf===-1)?' selected':''}" data-idx="${i}" data-kf="entry" style="left:calc(${tlPct(b.anim_delai||0)}% - 8px)" title="${b.anim_delai||0} ms"></div>`
+      ? `<div class="timeline-clip entry${(tlSelectedIdx===i&&tlSelectedKf===-1)?' selected':''}" data-idx="${i}" data-kf="entry" style="left:calc(${tlPct(b.anim_delai||0)}% - 8px)" title="${msVersS(b.anim_delai||0)}s"></div>`
       : '';
     const posClips = (b.keyframes||[]).map((k, kf) => `
-      <div class="timeline-clip pos${(tlSelectedIdx===i&&tlSelectedKf===kf)?' selected':''}" data-idx="${i}" data-kf="${kf}" style="left:calc(${tlPct(k.t||0)}% - 8px)" title="${k.t||0} ms — x:${k.x||0} y:${k.y||0}"></div>`).join('');
+      <div class="timeline-clip pos${(tlSelectedIdx===i&&tlSelectedKf===kf)?' selected':''}" data-idx="${i}" data-kf="${kf}" style="left:calc(${tlPct(k.t||0)}% - 8px)" title="${msVersS(k.t||0)}s — x:${k.x||0} y:${k.y||0}"></div>`).join('');
     return `
     <div class="timeline-track">
       <div class="timeline-track-label"><i class="fas fa-${BLOC_ICONES[b.type]||'cube'}"></i> ${escAttr(BLOC_LABELS[b.type]||b.type)}
@@ -2722,7 +2725,7 @@ function renderTimeline() {
         if (isEntry) blocs[idx].anim_delai = ms;
         else blocs[idx].keyframes[kf].t = ms;
         clip.style.left = `calc(${tlPct(ms)}% - 8px)`;
-        clip.title = isEntry ? `${ms} ms` : `${ms} ms — x:${blocs[idx].keyframes[kf].x||0} y:${blocs[idx].keyframes[kf].y||0}`;
+        clip.title = isEntry ? `${msVersS(ms)}s` : `${msVersS(ms)}s — x:${blocs[idx].keyframes[kf].x||0} y:${blocs[idx].keyframes[kf].y||0}`;
         markDirty();
         drawTimelineLinks();
       };
@@ -2875,7 +2878,7 @@ function tlSetPlayhead(ms) {
   const ph = document.getElementById('tlPlayhead');
   if (ph) ph.style.left = `${tlPlayheadLeftPx()}px`;
   const f = document.getElementById('tlFrameInput');
-  if (f && document.activeElement !== f) f.value = Math.round(tlPlayhead);
+  if (f && document.activeElement !== f) f.value = msVersS(tlPlayhead);
   appliquerApercuKeyframes();
 }
 
@@ -3267,7 +3270,7 @@ function appliquerApercuKeyframes() {
 // Chiffres au-dessus de la règle (comme la règle d'images de Blender) --
 // graduations à un pas "rond" (10, 50, 100, 500, 1000ms…) choisi selon le
 // zoom, plutôt qu'un nombre fixe de graduations réparties uniformément.
-const TL_PALIERS = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000];
+const TL_PALIERS = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 600000];
 function renderTlRulerNumbers() {
   const el = document.getElementById('tlRulerNumbers');
   if (!el) return;
@@ -3276,7 +3279,7 @@ function renderTlRulerNumbers() {
   const pas = TL_PALIERS.find(p => p >= pasApprox) || TL_PALIERS[TL_PALIERS.length - 1];
   let html = '';
   for (let ms = Math.ceil(tlStart / pas) * pas; ms <= tlEnd; ms += pas) {
-    html += `<span style="left:${(ms - tlStart) / span * 100}%">${ms}</span>`;
+    html += `<span style="left:${(ms - tlStart) / span * 100}%">${msVersS(ms)}s</span>`;
   }
   el.innerHTML = html;
   el.style.width = document.getElementById('tlRulerWrap')?.style.width || '';
@@ -3360,7 +3363,7 @@ function tlStartGrab() {
     const ms = Math.round((tlStart + rel * (tlEnd - tlStart)) / 50) * 50;
     if (isEntry) blocs[idx].anim_delai = ms; else blocs[idx].keyframes[kf].t = ms;
     clip.style.left = `calc(${tlPct(ms)}% - 8px)`;
-    clip.title = isEntry ? `${ms} ms` : `${ms} ms — x:${blocs[idx].keyframes[kf].x||0} y:${blocs[idx].keyframes[kf].y||0}`;
+    clip.title = isEntry ? `${msVersS(ms)}s` : `${msVersS(ms)}s — x:${blocs[idx].keyframes[kf].x||0} y:${blocs[idx].keyframes[kf].y||0}`;
     drawTimelineLinks();
   };
   const finish = (cancel) => {

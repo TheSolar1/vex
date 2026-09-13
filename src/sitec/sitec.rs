@@ -1003,7 +1003,7 @@ fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
         } else {
             inner
         };
-        let delai = san_int(b, "anim_delai", 0, 120_000, 0);
+        let delai = san_int(b, "anim_delai", 0, 3_600_000, 0);
         let hauteur = san_int(b, "hauteur", 0, 2000, 0);
         let extra_style = match (delai > 0, hauteur > 0) {
             (true, true) => format!(" style=\"animation-delay:{}ms;min-height:{}px;\"", delai, hauteur),
@@ -1481,7 +1481,7 @@ fn sanitize_keyframes(v: &Value) -> Vec<Value> {
                 .take(200)
                 .map(|k| {
                     (
-                        san_int(k, "t", 0, 120_000, 0),
+                        san_int(k, "t", 0, 3_600_000, 0),
                         san_int(k, "x", -4000, 4000, 0),
                         san_int(k, "y", -4000, 4000, 0),
                         san_int_opt(k, "w", 0, 3000),
@@ -1772,7 +1772,7 @@ fn sanitiser_blocs(v: &Value) -> String {
         // Rotation (degrés, blocs libres uniquement).
         bloc["rotation"] = json!(san_int(b, "rotation", 0, 359, 0));
         bloc["espace"] = json!(san_int(b, "espace", 0, 1000, 16));
-        bloc["anim_delai"] = json!(san_int(b, "anim_delai", 0, 120_000, 0));
+        bloc["anim_delai"] = json!(san_int(b, "anim_delai", 0, 3_600_000, 0));
         // Hauteur minimale forcee (px), 0 = automatique (contenu).
         bloc["hauteur"] = json!(san_int(b, "hauteur", 0, 2000, 0));
         bloc["keyframes"] = json!(sanitize_keyframes(&b["keyframes"]));
