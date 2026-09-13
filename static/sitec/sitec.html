@@ -2804,9 +2804,10 @@ function renderTimeline() {
       e.stopPropagation();
       const idx = Number(btn.dataset.idx);
       if (blocs[idx].wheelCible === 'temps') {
+        // tlSetPlayhead() met deja a jour #tlFrameInput (en secondes, voir
+        // msVersS) -- l'ecraser juste apres avec Math.round(tlPlayhead) en
+        // millisecondes brutes affichait par ex. "50" au lieu de "0.05".
         tlSetPlayhead(tlPlayhead + (e.deltaY < 0 ? 50 : -50));
-        const f = document.getElementById('tlFrameInput');
-        if (f) f.value = Math.round(tlPlayhead);
       } else {
         basculerMode(idx);
       }
