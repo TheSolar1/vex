@@ -1803,6 +1803,11 @@ fn sanitiser_blocs(v: &Value) -> String {
         // ce champ (un premier correctif avait choisi "absolu" par defaut,
         // ce qui detournait le sens des reperes deja enregistres).
         bloc["kfMode"] = json!(san_choice(b, "kfMode", &["absolu", "relatif"], "relatif"));
+        // Ce que regle la molette sur le bouton "+" d'une piste (editeur
+        // seulement, jamais utilise au rendu) -- n'etait pas sauvegarde du
+        // tout, retombait toujours sur le comportement par defaut ("mode")
+        // apres un rechargement meme si l'utilisateur avait choisi "temps".
+        bloc["wheelCible"] = json!(san_choice(b, "wheelCible", &["mode", "temps"], "mode"));
         out.push(bloc);
     }
     serde_json::to_string(&out).unwrap_or_else(|_| "[]".to_string())
