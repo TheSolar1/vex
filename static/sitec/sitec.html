@@ -2827,13 +2827,19 @@ function renderTimeline() {
     btn.addEventListener('wheel', (e) => gererMoletteAjout(Number(btn.dataset.idx), e), { passive: false });
   });
   tracks.querySelectorAll('.timeline-track-mode').forEach(btn => {
-    const bascule = (e) => {
+    btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       basculerMode(Number(btn.dataset.idx));
-    };
-    btn.addEventListener('click', bascule);
-    btn.addEventListener('wheel', bascule, { passive: false });
+    });
+    // La molette ICI bascule TOUJOURS le mode, peu importe wheelCible --
+    // incoherent avec le "+" et le nom de piste juste a cote, qui eux
+    // respectent wheelCible (temps ou mode). Signale comme "la molette
+    // ne fait jamais avancer le temps ici" (vrai : ce bouton precis ne l'a
+    // jamais fait). Uniformise : la molette suit desormais wheelCible
+    // partout sur la piste, seul le CLIC sur cette icone reste un
+    // raccourci direct et sans ambiguite vers le mode.
+    btn.addEventListener('wheel', (e) => gererMoletteAjout(Number(btn.dataset.idx), e), { passive: false });
   });
   // Molette sur toute l'etiquette de la piste (icone + nom + les 3 petits
   // boutons) : meme comportement que sur le "+", mais avec une zone de
