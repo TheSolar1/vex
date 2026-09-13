@@ -52,6 +52,15 @@
     let _emailClair       = null;   // email en clair — nécessaire pour dériver l'IV
     let _cookieCache      = null;   // valeur du cookie session (lue une fois, mise en cache)
     let _sessionHashBytes = null;   // hash PBKDF2 (bytes) — utilisé pour dériver la clé des requêtes
+    let _masterKey        = null;   // clé maîtresse fichiers (32 octets) — source de getClesFichier()
+
+    // Infos de contexte pour l'enveloppement de la clé maîtresse (recuperation de compte)
+    const MK_WRAP_INFO_PWD      = 'VEX-MK-wrap-pwd-v1';
+    const MK_WRAP_SALT_PWD      = 'VEX-MK-wrap-pwd-salt';
+    const MK_WRAP_INFO_RECOVERY = 'VEX-MK-wrap-recovery-v1';
+    const MK_WRAP_SALT_RECOVERY = 'VEX-MK-wrap-recovery-salt';
+    const MASTER_KEY_BYTES      = 32;
+    const RECOVERY_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sans 0/O/1/I, ambigus
 
     // ── Utilitaires bas niveau ────────────────────────────────────
 
@@ -168,20 +177,72 @@
     }
 
     // ── Clé de chiffrement fichiers ────────────────────────────────
-    // Sel aléatoire par fichier (pqSalt), combiné au mot de passe via SHA-512
+    // Sel aléatoire par fichier (pqSalt), combiné à la clé maîtresse (masterKey)
     // puis HKDF — chaque fichier a donc une clé de chiffrement unique.
+    // La masterKey est indépendante du mot de passe (elle est juste enveloppée
+    // par lui) : ça permet de changer de mot de passe (récupération de compte)
+    // sans perdre l'accès aux fichiers déjà chiffrés — voir setMasterKey().
     async function getClesFichier(pqSalt) {
-        if (!_mdpClair) throw new Error('VEX : non connecté (mdp en clair absent)');
+        if (!_masterKey) throw new Error('VEX : non connecté (clé maîtresse absente)');
 
-        const sha = new Uint8Array(
-            await crypto.subtle.digest('SHA-512', strToBytes(_mdpClair))
-        );
-
-        const master = new Uint8Array(sha.length + pqSalt.length);
-        master.set(sha, 0);
-        master.set(pqSalt, sha.length);
+        const master = new Uint8Array(_masterKey.length + pqSalt.length);
+        master.set(_masterKey, 0);
+        master.set(pqSalt, _masterKey.length);
 
         return hkdfDeriveAesKey(master, HKDF_INFO_FILE, HKDF_SALT_FILE);
+    }
+
+    // ── Enveloppement de la clé maîtresse (masterKey) ─────────────
+    // "secretBytes" est le matériel dérivé du mot de passe (SHA-512) ou
+    // du code de récupération (PBKDF2) — jamais envoyé au serveur, ne sert
+    // qu'à chiffrer/déchiffrer localement la masterKey.
+    async function envelopperMasterKey(masterKeyBytes, secretBytes, info, saltStr) {
+        const kek = await hkdfDeriveAesKey(secretBytes, info, saltStr);
+        const { iv, data } = await aesEncrypt(kek, masterKeyBytes);
+        return packEncrypted(iv, data);
+    }
+
+    async function desenvelopperMasterKey(blobB64, secretBytes, info, saltStr) {
+        const kek = await hkdfDeriveAesKey(secretBytes, info, saltStr);
+        const { iv, data } = unpackEncrypted(blobB64);
+        return aesDecrypt(kek, iv, data);
+    }
+
+    // ── Matériel dérivé du mot de passe (pour envelopper/désenvelopper) ──
+    async function sha512Bytes(str) {
+        return new Uint8Array(await crypto.subtle.digest('SHA-512', strToBytes(str)));
+    }
+
+    // ── Code de récupération (20 caractères, généré côté client) ──
+    function genererCodeRecuperation() {
+        const raw = crypto.getRandomValues(new Uint8Array(20));
+        let code = '';
+        for (let i = 0; i < 20; i++) {
+            code += RECOVERY_CODE_ALPHABET[raw[i] % RECOVERY_CODE_ALPHABET.length];
+        }
+        // Regroupé par 4 pour la lisibilité : XXXX-XXXX-XXXX-XXXX-XXXX
+        return code.match(/.{1,4}/g).join('-');
+    }
+
+    function normaliserCodeRecuperation(code) {
+        return code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    }
+
+    // Dérive le matériel du code de récupération : PBKDF2(code, recovery_salt).
+    // Le même matériel sert ensuite à deux usages séparés (enveloppe / preuve)
+    // via des labels HKDF différents — jamais le même octet envoyé au serveur.
+    async function deriveMaterielRecuperation(code, recoverySalt) {
+        const codeNorm = normaliserCodeRecuperation(code);
+        const hex = await pbkdf2Hex(codeNorm, recoverySalt);
+        return hexToBytes(hex);
+    }
+
+    // Preuve envoyée au serveur pour autoriser la réinitialisation — dérivée
+    // du même matériel que l'enveloppe mais avec un label distinct, jamais
+    // réutilisable pour retrouver la masterKey.
+    async function preuveRecuperation(materielBytes) {
+        const proofBytes = await hkdfDeriveBytes(materielBytes, 'VEX-MK-proof-v1', 'VEX-MK-proof-salt', 256);
+        return bytesToHex(proofBytes);
     }
 
     // ── Clé de chiffrement requêtes ────────────────────────────────
@@ -261,6 +322,7 @@
             _emailClair       = null;
             _sessionHashBytes = null;
             _cookieCache      = null;
+            _masterKey        = null;
         },
 
         /**
@@ -269,6 +331,87 @@
          */
         isConnected() {
             return _mdpClair !== null;
+        },
+
+        /**
+         * Définit la clé maîtresse fichiers en mémoire (après l'avoir
+         * déchiffrée via desenvelopperMasterKeyAvecMotDePasse/Code).
+         * @param {Uint8Array} masterKeyBytes
+         */
+        setMasterKey(masterKeyBytes) {
+            _masterKey = masterKeyBytes;
+        },
+
+        /** Génère une nouvelle clé maîtresse aléatoire (nouveau compte / migration). */
+        genererMasterKey() {
+            return crypto.getRandomValues(new Uint8Array(MASTER_KEY_BYTES));
+        },
+
+        /** Génère un sel de récupération aléatoire (hex), à envoyer au serveur. */
+        genererSelRecuperation() {
+            return bytesToHex(crypto.getRandomValues(new Uint8Array(32)));
+        },
+
+        /** Génère un code de récupération lisible à 20 caractères. */
+        genererCodeRecuperation,
+
+        /**
+         * Enveloppe la masterKey sous le mot de passe courant.
+         * @param {Uint8Array} masterKeyBytes
+         * @param {string} motDePasse
+         * @returns {Promise<string>} blob base64 à stocker côté serveur.
+         */
+        async envelopperMasterKeyAvecMotDePasse(masterKeyBytes, motDePasse) {
+            const secret = await sha512Bytes(motDePasse);
+            return envelopperMasterKey(masterKeyBytes, secret, MK_WRAP_INFO_PWD, MK_WRAP_SALT_PWD);
+        },
+
+        /**
+         * Déchiffre la masterKey enveloppée sous le mot de passe courant.
+         * @param {string} blobB64
+         * @param {string} motDePasse
+         * @returns {Promise<Uint8Array>}
+         */
+        async desenvelopperMasterKeyAvecMotDePasse(blobB64, motDePasse) {
+            const secret = await sha512Bytes(motDePasse);
+            return desenvelopperMasterKey(blobB64, secret, MK_WRAP_INFO_PWD, MK_WRAP_SALT_PWD);
+        },
+
+        /**
+         * Enveloppe la masterKey sous un code de récupération.
+         * @param {Uint8Array} masterKeyBytes
+         * @param {string} code           Code de récupération (tel que tapé par l'utilisateur).
+         * @param {string} recoverySalt   Sel hex fourni par le serveur pour ce compte.
+         * @returns {Promise<string>} blob base64 à stocker côté serveur.
+         */
+        async envelopperMasterKeyAvecCode(masterKeyBytes, code, recoverySalt) {
+            const materiel = await deriveMaterielRecuperation(code, recoverySalt);
+            return envelopperMasterKey(masterKeyBytes, materiel, MK_WRAP_INFO_RECOVERY, MK_WRAP_SALT_RECOVERY);
+        },
+
+        /**
+         * Déchiffre la masterKey enveloppée sous un code de récupération.
+         * Lève une erreur si le code est incorrect (échec d'authentification AES-GCM).
+         * @param {string} blobB64
+         * @param {string} code
+         * @param {string} recoverySalt
+         * @returns {Promise<Uint8Array>}
+         */
+        async desenvelopperMasterKeyAvecCode(blobB64, code, recoverySalt) {
+            const materiel = await deriveMaterielRecuperation(code, recoverySalt);
+            return desenvelopperMasterKey(blobB64, materiel, MK_WRAP_INFO_RECOVERY, MK_WRAP_SALT_RECOVERY);
+        },
+
+        /**
+         * Calcule la preuve de connaissance du code de récupération, à
+         * envoyer au serveur pour autoriser la réinitialisation du compte.
+         * @param {string} code
+         * @param {string} recoverySalt
+         * @returns {Promise<string>} hex 64 caractères.
+         */
+        async preuveRecuperation(code, recoverySalt) {
+            const materiel = await deriveMaterielRecuperation(code, recoverySalt);
+            return preuveRecuperation(materiel);
         },
 
         // ── Hash serveur (login / inscription) ────────────────────
@@ -458,6 +601,9 @@
 
         /** Convertit un base64 en Uint8Array */
         fromBase64: base64ToBytes,
+
+        /** SHA-512 d'une chaîne, en bytes (utilisé pour la migration de récupération). */
+        sha512: sha512Bytes,
     };
 
     global.VEX = VEX;

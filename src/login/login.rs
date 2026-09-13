@@ -130,6 +130,9 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
         "srp_step1" => handle_srp_step1(request, pool, &body, &langue),
         "srp_step2" => handle_srp_step2(request, pool, &body, &remote_ip, &user_agent, &langue),
         "signup" => handle_signup(request, pool, config, &body, &langue),
+        "enregistrer_recuperation" => handle_enregistrer_recuperation(request, pool, &body, &cookie_val, &remote_ip, &user_agent),
+        "recuperation_info" => handle_recuperation_info(request, pool, &body),
+        "recuperation_confirmer" => handle_recuperation_confirmer(request, pool, &body),
         _ => respond_json(
             request,
             json!({"success":false,"error":"Action inconnue"}),
@@ -144,13 +147,18 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
 // ══════════════════════════════════════════════════════════════════
 fn handle_srp_step1(request: Request, pool: &DbPool, body: &HashMap<String, String>, langue: &str) {
     use crate::i18n::{t, Cle};
-    let email = body.get("email").cloned().unwrap_or_default();
+    // FIX (connexion par pseudo) : le champ envoyé par le client s'appelle
+    // toujours "email" pour compat, mais peut contenir soit l'email, soit
+    // le pseudo du compte — on résout vers l'email réel ci-dessous, car
+    // tout le calcul SRP et la dérivation des clés de fichiers (crypto.js)
+    // sont ancrés sur l'email, jamais sur le pseudo.
+    let identifiant = body.get("email").cloned().unwrap_or_default();
 
     // FIX (défense en profondeur, même logique que step2) : borne la
-    // taille de l'email avant tout hash/lookup — évite qu'une entrée
+    // taille de l'identifiant avant tout hash/lookup — évite qu'une entrée
     // anormalement longue serve à faire travailler inutilement le
     // hachage SHA-256 ou les fonctions de la table `login`.
-    if email.is_empty() || email.len() > 255 {
+    if identifiant.is_empty() || identifiant.len() > 255 {
         respond_json(request, json!({"success":false,"error":t(langue, Cle::LoginErreurEmailInvalide)}), 400);
         return;
     }
@@ -158,24 +166,39 @@ fn handle_srp_step1(request: Request, pool: &DbPool, body: &HashMap<String, Stri
     let rows = selectionner(
         pool,
         "login",
-        &[("email", mysql::Value::from(email.as_str()))],
-        &["srp_salt", "srp_verifier"],
+        &[("email", mysql::Value::from(identifiant.as_str()))],
+        &["email", "srp_salt", "srp_verifier"],
         None,
         Some(1),
     );
+    let rows = if rows.is_empty() {
+        selectionner(
+            pool,
+            "login",
+            &[("pseudo", mysql::Value::from(identifiant.as_str()))],
+            &["email", "srp_salt", "srp_verifier"],
+            None,
+            Some(1),
+        )
+    } else {
+        rows
+    };
 
     // ── Anti-énumération de comptes ───────────────────────────────
     // Si le compte n'existe pas, on NE DOIT PAS répondre différemment
-    // (sinon on révèle l'existence de l'email). On génère un salt/verifier
-    // factices mais déterministes-par-email (donc stables si l'attaquant
-    // retente), pour que le comportement soit indistinguable d'un vrai
-    // compte du point de vue du timing/format de réponse.
-    let (salt_hex, verifier_hex) = if let Some(row) = rows.into_iter().next() {
+    // (sinon on révèle l'existence de l'email/pseudo). On génère un
+    // salt/verifier factices mais déterministes-par-identifiant (donc
+    // stables si l'attaquant retente), pour que le comportement soit
+    // indistinguable d'un vrai compte du point de vue du timing/format
+    // de réponse.
+    let (email, salt_hex, verifier_hex) = if let Some(row) = rows.into_iter().next() {
+        let e = row.get("email").and_then(|v| v.as_str()).unwrap_or(identifiant.as_str()).to_string();
         let s = row.get("srp_salt").and_then(|v| v.as_str()).unwrap_or("").to_string();
         let v = row.get("srp_verifier").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        (s, v)
+        (e, s, v)
     } else {
-        fake_salt_and_verifier(&email)
+        let (s, v) = fake_salt_and_verifier(&identifiant);
+        (identifiant.clone(), s, v)
     };
 
     let grp = group();
@@ -206,6 +229,7 @@ fn handle_srp_step1(request: Request, pool: &DbPool, body: &HashMap<String, Stri
         request,
         json!({
             "success": true,
+            "email":   email,
             "salt":    salt_hex,
             "B":       hex_encode(&b_pub.to_bytes_be()),
             "token":   token,
@@ -303,7 +327,7 @@ fn handle_srp_step2(
         pool,
         "login",
         &[("email", mysql::Value::from(email.as_str()))],
-        &["id", "nom", "email", "srp_verifier", "vip", "privilege"],
+        &["id", "nom", "email", "srp_verifier", "vip", "privilege", "file_key_wrapped_pwd"],
         None,
         Some(1),
     );
@@ -373,6 +397,7 @@ fn handle_srp_step2(
     let user_id = user_row.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
     let nom = user_row.get("nom").and_then(|v| v.as_str()).unwrap_or("").to_string();
     let email_db = user_row.get("email").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let file_key_wrapped_pwd = user_row.get("file_key_wrapped_pwd").and_then(|v| v.as_str()).map(|s| s.to_string());
     let _ = user_id; // conservé pour lisibilité / usage futur (logs, etc.)
 
     let cookie_value = generate_session_token(32);
@@ -403,6 +428,14 @@ fn handle_srp_step2(
         "success":  true,
         "M2":       hex_encode(&m2),
         "redirect": "/login/dashboard",
+        "email":    email_db,
+        // FIX (récupération sans email) : si le compte n'a pas encore de
+        // masterKey enveloppée (compte créé avant cette fonctionnalité),
+        // le client doit générer/enregistrer le matériel de récupération
+        // maintenant qu'il a le mot de passe en clair — voir handle_request,
+        // action "enregistrer_recuperation".
+        "needs_recovery_setup": file_key_wrapped_pwd.is_none(),
+        "file_key_wrapped_pwd": file_key_wrapped_pwd,
     }))
     .unwrap_or_default();
 
@@ -458,6 +491,13 @@ fn handle_signup(request: Request, pool: &DbPool, config: &VexConfig, body: &Has
     let email = html_escape(body.get("email").cloned().unwrap_or_default().trim());
     let salt_hex = body.get("srp_salt").cloned().unwrap_or_default();
     let verifier_hex = body.get("srp_verifier").cloned().unwrap_or_default();
+    // FIX (récupération de compte) : matériel de récupération généré côté
+    // client à l'inscription (voir static/crypto.js + login.html) — des
+    // blobs chiffrés et un hash de preuve, jamais de secret en clair.
+    let file_key_wrapped_pwd = body.get("file_key_wrapped_pwd").cloned().unwrap_or_default();
+    let file_key_wrapped_recovery = body.get("file_key_wrapped_recovery").cloned().unwrap_or_default();
+    let recovery_salt = body.get("recovery_salt").cloned().unwrap_or_default();
+    let recovery_proof_hash = body.get("recovery_proof_hash").cloned().unwrap_or_default();
 
     // Validation de forme : salt = 16 octets hex (32 car.), verifier = 256 octets hex (512 car.)
     if salt_hex.len() != 32 || !salt_hex.chars().all(|c| c.is_ascii_hexdigit()) {
@@ -500,6 +540,10 @@ fn handle_signup(request: Request, pool: &DbPool, config: &VexConfig, body: &Has
             ("srp_salt", mysql::Value::from(salt_hex.as_str())),
             ("srp_verifier", mysql::Value::from(verifier_hex.as_str())),
             ("vip", mysql::Value::from(0i64)),
+            ("file_key_wrapped_pwd", mysql::Value::from(file_key_wrapped_pwd.as_str())),
+            ("file_key_wrapped_recovery", mysql::Value::from(file_key_wrapped_recovery.as_str())),
+            ("recovery_salt", mysql::Value::from(recovery_salt.as_str())),
+            ("recovery_proof_hash", mysql::Value::from(recovery_proof_hash.as_str())),
         ],
         &[],
     );
@@ -513,6 +557,195 @@ fn handle_signup(request: Request, pool: &DbPool, config: &VexConfig, body: &Has
     } else {
         respond_json(request, json!({"success":false,"error":t(langue, Cle::LoginErreurInscription)}), 200);
     }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Récupération de compte — enveloppe de la masterKey fichiers sous un
+// code de récupération à 20 caractères (voir static/crypto.js). Le
+// serveur ne voit jamais la masterKey, le mot de passe, ni le code —
+// uniquement des blobs chiffrés et un hash de preuve.
+// ══════════════════════════════════════════════════════════════════
+
+/// Enregistre (ou renouvelle) le matériel de récupération d'un compte
+/// déjà connecté — utilisé pour la migration douce des comptes créés
+/// avant cette fonctionnalité, et pour une régénération volontaire du
+/// code depuis les paramètres du compte.
+fn handle_enregistrer_recuperation(
+    request: Request,
+    pool: &DbPool,
+    body: &HashMap<String, String>,
+    cookie_val: &str,
+    remote_ip: &str,
+    user_agent: &str,
+) {
+    let session = crate::c::verifier_session(pool, cookie_val, remote_ip, user_agent);
+    if !session.connecte {
+        respond_json(request, json!({"success":false,"error":"Non connecté."}), 401);
+        return;
+    }
+
+    let wrapped_pwd = body.get("file_key_wrapped_pwd").cloned().unwrap_or_default();
+    let wrapped_recovery = body.get("file_key_wrapped_recovery").cloned().unwrap_or_default();
+    let recovery_salt = body.get("recovery_salt").cloned().unwrap_or_default();
+    let proof_hash = body.get("recovery_proof_hash").cloned().unwrap_or_default();
+
+    if wrapped_pwd.is_empty()
+        || wrapped_recovery.is_empty()
+        || recovery_salt.len() != 64
+        || !recovery_salt.chars().all(|c| c.is_ascii_hexdigit())
+        || proof_hash.len() != 64
+        || !proof_hash.chars().all(|c| c.is_ascii_hexdigit())
+    {
+        respond_json(request, json!({"success":false,"error":"Champs invalides."}), 400);
+        return;
+    }
+
+    let result = inserer_ou_modifier(
+        pool,
+        "login",
+        &[
+            ("file_key_wrapped_pwd", mysql::Value::from(wrapped_pwd.as_str())),
+            ("file_key_wrapped_recovery", mysql::Value::from(wrapped_recovery.as_str())),
+            ("recovery_salt", mysql::Value::from(recovery_salt.as_str())),
+            ("recovery_proof_hash", mysql::Value::from(proof_hash.as_str())),
+        ],
+        &[("email", mysql::Value::from(session.user_email.as_str()))],
+    );
+
+    respond_json(request, json!({"success": result >= 0}), 200);
+}
+
+/// Génère un sel/blob factices mais stables pour un email donné — pour
+/// que `recuperation_info` sur un compte inexistant (ou sans matériel
+/// de récupération encore configuré) se comporte comme un vrai compte
+/// (anti-énumération). Jamais un vrai déchiffrement possible.
+fn fake_recovery_info(email: &str) -> (String, String) {
+    use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
+    let h = srp::sha256(format!("vex-recovery-salt:{}", email.to_lowercase()).as_bytes());
+    let salt_hex = hex_encode(&h);
+    let mut fake_blob = h.clone();
+    fake_blob.extend_from_slice(&srp::sha256(&h));
+    fake_blob.truncate(60); // taille plausible : IV(12) + masterKey(32) + tag(16)
+    (salt_hex, B64.encode(&fake_blob))
+}
+
+/// Étape 1 de la récupération : le client envoie l'email, le serveur
+/// renvoie le sel + l'enveloppe chiffrée de la masterKey sous le code de
+/// récupération (données chiffrées, sans risque à exposer — comme le
+/// salt/verifier SRP).
+fn handle_recuperation_info(request: Request, pool: &DbPool, body: &HashMap<String, String>) {
+    let email = body.get("email").cloned().unwrap_or_default();
+    if email.is_empty() || email.len() > 255 {
+        respond_json(request, json!({"success":false,"error":"Email invalide."}), 400);
+        return;
+    }
+
+    let rows = selectionner(
+        pool,
+        "login",
+        &[("email", mysql::Value::from(email.as_str()))],
+        &["recovery_salt", "file_key_wrapped_recovery"],
+        None,
+        Some(1),
+    );
+
+    let (recovery_salt, wrapped_recovery) = match rows.into_iter().next() {
+        Some(row) => {
+            let salt = row.get("recovery_salt").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let wrapped = row.get("file_key_wrapped_recovery").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            if salt.is_empty() || wrapped.is_empty() {
+                fake_recovery_info(&email)
+            } else {
+                (salt, wrapped)
+            }
+        }
+        None => fake_recovery_info(&email),
+    };
+
+    respond_json(
+        request,
+        json!({
+            "success":       true,
+            "recovery_salt": recovery_salt,
+            "file_key_wrapped_recovery": wrapped_recovery,
+        }),
+        200,
+    );
+}
+
+/// Étape 2 de la récupération : le client a déchiffré la masterKey en
+/// local avec son code, et soumet le nouveau matériel (nouveau mot de
+/// passe → nouveau salt/verifier SRP + nouvelles enveloppes + nouveau
+/// code de récupération tourné) accompagné de la preuve de connaissance
+/// du code. `proof` est la SEULE porte d'autorisation côté serveur.
+fn handle_recuperation_confirmer(request: Request, pool: &DbPool, body: &HashMap<String, String>) {
+    let email = body.get("email").cloned().unwrap_or_default();
+    let proof = body.get("proof").cloned().unwrap_or_default();
+    let new_srp_salt = body.get("new_srp_salt").cloned().unwrap_or_default();
+    let new_srp_verifier = body.get("new_srp_verifier").cloned().unwrap_or_default();
+    let new_wrapped_pwd = body.get("new_file_key_wrapped_pwd").cloned().unwrap_or_default();
+    let new_recovery_salt = body.get("new_recovery_salt").cloned().unwrap_or_default();
+    let new_wrapped_recovery = body.get("new_file_key_wrapped_recovery").cloned().unwrap_or_default();
+    let new_proof_hash = body.get("new_recovery_proof_hash").cloned().unwrap_or_default();
+
+    if email.is_empty()
+        || proof.len() != 64 || !proof.chars().all(|c| c.is_ascii_hexdigit())
+        || new_srp_salt.len() != 32 || !new_srp_salt.chars().all(|c| c.is_ascii_hexdigit())
+        || new_srp_verifier.is_empty() || new_srp_verifier.len() > 512 || !new_srp_verifier.chars().all(|c| c.is_ascii_hexdigit())
+        || new_wrapped_pwd.is_empty() || new_wrapped_recovery.is_empty()
+        || new_recovery_salt.len() != 64 || !new_recovery_salt.chars().all(|c| c.is_ascii_hexdigit())
+        || new_proof_hash.len() != 64 || !new_proof_hash.chars().all(|c| c.is_ascii_hexdigit())
+    {
+        respond_json(request, json!({"success":false,"error":"Champs invalides."}), 400);
+        return;
+    }
+
+    let rows = selectionner(
+        pool,
+        "login",
+        &[("email", mysql::Value::from(email.as_str()))],
+        &["recovery_proof_hash"],
+        None,
+        Some(1),
+    );
+    let Some(row) = rows.into_iter().next() else {
+        // Compte inexistant : réponse identique à une mauvaise preuve.
+        respond_json(request, json!({"success":false,"error":"Code de récupération invalide."}), 200);
+        return;
+    };
+    let stored_proof = row.get("recovery_proof_hash").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    if stored_proof.is_empty() || !constant_time_eq(stored_proof.as_bytes(), proof.as_bytes()) {
+        respond_json(request, json!({"success":false,"error":"Code de récupération invalide."}), 200);
+        return;
+    }
+
+    inserer_ou_modifier(
+        pool,
+        "login",
+        &[
+            ("srp_salt", mysql::Value::from(new_srp_salt.as_str())),
+            ("srp_verifier", mysql::Value::from(new_srp_verifier.as_str())),
+            ("file_key_wrapped_pwd", mysql::Value::from(new_wrapped_pwd.as_str())),
+            ("recovery_salt", mysql::Value::from(new_recovery_salt.as_str())),
+            ("file_key_wrapped_recovery", mysql::Value::from(new_wrapped_recovery.as_str())),
+            ("recovery_proof_hash", mysql::Value::from(new_proof_hash.as_str())),
+        ],
+        &[("email", mysql::Value::from(email.as_str()))],
+    );
+
+    // Invalide toutes les sessions existantes du compte (le mot de passe
+    // a changé, on force une reconnexion partout).
+    let mut conn_ok = true;
+    if let Ok(mut conn) = pool.get_conn() {
+        use mysql::prelude::Queryable;
+        conn_ok = conn.exec_drop("DELETE FROM `loginc` WHERE `email` = ?", (email.as_str(),)).is_ok();
+        let _ = conn.exec_drop("DELETE FROM `srp_sessions` WHERE `email` = ?", (email.as_str(),));
+        let _ = conn.exec_drop("DELETE FROM `autologin` WHERE `compteid` IN (SELECT `id` FROM `login` WHERE `email` = ?)", (email.as_str(),));
+        let _ = conn.exec_drop("DELETE FROM `appareil_jetons` WHERE `user_id` IN (SELECT `id` FROM `login` WHERE `email` = ?)", (email.as_str(),));
+    }
+    let _ = conn_ok;
+
+    respond_json(request, json!({"success": true}), 200);
 }
 
 // ══════════════════════════════════════════════════════════════════

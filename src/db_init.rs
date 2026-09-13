@@ -69,15 +69,9 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     )?;
 
-    // ── conxiont ──────────────────────────────────────────────────
-    conn.query_drop(
-        "CREATE TABLE IF NOT EXISTS `conxiont` (
-            `id`       INT          NOT NULL AUTO_INCREMENT,
-            `username` VARCHAR(255) NOT NULL,
-            `password` VARCHAR(255) NOT NULL,
-            PRIMARY KEY (`id`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
-    )?;
+    // (table `conxiont` supprimée — orpheline, aucune référence dans le code,
+    // vraisemblablement un reste d'avant la migration SRP-6a. Renommée en
+    // `conxiont_DEPRECATED` en production plutôt que droppée directement.)
 
     // ── fichiers ──────────────────────────────────────────────────
     conn.query_drop(
@@ -135,6 +129,22 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
     let _ = conn.query_drop("ALTER TABLE `login` ADD COLUMN `srp_verifier` VARCHAR(512) DEFAULT NULL");
     let _ = conn.query_drop("ALTER TABLE `login` MODIFY `motdepass` VARCHAR(250) DEFAULT NULL");
 
+    // ── FIX (connexion par pseudo) ──────────────────────────────────
+    // Identifiant de connexion alternatif à l'email (facultatif, unique).
+    let _ = conn.query_drop("ALTER TABLE `login` ADD COLUMN `pseudo` VARCHAR(64) DEFAULT NULL");
+    let _ = conn.query_drop("ALTER TABLE `login` ADD UNIQUE INDEX `idx_pseudo` (`pseudo`)");
+
+    // ── FIX (récupération de compte sans email) ──────────────────────
+    // La clé de chiffrement des fichiers (masterKey, voir crypto.js) est
+    // enveloppée deux fois : une fois sous le mot de passe, une fois sous
+    // un code de récupération à 20 caractères affiché une seule fois à
+    // l'utilisateur. Le serveur ne stocke que des blobs chiffrés + un hash
+    // de preuve, jamais la masterKey ni le code en clair.
+    let _ = conn.query_drop("ALTER TABLE `login` ADD COLUMN `file_key_wrapped_pwd` TEXT DEFAULT NULL");
+    let _ = conn.query_drop("ALTER TABLE `login` ADD COLUMN `file_key_wrapped_recovery` TEXT DEFAULT NULL");
+    let _ = conn.query_drop("ALTER TABLE `login` ADD COLUMN `recovery_salt` VARCHAR(64) DEFAULT NULL");
+    let _ = conn.query_drop("ALTER TABLE `login` ADD COLUMN `recovery_proof_hash` VARCHAR(64) DEFAULT NULL");
+
     // ── srp_sessions (éphémère, corrèle srp_step1 → srp_step2) ──────
     conn.query_drop(
         "CREATE TABLE IF NOT EXISTS `srp_sessions` (
@@ -183,18 +193,9 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     )?;
 
-    // ── p2p_nodes ─────────────────────────────────────────────────
-    conn.query_drop(
-        "CREATE TABLE IF NOT EXISTS `p2p_nodes` (
-            `user_id`  INT          NOT NULL,
-            `node_id`  VARCHAR(100) DEFAULT NULL,
-            `status`   ENUM('online','offline','away') DEFAULT 'offline',
-            `last_seen` DATETIME    NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            `metadata` LONGTEXT     DEFAULT NULL,
-            PRIMARY KEY (`user_id`),
-            UNIQUE KEY `node_id` (`node_id`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-    )?;
+    // (table `p2p_nodes` supprimée — orpheline, aucune référence dans le code,
+    // superseded par `p2p_peers` + `p2p_users`. Renommée en `p2p_nodes_DEPRECATED`
+    // en production plutôt que droppée directement.)
 
     // ── p2p_peers ─────────────────────────────────────────────────
     conn.query_drop(

@@ -732,6 +732,13 @@ function initCryptoSession() {
     if (!mdp || !hash || !email) throw new Error('session crypto incomplète');
     VEX.setSession(mdp, hash, email);
     if (!VEX.isConnected()) throw new Error('session crypto invalide');
+    // FIX (récupération de compte) : la masterKey fichiers est indépendante
+    // du mot de passe (voir static/crypto.js) — sans elle, getClesFichier()
+    // échoue. Elle a été déchiffrée une fois au login (login.html) et mise
+    // en cache ici, jamais recalculée ni renvoyée au serveur.
+    const mkB64 = sessionStorage.getItem('vex_master_key');
+    if (!mkB64) throw new Error('clé maîtresse fichiers absente');
+    VEX.setMasterKey(VEX.fromBase64(mkB64));
     state.cryptoReady = true;
     return true;
   } catch(e) {

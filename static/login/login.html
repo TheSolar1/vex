@@ -54,15 +54,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
     <div id="msg-login"></div>
     <form id="login-form">
         <div class="form-group">
-            <label class="form-label" for="email">{{T_LABEL_EMAIL}}</label>
-            <input type="email" id="email" name="email" class="form-input" placeholder="exemple@email.com" required>
+            <label class="form-label" for="email">{{T_LABEL_EMAIL}} ou pseudo</label>
+            <input type="text" id="email" name="email" class="form-input" placeholder="exemple@email.com ou pseudo" required autocomplete="username">
         </div>
         <div class="form-group">
             <label class="form-label" for="motdepass">{{T_LABEL_MDP}}</label>
-            <input type="password" id="motdepass" name="motdepass" class="form-input" placeholder="••••••••" required>
+            <input type="password" id="motdepass" name="motdepass" class="form-input" placeholder="••••••••" required autocomplete="current-password">
         </div>
         <button type="submit" class="btn-primary" id="login-btn">{{T_BOUTON_CONNECTER}}</button>
     </form>
+    <p style="text-align:center;margin-top:14px;">
+        <a href="#" onclick="showForgotModal();return false;" style="font-size:13px;color:var(--text-dim);">Compte perdu ?</a>
+    </p>
     <div id="signup-toggle"></div>
     <div class="security-note">{{T_NOTE_SECURITE}}</div>
 </div>
@@ -102,6 +105,53 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
     </div>
 </div>
 
+<!-- Code de récupération affiché une seule fois (inscription ou migration) -->
+<div class="modal" id="recoveryCodeModal">
+    <div class="modal-content">
+        <div class="modal-header"><h2>Ton code de récupération</h2></div>
+        <div class="modal-body">
+            <p style="font-size:14px;color:var(--text-dim);margin-bottom:16px;">
+                Ce code permet de reprendre l'accès à ton compte <strong>et à tes fichiers déjà chiffrés</strong> si tu perds ton mot de passe — sans lui, une perte de mot de passe est définitive. Il ne sera plus jamais affiché.
+            </p>
+            <div id="recovery-code-display" style="font-family:monospace;font-size:18px;text-align:center;background:var(--surface2);padding:16px;border-radius:8px;letter-spacing:1px;word-break:break-all;"></div>
+            <div class="checkbox-wrapper">
+                <input type="checkbox" id="recovery-code-confirm">
+                <label for="recovery-code-confirm">J'ai noté ce code en lieu sûr (hors ligne).</label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-primary" style="width:auto;margin:0;" id="recovery-code-continue-btn" onclick="continuerApresCodeRecuperation()" disabled>Continuer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Compte perdu : email + code de récupération → nouveau mot de passe -->
+<div class="modal" id="forgotModal">
+    <div class="modal-content">
+        <div class="modal-header"><h2>Compte perdu</h2></div>
+        <div class="modal-body">
+            <div id="msg-forgot"></div>
+            <div class="form-group">
+                <label class="form-label" for="f-email">Adresse email du compte</label>
+                <input type="email" id="f-email" class="form-input" placeholder="exemple@email.com" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="f-code">Code de récupération (20 caractères)</label>
+                <input type="text" id="f-code" class="form-input" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="f-mdp">Nouveau mot de passe</label>
+                <input type="password" id="f-mdp" class="form-input" placeholder="••••••••" required>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-cancel" onclick="hideForgotModal()">{{T_BOUTON_ANNULER}}</button>
+            <button type="button" class="btn-primary" style="width:auto;margin:0;" onclick="submitForgot()" id="forgot-submit-btn">Réinitialiser</button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/crypto.js"></script>
 <script>
 // Traductions injectees par le serveur (voir src/i18n.rs::objet_js et
 // login.rs::serve_static_html) -- une seule fois ici, referencees comme
@@ -374,6 +424,104 @@ document.getElementById('signupModal').addEventListener('click', e => {
     if (e.target === e.currentTarget) hideSignupModal();
 });
 
+// ── Modal "code de récupération" — bloquant, affiché une seule fois ──
+let _resolveCodeModal = null;
+function afficherCodeRecuperationUneFois(code) {
+    document.getElementById('recovery-code-display').textContent = code;
+    document.getElementById('recovery-code-confirm').checked = false;
+    document.getElementById('recovery-code-continue-btn').disabled = true;
+    document.getElementById('recoveryCodeModal').classList.add('active');
+    return new Promise(resolve => { _resolveCodeModal = resolve; });
+}
+document.getElementById('recovery-code-confirm').addEventListener('change', function () {
+    document.getElementById('recovery-code-continue-btn').disabled = !this.checked;
+});
+function continuerApresCodeRecuperation() {
+    document.getElementById('recoveryCodeModal').classList.remove('active');
+    if (_resolveCodeModal) { _resolveCodeModal(); _resolveCodeModal = null; }
+}
+
+// ── Modal "compte perdu" ───────────────────────────────────────────
+function showForgotModal() { document.getElementById('forgotModal').classList.add('active'); }
+function hideForgotModal() { document.getElementById('forgotModal').classList.remove('active'); }
+document.getElementById('forgotModal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) hideForgotModal();
+});
+
+async function submitForgot() {
+    const email = document.getElementById('f-email').value.trim();
+    const code = document.getElementById('f-code').value.trim();
+    const nouveauMdp = document.getElementById('f-mdp').value;
+
+    if (!email || !code || nouveauMdp.length < (window._VEX_PASS_MIN || 8)) {
+        showMsg('msg-forgot', I18N.ERREUR_MDP_COURT ? I18N.ERREUR_MDP_COURT.replace('{min}', window._VEX_PASS_MIN || 8) : 'Champs invalides.', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('forgot-submit-btn');
+    btn.disabled = true;
+
+    try {
+        const rInfo = await fetch('/login/login', {
+            method: 'POST',
+            credentials: 'include',
+            body: new URLSearchParams({ action: 'recuperation_info', email }),
+        });
+        const dInfo = await rInfo.json();
+        if (!dInfo.success) {
+            showMsg('msg-forgot', dInfo.error || 'Erreur réseau.', 'error');
+            btn.disabled = false;
+            return;
+        }
+
+        let masterKeyBytes;
+        try {
+            masterKeyBytes = await VEX.desenvelopperMasterKeyAvecCode(dInfo.file_key_wrapped_recovery, code, dInfo.recovery_salt);
+        } catch {
+            showMsg('msg-forgot', 'Email ou code de récupération incorrect.', 'error');
+            btn.disabled = false;
+            return;
+        }
+
+        const proof = await VEX.preuveRecuperation(code, dInfo.recovery_salt);
+        const { salt_hex, verifier_hex } = await SRP.genererSaltEtVerifier(email, nouveauMdp);
+        const newWrappedPwd = await VEX.envelopperMasterKeyAvecMotDePasse(masterKeyBytes, nouveauMdp);
+        const newCode = VEX.genererCodeRecuperation();
+        const newRecoverySalt = VEX.genererSelRecuperation();
+        const newWrappedRecovery = await VEX.envelopperMasterKeyAvecCode(masterKeyBytes, newCode, newRecoverySalt);
+        const newProofHash = await VEX.preuveRecuperation(newCode, newRecoverySalt);
+
+        const rConfirm = await fetch('/login/login', {
+            method: 'POST',
+            credentials: 'include',
+            body: new URLSearchParams({
+                action: 'recuperation_confirmer',
+                email, proof,
+                new_srp_salt: salt_hex,
+                new_srp_verifier: verifier_hex,
+                new_file_key_wrapped_pwd: newWrappedPwd,
+                new_recovery_salt: newRecoverySalt,
+                new_file_key_wrapped_recovery: newWrappedRecovery,
+                new_recovery_proof_hash: newProofHash,
+            }),
+        });
+        const dConfirm = await rConfirm.json();
+        if (!dConfirm.success) {
+            showMsg('msg-forgot', dConfirm.error || 'Email ou code de récupération incorrect.', 'error');
+            btn.disabled = false;
+            return;
+        }
+
+        hideForgotModal();
+        showMsg('msg-login', 'Mot de passe réinitialisé. Note ton nouveau code de récupération, puis reconnecte-toi.', 'success');
+        await afficherCodeRecuperationUneFois(newCode);
+    } catch (err) {
+        showMsg('msg-forgot', I18N.ERREUR_RESEAU, 'error');
+        console.error(err);
+    }
+    btn.disabled = false;
+}
+
 // ── Connexion — flux SRP en 2 étapes ──────────────────────────────
 document.getElementById('login-form').addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -382,13 +530,13 @@ document.getElementById('login-form').addEventListener('submit', async function 
     btn.textContent = I18N.BOUTON_CONNECTER_EN_COURS;
 
     const mdpClair = document.getElementById('motdepass').value;
-    const email = document.getElementById('email').value;
+    const identifiant = document.getElementById('email').value;
 
     try {
-        // ── Étape 1 : demande salt + B au serveur ──────────────────
+        // ── Étape 1 : demande salt + B au serveur (email ou pseudo) ──
         const r1 = await fetch('/login/login', {
             method: 'POST',
-            body: new URLSearchParams({ action: 'srp_step1', email }),
+            body: new URLSearchParams({ action: 'srp_step1', email: identifiant }),
             credentials: 'include',
         });
         const d1 = await r1.json();
@@ -397,6 +545,10 @@ document.getElementById('login-form').addEventListener('submit', async function 
             btn.disabled = false; btn.textContent = I18N.BOUTON_CONNECTER;
             return;
         }
+
+        // FIX (connexion par pseudo) : tout le calcul SRP est ancré sur
+        // l'email réel du compte (jamais le pseudo), renvoyé par le serveur.
+        const email = d1.email || identifiant;
 
         // ── Calcul local A, M1, K (le mot de passe reste ici) ──────
         const { a, A_hex } = SRP.genererA();
@@ -434,6 +586,37 @@ document.getElementById('login-form').addEventListener('submit', async function 
         sessionStorage.setItem('vex_mdp', mdpClair);
         sessionStorage.setItem('vex_hash', hashCompat);
         sessionStorage.setItem('vex_email', email);
+
+        // ── Récupération de compte : masterKey fichiers ─────────────
+        let masterKeyBytes;
+        if (d2.needs_recovery_setup) {
+            // Compte créé avant cette fonctionnalité : réutilise exactement
+            // l'ancien secret de dérivation (SHA-512(mdp)) comme masterKey,
+            // pour que les fichiers déjà chiffrés restent lisibles.
+            masterKeyBytes = await VEX.sha512(mdpClair);
+            const wrappedPwd = await VEX.envelopperMasterKeyAvecMotDePasse(masterKeyBytes, mdpClair);
+            const code = VEX.genererCodeRecuperation();
+            const recoverySalt = VEX.genererSelRecuperation();
+            const wrappedRecovery = await VEX.envelopperMasterKeyAvecCode(masterKeyBytes, code, recoverySalt);
+            const proofHash = await VEX.preuveRecuperation(code, recoverySalt);
+            await fetch('/login/login', {
+                method: 'POST',
+                credentials: 'include',
+                body: new URLSearchParams({
+                    action: 'enregistrer_recuperation',
+                    file_key_wrapped_pwd: wrappedPwd,
+                    file_key_wrapped_recovery: wrappedRecovery,
+                    recovery_salt: recoverySalt,
+                    recovery_proof_hash: proofHash,
+                }),
+            });
+            await afficherCodeRecuperationUneFois(code);
+        } else {
+            masterKeyBytes = await VEX.desenvelopperMasterKeyAvecMotDePasse(d2.file_key_wrapped_pwd, mdpClair);
+        }
+        VEX.setMasterKey(masterKeyBytes);
+        sessionStorage.setItem('vex_master_key', VEX.toBase64(masterKeyBytes));
+
         window.location.href = d2.redirect || '/login/dashboard';
     } catch (err) {
         showMsg('msg-login', I18N.ERREUR_RESEAU, 'error');
@@ -465,12 +648,24 @@ async function submitSignup() {
     try {
         const { salt_hex, verifier_hex } = await SRP.genererSaltEtVerifier(email, mdpClair);
 
+        // ── Récupération de compte : masterKey générée dès l'inscription ──
+        const masterKeyBytes = VEX.genererMasterKey();
+        const wrappedPwd = await VEX.envelopperMasterKeyAvecMotDePasse(masterKeyBytes, mdpClair);
+        const code = VEX.genererCodeRecuperation();
+        const recoverySalt = VEX.genererSelRecuperation();
+        const wrappedRecovery = await VEX.envelopperMasterKeyAvecCode(masterKeyBytes, code, recoverySalt);
+        const proofHash = await VEX.preuveRecuperation(code, recoverySalt);
+
         const body = new URLSearchParams({
             action: 'signup',
             nom, email,
             srp_salt: salt_hex,
             srp_verifier: verifier_hex,
             scales: '1',
+            file_key_wrapped_pwd: wrappedPwd,
+            file_key_wrapped_recovery: wrappedRecovery,
+            recovery_salt: recoverySalt,
+            recovery_proof_hash: proofHash,
         });
 
         const activation = document.getElementById('activation-input');
@@ -482,6 +677,7 @@ async function submitSignup() {
         if (d.success) {
             hideSignupModal();
             showMsg('msg-login', d.message || I18N.INSCRIPTION_REUSSIE, 'success');
+            await afficherCodeRecuperationUneFois(code);
         } else {
             showMsg('msg-signup', d.error, 'error');
         }

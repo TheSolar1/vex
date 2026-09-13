@@ -221,6 +221,54 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
             }
         }
 
+        // ── Définir / modifier le pseudo (connexion par pseudo) ───
+        ("POST", "/api/account/pseudo") => {
+            let body = read_body(&mut request);
+            let pseudo = body.get("pseudo").cloned().unwrap_or_default().trim().to_string();
+
+            if pseudo.is_empty() {
+                // Pseudo vidé : le compte redevient connectable uniquement par email.
+                inserer_ou_modifier(
+                    pool,
+                    "login",
+                    &[("pseudo", mysql::Value::NULL)],
+                    &[("email", mysql::Value::from(user_email.as_str()))],
+                );
+                respond_json(request, json!({"success":true,"pseudo":""}), 200);
+                return;
+            }
+            if pseudo.len() > 64 || pseudo.contains('@') || pseudo.chars().any(|c| c.is_whitespace()) {
+                respond_json(request, json!({"success":false,"error":"Pseudo invalide."}), 200);
+                return;
+            }
+
+            let existing = selectionner(
+                pool,
+                "login",
+                &[("pseudo", mysql::Value::from(pseudo.as_str()))],
+                &["email"],
+                None,
+                Some(1),
+            );
+            let deja_pris = existing
+                .into_iter()
+                .next()
+                .map(|r| r.get("email").and_then(|v| v.as_str()).unwrap_or("") != user_email.as_str())
+                .unwrap_or(false);
+            if deja_pris {
+                respond_json(request, json!({"success":false,"error":"Ce pseudo est déjà utilisé."}), 200);
+                return;
+            }
+
+            inserer_ou_modifier(
+                pool,
+                "login",
+                &[("pseudo", mysql::Value::from(pseudo.as_str()))],
+                &[("email", mysql::Value::from(user_email.as_str()))],
+            );
+            respond_json(request, json!({"success":true,"pseudo":pseudo}), 200);
+        }
+
         // ── Changer le mot de passe ───────────────────────────────
         ("POST", "/api/account/password") => {
             let body = read_body(&mut request);
@@ -433,7 +481,7 @@ fn build_account_data(pool: &DbPool, config: &VexConfig, user_id: i64, user_emai
         pool,
         "login",
         &[("email", mysql::Value::from(user_email))],
-        &["id", "nom", "email", "privilege", "vip"],
+        &["id", "nom", "email", "privilege", "vip", "pseudo"],
         None,
         Some(1),
     );
@@ -450,6 +498,11 @@ fn build_account_data(pool: &DbPool, config: &VexConfig, user_id: i64, user_emai
         .to_string();
     let email = row
         .get("email")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let pseudo = row
+        .get("pseudo")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
@@ -493,6 +546,7 @@ fn build_account_data(pool: &DbPool, config: &VexConfig, user_id: i64, user_emai
                 "id":        user_id,
                 "nom":       nom,
                 "email":     email,
+                "pseudo":    pseudo,
                 "privilege": privilege,
                 "vip":       vip,
                 "privilege_details": pd,

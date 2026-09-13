@@ -238,6 +238,19 @@ __NAV_HTML__
             </div>
           </div>
         </div>
+
+        <div class="card">
+          <h2><i class="fas fa-at"></i> Pseudo</h2>
+          <p>Permet de te connecter avec un pseudo en plus de ton email. Laisse vide pour ne te connecter que par email.</p>
+          <div class="form-group">
+            <label for="pseudo-input">Pseudo</label>
+            <input type="text" id="pseudo-input" placeholder="mon_pseudo" maxlength="64" style="width:100%;padding:12px 16px;border:2px solid var(--panel-border);border-radius:8px;font-size:16px;background:var(--input);color:var(--text);">
+          </div>
+          <button class="btn btn-primary" id="btn-save-pseudo">
+            <i class="fas fa-save"></i> Enregistrer le pseudo
+          </button>
+          <span class="aff-msg" id="pseudo-msg" style="margin-left:12px;"></span>
+        </div>
       </div>
 
       <div id="preferences-section" class="section-content">
@@ -472,6 +485,8 @@ __NAV_HTML__
     $('#prof-nom').textContent=d.user.nom||'—';
     $('#prof-mail').textContent=d.user.email||'—';
     $('#prof-id').textContent='#'+(d.user.id??'');
+    const pseudoInput=$('#pseudo-input');
+    if(pseudoInput) pseudoInput.value=d.user.pseudo||'';
     $('#avatar-letter').textContent=(d.user.nom||'V').substring(0,1).toUpperCase();
     const pv=d.user.privilege_details;
     const privLabel=pv?.nom_privilege || (I18N.PRIVILEGE_LABEL.replace('{n}',d.user.privilege??'?'));
@@ -601,6 +616,18 @@ __NAV_HTML__
 
     const langueSelect=$('#langue-select');
     if(langueSelect){ langueSelect.addEventListener('change',()=>saveLangue(langueSelect.value)); }
+
+    const btnSavePseudo=$('#btn-save-pseudo');
+    if(btnSavePseudo){
+      btnSavePseudo.addEventListener('click', async ()=>{
+        const pseudo=($('#pseudo-input').value||'').trim();
+        const body=new URLSearchParams({pseudo});
+        const r=await j('/api/account/pseudo',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
+        const msg=$('#pseudo-msg');
+        setMsg(msg, r.success?'Pseudo enregistré.':(r.error||'Erreur.'), r.success);
+        toast(msg.textContent, !r.success);
+      });
+    }
 
     const copyBtn = $('#btn-copy-id');
     if(copyBtn){
