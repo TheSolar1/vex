@@ -2782,6 +2782,10 @@ function renderTimeline() {
     markDirty();
     renderTimeline();
     appliquerApercuKeyframes();
+    // Confirmation visible explicite -- un simple changement d'icone (12px)
+    // etait trop discret pour etre remarque, signale a plusieurs reprises
+    // comme "la molette ne marche pas" alors que l'etat changeait bien.
+    toast('Mode repères : ' + (blocs[idx].kfMode === 'relatif' ? 'relatif' : 'absolu'), 'ok', 1200);
   };
   // Choix, par élément, de ce que règle la molette sur le "+" : le TEMPS
   // (instant où se posera le prochain repère) ou le MODE (absolu/relatif).
