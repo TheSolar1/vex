@@ -1623,6 +1623,10 @@ function renderBlocsList() {
 // position, on se rabat sur le centrage brut d'origine plutôt que de
 // laisser l'utilisateur face à un canevas vide sans le savoir.
 function centrerSurPageRectAvecFiletDeSecurite() {
+  // Compteur de debogage temporaire (voir #kfDebugBadge), meme raison que
+  // dans appliquerApercuKeyframes.
+  const dbgR = document.getElementById('kfDebugRecentre');
+  if (dbgR) dbgR.textContent = (Number(dbgR.textContent) || 0) + 1;
   const wrap = document.querySelector('.blocs-canvas-wrap');
   const rectEl = document.querySelector('.page-boundary-rect');
   if (!wrap || !rectEl) return;
@@ -2316,6 +2320,7 @@ function renderBlocsFullView() {
       </div>
 
       <div id="blocsFields">
+        <div id="kfDebugBadge" style="position:fixed;top:60px;right:8px;z-index:9999;background:#111;color:#0f0;font:11px monospace;padding:4px 8px;border-radius:6px;opacity:.85;pointer-events:none;">apercuKf: <span id="kfDebugApercu">0</span> · recentrage: <span id="kfDebugRecentre">0</span></div>
         <div class="blocs-editor-layout">
           <div class="blocs-toolbar-v" id="blocsToolbarV">
             <button type="button" class="vbtn active" id="vbtnVisuel" title="Vue visuelle"><i class="fas fa-eye"></i></button>
@@ -3244,6 +3249,12 @@ function dragHudUpdateResize(dw, dh, applyFn) {
 
 function appliquerApercuKeyframes() {
   if (!actionsMode) return;
+  // Compteur de debogage temporaire (voir #kfDebugBadge) -- verifie si
+  // cette fonction se declenche de façon inattendue (ex: a l'ouverture de
+  // la frise, sans bouger le curseur), signale comme "ouvrir la timeline
+  // souleve tous les blocs".
+  const dbg = document.getElementById('kfDebugApercu');
+  if (dbg) dbg.textContent = (Number(dbg.textContent) || 0) + 1;
   blocs.forEach((b, idx) => {
     if (!b.keyframes || b.keyframes.length < 1) return;
     const el = document.querySelector(`#blocsList > .bloc-item[data-idx="${idx}"], #blocsList .blocs-row > .bloc-item[data-idx="${idx}"]`);
