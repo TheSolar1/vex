@@ -2146,11 +2146,12 @@ function parsePageMeta(raw) {
 
 function renderEditor() {
   const p = current;
-  // kfMode absent (page enregistree avant l'ajout de ce reglage) -- meme
-  // defaut ("absolu") que cote serveur, sinon l'apercu de l'editeur et le
-  // rendu publie ne s'accordaient pas sur la façon d'interpreter x/y des
-  // reperes tant que le bloc n'avait pas ete resauvegarde au moins une fois.
-  blocs = Array.isArray(p.contenu_blocs) ? p.contenu_blocs.map(b => ({ kfMode: 'absolu', ...b })) : [];
+  // kfMode absent (page enregistree avant l'ajout de ce reglage) -- "relatif"
+  // par defaut, meme choix que cote serveur : c'etait le seul mode existant
+  // quand ces reperes ont ete poses, donc le seul sens valide pour eux
+  // (un premier correctif avait mis "absolu" par defaut, ce qui envoyait les
+  // blocs a une position n'ayant plus rien a voir avec celle enregistree).
+  blocs = Array.isArray(p.contenu_blocs) ? p.contenu_blocs.map(b => ({ kfMode: 'relatif', ...b })) : [];
   selectedIdx = -1;
   const meta = parsePageMeta(p.contenu_corps);
   pageWidth = meta.width;

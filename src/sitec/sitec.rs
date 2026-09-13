@@ -959,14 +959,16 @@ fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
         // l'animation d'entrée : les deux `animation` CSS ne se marchent
         // pas dessus). Position figée sur le premier repère avant lecture.
         let keyframes = sanitize_keyframes(&b["keyframes"]);
-        // Mode "absolu" (par defaut, voir sanitiser_blocs) : x/y de chaque
-        // repere sont la position ABSOLUE visee sur le canevas -- il faut
-        // soustraire pos_x/pos_y pour obtenir le decalage a appliquer via
-        // transform:translate. Mode "relatif" : x/y sont deja le decalage.
-        // Absent auparavant cote serveur (le rendu publie traitait toujours
-        // les reperes comme "relatif", quel que soit le mode choisi dans
-        // l'editeur) -- signale comme "les transitions ne marchent pas".
-        let kf_absolu = san_choice(b, "kfMode", &["absolu", "relatif"], "absolu") == "absolu";
+        // Mode "absolu" : x/y de chaque repere sont la position ABSOLUE visee
+        // sur le canevas -- il faut soustraire pos_x/pos_y pour obtenir le
+        // decalage a appliquer via transform:translate. Mode "relatif" : x/y
+        // sont deja le decalage -- DEFAUT si absent (blocs enregistres avant
+        // l'ajout de ce reglage, seul mode qui existait alors : leurs
+        // reperes ont ete poses en pensant un decalage, pas une position
+        // absolue -- les traiter comme "absolu" par defaut les envoyait
+        // n'importe ou, signale une seconde fois apres un premier correctif
+        // qui avait choisi "absolu" par defaut a tort).
+        let kf_absolu = san_choice(b, "kfMode", &["absolu", "relatif"], "relatif") == "absolu";
         let inner = if keyframes.len() >= 2 {
             let n = kf_counter;
             kf_counter += 1;
@@ -1795,13 +1797,12 @@ fn sanitiser_blocs(v: &Value) -> String {
         // s'arrêter une fois sur le dernier repère.
         bloc["boucle"] = json!(b["boucle"].as_bool().unwrap_or(false));
         // Mode des reperes x/y : "absolu" (position visee sur le canevas,
-        // comme pos_x/pos_y) ou "relatif" (decalage direct a appliquer).
-        // N'etait pas sauvegarde du tout auparavant (uniquement cote client) :
-        // se perdait a chaque rechargement, ET le rendu CSS publie ignorait
-        // ce mode (toujours traite comme "relatif") -- signale comme "les
-        // reperes ne remettent pas le bloc a son emplacement enregistre" et
-        // "les transitions ne marchent pas".
-        bloc["kfMode"] = json!(san_choice(b, "kfMode", &["absolu", "relatif"], "absolu"));
+        // comme pos_x/pos_y) ou "relatif" (decalage direct a appliquer),
+        // "relatif" par defaut -- seul mode qui existait avant l'ajout de ce
+        // reglage, donc le seul sens valide pour un bloc qui n'a jamais eu
+        // ce champ (un premier correctif avait choisi "absolu" par defaut,
+        // ce qui detournait le sens des reperes deja enregistres).
+        bloc["kfMode"] = json!(san_choice(b, "kfMode", &["absolu", "relatif"], "relatif"));
         out.push(bloc);
     }
     serde_json::to_string(&out).unwrap_or_else(|_| "[]".to_string())
