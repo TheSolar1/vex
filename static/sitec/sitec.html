@@ -3526,6 +3526,13 @@ async function savePage(mode) {
     const data = await r.json();
     if (data.success) {
       dirty = false;
+      // "current" (l'objet page en memoire) n'etait jamais mis a jour apres
+      // une sauvegarde reussie -- un aller-retour vue pleine ecran <-> vue
+      // detail (ex: pour cocher "Page publique") reconstruisait "blocs"
+      // depuis ces donnees perimees (souvent vides pour une page neuve), et
+      // resauvegarder a partir de la effacait silencieusement le vrai
+      // contenu tout juste enregistre. Verifie par test automatise.
+      Object.assign(current, payload);
       toast(I18N.PAGE_ENREGISTREE, 'ok');
       await loadPages();
     } else {
