@@ -367,6 +367,13 @@ body {
 .tl-height-resize { height:6px; margin-top:-6px; cursor:row-resize; position:relative; z-index:6; }
 .tl-height-resize:hover, .tl-height-resize.dragging { background:var(--accent); opacity:.4; }
 .blocs-timeline-hdr { display:flex; align-items:center; gap:10px; padding:8px 12px; border-bottom:1px solid var(--border); }
+/* Sorti de .blocs-timeline-hdr (voir plus bas dans le HTML) : coince entre
+   les boutons dans une colonne flex tres etroite, son texte s'enroulait sur
+   ~250px de hauteur, gonflant toute la frise et ecrasant le canevas a
+   quelques px de haut -- signale comme "ouvrir la timeline deplace tous les
+   blocs" (en realite ils sortaient simplement de la zone visible). Une
+   seule ligne tronquee, texte complet au survol (title). */
+.tl-hint-row { padding:2px 12px 6px; margin-top:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-bottom:1px solid var(--border); }
 .blocs-timeline-hdr .vbtn {
   width:30px; height:30px; border-radius:6px; border:1px solid var(--border); background:var(--sidebar-hover); color:var(--text);
   cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:12px;
@@ -2361,8 +2368,8 @@ function renderBlocsFullView() {
                   <button type="button" class="vbtn" id="tlZoomOutBtn" title="Zoom arrière"><i class="fas fa-magnifying-glass-minus"></i></button>
                   <button type="button" class="vbtn" id="tlZoomInBtn" title="Zoom avant"><i class="fas fa-magnifying-glass-plus"></i></button>
                 </div>
-                <span class="hint">I ou + : pose un repère de position à l'instant du curseur (autant que vous voulez) · Repère sélectionné : glisser ou G · Suppr (enlever) · Espace (lire)</span>
               </div>
+              <div class="tl-hint-row hint" title="I ou + : pose un repère de position à l'instant du curseur (autant que vous voulez) · Repère sélectionné : glisser ou G · Suppr (enlever) · Espace (lire)">I ou + : pose un repère de position à l'instant du curseur (autant que vous voulez) · Repère sélectionné : glisser ou G · Suppr (enlever) · Espace (lire)</div>
               <div class="tl-kf-editor" id="tlKfEditor" style="display:none"></div>
               <div class="timeline-ruler-outer" id="tlRulerOuter">
                 <div class="timeline-ruler-numbers" id="tlRulerNumbers"></div>
