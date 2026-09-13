@@ -948,12 +948,25 @@ fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
             "retour_haut" => "<div class=\"sitec-bloc\"><button type=\"button\" class=\"sitec-retour-haut\" onclick=\"window.scrollTo({top:0,behavior:'smooth'})\">&uarr;</button></div>".to_string(),
             _ => continue,
         };
+        // Position de base du bloc (utile a la fois pour la conversion des
+        // reperes en mode "absolu" ci-dessous et pour la position libre plus
+        // bas) -- calculee une seule fois ici.
+        let pos_x = san_int(b, "pos_x", -2000, 8000, 0);
+        let pos_y = san_int(b, "pos_y", -2000, 20000, 0);
         // Repères de position (mode Actions -> "translation") : au moins 2
         // repères = interpolation continue entre eux via un @keyframes
         // dédié, appliqué sur un wrapper interne (pas le même élément que
         // l'animation d'entrée : les deux `animation` CSS ne se marchent
         // pas dessus). Position figée sur le premier repère avant lecture.
         let keyframes = sanitize_keyframes(&b["keyframes"]);
+        // Mode "absolu" (par defaut, voir sanitiser_blocs) : x/y de chaque
+        // repere sont la position ABSOLUE visee sur le canevas -- il faut
+        // soustraire pos_x/pos_y pour obtenir le decalage a appliquer via
+        // transform:translate. Mode "relatif" : x/y sont deja le decalage.
+        // Absent auparavant cote serveur (le rendu publie traitait toujours
+        // les reperes comme "relatif", quel que soit le mode choisi dans
+        // l'editeur) -- signale comme "les transitions ne marchent pas".
+        let kf_absolu = san_choice(b, "kfMode", &["absolu", "relatif"], "absolu") == "absolu";
         let inner = if keyframes.len() >= 2 {
             let n = kf_counter;
             kf_counter += 1;
@@ -969,8 +982,13 @@ fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
             let ws = fill_dimension(keyframes.iter().map(|k| k["w"].as_i64()).collect());
             let hs = fill_dimension(keyframes.iter().map(|k| k["h"].as_i64()).collect());
             let has_size = ws.iter().any(|w| w.is_some()) || hs.iter().any(|h| h.is_some());
-            let x0 = keyframes[0]["x"].as_i64().unwrap_or(0);
-            let y0 = keyframes[0]["y"].as_i64().unwrap_or(0);
+            let coord = |raw_x: i64, raw_y: i64| -> (i64, i64) {
+                if kf_absolu { (raw_x - pos_x, raw_y - pos_y) } else { (raw_x, raw_y) }
+            };
+            let (x0, y0) = coord(
+                keyframes[0]["x"].as_i64().unwrap_or(0),
+                keyframes[0]["y"].as_i64().unwrap_or(0),
+            );
             let w0 = ws[0].unwrap_or(0);
             let h0 = hs[0].unwrap_or(0);
             let stops: String = keyframes
@@ -978,8 +996,7 @@ fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
                 .enumerate()
                 .map(|(idx, k)| {
                     let t = k["t"].as_i64().unwrap_or(0);
-                    let x = k["x"].as_i64().unwrap_or(0);
-                    let y = k["y"].as_i64().unwrap_or(0);
+                    let (x, y) = coord(k["x"].as_i64().unwrap_or(0), k["y"].as_i64().unwrap_or(0));
                     let pct = (t - t0) as f64 / dur as f64 * 100.0;
                     let size_style = if has_size {
                         format!("width:{}px;height:{}px;", ws[idx].unwrap_or(0), hs[idx].unwrap_or(0))
@@ -1017,8 +1034,6 @@ fn render_blocs_html(contenu_blocs: &str) -> (String, String) {
         );
         let largeur = san_int(b, "largeur", 10, 100, 100);
         if b["libre"].as_bool().unwrap_or(false) {
-            let pos_x = san_int(b, "pos_x", -2000, 8000, 0);
-            let pos_y = san_int(b, "pos_y", -2000, 20000, 0);
             let rotation = san_int(b, "rotation", 0, 359, 0);
             let est_h = if hauteur > 0 { hauteur } else { 80 };
             free_bottom = free_bottom.max(pos_y + est_h);
@@ -1779,6 +1794,14 @@ fn sanitiser_blocs(v: &Value) -> String {
         // Boucle l'animation de repères (translation/déformation) au lieu de
         // s'arrêter une fois sur le dernier repère.
         bloc["boucle"] = json!(b["boucle"].as_bool().unwrap_or(false));
+        // Mode des reperes x/y : "absolu" (position visee sur le canevas,
+        // comme pos_x/pos_y) ou "relatif" (decalage direct a appliquer).
+        // N'etait pas sauvegarde du tout auparavant (uniquement cote client) :
+        // se perdait a chaque rechargement, ET le rendu CSS publie ignorait
+        // ce mode (toujours traite comme "relatif") -- signale comme "les
+        // reperes ne remettent pas le bloc a son emplacement enregistre" et
+        // "les transitions ne marchent pas".
+        bloc["kfMode"] = json!(san_choice(b, "kfMode", &["absolu", "relatif"], "absolu"));
         out.push(bloc);
     }
     serde_json::to_string(&out).unwrap_or_else(|_| "[]".to_string())

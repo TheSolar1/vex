@@ -2146,7 +2146,11 @@ function parsePageMeta(raw) {
 
 function renderEditor() {
   const p = current;
-  blocs = Array.isArray(p.contenu_blocs) ? p.contenu_blocs.map(b => ({...b})) : [];
+  // kfMode absent (page enregistree avant l'ajout de ce reglage) -- meme
+  // defaut ("absolu") que cote serveur, sinon l'apercu de l'editeur et le
+  // rendu publie ne s'accordaient pas sur la façon d'interpreter x/y des
+  // reperes tant que le bloc n'avait pas ete resauvegarde au moins une fois.
+  blocs = Array.isArray(p.contenu_blocs) ? p.contenu_blocs.map(b => ({ kfMode: 'absolu', ...b })) : [];
   selectedIdx = -1;
   const meta = parsePageMeta(p.contenu_corps);
   pageWidth = meta.width;
