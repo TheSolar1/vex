@@ -2259,7 +2259,15 @@ function renderEditor() {
     </div>`;
 
   // ── Listeners ──
-  let mode = pageMode;
+  // "pageMode" (simple/brut) ne pilote que quel onglet parait actif ici --
+  // il n'existe plus d'onglet "Blocs" dans cette vue detail (deplace dans
+  // son propre ecran, voir renderBlocsFullView). Mais le mode ENREGISTRE
+  // doit rester "blocs" tant que l'utilisateur n'a pas explicitement clique
+  // un des 2 onglets visibles : sinon, un simple aller-retour vers cette vue
+  // (ex: pour cocher "Page publique") puis Enregistrer repassait le mode a
+  // "simple" et cachait tout le contenu blocs (contenu_blocs restait
+  // intact, seul "mode" changeait -- signale via un test de bout en bout).
+  let mode = p.mode === 'blocs' ? 'blocs' : pageMode;
   document.querySelectorAll('.mode-tab').forEach(tab => {
     tab.onclick = () => {
       mode = tab.dataset.mode;
