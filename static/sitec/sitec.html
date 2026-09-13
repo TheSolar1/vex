@@ -405,8 +405,8 @@ body {
 .timeline-track { display:flex; align-items:center; gap:10px; height:30px; margin-bottom:4px; }
 .timeline-track-label { width:190px; flex-shrink:0; font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:5px; }
 .timeline-track-add, .timeline-track-mode, .timeline-track-wheel-cible {
-  width:18px; height:18px; border-radius:4px; border:1px solid var(--border); background:var(--surface);
-  color:var(--text-dim); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:9px; flex-shrink:0;
+  width:24px; height:24px; border-radius:4px; border:1px solid var(--border); background:var(--surface);
+  color:var(--text-dim); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:10px; flex-shrink:0;
 }
 .timeline-track-mode, .timeline-track-wheel-cible { cursor:ns-resize; }
 .timeline-track-wheel-cible { margin-left:auto; }
@@ -2710,7 +2710,7 @@ function renderTimeline() {
       <div class="timeline-clip pos${(tlSelectedIdx===i&&tlSelectedKf===kf)?' selected':''}" data-idx="${i}" data-kf="${kf}" style="left:calc(${tlPct(k.t||0)}% - 8px)" title="${msVersS(k.t||0)}s — x:${k.x||0} y:${k.y||0}"></div>`).join('');
     return `
     <div class="timeline-track">
-      <div class="timeline-track-label"><i class="fas fa-${BLOC_ICONES[b.type]||'cube'}"></i> ${escAttr(BLOC_LABELS[b.type]||b.type)}
+      <div class="timeline-track-label" data-idx="${i}"><i class="fas fa-${BLOC_ICONES[b.type]||'cube'}"></i> ${escAttr(BLOC_LABELS[b.type]||b.type)}
         <button type="button" class="timeline-track-wheel-cible" data-idx="${i}" title="Ce que règle la molette sur le bouton + : ${b.wheelCible==='temps'?'Temps (instant du prochain repère)':'Mode (absolu/relatif)'} — clic pour changer"><i class="fas fa-${b.wheelCible==='temps'?'clock':'computer-mouse'}"></i></button>
         <button type="button" class="timeline-track-mode" data-idx="${i}" title="Mode des repères : ${b.kfMode==='relatif'?'Relatif (déplacement depuis la position actuelle)':'Absolu (position exacte enregistrée)'} — clic ou molette pour changer"><i class="fas fa-${b.kfMode==='relatif'?'arrows-up-down-left-right':'anchor'}"></i></button>
         <button type="button" class="timeline-track-add" data-idx="${i}" title="Ajouter un repère de position ici (molette : ${b.wheelCible==='temps'?'régler l\'instant':'changer le mode'})"><i class="fas fa-plus"></i></button>
@@ -2794,24 +2794,31 @@ function renderTimeline() {
       renderTimeline();
     });
   });
+  // Molette sur le "+" (ou cible=temps : avance/recule le curseur) --
+  // factorisee pour etre aussi utilisable sur une zone plus large (voir
+  // .timeline-track-label ci-dessous) : viser exactement un bouton de 18px
+  // (comme avant) etait trop precis, signale comme "la molette ne marche
+  // pas" alors que le mecanisme lui-meme fonctionnait (verifie par test
+  // automatise) -- la vraie gene etait juste la difficulte a placer le
+  // curseur pile sur une icone minuscule.
+  const gererMoletteAjout = (idx, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (blocs[idx].wheelCible === 'temps') {
+      // tlSetPlayhead() met deja a jour #tlFrameInput (en secondes, voir
+      // msVersS) -- l'ecraser juste apres avec Math.round(tlPlayhead) en
+      // millisecondes brutes affichait par ex. "50" au lieu de "0.05".
+      tlSetPlayhead(tlPlayhead + (e.deltaY < 0 ? 50 : -50));
+    } else {
+      basculerMode(idx);
+    }
+  };
   tracks.querySelectorAll('.timeline-track-add').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       ajouterRepereDePosition(Number(btn.dataset.idx));
     });
-    btn.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const idx = Number(btn.dataset.idx);
-      if (blocs[idx].wheelCible === 'temps') {
-        // tlSetPlayhead() met deja a jour #tlFrameInput (en secondes, voir
-        // msVersS) -- l'ecraser juste apres avec Math.round(tlPlayhead) en
-        // millisecondes brutes affichait par ex. "50" au lieu de "0.05".
-        tlSetPlayhead(tlPlayhead + (e.deltaY < 0 ? 50 : -50));
-      } else {
-        basculerMode(idx);
-      }
-    }, { passive: false });
+    btn.addEventListener('wheel', (e) => gererMoletteAjout(Number(btn.dataset.idx), e), { passive: false });
   });
   tracks.querySelectorAll('.timeline-track-mode').forEach(btn => {
     const bascule = (e) => {
@@ -2821,6 +2828,12 @@ function renderTimeline() {
     };
     btn.addEventListener('click', bascule);
     btn.addEventListener('wheel', bascule, { passive: false });
+  });
+  // Molette sur toute l'etiquette de la piste (icone + nom + les 3 petits
+  // boutons) : meme comportement que sur le "+", mais avec une zone de
+  // detection bien plus large (190px de large) qu'un bouton de 18-24px.
+  tracks.querySelectorAll('.timeline-track-label').forEach(label => {
+    label.addEventListener('wheel', (e) => gererMoletteAjout(Number(label.dataset.idx), e), { passive: false });
   });
 
   drawTimelineLinks();
