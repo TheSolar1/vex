@@ -74,6 +74,15 @@ fn handle_post(pool: &DbPool, body: &HashMap<String, String>, langue: &str) -> S
         .to_string();
     let salt_hex = body.get("srp_salt").cloned().unwrap_or_default();
     let verifier_hex = body.get("srp_verifier").cloned().unwrap_or_default();
+    // FIX (code de recuperation des la creation) : le tout premier compte
+    // (fondateur/superadmin) passait par un chemin distinct du signup
+    // normal et n'envoyait jamais ce materiel -- needs_recovery_setup
+    // rattrapait ca a la CONNEXION suivante seulement. Meme logique que
+    // handle_signup dans login.rs, generee ici directement.
+    let file_key_wrapped_pwd = body.get("file_key_wrapped_pwd").cloned().unwrap_or_default();
+    let file_key_wrapped_recovery = body.get("file_key_wrapped_recovery").cloned().unwrap_or_default();
+    let recovery_salt = body.get("recovery_salt").cloned().unwrap_or_default();
+    let recovery_proof_hash = body.get("recovery_proof_hash").cloned().unwrap_or_default();
 
     if nom.is_empty() || email.is_empty() {
         return jerr(t(langue, Cle::SetupErreurChampsObligatoires));
@@ -103,6 +112,10 @@ fn handle_post(pool: &DbPool, body: &HashMap<String, String>, langue: &str) -> S
             ("email", mysql::Value::from(html_escape(&email).as_str())),
             ("srp_salt", mysql::Value::from(salt_hex.as_str())),
             ("srp_verifier", mysql::Value::from(verifier_hex.as_str())),
+            ("file_key_wrapped_pwd", mysql::Value::from(file_key_wrapped_pwd.as_str())),
+            ("file_key_wrapped_recovery", mysql::Value::from(file_key_wrapped_recovery.as_str())),
+            ("recovery_salt", mysql::Value::from(recovery_salt.as_str())),
+            ("recovery_proof_hash", mysql::Value::from(recovery_proof_hash.as_str())),
             // Superadmin (2), pas fondateur (1) : le fondateur est un role
             // protege/permanent qui ne devrait pas etre attribue automatiquement
             // au premier compte cree, meme legitime.

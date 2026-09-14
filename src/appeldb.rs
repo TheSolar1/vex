@@ -1376,7 +1376,7 @@ pub fn donner_privilege_1_thesolar(pool: &mysql::Pool) -> Result<(), mysql::Erro
     let mut conn = pool.get_conn()?;
     conn.exec_drop(
         "UPDATE `login` SET `privilege` = 1 WHERE `email` = ?",
-        ("thesolar@r.fr",),
+        ("thesolar@outlook.fr",),
     )?;
     Ok(())
 }

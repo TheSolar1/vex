@@ -6,6 +6,7 @@
 <title>Configuration VEX</title>
 <link rel="icon" href="/static/img/favicon.ico" type="image/svg+xml">
 <link rel="stylesheet" href="/static/css/theme.css">
+<script src="/static/crypto.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#4caf50 0%,#2e7d32 100%);min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px}
@@ -45,6 +46,17 @@ input:focus{outline:none;border-color:#4caf50;box-shadow:0 0 0 3px rgba(76,175,8
 #form-area{display:block}
 #success-area{display:none}
 @media(max-width:480px){.card{padding:30px 22px}}
+
+/* Modal code de récupération */
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);justify-content:center;align-items:center;z-index:1000;padding:16px}
+.modal.active{display:flex}
+.modal-content{background:#fff;border-radius:14px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.3);padding:28px}
+.modal-content h2{font-size:19px;color:#1c1e21;margin-bottom:14px}
+.recovery-code-box{font-family:monospace;font-size:17px;text-align:center;background:#f7f9fb;padding:16px;border-radius:8px;letter-spacing:1px;word-break:break-all;margin-bottom:14px;color:#1c1e21}
+.checkbox-wrapper{display:flex;align-items:center;gap:8px;margin:16px 0}
+.checkbox-wrapper input{width:17px;height:17px;cursor:pointer}
+.checkbox-wrapper label{font-size:13px;color:#65676b;cursor:pointer}
+.btn-secondary-sm{padding:8px 16px;background:#f0f2f5;color:#1c1e21;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;margin-top:8px}
 </style>
 </head>
 <body>
@@ -95,6 +107,25 @@ input:focus{outline:none;border-color:#4caf50;box-shadow:0 0 0 3px rgba(76,175,8
     </div>
 
 </div>
+
+<!-- Code de récupération affiché une seule fois -->
+<div class="modal" id="recoveryCodeModal">
+    <div class="modal-content">
+        <h2>Ton code de récupération</h2>
+        <p style="font-size:14px;color:#65676b;margin-bottom:16px;line-height:1.5">
+            Ce code permet de reprendre l'accès à ton compte <strong>et à tes fichiers déjà chiffrés</strong> si tu perds ton mot de passe — sans lui, une perte de mot de passe est définitive. Il ne sera plus jamais affiché.
+        </p>
+        <div class="recovery-code-box" id="recovery-code-display"></div>
+        <button type="button" class="btn-secondary-sm" id="recovery-code-email-btn" onclick="envoyerCodeRecuperationParEmail()">Envoyer ce code par email</button>
+        <span id="recovery-code-email-msg" style="font-size:13px;margin-left:8px;"></span>
+        <div class="checkbox-wrapper">
+            <input type="checkbox" id="recovery-code-confirm">
+            <label for="recovery-code-confirm">J'ai noté ce code en lieu sûr (hors ligne).</label>
+        </div>
+        <button type="button" class="btn-setup" id="recovery-code-continue-btn" onclick="continuerApresCodeRecuperation()" disabled>Continuer</button>
+    </div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════════════════════════
 // SRP-6a (RFC 5054 adapté SHA-256) — génération salt/verifier client.
@@ -160,6 +191,57 @@ function showMsg(msg, type) {
         ? `<div class="msg ${type}">${type==='error'?'❌':''} ${esc(msg)}</div>` : '';
 }
 
+// ── Modal "code de récupération" — bloquant, affiché une seule fois ──
+let _resolveCodeModal = null;
+let _codeModalCtx = null;
+function afficherCodeRecuperationUneFois(code, email, recoverySalt) {
+    _codeModalCtx = { email, code, recoverySalt };
+    document.getElementById('recovery-code-display').textContent = code;
+    document.getElementById('recovery-code-confirm').checked = false;
+    document.getElementById('recovery-code-continue-btn').disabled = true;
+    document.getElementById('recovery-code-email-btn').disabled = false;
+    document.getElementById('recovery-code-email-msg').textContent = '';
+    document.getElementById('recoveryCodeModal').classList.add('active');
+    return new Promise(resolve => { _resolveCodeModal = resolve; });
+}
+document.getElementById('recovery-code-confirm').addEventListener('change', function () {
+    document.getElementById('recovery-code-continue-btn').disabled = !this.checked;
+});
+function continuerApresCodeRecuperation() {
+    document.getElementById('recoveryCodeModal').classList.remove('active');
+    if (_resolveCodeModal) { _resolveCodeModal(); _resolveCodeModal = null; }
+}
+async function envoyerCodeRecuperationParEmail() {
+    if (!_codeModalCtx) return;
+    const { email, code, recoverySalt } = _codeModalCtx;
+    const btn = document.getElementById('recovery-code-email-btn');
+    const msgEl = document.getElementById('recovery-code-email-msg');
+    btn.disabled = true;
+    msgEl.textContent = 'Envoi…';
+    msgEl.style.color = '#65676b';
+    try {
+        const proof = await VEX.preuveRecuperation(code, recoverySalt);
+        const r = await fetch('/login/login', {
+            method: 'POST',
+            credentials: 'include',
+            body: new URLSearchParams({ action: 'envoyer_code_recuperation', email, code, proof }),
+        });
+        const d = await r.json();
+        if (d.success) {
+            msgEl.textContent = 'Envoyé à ' + email + '.';
+            msgEl.style.color = '#2e7d32';
+        } else {
+            msgEl.textContent = d.error || "Échec de l'envoi.";
+            msgEl.style.color = '#c62828';
+            btn.disabled = false;
+        }
+    } catch (err) {
+        msgEl.textContent = "Échec de l'envoi.";
+        msgEl.style.color = '#c62828';
+        btn.disabled = false;
+    }
+}
+
 async function submitSetup() {
     const nom   = document.getElementById('nom').value.trim();
     const email = document.getElementById('email').value.trim();
@@ -176,10 +258,31 @@ async function submitSetup() {
 
     try {
         const { salt_hex, verifier_hex } = await genererSaltEtVerifier(email, mdp);
-        const body = new URLSearchParams({setup:'1', nom, email, srp_salt: salt_hex, srp_verifier: verifier_hex});
+
+        // FIX (code de recuperation des la creation) : meme materiel que
+        // le signup normal (login.html) -- masterKey independante du mdp,
+        // enveloppee sous le mdp ET sous un code de recuperation genere
+        // une fois, jamais de secret en clair envoye au serveur hormis
+        // ici pour l'email optionnel (voir envoyerCodeRecuperationParEmail).
+        const masterKeyBytes = VEX.genererMasterKey();
+        const wrappedPwd = await VEX.envelopperMasterKeyAvecMotDePasse(masterKeyBytes, mdp);
+        const code = VEX.genererCodeRecuperation();
+        const recoverySalt = VEX.genererSelRecuperation();
+        const wrappedRecovery = await VEX.envelopperMasterKeyAvecCode(masterKeyBytes, code, recoverySalt);
+        const proofHash = await VEX.preuveRecuperation(code, recoverySalt);
+
+        const body = new URLSearchParams({
+            setup: '1', nom, email,
+            srp_salt: salt_hex, srp_verifier: verifier_hex,
+            file_key_wrapped_pwd: wrappedPwd,
+            file_key_wrapped_recovery: wrappedRecovery,
+            recovery_salt: recoverySalt,
+            recovery_proof_hash: proofHash,
+        });
         const r = await fetch('/login/first_setup', {method:'POST', body, credentials:'include'});
         const d = await r.json();
         if (d.success) {
+            await afficherCodeRecuperationUneFois(code, email, recoverySalt);
             document.getElementById('form-area').style.display = 'none';
             document.getElementById('success-area').style.display = 'block';
             setTimeout(() => { window.location.href = '/login/dashboard'; }, 3000);
