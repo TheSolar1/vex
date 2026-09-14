@@ -114,7 +114,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
                 Ce code permet de reprendre l'accès à ton compte <strong>et à tes fichiers déjà chiffrés</strong> si tu perds ton mot de passe — sans lui, une perte de mot de passe est définitive. Il ne sera plus jamais affiché.
             </p>
             <div id="recovery-code-display" style="font-family:monospace;font-size:18px;text-align:center;background:var(--surface2);padding:16px;border-radius:8px;letter-spacing:1px;word-break:break-all;"></div>
-            <div class="checkbox-wrapper">
+            <button type="button" class="btn-secondary" style="width:auto;margin:12px 0 0;padding:8px 16px;font-size:13px;" id="recovery-code-email-btn" onclick="envoyerCodeRecuperationParEmail()">Envoyer ce code par email</button>
+            <span id="recovery-code-email-msg" style="font-size:13px;margin-left:8px;"></span>
+            <div class="checkbox-wrapper" style="margin-top:16px;">
                 <input type="checkbox" id="recovery-code-confirm">
                 <label for="recovery-code-confirm">J'ai noté ce code en lieu sûr (hors ligne).</label>
             </div>
@@ -441,16 +443,57 @@ document.getElementById('signupModal').addEventListener('click', e => {
 
 // ── Modal "code de récupération" — bloquant, affiché une seule fois ──
 let _resolveCodeModal = null;
-function afficherCodeRecuperationUneFois(code) {
+let _codeModalCtx = null; // { email, code, recoverySalt } — pour l'envoi par email
+function afficherCodeRecuperationUneFois(code, email, recoverySalt) {
+    _codeModalCtx = { email, code, recoverySalt };
     document.getElementById('recovery-code-display').textContent = code;
     document.getElementById('recovery-code-confirm').checked = false;
     document.getElementById('recovery-code-continue-btn').disabled = true;
+    document.getElementById('recovery-code-email-btn').disabled = false;
+    showMsg('recovery-code-email-msg', '', 'error');
     document.getElementById('recoveryCodeModal').classList.add('active');
     return new Promise(resolve => { _resolveCodeModal = resolve; });
 }
 document.getElementById('recovery-code-confirm').addEventListener('change', function () {
     document.getElementById('recovery-code-continue-btn').disabled = !this.checked;
 });
+
+// FIX (envoi du code par email) : le serveur ne connaît jamais le code en
+// clair -- on prouve qu'on le connaît (meme mecanisme que la recuperation
+// de compte, VEX.preuveRecuperation) et le serveur l'envoie UNIQUEMENT a
+// l'email deja enregistre pour ce compte (jamais une adresse fournie par
+// le client), ce qui empeche d'utiliser cette route pour spammer un tiers.
+async function envoyerCodeRecuperationParEmail() {
+    if (!_codeModalCtx) return;
+    const { email, code, recoverySalt } = _codeModalCtx;
+    const btn = document.getElementById('recovery-code-email-btn');
+    const msgEl = document.getElementById('recovery-code-email-msg');
+    btn.disabled = true;
+    msgEl.textContent = 'Envoi…';
+    msgEl.style.color = 'var(--text-dim)';
+    try {
+        const proof = await VEX.preuveRecuperation(code, recoverySalt);
+        const r = await fetch('/login/login', {
+            method: 'POST',
+            credentials: 'include',
+            body: new URLSearchParams({ action: 'envoyer_code_recuperation', email, code, proof }),
+        });
+        const d = await r.json();
+        if (d.success) {
+            msgEl.textContent = 'Envoyé à ' + email + '.';
+            msgEl.style.color = 'var(--accent)';
+        } else {
+            msgEl.textContent = d.error || 'Échec de l\'envoi.';
+            msgEl.style.color = '#e53935';
+            btn.disabled = false;
+        }
+    } catch (err) {
+        msgEl.textContent = 'Échec de l\'envoi.';
+        msgEl.style.color = '#e53935';
+        btn.disabled = false;
+        console.error(err);
+    }
+}
 function continuerApresCodeRecuperation() {
     document.getElementById('recoveryCodeModal').classList.remove('active');
     if (_resolveCodeModal) { _resolveCodeModal(); _resolveCodeModal = null; }
@@ -529,7 +572,7 @@ async function submitForgot() {
 
         hideForgotModal();
         showMsg('msg-login', 'Mot de passe réinitialisé. Note ton nouveau code de récupération, puis reconnecte-toi.', 'success');
-        await afficherCodeRecuperationUneFois(newCode);
+        await afficherCodeRecuperationUneFois(newCode, email, newRecoverySalt);
     } catch (err) {
         showMsg('msg-forgot', erreurAvecDetail(I18N.ERREUR_RESEAU, err), 'error');
         console.error(err);
@@ -625,7 +668,7 @@ document.getElementById('login-form').addEventListener('submit', async function 
                     recovery_proof_hash: proofHash,
                 }),
             });
-            await afficherCodeRecuperationUneFois(code);
+            await afficherCodeRecuperationUneFois(code, email, recoverySalt);
         } else {
             masterKeyBytes = await VEX.desenvelopperMasterKeyAvecMotDePasse(d2.file_key_wrapped_pwd, mdpClair);
         }
@@ -692,7 +735,7 @@ async function submitSignup() {
         if (d.success) {
             hideSignupModal();
             showMsg('msg-login', d.message || I18N.INSCRIPTION_REUSSIE, 'success');
-            await afficherCodeRecuperationUneFois(code);
+            await afficherCodeRecuperationUneFois(code, email, recoverySalt);
         } else {
             showMsg('msg-signup', d.error, 'error');
         }

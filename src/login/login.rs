@@ -133,6 +133,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
         "enregistrer_recuperation" => handle_enregistrer_recuperation(request, pool, &body, &cookie_val, &remote_ip, &user_agent),
         "recuperation_info" => handle_recuperation_info(request, pool, &body),
         "recuperation_confirmer" => handle_recuperation_confirmer(request, pool, &body),
+        "envoyer_code_recuperation" => handle_envoyer_code_recuperation(request, pool, &body),
         _ => respond_json(
             request,
             json!({"success":false,"error":"Action inconnue"}),
@@ -613,6 +614,75 @@ fn handle_enregistrer_recuperation(
     );
 
     respond_json(request, json!({"success": result >= 0}), 200);
+}
+
+/// Envoie le code de récupération (en clair, tel que tapé/généré côté
+/// client) par email au compte concerné. Le serveur ne "redécouvre"
+/// jamais le code seul — le client le fournit ici explicitement, une
+/// seule fois, pour ce cas d'usage précis (le code n'est autrement
+/// jamais transmis). Deux garde-fous empêchent d'en faire un relais de
+/// spam :
+///   1. `proof` doit correspondre à `recovery_proof_hash` déjà stocké
+///      pour ce compte (même mécanisme que `recuperation_confirmer`) —
+///      donc `code` doit être le vrai code de ce compte.
+///   2. Le destinataire est TOUJOURS l'email déjà enregistré en base
+///      pour ce compte, jamais une adresse fournie par le client.
+fn handle_envoyer_code_recuperation(request: Request, pool: &DbPool, body: &HashMap<String, String>) {
+    let email = body.get("email").cloned().unwrap_or_default();
+    let code = body.get("code").cloned().unwrap_or_default();
+    let proof = body.get("proof").cloned().unwrap_or_default();
+
+    let code_valide = code.len() == 24
+        && code.as_bytes().chunks(5).enumerate().all(|(i, chunk)| {
+            if i < 4 {
+                chunk.len() == 5
+                    && chunk[4] == b'-'
+                    && chunk[..4].iter().all(|c| c.is_ascii_alphanumeric())
+            } else {
+                chunk.len() == 4 && chunk.iter().all(|c| c.is_ascii_alphanumeric())
+            }
+        });
+
+    if email.is_empty() || email.len() > 255
+        || !code_valide
+        || proof.len() != 64 || !proof.chars().all(|c| c.is_ascii_hexdigit())
+    {
+        respond_json(request, json!({"success":false,"error":"Champs invalides."}), 400);
+        return;
+    }
+
+    let rows = selectionner(
+        pool,
+        "login",
+        &[("email", mysql::Value::from(email.as_str()))],
+        &["recovery_proof_hash"],
+        None,
+        Some(1),
+    );
+    let Some(row) = rows.into_iter().next() else {
+        respond_json(request, json!({"success":false,"error":"Code de récupération invalide."}), 200);
+        return;
+    };
+    let stored_proof = row.get("recovery_proof_hash").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    if stored_proof.is_empty() || !constant_time_eq(stored_proof.as_bytes(), proof.as_bytes()) {
+        respond_json(request, json!({"success":false,"error":"Code de récupération invalide."}), 200);
+        return;
+    }
+
+    let html = format!(
+        "<p>Voici ton code de récupération de compte VEX :</p>\
+         <p style=\"font-family:monospace;font-size:18px;letter-spacing:1px\"><strong>{}</strong></p>\
+         <p>Ce code permet de reprendre l'accès à ton compte et à tes fichiers déjà chiffrés \
+         si tu perds ton mot de passe. Garde-le en lieu sûr — ne le transmets à personne.</p>",
+        code
+    );
+    let envoye = crate::function::vex_send_mail(&email, "Ton code de récupération VEX", &html);
+
+    if envoye {
+        respond_json(request, json!({"success": true}), 200);
+    } else {
+        respond_json(request, json!({"success":false,"error":"Échec de l'envoi de l'email."}), 502);
+    }
 }
 
 /// Génère un sel/blob factices mais stables pour un email donné — pour
