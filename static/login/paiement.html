@@ -47,7 +47,15 @@ h1{font-size:22px;color:var(--text);margin-bottom:4px}
         <div class="plans" id="plans-list"><div style="color:var(--text-dim);font-size:13px">Chargement des offres…</div></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="carte-paiement">
+        <div class="form-group">
+            <label class="form-label">Code promo</label>
+            <div style="display:flex;gap:8px">
+                <input class="form-input" id="code-promo" placeholder="ex : PROMO10" style="text-transform:uppercase">
+                <button type="button" class="btn-pay" style="width:auto;margin:0;padding:11px 18px;white-space:nowrap" onclick="appliquerCode()">Appliquer</button>
+            </div>
+            <div id="code-promo-msg" style="font-size:12px;margin-top:6px"></div>
+        </div>
         <div class="form-label" style="margin-bottom:10px">Moyen de paiement</div>
         <div class="methodes">
             <div class="methode on" data-methode="carte" onclick="choisirMethode('carte')">
@@ -104,20 +112,33 @@ let planChoisi=null, methodeChoisie='carte';
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
+let plansPayants=[], remisePct=0;
+
+// FIX (plans gratuits) : payer pour un plan a 0€ n'a pas de sens -- seuls
+// les plans avec un prix > 0 (mensuel ou annuel) apparaissent ici. Si
+// aucun plan payant n'est configure, la page de paiement elle-meme
+// n'a pas lieu d'etre affichee : on montre un message a la place du
+// formulaire plutot qu'un formulaire de paiement vide.
 async function chargerPlans(){
     try{
         const r=await fetch('/api/login/config',{credentials:'include'});
         const d=await r.json();
         const plans=(d.plans&&d.plans.available_plans)||[];
+        plansPayants=plans.filter(p=>(p.price_eur_month>0)||(p.price_eur_year>0));
         const box=document.getElementById('plans-list');
-        if(!plans.length){box.innerHTML='<div style="color:var(--text-dim);font-size:13px">Aucune offre configurée pour le moment.</div>';return;}
-        box.innerHTML=plans.map((p,i)=>`
+        if(!plansPayants.length){
+            box.innerHTML='<div style="color:var(--text-dim);font-size:13px">Aucune offre payante configurée pour le moment.</div>';
+            document.getElementById('carte-paiement').style.display='none';
+            return;
+        }
+        box.innerHTML=plansPayants.map((p,i)=>`
             <div class="plan${i===0?' on':''}" data-i="${i}" onclick="choisirPlan(${i})">
                 <div class="nom">${esc(p.name||p.id)}</div>
                 <div class="prix">${p.price_eur_month??0}€<small>/mois</small></div>
+                ${p.price_eur_year?`<div style="font-size:11px;color:var(--text-dim)">ou ${esc(String(p.price_eur_year))}€/an</div>`:''}
                 <div style="font-size:12px;color:var(--text-dim)">${esc((p.features&&p.features.storage)||'')}</div>
             </div>`).join('');
-        planChoisi=plans[0]||null;
+        planChoisi=plansPayants[0]||null;
         majPrix();
     }catch(e){
         document.getElementById('plans-list').innerHTML='<div style="color:var(--text-dim);font-size:13px">Offres indisponibles.</div>';
@@ -125,13 +146,26 @@ async function chargerPlans(){
 }
 function choisirPlan(i){
     document.querySelectorAll('.plan').forEach(el=>el.classList.toggle('on',Number(el.dataset.i)===i));
+    planChoisi=plansPayants[i]||null;
+    majPrix();
+}
+function appliquerCode(){
+    const saisi=(document.getElementById('code-promo').value||'').trim().toUpperCase();
+    const msgEl=document.getElementById('code-promo-msg');
+    if(!saisi){remisePct=0;msgEl.textContent='';majPrix();return;}
     fetch('/api/login/config',{credentials:'include'}).then(r=>r.json()).then(d=>{
-        planChoisi=(d.plans&&d.plans.available_plans&&d.plans.available_plans[i])||null;
+        const codes=(d.plans&&d.plans.discount_codes)||[];
+        const trouve=codes.find(c=>c.active!==false&&(c.code||'').toUpperCase()===saisi);
+        if(trouve){remisePct=trouve.percent||0;msgEl.textContent=`Code appliqué : -${remisePct}%`;msgEl.style.color='var(--accent)';}
+        else{remisePct=0;msgEl.textContent='Code invalide.';msgEl.style.color='#e53935';}
         majPrix();
     });
 }
 function majPrix(){
-    document.getElementById('pay-prix').textContent=planChoisi?('— '+(planChoisi.price_eur_month??0)+'€/mois'):'';
+    if(!planChoisi){document.getElementById('pay-prix').textContent='';return;}
+    const base=planChoisi.price_eur_month??0;
+    const net=remisePct?(base*(1-remisePct/100)):base;
+    document.getElementById('pay-prix').textContent='— '+net.toFixed(2)+'€/mois'+(remisePct?` (au lieu de ${base}€)`:'');
 }
 function choisirMethode(m){
     methodeChoisie=m;

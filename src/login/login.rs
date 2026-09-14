@@ -68,6 +68,14 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
                 "registration_mode":       config.users.registration_mode,
                 "activation_key_required": config.users.activation_key_required,
                 "password_min_length":     config.security.password_min_length,
+                // FIX (page de paiement, maquette) : le prix des plans doit
+                // être visible sans être connecté -- seul le prix/nom/id est
+                // nécessaire ici, contrairement à /api/admin/config qui
+                // expose toute la config (réservé aux admins).
+                "plans": {
+                    "available_plans": config.plans.available_plans,
+                    "discount_codes": config.plans.extra.get("discount_codes").cloned().unwrap_or(json!([])),
+                },
             }),
             200,
         );

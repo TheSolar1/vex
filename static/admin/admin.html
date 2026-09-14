@@ -372,6 +372,10 @@ __NAV_HTML__
             </div>
         </div>
         <div class="card">
+            <div class="ch"><span><img src="/static/img/solid/euro-sign.svg" class="ico ico-accent" alt=""> Revenus <small>estimation</small></span></div>
+            <div class="cb" id="revenus-content"></div>
+        </div>
+        <div class="card">
             <div class="ch">
                 <span><img src="/static/img/solid/credit-card.svg" class="ico ico-accent" alt=""> {{T_ROLES_PLANS_TARIFAIRES}}</span>
                 <button class="btn ba" onclick="addPlan()"><img src="/static/img/solid/plus.svg" class="ico" style="filter:invert(1)" alt=""> {{T_ROLES_NOUVEAU_PLAN}}</button>
@@ -383,6 +387,13 @@ __NAV_HTML__
                     <a href="/static/login/paiement.html" target="_blank" style="color:var(--accent);font-weight:600;margin-left:6px">Voir l'aperçu ↗</a>
                 </div>
             </div>
+        </div>
+        <div class="card">
+            <div class="ch">
+                <span><img src="/static/img/solid/tag.svg" class="ico ico-accent" alt=""> Codes de réduction</span>
+                <button class="btn ba" onclick="addDiscount()"><img src="/static/img/solid/plus.svg" class="ico" style="filter:invert(1)" alt=""> Nouveau code</button>
+            </div>
+            <div class="cb" id="discounts-content"></div>
         </div>
     </div>
 
@@ -1279,6 +1290,73 @@ async function loadRoles(){
         return `<div><label class="cl">${I18N.ROLES_PRIVILEGE_LABEL.replace('{n}',p)}<small>${PRIVILEGES[p]?.nom||''}</small></label><input type="text" class="ci" data-role-label="${p}" value="${esc(v)}" placeholder="${I18N.ROLES_PLACEHOLDER_NOM_ROLE.replace('{n}',p)}"></div>`;
     }).join('');
     renderPlans();
+    renderRevenus();
+    renderDiscounts();
+}
+// FIX (codes de reduction) : la page de paiement est une maquette non
+// fonctionnelle (voir static/login/paiement.html), donc ces codes ne sont
+// pas branches a une vraie remise appliquee au paiement -- juste geres
+// ici pour preparer le terrain (config.json), meme esprit que les prix.
+function renderDiscounts(){
+    const box=document.getElementById('discounts-content');
+    if(!box)return;
+    const codes=S.configData.plans?.discount_codes||[];
+    box.innerHTML=(codes.map((c,i)=>`
+        <div class="cgr" style="margin-bottom:10px;align-items:end">
+            <div><label class="cl">Code</label><input type="text" class="ci" data-disc-i="${i}" data-disc-k="code" value="${esc(c.code||'')}" style="text-transform:uppercase"></div>
+            <div><label class="cl">% de réduction</label><input type="number" min="0" max="100" class="ci" data-disc-i="${i}" data-disc-k="percent" value="${c.percent??0}"></div>
+            <div><label class="cl">Actif</label><select class="ci" data-disc-i="${i}" data-disc-k="active"><option value="true" ${c.active!==false?'selected':''}>Oui</option><option value="false" ${c.active===false?'selected':''}>Non</option></select></div>
+            <div><button class="btn br2" onclick="removeDiscount(${i})"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""></button></div>
+        </div>`).join('')||'<div style="padding:8px 0;color:var(--text-m);font-size:.84rem">Aucun code de réduction.</div>')
+        +`<button class="btn ba" onclick="saveDiscounts()" style="margin-top:6px"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> Sauvegarder les codes</button>`;
+}
+function addDiscount(){
+    if(!S.configData.plans)S.configData.plans={available_plans:[],enforce_plan_restrictions:true};
+    if(!S.configData.plans.discount_codes)S.configData.plans.discount_codes=[];
+    S.configData.plans.discount_codes.push({code:'PROMO',percent:10,active:true});
+    renderDiscounts();
+}
+function removeDiscount(i){S.configData.plans.discount_codes.splice(i,1);renderDiscounts();}
+async function saveDiscounts(){
+    const nc=JSON.parse(JSON.stringify(S.configData));
+    document.querySelectorAll('[data-disc-i]').forEach(el=>{
+        const i=Number(el.dataset.discI),k=el.dataset.discK;let v=el.value;
+        if(k==='code')v=v.trim().toUpperCase();
+        if(k==='percent')v=Math.min(100,Math.max(0,Number(v)||0));
+        if(k==='active')v=(v==='true');
+        nc.plans.discount_codes[i][k]=v;
+    });
+    const r=await post('/config',{config:JSON.stringify(nc)});
+    if(r.success){S.configData=nc;flash('Codes de réduction sauvegardés.');}else flash(r.error,true);
+}
+// FIX (section Revenus) : pas de vrai systeme de paiement branche (page
+// non fonctionnelle, voir plus bas) -- donc pas de vraies transactions a
+// sommer. Calcule a la place un MRR ESTIME a partir de donnees reelles :
+// combien d'utilisateurs ont chaque plan (colonne `vip`, deja existante)
+// x le prix configure pour ce plan. Honnete sur ce que c'est (une
+// estimation), pas une fausse UI de revenus factices.
+async function renderRevenus(){
+    const box=document.getElementById('revenus-content');
+    if(!box)return;
+    box.innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const r=await api('/users');
+    if(!r.success){box.innerHTML=`<div style="padding:14px;color:var(--text-m)">${esc(r.error||'Erreur.')}</div>`;return;}
+    const users=r.data||[];
+    const plans=S.configData.plans?.available_plans||[];
+    const compte={};
+    users.forEach(u=>{if(u.vip)compte[u.vip]=(compte[u.vip]||0)+1;});
+    let mrr=0;
+    const lignes=plans.filter(p=>p.price_eur_month>0).map(p=>{
+        const n=compte[p.id]||0;
+        mrr+=n*p.price_eur_month;
+        return `<tr><td>${esc(p.name||p.id)}</td><td class="m">${n}</td><td class="m">${p.price_eur_month}€</td><td class="m"><strong>${(n*p.price_eur_month).toFixed(2)}€</strong></td></tr>`;
+    }).join('');
+    box.innerHTML=`
+        <div class="sg" style="margin-bottom:14px">
+            <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/euro-sign.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${mrr.toFixed(2)}€</div><div class="sc-l">MRR estimé / mois</div></div>
+        </div>
+        ${lignes?`<table class="t"><thead><tr><th>Plan</th><th>Abonnés</th><th>Prix</th><th>Sous-total</th></tr></thead><tbody>${lignes}</tbody></table>`:'<div style="padding:14px;color:var(--text-m);font-size:.84rem">Aucun plan payant configuré.</div>'}
+        <div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">Estimation basée sur le nombre d'utilisateurs par plan × son prix configuré — aucun paiement réel n'est traité pour l'instant (voir la maquette plus bas), donc pas de vraies transactions à afficher ici.</div>`;
 }
 async function saveRoleLabels(){
     const nc=JSON.parse(JSON.stringify(S.configData));
@@ -1294,7 +1372,8 @@ function renderPlans(){
             <div class="cgr">
                 <div><label class="cl">ID</label><input type="text" class="ci" data-plan-i="${i}" data-plan-k="id" value="${esc(p.id)}"></div>
                 <div><label class="cl">${I18N.ROLES_NOM_AFFICHE}</label><input type="text" class="ci" data-plan-i="${i}" data-plan-k="name" value="${esc(p.name)}"></div>
-                <div><label class="cl">${I18N.ROLES_PRIX_EUROS_MOIS}</label><input type="number" class="ci" data-plan-i="${i}" data-plan-k="price_eur_month" value="${p.price_eur_month}"></div>
+                <div><label class="cl">${I18N.ROLES_PRIX_EUROS_MOIS}</label><input type="number" min="0" step="0.01" class="ci" data-plan-i="${i}" data-plan-k="price_eur_month" value="${p.price_eur_month}"></div>
+                <div><label class="cl">Prix (€/an)</label><input type="number" min="0" step="0.01" class="ci" data-plan-i="${i}" data-plan-k="price_eur_year" value="${p.price_eur_year??''}" placeholder="optionnel"></div>
                 <div><label class="cl">${I18N.ROLES_STOCKAGE}</label><input type="text" class="ci" data-plan-i="${i}" data-plan-k="features.storage" value="${esc(p.features?.storage||'')}"></div>
             </div>
             <button class="btn br2" style="margin-top:10px" onclick="removePlan(${i})"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.ROLES_SUPPRIMER_CE_PLAN}</button>
@@ -1302,7 +1381,7 @@ function renderPlans(){
 }
 function addPlan(){
     if(!S.configData.plans)S.configData.plans={available_plans:[],enforce_plan_restrictions:true};
-    S.configData.plans.available_plans.push({id:'nouveau',name:'Nouveau plan',price_eur_month:0,features:{storage:'1GB',max_files:50,file_sharing:true,online_editing:false,api_access:false,email_sending:false,extensions:[]}});
+    S.configData.plans.available_plans.push({id:'nouveau',name:'Nouveau plan',price_eur_month:0,price_eur_year:null,features:{storage:'1GB',max_files:50,file_sharing:true,online_editing:false,api_access:false,email_sending:false,extensions:[]}});
     renderPlans();
 }
 function removePlan(i){S.configData.plans.available_plans.splice(i,1);renderPlans();}
@@ -1310,7 +1389,11 @@ async function savePlans(){
     const nc=JSON.parse(JSON.stringify(S.configData));
     document.querySelectorAll('[data-plan-i]').forEach(el=>{
         const i=Number(el.dataset.planI),k=el.dataset.planK;let v=el.value;
-        if(k==='price_eur_month')v=Number(v);
+        // FIX (prix negatif) : min="0" sur le champ ne bloque que la molette/
+        // les flèches, pas la saisie clavier ("-5" passe très bien) -- on
+        // force donc aussi cote JS au moment de sauvegarder.
+        if(k==='price_eur_month')v=Math.max(0,Number(v)||0);
+        if(k==='price_eur_year'){v=v===''?null:Math.max(0,Number(v)||0);}
         if(k==='features.storage'){nc.plans.available_plans[i].features=nc.plans.available_plans[i].features||{};nc.plans.available_plans[i].features.storage=v;}
         else nc.plans.available_plans[i][k]=v;
     });
