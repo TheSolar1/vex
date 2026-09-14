@@ -229,7 +229,6 @@ __NAV_HTML__
     <div class="sb-a" data-sec="apps"><img src="/static/img/solid/cube.svg" alt=""> <span>{{T_SB_APPLICATIONS}}</span></div>
     <div class="sb-a" data-sec="extensions"><img src="/static/img/solid/puzzle-piece.svg" alt=""> <span>{{T_SB_EXTENSIONS_PLUGIN}}</span></div>
     <div class="sb-a" data-sec="roles"><img src="/static/img/solid/id-badge.svg" alt=""> <span>{{T_SB_ROLES_PLANS}}</span></div>
-    <div class="sb-a" data-sec="server"><img src="/static/img/solid/server.svg" alt=""> <span>{{T_SB_SERVEUR}}</span></div>
     <div class="sb-a" data-sec="logs"><img src="/static/img/solid/scroll.svg" alt=""> <span>{{T_SB_LOGS}}</span></div>
     <div class="sb-a" data-sec="onlyoffice"><img src="/static/img/solid/file-lines.svg" alt=""> <span>{{T_SB_EDITEUR_EN_LIGNE}}</span><span class="sb-pill w" id="pill-oo" style="display:none">!</span></div>
     <div class="sb-a" id="sb-p2p" data-sec="p2p" style="display:none"><img src="/static/img/solid/network-wired.svg" alt=""> <span>{{T_SB_P2P_ANONNET}}</span><span class="sb-pill" id="pill-p2p">0</span></div>
@@ -379,12 +378,6 @@ __NAV_HTML__
         </div>
     </div>
 
-    <!-- Serveur -->
-    <div class="sec" id="sec-server">
-        <div class="pt"><img src="/static/img/solid/server.svg" class="ico-accent" alt=""> {{T_SERVER_MONITORING}}</div>
-        <div id="server-content"><div class="loading"><span class="spin"></span></div></div>
-    </div>
-
     <!-- Machine (mise a jour VEX / stockage / etat) -->
     <div class="sec" id="sec-machine">
         <div class="pt"><img src="/static/img/solid/microchip.svg" class="ico-accent" alt=""> {{T_SB_MACHINE}}</div>
@@ -501,7 +494,7 @@ function nav(sec){
     document.querySelectorAll('.sb-a[data-sec]').forEach(a=>a.classList.toggle('on',a.dataset.sec===sec));
     document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
     document.getElementById('sec-'+sec).classList.add('on');
-    ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,server:loadServer,machine:loadMachine,logs:loadLogs,onlyoffice:loadEditor,p2p:loadP2p,apps:loadApps,extensions:loadExt,roles:loadRoles,backup:loadBackups}[sec]||Function)();
+    ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,machine:loadMachine,logs:loadLogs,onlyoffice:loadEditor,p2p:loadP2p,apps:loadApps,extensions:loadExt,roles:loadRoles,backup:loadBackups}[sec]||Function)();
     history.replaceState(null,'','?section='+sec);
 }
 function flash(msg,err=false){
@@ -1305,56 +1298,16 @@ async function savePlans(){
     if(r.success){S.configData=nc;flash(I18N.ROLES_PLANS_SAUVEGARDES);}else flash(r.error,true);
 }
 
-/* ── Serveur ── */
-async function loadServer(){
-    document.getElementById('server-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
-    const r=await api('/server');if(!r.success){flash(r.error,true);return;}
-    const d=r.data;
-    const disks=(d.disks&&d.disks.length?d.disks:[{...d.disk,mount:'/'}]);
-    const disqueTuile=dk=>{const pct=dk.used_pct||0,cl=pct>80?'d':pct>60?'w':'';
-        return `<div class="sc" style="--si:${pct>80?'#ef4444':pct>60?'#f59e0b':'var(--accent)'}"><div class="sc-i"><img src="/static/img/solid/hard-drive.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1.1rem">${esc(String(dk.used_gb))} <span style="font-size:.6em;font-weight:400">/ ${esc(String(dk.total_gb))} GB</span></div><div class="sc-l" title="${esc(dk.mount)}">${I18N.SERVER_DISQUE_LABEL.replace('{mount}',esc(dk.mount)).replace('{pct}',pct)}</div><div class="pg"><div class="pgb ${cl}" style="width:${pct}%"></div></div></div>`;};
-    document.getElementById('server-content').innerHTML=`<div class="sg">
-        <div class="sc" style="--si:#3b82f6"><div class="sc-i"><img src="/static/img/solid/code.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1rem">${esc(d.vex_version)}</div><div class="sc-l">${I18N.SERVER_VERSION_VEX}</div></div>
-        <div class="sc" style="--si:#f59e0b"><div class="sc-i"><img src="/static/img/solid/laptop.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:.9rem">${esc(d.os)} / ${esc(d.arch)}</div><div class="sc-l">${I18N.SERVER_OS_ARCH}</div></div>
-        ${disks.map(disqueTuile).join('')}
-        <div class="sc" style="--si:#8b5cf6"><div class="sc-i"><img src="/static/img/solid/clock.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1.1rem">${esc(d.uptime_sec)}s</div><div class="sc-l">${I18N.SERVER_UPTIME}</div></div>
-    </div>
-    <div class="card" style="margin-top:16px">
-        <div class="ch">
-            <span><img src="/static/img/solid/arrow-up-right-dots.svg" class="ico ico-accent" alt=""> ${I18N.SERVER_MISES_A_JOUR_SYSTEME} <small>${I18N.SERVER_LECTURE_SEULE}</small></span>
-            <button class="btn bg2" onclick="loadSystemUpdates()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> ${I18N.SERVER_VERIFIER}</button>
-        </div>
-        <div class="cb" id="system-updates-content"><div style="padding:14px;color:var(--text-m);font-size:.84rem">${I18N.SERVER_CLIQUEZ_VERIFIER}</div></div>
-    </div>`;
-}
-
-async function loadSystemUpdates(){
-    const box=document.getElementById('system-updates-content');
-    box.innerHTML='<div class="loading"><span class="spin"></span></div>';
-    const r=await api('/server/updates');
-    if(!r.success){box.innerHTML=`<div style="padding:14px;color:var(--text-m)">${esc(r.error||'Erreur.')}</div>`;return;}
-    const d=r.data;
-    if(!d.supporte){box.innerHTML=`<div style="padding:14px;color:var(--text-m)">${I18N.SERVER_NON_DISPONIBLE_PLATEFORME}</div>`;return;}
-    const badgePkg = d.paquets_dispo>0
-        ? `<span class="b bo">${I18N.SERVER_PAQUETS_A_METTRE_A_JOUR.replace('{n}',d.paquets_dispo)}</span>`
-        : `<span class="b bg">${I18N.SERVER_SYSTEME_A_JOUR}</span>`;
-    const badgeRust = d.rust_maj_disponible
-        ? `<span class="b bo">${I18N.SERVER_MAJ_RUST_DISPO}</span>`
-        : `<span class="b bg">${I18N.SERVER_TOOLCHAIN_A_JOUR}</span>`;
-    box.innerHTML=`
-        <div class="cgr">
-            <div><label class="cl">${I18N.SERVER_SYSTEME_EXPLOITATION}</label><div style="font-size:.85rem;padding:6px 0">${esc(d.os_nom||'?')}</div></div>
-            <div><label class="cl">${I18N.SERVER_NOYAU}</label><div style="font-size:.85rem;padding:6px 0;font-family:var(--mono)">${esc(d.kernel||'?')}</div></div>
-            <div><label class="cl">${I18N.SERVER_RUST_LABEL}</label><div style="font-size:.85rem;padding:6px 0;font-family:var(--mono)">${esc(d.rustc_version||'?')}</div></div>
-        </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">${badgePkg}${badgeRust}</div>
-        ${d.paquets_dispo>0?`<div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">${I18N.SERVER_SUR_LE_SERVEUR} <code>sudo apt update && sudo apt upgrade</code></div>`:''}
-        ${d.rust_maj_disponible?`<div style="margin-top:6px;font-size:.78rem;color:var(--text-m)">${I18N.SERVER_SUR_LE_SERVEUR} <code>rustup update</code></div>`:''}
-    `;
-}
-
 /* ── Machine (mise a jour VEX / stockage / etat) ── */
-let machineTab='update', machinePollTimer=null;
+/* FIX : le contenu de "Monitoring serveur" (CPU/disque/uptime + doublon
+   "mises a jour systeme") a ete retire -- deja couvert par Machine >
+   Stockage/Etat/Mise a jour OS. "Serveur" ne garde plus que le widget de
+   verification/mise a jour VEX depuis GitHub, partage avec Machine >
+   Mise a jour via loadUpdateCheck (ns = prefixe d'id pour eviter les
+   collisions puisque les deux sections existent en meme temps dans le DOM). */
+const NS_CONTAINER={mach:'machine-content'};
+let machineTab='update';
+const pollTimers={};
 
 function switchMachineTab(tab){
     machineTab=tab;
@@ -1368,15 +1321,15 @@ async function loadMachine(){
 }
 
 function renderMachineTab(){
-    if(machinePollTimer){clearInterval(machinePollTimer);machinePollTimer=null;}
-    if(machineTab==='update')return loadMachineUpdate();
+    if(pollTimers.mach){clearInterval(pollTimers.mach);pollTimers.mach=null;}
+    if(machineTab==='update')return loadUpdateCheck('machine-content','mach');
     if(machineTab==='storage')return loadMachineStorage();
     if(machineTab==='os')return loadMachineOs();
     return loadMachineStatus();
 }
 
-async function loadMachineUpdate(){
-    const box=document.getElementById('machine-content');
+async function loadUpdateCheck(containerId,ns){
+    const box=document.getElementById(containerId);
     box.innerHTML='<div class="loading"><span class="spin"></span></div>';
     const [rs,ru]=await Promise.all([api('/machine/status'),api('/machine/update_status')]);
     if(!rs.success){box.innerHTML=`<div style="padding:14px;color:var(--text-m)">${esc(rs.error||'Erreur.')}</div>`;return;}
@@ -1392,22 +1345,22 @@ async function loadMachineUpdate(){
         <div class="card">
             <div class="ch">
                 <span><img src="/static/img/solid/arrow-up-right-dots.svg" class="ico ico-accent" alt=""> ${I18N.MACHINE_ONGLET_MAJ}</span>
-                <button class="btn bg2" id="mach-check-btn" onclick="machineCheck()"><img src="/static/img/solid/rotate.svg" class="ico ico-accent" alt=""> ${I18N.MACHINE_VERIFIER_MAJ}</button>
+                <button class="btn bg2" id="${ns}-check-btn" onclick="machineCheck('${ns}')"><img src="/static/img/solid/rotate.svg" class="ico ico-accent" alt=""> ${I18N.MACHINE_VERIFIER_MAJ}</button>
             </div>
-            <div class="cb" id="machine-check-content"><div style="padding:14px;color:var(--text-m);font-size:.84rem">${I18N.SERVER_CLIQUEZ_VERIFIER}</div></div>
+            <div class="cb" id="${ns}-check-content"><div style="padding:14px;color:var(--text-m);font-size:.84rem">${I18N.SERVER_CLIQUEZ_VERIFIER}</div></div>
         </div>
-        <div class="card" id="machine-build-card" style="${upd.jamais_lance?'display:none':''}">
+        <div class="card" id="${ns}-build-card" style="${upd.jamais_lance?'display:none':''}">
             <div class="ch"><span><img src="/static/img/solid/hammer.svg" class="ico ico-accent" alt=""> ${I18N.MACHINE_TELECHARGER_COMPILER}</span></div>
-            <div class="cb" id="machine-build-content"></div>
+            <div class="cb" id="${ns}-build-content"></div>
         </div>
     `;
-    renderMachineBuildStatus(upd);
-    if(upd.running)startMachinePoll();
+    renderMachineBuildStatus(upd,ns);
+    if(upd.running)startMachinePoll(ns);
 }
 
-async function machineCheck(){
-    const btn=document.getElementById('mach-check-btn');if(btn)btn.disabled=true;
-    const box=document.getElementById('machine-check-content');
+async function machineCheck(ns){
+    const btn=document.getElementById(`${ns}-check-btn`);if(btn)btn.disabled=true;
+    const box=document.getElementById(`${ns}-check-content`);
     box.innerHTML='<div class="loading"><span class="spin"></span></div>';
     const r=await api('/machine/check');
     if(btn)btn.disabled=false;
@@ -1417,30 +1370,30 @@ async function machineCheck(){
     box.innerHTML=`
         <div class="ob nok"><span class="od"></span> ${I18N.MACHINE_RETARD.replace('{n}',r.behind_count)}</div>
         <div style="margin:12px 0">${commitsHtml}</div>
-        <button class="btn ba" onclick="machineUpdate()"><img src="/static/img/solid/download.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.MACHINE_TELECHARGER_COMPILER}</button>
+        <button class="btn ba" onclick="machineUpdate('${ns}')"><img src="/static/img/solid/download.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.MACHINE_TELECHARGER_COMPILER}</button>
     `;
 }
 
-async function machineUpdate(){
+async function machineUpdate(ns){
     const r=await post('/machine/update');
     if(!r.success){flash(r.error,true);return;}
-    document.getElementById('machine-build-card').style.display='';
-    renderMachineBuildStatus({running:true});
-    startMachinePoll();
+    document.getElementById(`${ns}-build-card`).style.display='';
+    renderMachineBuildStatus({running:true},ns);
+    startMachinePoll(ns);
 }
 
-function startMachinePoll(){
-    if(machinePollTimer)clearInterval(machinePollTimer);
-    machinePollTimer=setInterval(async()=>{
+function startMachinePoll(ns){
+    if(pollTimers[ns])clearInterval(pollTimers[ns]);
+    pollTimers[ns]=setInterval(async()=>{
         const r=await api('/machine/update_status');
         if(!r.success)return;
-        renderMachineBuildStatus(r.data);
-        if(!r.data.running){clearInterval(machinePollTimer);machinePollTimer=null;}
+        renderMachineBuildStatus(r.data,ns);
+        if(!r.data.running){clearInterval(pollTimers[ns]);pollTimers[ns]=null;}
     },2000);
 }
 
-function renderMachineBuildStatus(upd){
-    const box=document.getElementById('machine-build-content');
+function renderMachineBuildStatus(upd,ns){
+    const box=document.getElementById(`${ns}-build-content`);
     if(!box)return;
     if(upd.jamais_lance){box.innerHTML='';return;}
     if(upd.running){box.innerHTML=`<div class="loading"><span class="spin"></span> ${I18N.MACHINE_COMPILATION_EN_COURS}</div>`;return;}
@@ -1450,16 +1403,16 @@ function renderMachineBuildStatus(upd){
         ${upd.output?`<pre class="lb" style="max-height:260px">${esc(upd.output)}</pre>`:''}
         ${upd.success?`
         <div class="ob nok" style="margin-top:14px"><span class="od"></span> ${I18N.MACHINE_AVERTISSEMENT_REDEMARRAGE}</div>
-        <button class="btn br2" style="margin-top:10px" onclick="machineRestart()"><img src="/static/img/solid/power-off.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.MACHINE_REDEMARRER}</button>
+        <button class="btn br2" style="margin-top:10px" onclick="machineRestart('${ns}')"><img src="/static/img/solid/power-off.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.MACHINE_REDEMARRER}</button>
         `:''}
     `;
 }
 
-async function machineRestart(){
+async function machineRestart(ns){
     if(!await confirmerDialogue(I18N.MACHINE_CONFIRM_REDEMARRAGE,{danger:true}))return;
     const r=await post('/machine/restart');
     if(!r.success){flash(r.error,true);return;}
-    document.getElementById('machine-content').innerHTML=`<div style="padding:40px;text-align:center;color:var(--text-m)"><span class="spin" style="display:inline-block"></span><br><br>${esc(I18N.MACHINE_REDEMARRER)}…</div>`;
+    document.getElementById(NS_CONTAINER[ns]).innerHTML=`<div style="padding:40px;text-align:center;color:var(--text-m)"><span class="spin" style="display:inline-block"></span><br><br>${esc(I18N.MACHINE_REDEMARRER)}…</div>`;
 }
 
 async function loadMachineStorage(){
