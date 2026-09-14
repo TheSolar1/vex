@@ -675,15 +675,22 @@ fn handle_api(
     ];
     let needs_super = sub.starts_with("/p2p")
         || sub.starts_with("/backup")
-        // Mise a jour VEX = git pull + recompilation + redemarrage du
-        // processus : aussi sensible qu'executer du code arbitraire sur
-        // le serveur, reserve aux superadmins comme les extensions.
-        || sub.starts_with("/machine")
         || superadmin_routes.iter().any(|r| sub.starts_with(r));
     if needs_super && privilege > PRIVILEGE_SUPER {
         return respond_json(
             request,
             json!({"success":false,"error":i18n::t(langue, Cle::AdmP2pErrReserveSuperadmins)}),
+        );
+    }
+    // Machine (mise a jour VEX = git pull + recompilation + redemarrage du
+    // processus, execution de code arbitraire sur le serveur) : reserve au
+    // SEUL fondateur (privilege=1), pas aux simples superadmins (2) --
+    // demande explicitement par le fondateur, en plus de la regle deja en
+    // place empechant d'attribuer privilege=1 autrement que par la console.
+    if sub.starts_with("/machine") && privilege != 1 {
+        return respond_json(
+            request,
+            json!({"success":false,"error":"Réservé au fondateur."}),
         );
     }
 
@@ -737,6 +744,7 @@ fn handle_api(
                 "onlyoffice":  { "online": ed_ok, "ms": ed_ms },
                 "editor":      { "online": ed_ok, "ms": ed_ms, "id": ed_id, "name": ed_nom },
                 "is_super":    privilege <= PRIVILEGE_SUPER,
+                "is_founder":  privilege == 1,
                 "last_users":  last.iter().map(|u| json!({
                     "id":        u.get("id").and_then(|v| v.as_i64()).unwrap_or(0),
                     "nom":       u.get("nom").and_then(|v| v.as_str()).unwrap_or(""),
@@ -1114,7 +1122,7 @@ fn handle_api(
         // Reserve aux superadmins (needs_super plus haut) : declenche une
         // compilation et peut redemarrer le serveur.
         // ══════════════════════════════════════════════════════════
-        "/machine/status" => machine_status(),
+        "/machine/status" => machine_status(pool),
         "/machine/check" => machine_check(),
         "/machine/update" => match machine_lancer_update() {
             Ok(_) => json!({"success":true,"message":i18n::t(langue, Cle::AdmMachineCompilationEnCours)}),
@@ -1122,6 +1130,22 @@ fn handle_api(
         },
         "/machine/update_status" => json!({"success":true,"data":lire_machine_update_status()}),
         "/machine/restart" => match machine_redemarrer() {
+            Ok(_) => json!({"success":true}),
+            Err(e) => json!({"success":false,"error":e}),
+        },
+        "/machine/os_update" => match os_lancer_update() {
+            Ok(_) => json!({"success":true}),
+            Err(e) => json!({"success":false,"error":e}),
+        },
+        "/machine/os_update_status" => json!({"success":true,"data":lire_os_update_status()}),
+        "/machine/os_restart_schedule" => {
+            let minutes: u32 = body.get("minutes").and_then(|v| v.parse().ok()).unwrap_or(1);
+            match os_programmer_redemarrage(minutes) {
+                Ok(_) => json!({"success":true,"minutes":minutes}),
+                Err(e) => json!({"success":false,"error":e}),
+            }
+        }
+        "/machine/os_restart_cancel" => match os_annuler_redemarrage() {
             Ok(_) => json!({"success":true}),
             Err(e) => json!({"success":false,"error":e}),
         },
@@ -2447,7 +2471,13 @@ fn git_field(cmd: &str) -> String {
 /// redirection `2>/dev/null` ni de guillemets dans les commandes : elles
 /// doivent rester valides passees telles quelles a `cmd /C` (Windows, dev
 /// local) comme a `sh -c` (Linux, production) -- voir run_shell_command().
-fn machine_status() -> Value {
+fn machine_status(pool: &DbPool) -> Value {
+    // FIX (part des fichiers VEX par disque) : les fichiers VEX ne sont
+    // pas des fichiers sur disque a un chemin configurable -- ils vivent
+    // en base64 dans la table `fichiers` de MySQL (voir db_init.rs). La
+    // seule mesure honnete de "combien d'espace prennent les fichiers
+    // VEX" est donc la taille de cette table, pas un chemin de dossier.
+    let vex_data_mb = crate::appeldb::get_taille_table(pool, "fichiers");
     json!({"success":true,"data":{
         "vex_version":    env!("CARGO_PKG_VERSION"),
         "commit_hash":    git_field("git rev-parse --short HEAD"),
@@ -2457,6 +2487,7 @@ fn machine_status() -> Value {
         "uptime_sec":     uptime_sec(),
         "pid":            std::process::id(),
         "disks":          disks_info(),
+        "vex_data_mb":    vex_data_mb,
     }})
 }
 
@@ -2579,6 +2610,84 @@ fn machine_redemarrer() -> Result<(), String> {
             std::process::exit(0);
         });
         Ok(())
+    }
+}
+
+// ── Mise à jour OS (paquets systeme) et redemarrage programme de la
+//    MACHINE (pas juste le process VEX, contrairement a machine_redemarrer)
+//    -- reserve au fondateur (voir gate /machine plus haut). `sudo -n`
+//    (non-interactif) : echoue proprement si le sudo passwordless n'est
+//    pas configure sur le Pi, plutot que de rester bloque en attente d'un
+//    mot de passe qui n'arrivera jamais.
+const OS_UPDATE_STATUS_PATH: &str = "log/os_update_status.json";
+static OS_UPDATE_EN_COURS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn ecrire_os_update_status(v: Value) {
+    let _ = std::fs::create_dir_all(log_dir());
+    let _ = std::fs::write(OS_UPDATE_STATUS_PATH, serde_json::to_string_pretty(&v).unwrap_or_default());
+}
+
+fn lire_os_update_status() -> Value {
+    std::fs::read_to_string(OS_UPDATE_STATUS_PATH)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or(json!({ "running": false, "jamais_lance": true }))
+}
+
+fn os_lancer_update() -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        return Err("Mise à jour OS non disponible sur cette plateforme (dev local Windows).".into());
+    }
+    #[cfg(unix)]
+    {
+        use std::sync::atomic::Ordering;
+        if OS_UPDATE_EN_COURS.swap(true, Ordering::SeqCst) {
+            return Err("Une mise à jour système est déjà en cours.".into());
+        }
+        ecrire_os_update_status(json!({ "running": true, "started_at": maintenant(), "output": "" }));
+        std::thread::spawn(move || {
+            let (ok, out) = run_shell_command("sudo -n apt-get update && sudo -n apt-get upgrade -y");
+            let out_court: String = {
+                let lignes: Vec<&str> = out.lines().collect();
+                let debut = lignes.len().saturating_sub(400);
+                lignes[debut..].join("\n")
+            };
+            ecrire_os_update_status(json!({
+                "running": false,
+                "success": ok,
+                "finished_at": maintenant(),
+                "output": out_court,
+            }));
+            OS_UPDATE_EN_COURS.store(false, Ordering::SeqCst);
+        });
+        Ok(())
+    }
+}
+
+fn os_programmer_redemarrage(minutes: u32) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let _ = minutes;
+        return Err("Redémarrage OS non disponible sur cette plateforme (dev local Windows).".into());
+    }
+    #[cfg(unix)]
+    {
+        let minutes = minutes.clamp(1, 1440);
+        let (ok, out) = run_shell_command(&format!("sudo -n shutdown -r +{}", minutes));
+        if ok { Ok(()) } else { Err(if out.is_empty() { "Échec de la programmation (sudo non configuré ?).".to_string() } else { out }) }
+    }
+}
+
+fn os_annuler_redemarrage() -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        return Err("Non disponible sur cette plateforme (dev local Windows).".into());
+    }
+    #[cfg(unix)]
+    {
+        let (ok, out) = run_shell_command("sudo -n shutdown -c");
+        if ok { Ok(()) } else { Err(if out.is_empty() { "Échec de l'annulation.".to_string() } else { out }) }
     }
 }
 

@@ -445,6 +445,24 @@ pub fn get_taille_db(pool: &DbPool) -> f64 {
     .unwrap_or(0.0)
 }
 
+/// Taille d'une table precise (Mo) -- utilise pour isoler la part des
+/// fichiers VEX (table `fichiers`, contenu en base64) dans l'espace disque
+/// total de la base, distinct de get_taille_db() qui somme tout.
+pub fn get_taille_table(pool: &DbPool, table: &str) -> f64 {
+    let mut conn = match pool.get_conn() {
+        Ok(c) => c,
+        Err(_) => return 0.0,
+    };
+    conn.exec_first::<f64, _, _>(
+        "SELECT ROUND((data_length+index_length)/1024/1024, 2) \
+         FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?",
+        (table,),
+    )
+    .ok()
+    .flatten()
+    .unwrap_or(0.0)
+}
+
 // ══════════════════════════════════════════════════════════════════
 // FONCTION 8 : lister_tables()
 // ══════════════════════════════════════════════════════════════════
