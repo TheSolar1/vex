@@ -465,9 +465,24 @@ fn main() {
         }
     };
 
-    // ── Intégrité des sources — INCONDITIONNELLE ──────────────────
-    // Aucun flag, aucune config, aucun env ne peut désactiver ce bloc.
-    verifier_integrite(&pool, &logger);
+    // ── Intégrité des sources — DÉSACTIVÉ ──────────────────────────
+    // FIX (incident 2026-09-14) : ce garde-fou comparait un hash de
+    // fichier source embarque a la compilation (include_str! dans
+    // hashes_attendus()) au fichier reellement present sur disque au
+    // demarrage, et DROP TABLE + supprimait le binaire au moindre
+    // ecart -- cense detecter une modification malveillante post-
+    // compilation. S'est declenche sur un deploiement 100% legitime
+    // (git pull + rebuild), effacant les 18 tables de production sans
+    // sauvegarde disponible. Le mecanisme lui-meme n'a pas de marge :
+    // un `git pull` suivi d'un rebuild peut, selon le timing exact,
+    // produire un ecart transitoire entre le hash embarque et le
+    // fichier sur disque -- pas assez fiable pour un declencheur qui
+    // droppe irreversiblement toute la base. Desactive en attendant
+    // une conception plus sure (ex: verifier un hash committe dans git
+    // au lieu d'un hash embarque au build, ou logger une alerte au
+    // lieu de detruire). verifier_integrite()/destruction_totale()
+    // restent dans le code, juste plus appeles.
+    // verifier_integrite(&pool, &logger);
 
     // ── Fondateur légitime ────────────────────────────────────────
     // FIX : `donner_privilege_1_thesolar` ne doit s'exécuter QUE s'il
