@@ -234,7 +234,10 @@ __NAV_HTML__
     <div class="sb-a" id="sb-p2p" data-sec="p2p" style="display:none"><img src="/static/img/solid/network-wired.svg" alt=""> <span>{{T_SB_P2P_ANONNET}}</span><span class="sb-pill" id="pill-p2p">0</span></div>
     <div class="sb-a" id="sb-backup" data-sec="backup" style="display:none"><img src="/static/img/solid/box-archive.svg" alt=""> <span>{{T_SB_SAUVEGARDES}}</span></div>
     <div class="sb-sep" id="sb-sep-machine" style="display:none">{{T_SB_MACHINE}}</div>
-    <div class="sb-a" id="sb-machine" data-sec="machine" style="display:none"><img src="/static/img/solid/microchip.svg" alt=""> <span>{{T_SB_MACHINE}}</span></div>
+    <div class="sb-a sb-machine-item" data-sec="machine-update" style="display:none"><img src="/static/img/solid/code-commit.svg" alt=""> <span>{{T_MACHINE_ONGLET_MAJ}}</span></div>
+    <div class="sb-a sb-machine-item" data-sec="machine-storage" style="display:none"><img src="/static/img/solid/hard-drive.svg" alt=""> <span>{{T_MACHINE_ONGLET_STOCKAGE}}</span></div>
+    <div class="sb-a sb-machine-item" data-sec="machine-status" style="display:none"><img src="/static/img/solid/gauge-high.svg" alt=""> <span>{{T_MACHINE_ONGLET_ETAT}}</span></div>
+    <div class="sb-a sb-machine-item" data-sec="machine-os" style="display:none"><img src="/static/img/solid/arrow-up-right-dots.svg" alt=""> <span>{{T_MACHINE_ONGLET_OS}}</span></div>
 </nav>
 
 <main class="main">
@@ -378,15 +381,9 @@ __NAV_HTML__
         </div>
     </div>
 
-    <!-- Machine (mise a jour VEX / stockage / etat) -->
+    <!-- Machine (mise a jour VEX / stockage / etat) -- 4 entrees separees de sidebar, ce conteneur est partage -->
     <div class="sec" id="sec-machine">
         <div class="pt"><img src="/static/img/solid/microchip.svg" class="ico-accent" alt=""> {{T_SB_MACHINE}}</div>
-        <div class="mtabs">
-            <button class="mtab on" data-mtab="update" onclick="switchMachineTab('update')">{{T_MACHINE_ONGLET_MAJ}}</button>
-            <button class="mtab" data-mtab="storage" onclick="switchMachineTab('storage')">{{T_MACHINE_ONGLET_STOCKAGE}}</button>
-            <button class="mtab" data-mtab="status" onclick="switchMachineTab('status')">{{T_MACHINE_ONGLET_ETAT}}</button>
-            <button class="mtab" data-mtab="os" onclick="switchMachineTab('os')">{{T_MACHINE_ONGLET_OS}}</button>
-        </div>
         <div id="machine-content"><div class="loading"><span class="spin"></span></div></div>
     </div>
 
@@ -493,8 +490,18 @@ function nav(sec){
     S.section=sec;
     document.querySelectorAll('.sb-a[data-sec]').forEach(a=>a.classList.toggle('on',a.dataset.sec===sec));
     document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
+    // FIX (Machine en 4 entrees separees de sidebar) : les 4 sous-sections
+    // "machine-*" partagent toutes le meme conteneur #sec-machine -- seul
+    // l'onglet interne (machineTab) change selon l'entree cliquee.
+    if(sec.startsWith('machine-')){
+        document.getElementById('sec-machine').classList.add('on');
+        machineTab=sec.slice('machine-'.length);
+        renderMachineTab();
+        history.replaceState(null,'','?section='+sec);
+        return;
+    }
     document.getElementById('sec-'+sec).classList.add('on');
-    ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,machine:loadMachine,logs:loadLogs,onlyoffice:loadEditor,p2p:loadP2p,apps:loadApps,extensions:loadExt,roles:loadRoles,backup:loadBackups}[sec]||Function)();
+    ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,logs:loadLogs,onlyoffice:loadEditor,p2p:loadP2p,apps:loadApps,extensions:loadExt,roles:loadRoles,backup:loadBackups}[sec]||Function)();
     history.replaceState(null,'','?section='+sec);
 }
 function flash(msg,err=false){
@@ -535,7 +542,7 @@ function confirmerDialogue(message,opts={}){
 async function loadDash(){
     const r=await api('/dashboard');if(!r.success){flash(r.error,true);return;}
     const d=r.data;
-    if(d.is_super){document.getElementById('sb-p2p').style.display='';document.getElementById('sb-backup').style.display='';document.getElementById('sb-machine').style.display='';document.getElementById('sb-sep-machine').style.display='';}
+    if(d.is_super){document.getElementById('sb-p2p').style.display='';document.getElementById('sb-backup').style.display='';document.querySelectorAll('.sb-machine-item').forEach(el=>el.style.display='');document.getElementById('sb-sep-machine').style.display='';}
     IS_SUPER=d.is_super||false;
     document.getElementById('sql-zone').style.display=IS_SUPER?'':'none';
     const cfgR=await api('/config');
@@ -1308,12 +1315,6 @@ async function savePlans(){
 const NS_CONTAINER={mach:'machine-content'};
 let machineTab='update';
 const pollTimers={};
-
-function switchMachineTab(tab){
-    machineTab=tab;
-    document.querySelectorAll('.mtab').forEach(b=>b.classList.toggle('on',b.dataset.mtab===tab));
-    renderMachineTab();
-}
 
 async function loadMachine(){
     document.getElementById('machine-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
