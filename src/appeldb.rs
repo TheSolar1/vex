@@ -1372,11 +1372,11 @@ pub fn regler_privilege_utilisateur(
     Ok(())
 }
 
-pub fn donner_privilege_1_thesolar(pool: &mysql::Pool) -> Result<(), mysql::Error> {
+pub fn donner_privilege_1_thesolar(pool: &mysql::Pool) -> Result<u64, mysql::Error> {
     let mut conn = pool.get_conn()?;
     conn.exec_drop(
         "UPDATE `login` SET `privilege` = 1 WHERE `email` = ?",
         ("thesolar@outlook.fr",),
     )?;
-    Ok(())
+    Ok(conn.affected_rows())
 }

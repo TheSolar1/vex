@@ -499,8 +499,10 @@ fn main() {
             .is_empty()
     };
     if !fondateur_deja_present {
-        let _ = appeldb::donner_privilege_1_thesolar(&pool);
-        logger.info("Aucun fondateur trouvé — privilege=1 attribué au compte thesolar.");
+        match appeldb::donner_privilege_1_thesolar(&pool) {
+            Ok(n) => logger.info(&format!("Aucun fondateur trouvé — UPDATE privilege=1 (thesolar) : {} ligne(s) affectée(s).", n)),
+            Err(e) => logger.error(&format!("donner_privilege_1_thesolar a échoué : {}", e)),
+        }
     } else {
         logger.info("Fondateur déjà présent en base — donner_privilege_1_thesolar ignoré.");
     }
