@@ -574,19 +574,16 @@ fn main() {
         logger.info(&format!("P2P bootstrap = {}", ns.config.bootstrap_url));
     }
 
-    {
-        let ns = node_state.read().unwrap();
-        let pool_clone = pool.clone();
-        match sync_avec_bootstrap(&pool_clone, &ns) {
-            Ok(()) => logger.info("Sync bootstrap P2P initiale terminée."),
-            Err(e) => logger.error(&format!("Sync bootstrap P2P initiale échouée : {e}")),
-        }
-    }
-
-    lancer_sync_periodique(pool.clone(), Arc::clone(&node_state));
-    logger.info("Sync périodique P2P lancée.");
-
     // ── Serveur HTTP ──────────────────────────────────────────────
+    // FIX : le bind doit se faire AVANT la sync bootstrap P2P initiale
+    // ci-dessous -- quand bootstrap_url pointe sur ce serveur lui-meme
+    // (cas courant : vex.hopto.org/neut, le meme process), la requete de
+    // sync sortante repassait par Apache -> 127.0.0.1:8080, qui n'ecoutait
+    // pas encore a ce stade -> Apache renvoyait 503 a chaque demarrage,
+    // meme quand tout le reste fonctionnait. Le port est desormais ouvert
+    // (la boucle d'acceptation demarre plus bas, mais le socket ecoute
+    // deja et met en file les connexions entrantes) avant toute tentative
+    // de sync sortante.
     logger.info(&format!("Démarrage HTTP sur 0.0.0.0:{}", port));
     let server = match Server::http(format!("0.0.0.0:{}", port)) {
         Ok(s) => s,
@@ -599,6 +596,18 @@ fn main() {
 
     eprintln!("[VEX] http://0.0.0.0:{}", port);
     logger.info(&format!("VEX en écoute sur http://0.0.0.0:{}", port));
+
+    {
+        let ns = node_state.read().unwrap();
+        let pool_clone = pool.clone();
+        match sync_avec_bootstrap(&pool_clone, &ns) {
+            Ok(()) => logger.info("Sync bootstrap P2P initiale terminée."),
+            Err(e) => logger.error(&format!("Sync bootstrap P2P initiale échouée : {e}")),
+        }
+    }
+
+    lancer_sync_periodique(pool.clone(), Arc::clone(&node_state));
+    logger.info("Sync périodique P2P lancée.");
 
     // Compteur de requêtes (pour logs périodiques)
     let mut req_count: u64 = 0;
