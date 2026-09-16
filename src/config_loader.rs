@@ -155,10 +155,12 @@ pub struct StorageConfig {
     pub blocked_extensions: Vec<String>,
     #[serde(default = "default_90")]
     pub file_retention_days: u64,
+    // Liste de dossiers (chacun sur un disque distinct en general) utilises
+    // pour les NOUVEAUX uploads a la place de la base MySQL -- pas de limite
+    // au nombre de disques. A chaque upload, celui avec le plus d'espace
+    // libre est choisi (voir fchier.rs::stockage_disque_config).
     #[serde(default)]
-    pub disk_enabled: bool,
-    #[serde(default)]
-    pub disk_dir: String,
+    pub disk_dirs: Vec<String>,
     #[serde(flatten)]
     pub extra: HashMap<String, Value>,
 }

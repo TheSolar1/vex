@@ -1563,7 +1563,7 @@ async function machineRestart(ns){
     document.getElementById(NS_CONTAINER[ns]).innerHTML=`<div style="padding:40px;text-align:center;color:var(--text-m)"><span class="spin" style="display:inline-block"></span><br><br>${esc(I18N.MACHINE_REDEMARRER)}…</div>`;
 }
 
-let MACHINE_DISKS=[];
+let MACHINE_DISKS=[], MACHINE_DISK_DIRS=[];
 
 // Chaque disque est cliquable -> ouvre un vrai popup (meme pattern .modal-bg
 // que le reste de l'admin) avec un diagramme circulaire (systeme / app VEX /
@@ -1590,6 +1590,8 @@ function ouvrirDiskBreakdown(i){
         const pct=(v/total*100).toFixed(1);
         return `<div style="display:flex;align-items:center;gap:8px;font-size:.82rem;padding:4px 0"><span style="width:10px;height:10px;border-radius:3px;background:${DISK_COULEURS[k]};flex-shrink:0"></span><span style="flex:1;color:var(--text-m)">${esc(label)}</span><strong>${mo}</strong><span style="color:var(--text-m);width:44px;text-align:right">${pct}%</span></div>`;
     }).join('');
+    const dossierCible=dk.mount.replace(/\/$/,'')+'/vex_fichiers';
+    const actif=MACHINE_DISK_DIRS.some(d=>d.dir===dossierCible);
     const m=document.createElement('div');
     m.className='modal-bg';
     m.onclick=(e)=>{if(e.target===m)m.remove();};
@@ -1600,9 +1602,23 @@ function ouvrirDiskBreakdown(i){
             <div style="width:140px;height:140px;border-radius:50%;background:conic-gradient(${stops});flex-shrink:0"></div>
             <div style="flex:1;min-width:220px">${legende}</div>
         </div>
-        <button class="btn bg2" style="margin-top:18px;width:100%" onclick="this.closest('.modal-bg').remove()">Fermer</button>
+        ${actif?`<div style="margin-top:16px;font-size:.78rem;color:var(--text-m)">Les nouveaux fichiers sont actuellement stockés ici (<code>${esc(dossierCible)}</code>).</div>`:''}
+        <button class="btn ${actif?'br2':'ba'}" style="margin-top:14px;width:100%" onclick="toggleDiskStorage('${esc(dossierCible)}',this)">
+            <img src="/static/img/solid/${actif?'trash':'hard-drive'}.svg" class="ico" style="filter:invert(1)" alt="">
+            ${actif?'Arrêter de stocker les fichiers ici':'Utiliser ce disque pour stocker les fichiers'}
+        </button>
+        <button class="btn bg2" style="margin-top:8px;width:100%" onclick="this.closest('.modal-bg').remove()">Fermer</button>
     </div>`;
     document.body.appendChild(m);
+}
+async function toggleDiskStorage(dir,btn){
+    if(btn){btn.disabled=true;}
+    const r=await post('/machine/disk_storage/toggle',{dir});
+    flash(r.success?r.message:r.error,!r.success);
+    if(r.success){
+        document.querySelectorAll('.modal-bg').forEach(m=>m.remove());
+        loadMachineStorage();
+    } else if(btn){btn.disabled=false;}
 }
 function renderDiskTiles(){
     const disqueTuile=(dk,i)=>{const pct=dk.used_pct||0,cl=pct>80?'d':pct>60?'w':'';
@@ -1621,7 +1637,10 @@ async function loadMachineStorage(){
     const r=await api('/machine/status');
     if(!r.success){box.innerHTML=`<div style="padding:14px;color:var(--text-m)">${esc(r.error||'Erreur.')}</div>`;return;}
     MACHINE_DISKS=r.data.disks&&r.data.disks.length?r.data.disks:[];
-    const ds=r.data.disk_storage||{enabled:false,dir:'',used_mb:0};
+    MACHINE_DISK_DIRS=(r.data.disk_storage&&r.data.disk_storage.dirs)||[];
+    const listeActifs=MACHINE_DISK_DIRS.length
+        ? MACHINE_DISK_DIRS.map(d=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><img src="/static/img/solid/hard-drive.svg" class="ico ico-accent" alt=""><code style="flex:1;font-size:.8rem">${esc(d.dir)}</code><span style="color:var(--text-m);font-size:.78rem">${esc(String(d.used_mb))} MB</span><button class="btn br2" style="padding:4px 10px" onclick="toggleDiskStorage('${esc(d.dir)}',this)"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""></button></div>`).join('')
+        : `<div style="color:var(--text-m);font-size:.82rem;padding:6px 0">Aucun disque utilisé pour l'instant — clique un disque ci-dessus (bouton dans son popup) ou ajoute un dossier personnalisé ci-dessous. Pas de limite au nombre de disques.</div>`;
     box.innerHTML=`<div id="disk-tiles"></div>
     <div class="card" style="margin-top:16px">
         <div class="ch"><span><img src="/static/img/solid/folder-open.svg" class="ico ico-accent" alt=""> Fichiers déjà en base</span></div>
@@ -1630,38 +1649,31 @@ async function loadMachineStorage(){
                 <div><label class="cl">Taille des fichiers déjà en base (MySQL)</label><div style="font-size:.95rem;padding:6px 0;font-family:var(--mono)">${esc(String(r.data.vex_data_mb))} MB</div></div>
             </div>
             <div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">
-                Ces fichiers vivent en base64 dans la table <code>fichiers</code> de MySQL — ils ne sont <strong>pas</strong> déplacés automatiquement vers le dossier choisi ci-dessous, même si tu l'actives.
+                Ces fichiers vivent en base64 dans la table <code>fichiers</code> de MySQL — ils ne sont <strong>pas</strong> déplacés automatiquement vers les disques ci-dessous, même une fois activés.
             </div>
         </div>
     </div>
     <div class="card" style="margin-top:16px">
-        <div class="ch"><span><img src="/static/img/solid/hard-drive.svg" class="ico ico-accent" alt=""> Emplacement de stockage (nouveaux fichiers)</span></div>
+        <div class="ch"><span><img src="/static/img/solid/hard-drive.svg" class="ico ico-accent" alt=""> Disques utilisés pour les nouveaux fichiers</span></div>
         <div class="cb">
-            <div class="cgr">
-                <div>
-                    <label class="cl">Stocker les nouveaux fichiers sur disque</label>
-                    <div style="padding:6px 0"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="ds-enabled" ${ds.enabled?'checked':''}> <span style="font-size:.82rem">Activé</span></label></div>
-                </div>
-                <div>
-                    <label class="cl">Dossier de destination</label>
-                    <input type="text" id="ds-dir" class="inp" placeholder="/media/clement/E/vex_fichiers" value="${esc(ds.dir||'')}" style="font-family:var(--mono);font-size:.8rem">
-                </div>
+            ${listeActifs}
+            <div style="margin-top:14px;font-size:.78rem;color:var(--text-m)">
+                Astuce : clique un disque ci-dessus (dans la tuile) pour ouvrir son détail, un bouton "Utiliser ce disque" y active/désactive le stockage en un clic. À chaque upload, celui avec le plus d'espace libre parmi les disques activés est choisi automatiquement. Désactiver remet immédiatement les nouveaux uploads en base (rien n'est déplacé).
             </div>
-            <div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">
-                Choisis n'importe quel dossier existant sur n'importe quel disque monté (clique un disque ci-dessus pour voir son chemin de montage) — ex : un disque externe comme <code>/media/clement/E</code>. Une fois activé, chaque nouvel upload y est écrit au lieu d'aller en base64 dans MySQL. Espace actuellement utilisé : <strong>${esc(String(ds.used_mb))} MB</strong>. Désactiver remet les nouveaux uploads en base immédiatement (réversible, rien n'est déplacé).
+            <div style="display:flex;gap:8px;margin-top:12px">
+                <input type="text" id="ds-dir-custom" class="ci" placeholder="Dossier personnalisé, ex : /media/clement/E/vex_fichiers" style="flex:1;font-family:var(--mono);font-size:.8rem">
+                <button class="btn ba" onclick="ajouterDossierPersonnalise()"><img src="/static/img/solid/plus.svg" class="ico" style="filter:invert(1)" alt=""> Ajouter</button>
             </div>
-            <div style="margin-top:12px"><button class="btn ba" onclick="saveDiskStorage()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> Enregistrer</button></div>
         </div>
     </div>`;
     renderDiskTiles();
 }
 
-async function saveDiskStorage(){
-    const enabled=document.getElementById('ds-enabled').checked;
-    const dir=document.getElementById('ds-dir').value.trim();
-    const r=await post('/machine/disk_storage',{enabled:enabled?'1':'0',dir});
-    flash(r.success?r.message:r.error,!r.success);
-    if(r.success)loadMachineStorage();
+function ajouterDossierPersonnalise(){
+    const el=document.getElementById('ds-dir-custom');
+    const dir=el.value.trim();
+    if(!dir){flash('Indique un dossier.',true);return;}
+    toggleDiskStorage(dir);
 }
 
 /// Onglet OS de Machine -- verification (lecture seule, /server/updates)

@@ -1189,24 +1189,35 @@ fn handle_api(
             Err(e) => json!({"success":false,"error":e}),
         },
 
-        // Ecrit storage.disk_enabled / storage.disk_dir dans config.json.
-        // N'affecte que les futurs uploads (voir fchier.rs) -- rien n'est
+        // Ajoute/retire un dossier de storage.disk_dirs (liste, pas de
+        // limite de disques) dans config.json. N'affecte que les futurs
+        // uploads (voir fchier.rs::stockage_disque_config, qui choisit a
+        // chaque upload celui avec le plus d'espace libre) -- rien n'est
         // migre ni supprime.
-        "/machine/disk_storage" => {
-            let enabled = body.get("enabled").map(|v| v == "1" || v == "true").unwrap_or(false);
-            let dir = body.get("dir").map(|v| v.trim().to_string()).unwrap_or_default();
-            if enabled && dir.is_empty() {
-                json!({"success":false,"error":"Indique un dossier avant d'activer le stockage disque."})
-            } else if enabled && std::fs::create_dir_all(&dir).is_err() {
-                json!({"success":false,"error":format!("Impossible de créer/accéder au dossier « {} ».", dir)})
+        "/machine/disk_storage/toggle" => {
+            let dir = body.get("dir").map(|v| v.trim().trim_end_matches('/').to_string()).unwrap_or_default();
+            if dir.is_empty() {
+                return respond_json(request, json!({"success":false,"error":"Dossier manquant."}));
+            }
+            let cfg = crate::config_loader::load_config(config_path);
+            let mut dirs = cfg.storage.disk_dirs.clone();
+            let deja_present = dirs.iter().any(|d| d.trim_end_matches('/') == dir);
+            if deja_present {
+                dirs.retain(|d| d.trim_end_matches('/') != dir);
             } else {
-                match crate::config_loader::save_config(
-                    config_path,
-                    &json!({"storage": {"disk_enabled": enabled, "disk_dir": dir}}),
-                ) {
-                    Ok(()) => json!({"success":true,"message":"Configuration de stockage enregistrée."}),
-                    Err(e) => json!({"success":false,"error":e}),
+                if std::fs::create_dir_all(&dir).is_err() {
+                    return respond_json(request, json!({"success":false,"error":format!("Impossible de créer/accéder au dossier « {} ».", dir)}));
                 }
+                dirs.push(dir.clone());
+            }
+            match crate::config_loader::save_config(config_path, &json!({"storage": {"disk_dirs": dirs}})) {
+                Ok(()) => json!({
+                    "success": true,
+                    "message": if deja_present { "Ce disque ne stocke plus les nouveaux fichiers." } else { "Ce disque stockera désormais les nouveaux fichiers." },
+                    "actif": !deja_present,
+                    "disk_dirs": dirs,
+                }),
+                Err(e) => json!({"success":false,"error":e}),
             }
         }
 
@@ -2665,12 +2676,7 @@ fn machine_status(pool: &DbPool) -> Value {
     }})
 }
 
-fn disk_storage_cfg_stats() -> Value {
-    let cfg = crate::config_loader::load_config("config.json");
-    if !cfg.storage.disk_enabled || cfg.storage.disk_dir.trim().is_empty() {
-        return json!({"enabled": false, "dir": cfg.storage.disk_dir, "used_mb": 0});
-    }
-    let dir = cfg.storage.disk_dir.trim();
+fn taille_dossier_mb(dir: &str) -> f64 {
     let used_bytes: u64 = std::fs::read_dir(dir)
         .map(|entries| {
             entries
@@ -2681,11 +2687,19 @@ fn disk_storage_cfg_stats() -> Value {
                 .sum()
         })
         .unwrap_or(0);
-    json!({
-        "enabled": true,
-        "dir": dir,
-        "used_mb": (used_bytes as f64 / 1_048_576.0 * 100.0).round() / 100.0,
-    })
+    (used_bytes as f64 / 1_048_576.0 * 100.0).round() / 100.0
+}
+
+fn disk_storage_cfg_stats() -> Value {
+    let cfg = crate::config_loader::load_config("config.json");
+    let dirs: Vec<Value> = cfg
+        .storage
+        .disk_dirs
+        .iter()
+        .filter(|d| !d.trim().is_empty())
+        .map(|d| json!({"dir": d, "used_mb": taille_dossier_mb(d)}))
+        .collect();
+    json!({"dirs": dirs})
 }
 
 /// git fetch + liste des commits GitHub pas encore appliques localement.

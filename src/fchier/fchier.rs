@@ -82,12 +82,34 @@ fn verifier_session(pool: &DbPool, req: &Request) -> Option<HashMap<String, Valu
 
 const PREFIXE_DISQUE: &str = "DISK:";
 
+/// Choisit, parmi tous les dossiers de stockage configures (un ou
+/// plusieurs disques, pas de limite), celui avec le plus d'espace libre
+/// -- repartit naturellement la charge sans configuration supplementaire.
 fn stockage_disque_config() -> Option<std::path::PathBuf> {
     let cfg = load_config("config.json");
-    if !cfg.storage.disk_enabled || cfg.storage.disk_dir.trim().is_empty() {
+    let dirs: Vec<&String> = cfg.storage.disk_dirs.iter().filter(|d| !d.trim().is_empty()).collect();
+    if dirs.is_empty() {
         return None;
     }
-    Some(std::path::PathBuf::from(cfg.storage.disk_dir.trim()))
+    if dirs.len() == 1 {
+        return Some(std::path::PathBuf::from(dirs[0].trim()));
+    }
+    dirs.into_iter()
+        .max_by_key(|d| espace_libre_bytes(d.trim()))
+        .map(|d| std::path::PathBuf::from(d.trim()))
+}
+
+fn espace_libre_bytes(dir: &str) -> u64 {
+    #[cfg(unix)]
+    {
+        if let Ok(out) = std::process::Command::new("df").args(["-B1", "--output=avail", dir]).output() {
+            let s = String::from_utf8_lossy(&out.stdout);
+            if let Some(v) = s.lines().nth(1) {
+                return v.trim().parse().unwrap_or(0);
+            }
+        }
+    }
+    0
 }
 
 fn ecrire_sur_disque(dossier: &std::path::Path, contenu: &[u8]) -> Option<String> {
