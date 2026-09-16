@@ -308,6 +308,35 @@ pub fn selectionner(
 // INSERT si where vide, UPDATE sinon.
 // Retourne l'id inséré (INSERT), 0 (UPDATE OK) ou -1 (erreur).
 // ══════════════════════════════════════════════════════════════════
+/// Meme INSERT que `inserer_ou_modifier` (cas `where_c` vide), mais
+/// remonte le vrai message d'erreur SQL au lieu de -1 -- utilise la ou un
+/// echec generique et muet ("Erreur lors de l'inscription.") est
+/// particulierement genant, comme first_setup.rs : le tout premier compte
+/// n'a pas encore de panel admin/Logs pour aller consulter les eprintln.
+pub fn inserer_avec_erreur(
+    pool: &DbPool,
+    table: &str,
+    donnees: &[(&str, mysql::Value)],
+) -> Result<i64, String> {
+    let mut conn = pool.get_conn().map_err(|e| e.to_string())?;
+    let cols: Vec<String> = donnees.iter().map(|(c, _)| format!("`{}`", c)).collect();
+    let ph: Vec<&str> = donnees.iter().map(|_| "?").collect();
+    let query = format!(
+        "INSERT INTO `{}` ({}) VALUES ({})",
+        table,
+        cols.join(", "),
+        ph.join(", ")
+    );
+    let vals: Vec<mysql::Value> = donnees.iter().map(|(_, v)| v.clone()).collect();
+    match conn.exec_drop(&query, vals) {
+        Ok(_) => Ok(conn.last_insert_id() as i64),
+        Err(e) => {
+            eprintln!("[db] INSERT {} a échoué: {}", table, e);
+            Err(e.to_string())
+        }
+    }
+}
+
 pub fn inserer_ou_modifier(
     pool: &DbPool,
     table: &str,

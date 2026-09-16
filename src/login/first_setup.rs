@@ -4,7 +4,7 @@
 // POST → JSON {success, error}
 // ══════════════════════════════════════════════════════════════════
 
-use crate::appeldb::{compter_lignes, inserer_ou_modifier, DbPool};
+use crate::appeldb::{compter_lignes, inserer_avec_erreur, inserer_ou_modifier, DbPool};
 use crate::config_loader::VexConfig;
 use crate::function::html_escape;
 use crate::utils::url_decode;
@@ -104,12 +104,24 @@ fn handle_post(pool: &DbPool, body: &HashMap<String, String>, langue: &str) -> S
         return jerr(t(langue, Cle::SetupErreurCompteExisteDeja));
     }
 
-    let id = inserer_ou_modifier(
+    // FIX : un echec ici renvoyait un message generique ("Erreur lors de
+    // l'inscription.") sans aucun detail -- particulierement genant pour
+    // le tout premier compte, qui n'a pas encore de panel admin/Logs pour
+    // aller consulter les eprintln du serveur. On affiche desormais le
+    // vrai message SQL (meme esprit que le detail d'erreur deja affiche
+    // sur la page de connexion normale).
+    let id = match inserer_avec_erreur(
         pool,
         "login",
         &[
             ("nom", mysql::Value::from(html_escape(&nom).as_str())),
             ("email", mysql::Value::from(html_escape(&email).as_str())),
+            // FIX (INSERT login echoue silencieusement) : voir le meme fix
+            // dans login.rs handle_signup -- `motdepass` est NOT NULL a la
+            // creation de la table, rendu nullable seulement par une
+            // migration qui peut avoir echoue en silence. On ne depend plus
+            // de son succes.
+            ("motdepass", mysql::Value::from("")),
             ("srp_salt", mysql::Value::from(salt_hex.as_str())),
             ("srp_verifier", mysql::Value::from(verifier_hex.as_str())),
             ("file_key_wrapped_pwd", mysql::Value::from(file_key_wrapped_pwd.as_str())),
@@ -122,12 +134,11 @@ fn handle_post(pool: &DbPool, body: &HashMap<String, String>, langue: &str) -> S
             ("privilege", mysql::Value::from(2i64)),
             ("vip", mysql::Value::from(1i64)),
         ],
-        &[],
-    );
-
-    if id <= 0 {
-        return jerr(t(langue, Cle::LoginErreurInscription));
-    }
+    ) {
+        Ok(id) if id > 0 => id,
+        Ok(_) => return jerr(t(langue, Cle::LoginErreurInscription)),
+        Err(e) => return jerr(&format!("{} ({e})", t(langue, Cle::LoginErreurInscription))),
+    };
 
     inserer_ou_modifier(
         pool,

@@ -2438,6 +2438,119 @@ fn disks_info() -> Vec<Value> {
     vec![json!({"mount": "/", "free_gb": 0.0, "total_gb": 0.0, "used_gb": 0.0, "used_pct": 0})]
 }
 
+/// Taille reelle (octets) d'un dossier -- `du -sb` sur Linux (rapide,
+/// c'est ce qui tourne sur le Pi en prod), parcours recursif "a la main"
+/// en secours ailleurs (dev Windows) pour que ca marche quand meme, meme
+/// si moins precis/rapide sur un tres gros dossier.
+fn taille_dossier_bytes(chemin: &std::path::Path) -> u64 {
+    #[cfg(unix)]
+    {
+        if let Ok(out) = std::process::Command::new("du")
+            .args(["-sb", &chemin.to_string_lossy()])
+            .output()
+        {
+            let s = String::from_utf8_lossy(&out.stdout);
+            if let Some(first) = s.split_whitespace().next() {
+                if let Ok(v) = first.parse::<u64>() {
+                    return v;
+                }
+            }
+        }
+    }
+    fn parcourir(p: &std::path::Path, total: &mut u64, reste: &mut u32) {
+        if *reste == 0 {
+            return;
+        }
+        *reste -= 1;
+        if let Ok(rd) = std::fs::read_dir(p) {
+            for e in rd.flatten() {
+                if let Ok(m) = e.metadata() {
+                    if m.is_file() {
+                        *total += m.len();
+                    } else if m.is_dir() {
+                        parcourir(&e.path(), total, reste);
+                    }
+                }
+            }
+        }
+    }
+    let mut total = 0u64;
+    let mut reste = 200_000u32; // garde-fou anti-boucle infinie/trop long
+    parcourir(chemin, &mut total, &mut reste);
+    total
+}
+
+/// Le point de montage (parmi ceux de `mounts`) qui contient `chemin`,
+/// c-a-d le prefixe le plus specifique -- meme logique que `df` pour
+/// savoir "ce dossier, il est sur quel disque".
+fn mount_pour_chemin(chemin: &std::path::Path, mounts: &[String]) -> Option<String> {
+    let chemin_s = chemin
+        .canonicalize()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| chemin.to_string_lossy().to_string());
+    mounts
+        .iter()
+        .filter(|m| chemin_s == m.as_str() || chemin_s.starts_with(&format!("{}/", m.trim_end_matches('/'))) || m.as_str() == "/")
+        .max_by_key(|m| m.len())
+        .cloned()
+}
+
+/// Repartition par disque : combien de place prend le dossier VEX
+/// (code + éventuel target/), la base MySQL (si son datadir est
+/// accessible localement, sinon on retombe sur la taille de la table
+/// `fichiers`), les sauvegardes VEX, et le reste ("systeme / autres
+/// fichiers", calcule par difference). Estimation au meilleur effort --
+/// `du` sur un tres gros dossier peut prendre quelques secondes.
+fn disks_avec_repartition(pool: &DbPool) -> Vec<Value> {
+    let mut disks = disks_info();
+    let mounts: Vec<String> = disks
+        .iter()
+        .filter_map(|d| d.get("mount").and_then(|v| v.as_str()).map(|s| s.to_string()))
+        .collect();
+
+    let repo_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let app_bytes = taille_dossier_bytes(&repo_dir);
+    let app_mount = mount_pour_chemin(&repo_dir, &mounts);
+
+    let datadir = std::path::PathBuf::from("/var/lib/mysql");
+    let (docs_bytes, docs_mount) = if datadir.is_dir() {
+        (taille_dossier_bytes(&datadir), mount_pour_chemin(&datadir, &mounts))
+    } else {
+        // Datadir MySQL pas accessible localement (autre hote, ou permissions) --
+        // retombe sur la taille de la table `fichiers`, attribuee a la racine.
+        let mb = crate::appeldb::get_taille_table(pool, "fichiers");
+        (
+            (mb * 1_000_000.0) as u64,
+            mounts.iter().find(|m| m.as_str() == "/").cloned(),
+        )
+    };
+
+    let backups_dir = repo_dir.join("backups");
+    let backups_bytes = if backups_dir.is_dir() { taille_dossier_bytes(&backups_dir) } else { 0 };
+    let backups_mount = if backups_bytes > 0 { mount_pour_chemin(&backups_dir, &mounts) } else { None };
+
+    for d in disks.iter_mut() {
+        let mount = d.get("mount").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let used_mb = d.get("used_gb").and_then(|v| v.as_f64()).unwrap_or(0.0) * 1000.0;
+        let app_mb = if app_mount.as_deref() == Some(mount.as_str()) { app_bytes as f64 / 1e6 } else { 0.0 };
+        let docs_mb = if docs_mount.as_deref() == Some(mount.as_str()) { docs_bytes as f64 / 1e6 } else { 0.0 };
+        let backups_mb = if backups_mount.as_deref() == Some(mount.as_str()) { backups_bytes as f64 / 1e6 } else { 0.0 };
+        let systeme_mb = (used_mb - app_mb - docs_mb - backups_mb).max(0.0);
+        if let Some(obj) = d.as_object_mut() {
+            obj.insert(
+                "breakdown".to_string(),
+                json!({
+                    "app_vex_mb": (app_mb * 10.0).round() / 10.0,
+                    "docs_vex_mb": (docs_mb * 10.0).round() / 10.0,
+                    "sauvegardes_mb": (backups_mb * 10.0).round() / 10.0,
+                    "systeme_mb": (systeme_mb * 10.0).round() / 10.0,
+                }),
+            );
+        }
+    }
+    disks
+}
+
 fn uptime_sec() -> u64 {
     #[cfg(unix)]
     {
@@ -2525,7 +2638,7 @@ fn machine_status(pool: &DbPool) -> Value {
         "branch":         git_field("git rev-parse --abbrev-ref HEAD"),
         "uptime_sec":     uptime_sec(),
         "pid":            std::process::id(),
-        "disks":          disks_info(),
+        "disks":          disks_avec_repartition(pool),
         "vex_data_mb":    vex_data_mb,
     }})
 }

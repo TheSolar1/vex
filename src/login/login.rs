@@ -540,12 +540,25 @@ fn handle_signup(request: Request, pool: &DbPool, config: &VexConfig, body: &Has
         return;
     }
 
+    // FIX (INSERT login echoue silencieusement) : `motdepass` est
+    // NOT NULL dans le CREATE TABLE d'origine, rendu nullable seulement
+    // par une migration ALTER TABLE ultérieure (db_init.rs) exécutée avec
+    // `let _ =` -- si cette migration échoue pour une raison quelconque
+    // (droits ALTER manquants pour l'utilisateur DB, base déjà dans un
+    // état inattendu après l'incident de perte de données), l'INSERT
+    // échoue systématiquement ("Field 'motdepass' doesn't have a default
+    // value"), renvoyant le message générique "Erreur lors de
+    // l'inscription." sans que rien n'indique pourquoi. On fournit
+    // désormais explicitement une valeur, sans dépendre du succès de
+    // cette migration -- la colonne n'est de toute facon plus utilisée
+    // (authentification SRP).
     let result = inserer_ou_modifier(
         pool,
         "login",
         &[
             ("nom", mysql::Value::from(nom.as_str())),
             ("email", mysql::Value::from(email.as_str())),
+            ("motdepass", mysql::Value::from("")),
             ("srp_salt", mysql::Value::from(salt_hex.as_str())),
             ("srp_verifier", mysql::Value::from(verifier_hex.as_str())),
             ("vip", mysql::Value::from(0i64)),

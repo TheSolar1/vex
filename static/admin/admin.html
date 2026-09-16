@@ -1563,15 +1563,64 @@ async function machineRestart(ns){
     document.getElementById(NS_CONTAINER[ns]).innerHTML=`<div style="padding:40px;text-align:center;color:var(--text-m)"><span class="spin" style="display:inline-block"></span><br><br>${esc(I18N.MACHINE_REDEMARRER)}…</div>`;
 }
 
+let MACHINE_DISKS=[], MACHINE_DISK_OUVERT=-1;
+
+// FIX (demande utilisateur) : chaque disque est cliquable et deroule un
+// diagramme circulaire (systeme / app VEX / docs VEX / sauvegardes / libre),
+// construit en CSS pur (conic-gradient) -- pas de librairie de graphiques.
+const DISK_COULEURS={systeme:'#94a3b8',app:'#3b82f6',docs:'#22c55e',sauvegardes:'#f59e0b',libre:'#e2e8f0'};
+function diskPieSvg(dk){
+    const b=dk.breakdown||{};
+    const segs=[
+        ['systeme',b.systeme_mb||0,'Système / autres fichiers'],
+        ['app',b.app_vex_mb||0,'Application VEX'],
+        ['docs',b.docs_vex_mb||0,'Docs VEX (base de données)'],
+        ['sauvegardes',b.sauvegardes_mb||0,'Sauvegardes'],
+        ['libre',(dk.free_gb||0)*1000,'Libre'],
+    ];
+    const total=segs.reduce((s,x)=>s+x[1],0)||1;
+    let acc=0;
+    const stops=segs.map(([k,v])=>{
+        const debut=acc/total*360; acc+=v; const fin=acc/total*360;
+        return `${DISK_COULEURS[k]} ${debut.toFixed(2)}deg ${fin.toFixed(2)}deg`;
+    }).join(',');
+    const legende=segs.filter(([,v])=>v>0.05).map(([k,v,label])=>{
+        const mo=v>=1000?(v/1000).toFixed(1)+' GB':Math.round(v)+' MB';
+        const pct=(v/total*100).toFixed(1);
+        return `<div style="display:flex;align-items:center;gap:8px;font-size:.8rem;padding:3px 0"><span style="width:10px;height:10px;border-radius:3px;background:${DISK_COULEURS[k]};flex-shrink:0"></span><span style="flex:1;color:var(--text-m)">${esc(label)}</span><strong>${mo}</strong><span style="color:var(--text-m);width:44px;text-align:right">${pct}%</span></div>`;
+    }).join('');
+    return `<div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;padding:16px">
+        <div style="width:130px;height:130px;border-radius:50%;background:conic-gradient(${stops});flex-shrink:0"></div>
+        <div style="flex:1;min-width:220px">${legende}</div>
+    </div>`;
+}
+function toggleDiskBreakdown(i){
+    MACHINE_DISK_OUVERT=MACHINE_DISK_OUVERT===i?-1:i;
+    renderDiskTiles();
+}
+function renderDiskTiles(){
+    const disqueTuile=(dk,i)=>{const pct=dk.used_pct||0,cl=pct>80?'d':pct>60?'w':'';
+        const ouvert=MACHINE_DISK_OUVERT===i;
+        return `<div>
+            <div class="sc" style="--si:${pct>80?'#ef4444':pct>60?'#f59e0b':'var(--accent)'};cursor:pointer" onclick="toggleDiskBreakdown(${i})">
+                <div class="sc-i"><img src="/static/img/solid/hard-drive.svg" style="filter:invert(1);opacity:.85" alt=""></div>
+                <div class="sc-v" style="font-size:1.1rem">${esc(String(dk.used_gb))} <span style="font-size:.6em;font-weight:400">/ ${esc(String(dk.total_gb))} GB</span></div>
+                <div class="sc-l" title="${esc(dk.mount)}">${I18N.SERVER_DISQUE_LABEL.replace('{mount}',esc(dk.mount)).replace('{pct}',pct)} <img src="/static/img/solid/chevron-down.svg" class="ico" style="width:9px;height:9px;opacity:.5;filter:invert(1);transform:rotate(${ouvert?180:0}deg)" alt=""></div>
+                <div class="pg"><div class="pgb ${cl}" style="width:${pct}%"></div></div>
+            </div>
+            ${ouvert?`<div class="card" style="margin-top:8px">${diskPieSvg(dk)}</div>`:''}
+        </div>`;};
+    document.getElementById('disk-tiles').innerHTML=`<div class="sg">${MACHINE_DISKS.map(disqueTuile).join('')||`<div style="padding:14px;color:var(--text-m)">?</div>`}</div>`;
+}
+
 async function loadMachineStorage(){
     const box=document.getElementById('machine-content');
     box.innerHTML='<div class="loading"><span class="spin"></span></div>';
     const r=await api('/machine/status');
     if(!r.success){box.innerHTML=`<div style="padding:14px;color:var(--text-m)">${esc(r.error||'Erreur.')}</div>`;return;}
-    const disks=r.data.disks&&r.data.disks.length?r.data.disks:[];
-    const disqueTuile=dk=>{const pct=dk.used_pct||0,cl=pct>80?'d':pct>60?'w':'';
-        return `<div class="sc" style="--si:${pct>80?'#ef4444':pct>60?'#f59e0b':'var(--accent)'}"><div class="sc-i"><img src="/static/img/solid/hard-drive.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="font-size:1.1rem">${esc(String(dk.used_gb))} <span style="font-size:.6em;font-weight:400">/ ${esc(String(dk.total_gb))} GB</span></div><div class="sc-l" title="${esc(dk.mount)}">${I18N.SERVER_DISQUE_LABEL.replace('{mount}',esc(dk.mount)).replace('{pct}',pct)}</div><div class="pg"><div class="pgb ${cl}" style="width:${pct}%"></div></div></div>`;};
-    box.innerHTML=`<div class="sg">${disks.map(disqueTuile).join('')||`<div style="padding:14px;color:var(--text-m)">?</div>`}</div>
+    MACHINE_DISKS=r.data.disks&&r.data.disks.length?r.data.disks:[];
+    MACHINE_DISK_OUVERT=-1;
+    box.innerHTML=`<div id="disk-tiles"></div>
     <div class="card" style="margin-top:16px">
         <div class="ch"><span><img src="/static/img/solid/folder-open.svg" class="ico ico-accent" alt=""> Fichiers VEX</span></div>
         <div class="cb">
@@ -1583,6 +1632,7 @@ async function loadMachineStorage(){
             </div>
         </div>
     </div>`;
+    renderDiskTiles();
 }
 
 /// Onglet OS de Machine -- verification (lecture seule, /server/updates)
