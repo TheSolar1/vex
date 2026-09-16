@@ -823,7 +823,46 @@ enum EvenementTray {
     Quitter,
 }
 
+/// Verrou mono-instance : Windows Cloud Filter n'autorise qu'UNE seule
+/// session connectee a la fois sur une racine de synchro donnee -- lancer
+/// une deuxieme instance (double-clic accidentel, ancien process pas
+/// encore ferme, raccourci Bureau + barre des taches) faisait echouer la
+/// connexion avec un message HRESULT cryptique ("La racine de
+/// synchronisation du cloud est deja connectee a un autre fournisseur").
+/// Un mutex nomme global detecte ce cas des le demarrage et affiche un
+/// message clair au lieu de laisser la connexion Cloud Filter echouer
+/// plus loin dans le flux. Le HANDLE doit rester vivant jusqu'a la fin du
+/// process (Windows le libere tout seul a la sortie), d'ou le retour ici
+/// plutot qu'un drop immediat.
+fn deja_en_cours() -> Option<windows::Win32::Foundation::HANDLE> {
+    use windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
+    use windows::Win32::System::Threading::CreateMutexW;
+    use windows::core::PCWSTR;
+    let nom: Vec<u16> = "Global\\VEXCloudSyncSingleInstance\0".encode_utf16().collect();
+    unsafe {
+        match CreateMutexW(None, false, PCWSTR(nom.as_ptr())) {
+            Ok(h) => {
+                if GetLastError() == ERROR_ALREADY_EXISTS {
+                    None
+                } else {
+                    Some(h)
+                }
+            }
+            Err(_) => None,
+        }
+    }
+}
+
 fn main() {
+    let _verrou_instance = match deja_en_cours() {
+        Some(h) => h,
+        None => {
+            let langue = i18n::langue_courante();
+            afficher_message("VEX Cloud Client", i18n::t(&langue, i18n::Cle::DejaEnCoursExecution));
+            return;
+        }
+    };
+
     let etat: EtatPartage = Arc::new(Mutex::new(EtatUi::default()));
 
     let (icone_dossier_locale, _) = extraire_icones_locales();

@@ -55,6 +55,7 @@ pub enum Cle {
     ActionReinstaller,
     ActionDesinstaller,
     Desinstallee,
+    DejaEnCoursExecution,
 
     // Messages de statut/erreur pendant la synchronisation (executer_synchro
     // dans main.rs) -- affiches dans la fenetre de statut (voir
@@ -115,6 +116,9 @@ pub fn t(langue: &str, cle: Cle) -> &'static str {
         (_, ActionDesinstaller) if langue == "fr" || !est_langue_connue(langue) => "Désinstaller",
         (_, Desinstallee) if langue == "fr" || !est_langue_connue(langue) => {
             "Désinstallation terminée.\n\nTes fichiers synchronisés n'ont pas été supprimés -- tu peux les garder, les déplacer ou les supprimer toi-même. Tu peux également supprimer vex-cloudsync.exe si tu ne comptes plus l'utiliser."
+        }
+        (_, DejaEnCoursExecution) if langue == "fr" || !est_langue_connue(langue) => {
+            "VEX Cloud Client est déjà lancé (regarde la barre des tâches, en bas à droite) -- une seule instance à la fois peut se connecter à la synchronisation."
         }
         (_, JournalWindowsCompatible) if langue == "fr" || !est_langue_connue(langue) => "Windows build {build} : compatible.",
         (_, ErreurWindowsIncompatible) if langue == "fr" || !est_langue_connue(langue) => {
