@@ -22,6 +22,7 @@ use std::time::Duration;
 ///   `password` de VexClient : la cle de chiffrement est derivee du mot
 ///   de passe en clair, jamais connue du serveur -- le jeton ne peut donc
 ///   pas s'y substituer).
+#[derive(Clone)]
 enum Auth {
     Cookie(String),
     Jeton(String),
@@ -40,6 +41,7 @@ pub struct DossierEntry {
     pub nom: String,
 }
 
+#[derive(Clone)]
 pub struct VexClient {
     base_url: String,
     agent: ureq::Agent,

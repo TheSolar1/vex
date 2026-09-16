@@ -400,6 +400,81 @@ fn mark_in_sync(local_dir: &Path, client: &VexClient, dossier_distant_id: i64) {
     }
 }
 
+/// Construit l'ensemble de tous les blobs (fichiers + dossiers) qui
+/// existent reellement cote serveur, en parcourant l'arborescence distante
+/// recursivement depuis la racine.
+fn lister_distant_tous_blobs(
+    client: &VexClient,
+    dossier_id: i64,
+    out: &mut std::collections::HashSet<Vec<u8>>,
+) {
+    let Ok((dossiers, fichiers)) = client.lister_dossier(dossier_id) else { return };
+    for d in &dossiers {
+        out.insert(encoder_blob_dossier(d.id));
+        lister_distant_tous_blobs(client, d.id, out);
+    }
+    for f in &fichiers {
+        out.insert(encoder_blob_fichier(f.id));
+    }
+}
+
+/// FIX (demande utilisateur : "l'app affiche des fichiers qui ne sont pas
+/// dans le cloud") : l'API Cloud Filter de Windows ne supprime JAMAIS
+/// automatiquement une placeholder locale quand l'element correspondant a
+/// ete supprime cote serveur (par un autre appareil, ou depuis l'admin) --
+/// c'est a l'appli de le detecter et de le faire explicitement. Compare
+/// chaque placeholder locale (identifiee par son blob, l'id distant qu'on
+/// y a stocke) a l'ensemble des blobs reellement presents cote serveur, et
+/// supprime localement celles qui n'y sont plus. Ne touche QUE les vraies
+/// placeholders deja synchronisees (Placeholder::open(...).info() renvoie
+/// Some) -- un fichier local pas encore uploade (pas une placeholder) n'a
+/// pas d'info() et n'est jamais touche.
+fn nettoyer_placeholders_orphelines(local_dir: &Path, distants: &std::collections::HashSet<Vec<u8>>) {
+    let Ok(entries) = local_dir.read_dir() else { return };
+    for entry in entries.filter_map(|e| e.ok()) {
+        let chemin = entry.path();
+        let est_dossier = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
+        let Ok(placeholder) = Placeholder::open(&chemin) else { continue };
+        let Ok(Some(info)) = placeholder.info() else { continue };
+        if !distants.contains(info.blob()) {
+            println!("nettoyer_placeholders_orphelines: suppression locale de {chemin:?} (plus present cote serveur)");
+            let res = if est_dossier {
+                std::fs::remove_dir_all(&chemin)
+            } else {
+                std::fs::remove_file(&chemin)
+            };
+            if let Err(e) = res {
+                println!("nettoyer_placeholders_orphelines: suppression {chemin:?} echouee : {e}");
+            }
+            continue;
+        }
+        if est_dossier {
+            nettoyer_placeholders_orphelines(&chemin, distants);
+        }
+    }
+}
+
+fn reconcilier(local_dir: &Path, client: &VexClient) {
+    let mut distants = std::collections::HashSet::new();
+    lister_distant_tous_blobs(client, 0, &mut distants);
+    nettoyer_placeholders_orphelines(local_dir, &distants);
+}
+
+/// Reconciliation periodique en arriere-plan : detecte et retire les
+/// placeholders locales dont l'original a ete supprime cote serveur
+/// depuis la derniere synchro (voir reconcilier). Tourne toutes les 3
+/// minutes tant que la session Cloud Filter est active.
+fn lancer_reconciliation_periodique(client_path: String, client: VexClient) -> mpsc::Sender<()> {
+    let (tx_stop, rx_stop) = mpsc::channel::<()>();
+    std::thread::spawn(move || loop {
+        if rx_stop.recv_timeout(std::time::Duration::from_secs(180)).is_ok() {
+            break;
+        }
+        reconcilier(Path::new(&client_path), &client);
+    });
+    tx_stop
+}
+
 /// Cree (ou met a jour) un raccourci "VEX.lnk" sur le Bureau, pointant vers
 /// le dossier de synchro, avec l'icone VEX. Mecanisme standard et sans
 /// risque (celui qu'utilise n'importe quel logiciel qui pose une icone sur
@@ -713,6 +788,11 @@ fn executer_synchro(password: String, url_serveur: String, etat: EtatPartage, rx
 
     journaliser(&etat, i18n::t(&langue, i18n::Cle::JournalMarquageFichiers));
     mark_in_sync(Path::new(&client_path), &client, 0);
+    // Retire tout de suite les placeholders locales dont l'original a ete
+    // supprime cote serveur pendant que l'app etait fermee (voir
+    // reconcilier) -- avant meme d'entrer dans la boucle d'attente.
+    reconcilier(Path::new(&client_path), &client);
+    let client_pour_reconciliation = client.clone();
 
     let connection = match Session::new().connect(&client_path, Filter { client }) {
         Ok(c) => c,
@@ -721,6 +801,8 @@ fn executer_synchro(password: String, url_serveur: String, etat: EtatPartage, rx
             return;
         }
     };
+
+    let arreter_reconciliation = lancer_reconciliation_periodique(client_path.clone(), client_pour_reconciliation);
 
     {
         let mut e = etat.lock().unwrap();
@@ -731,6 +813,7 @@ fn executer_synchro(password: String, url_serveur: String, etat: EtatPartage, rx
     // Garde la session vivante jusqu'au signal "Quitter" (barre des taches).
     let _ = rx_quitter.recv();
 
+    let _ = arreter_reconciliation.send(());
     drop(connection);
     let _ = sync_root_id.unregister();
 }
