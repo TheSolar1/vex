@@ -1563,13 +1563,14 @@ async function machineRestart(ns){
     document.getElementById(NS_CONTAINER[ns]).innerHTML=`<div style="padding:40px;text-align:center;color:var(--text-m)"><span class="spin" style="display:inline-block"></span><br><br>${esc(I18N.MACHINE_REDEMARRER)}…</div>`;
 }
 
-let MACHINE_DISKS=[], MACHINE_DISK_OUVERT=-1;
+let MACHINE_DISKS=[];
 
-// FIX (demande utilisateur) : chaque disque est cliquable et deroule un
-// diagramme circulaire (systeme / app VEX / docs VEX / sauvegardes / libre),
-// construit en CSS pur (conic-gradient) -- pas de librairie de graphiques.
+// Chaque disque est cliquable -> ouvre un vrai popup (meme pattern .modal-bg
+// que le reste de l'admin) avec un diagramme circulaire (systeme / app VEX /
+// docs VEX / sauvegardes / libre), construit en CSS pur (conic-gradient).
 const DISK_COULEURS={systeme:'#94a3b8',app:'#3b82f6',docs:'#22c55e',sauvegardes:'#f59e0b',libre:'#e2e8f0'};
-function diskPieSvg(dk){
+function ouvrirDiskBreakdown(i){
+    const dk=MACHINE_DISKS[i]; if(!dk)return;
     const b=dk.breakdown||{};
     const segs=[
         ['systeme',b.systeme_mb||0,'Système / autres fichiers'],
@@ -1587,28 +1588,29 @@ function diskPieSvg(dk){
     const legende=segs.filter(([,v])=>v>0.05).map(([k,v,label])=>{
         const mo=v>=1000?(v/1000).toFixed(1)+' GB':Math.round(v)+' MB';
         const pct=(v/total*100).toFixed(1);
-        return `<div style="display:flex;align-items:center;gap:8px;font-size:.8rem;padding:3px 0"><span style="width:10px;height:10px;border-radius:3px;background:${DISK_COULEURS[k]};flex-shrink:0"></span><span style="flex:1;color:var(--text-m)">${esc(label)}</span><strong>${mo}</strong><span style="color:var(--text-m);width:44px;text-align:right">${pct}%</span></div>`;
+        return `<div style="display:flex;align-items:center;gap:8px;font-size:.82rem;padding:4px 0"><span style="width:10px;height:10px;border-radius:3px;background:${DISK_COULEURS[k]};flex-shrink:0"></span><span style="flex:1;color:var(--text-m)">${esc(label)}</span><strong>${mo}</strong><span style="color:var(--text-m);width:44px;text-align:right">${pct}%</span></div>`;
     }).join('');
-    return `<div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;padding:16px">
-        <div style="width:130px;height:130px;border-radius:50%;background:conic-gradient(${stops});flex-shrink:0"></div>
-        <div style="flex:1;min-width:220px">${legende}</div>
+    const m=document.createElement('div');
+    m.className='modal-bg';
+    m.onclick=(e)=>{if(e.target===m)m.remove();};
+    m.innerHTML=`<div class="modal-box">
+        <div style="font-weight:800;font-size:1.1rem;margin-bottom:4px;display:flex;align-items:center;gap:8px"><img src="/static/img/solid/hard-drive.svg" class="ico ico-accent" alt=""> ${esc(dk.mount)}</div>
+        <div style="color:var(--text-m);font-size:.8rem;margin-bottom:16px">${esc(String(dk.used_gb))} / ${esc(String(dk.total_gb))} GB utilisés</div>
+        <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+            <div style="width:140px;height:140px;border-radius:50%;background:conic-gradient(${stops});flex-shrink:0"></div>
+            <div style="flex:1;min-width:220px">${legende}</div>
+        </div>
+        <button class="btn bg2" style="margin-top:18px;width:100%" onclick="this.closest('.modal-bg').remove()">Fermer</button>
     </div>`;
-}
-function toggleDiskBreakdown(i){
-    MACHINE_DISK_OUVERT=MACHINE_DISK_OUVERT===i?-1:i;
-    renderDiskTiles();
+    document.body.appendChild(m);
 }
 function renderDiskTiles(){
     const disqueTuile=(dk,i)=>{const pct=dk.used_pct||0,cl=pct>80?'d':pct>60?'w':'';
-        const ouvert=MACHINE_DISK_OUVERT===i;
-        return `<div>
-            <div class="sc" style="--si:${pct>80?'#ef4444':pct>60?'#f59e0b':'var(--accent)'};cursor:pointer" onclick="toggleDiskBreakdown(${i})">
-                <div class="sc-i"><img src="/static/img/solid/hard-drive.svg" style="filter:invert(1);opacity:.85" alt=""></div>
-                <div class="sc-v" style="font-size:1.1rem">${esc(String(dk.used_gb))} <span style="font-size:.6em;font-weight:400">/ ${esc(String(dk.total_gb))} GB</span></div>
-                <div class="sc-l" title="${esc(dk.mount)}">${I18N.SERVER_DISQUE_LABEL.replace('{mount}',esc(dk.mount)).replace('{pct}',pct)} <img src="/static/img/solid/chevron-down.svg" class="ico" style="width:9px;height:9px;opacity:.5;filter:invert(1);transform:rotate(${ouvert?180:0}deg)" alt=""></div>
-                <div class="pg"><div class="pgb ${cl}" style="width:${pct}%"></div></div>
-            </div>
-            ${ouvert?`<div class="card" style="margin-top:8px">${diskPieSvg(dk)}</div>`:''}
+        return `<div class="sc" style="--si:${pct>80?'#ef4444':pct>60?'#f59e0b':'var(--accent)'};cursor:pointer" onclick="ouvrirDiskBreakdown(${i})">
+            <div class="sc-i"><img src="/static/img/solid/hard-drive.svg" style="filter:invert(1);opacity:.85" alt=""></div>
+            <div class="sc-v" style="font-size:1.1rem">${esc(String(dk.used_gb))} <span style="font-size:.6em;font-weight:400">/ ${esc(String(dk.total_gb))} GB</span></div>
+            <div class="sc-l" title="${esc(dk.mount)}">${I18N.SERVER_DISQUE_LABEL.replace('{mount}',esc(dk.mount)).replace('{pct}',pct)} <img src="/static/img/solid/circle-info.svg" class="ico" style="width:10px;height:10px;opacity:.5;filter:invert(1)" alt=""></div>
+            <div class="pg"><div class="pgb ${cl}" style="width:${pct}%"></div></div>
         </div>`;};
     document.getElementById('disk-tiles').innerHTML=`<div class="sg">${MACHINE_DISKS.map(disqueTuile).join('')||`<div style="padding:14px;color:var(--text-m)">?</div>`}</div>`;
 }
@@ -1619,20 +1621,47 @@ async function loadMachineStorage(){
     const r=await api('/machine/status');
     if(!r.success){box.innerHTML=`<div style="padding:14px;color:var(--text-m)">${esc(r.error||'Erreur.')}</div>`;return;}
     MACHINE_DISKS=r.data.disks&&r.data.disks.length?r.data.disks:[];
-    MACHINE_DISK_OUVERT=-1;
+    const ds=r.data.disk_storage||{enabled:false,dir:'',used_mb:0};
     box.innerHTML=`<div id="disk-tiles"></div>
     <div class="card" style="margin-top:16px">
-        <div class="ch"><span><img src="/static/img/solid/folder-open.svg" class="ico ico-accent" alt=""> Fichiers VEX</span></div>
+        <div class="ch"><span><img src="/static/img/solid/folder-open.svg" class="ico ico-accent" alt=""> Fichiers déjà en base</span></div>
         <div class="cb">
             <div class="cgr">
-                <div><label class="cl">Taille des fichiers VEX (base de données)</label><div style="font-size:.95rem;padding:6px 0;font-family:var(--mono)">${esc(String(r.data.vex_data_mb))} MB</div></div>
+                <div><label class="cl">Taille des fichiers déjà en base (MySQL)</label><div style="font-size:.95rem;padding:6px 0;font-family:var(--mono)">${esc(String(r.data.vex_data_mb))} MB</div></div>
             </div>
             <div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">
-                Les fichiers VEX ne sont pas stockés comme des fichiers séparés sur un disque : leur contenu vit dans la table <code>fichiers</code> de la base MySQL, elle-même sur le disque qui héberge le datadir MySQL (généralement <code>/var/lib/mysql</code>). Il n'y a donc pas de dossier "emplacement de stockage" à choisir dans l'état actuel — déplacer les données VEX vers un autre disque reviendrait à déplacer tout le datadir MySQL, une opération plus lourde qu'un simple réglage. Dis-le-moi si tu veux qu'on prépare ça comme un chantier à part.
+                Ces fichiers vivent en base64 dans la table <code>fichiers</code> de MySQL — ils ne sont <strong>pas</strong> déplacés automatiquement vers le dossier choisi ci-dessous, même si tu l'actives.
             </div>
+        </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+        <div class="ch"><span><img src="/static/img/solid/hard-drive.svg" class="ico ico-accent" alt=""> Emplacement de stockage (nouveaux fichiers)</span></div>
+        <div class="cb">
+            <div class="cgr">
+                <div>
+                    <label class="cl">Stocker les nouveaux fichiers sur disque</label>
+                    <div style="padding:6px 0"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="ds-enabled" ${ds.enabled?'checked':''}> <span style="font-size:.82rem">Activé</span></label></div>
+                </div>
+                <div>
+                    <label class="cl">Dossier de destination</label>
+                    <input type="text" id="ds-dir" class="inp" placeholder="/media/clement/E/vex_fichiers" value="${esc(ds.dir||'')}" style="font-family:var(--mono);font-size:.8rem">
+                </div>
+            </div>
+            <div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">
+                Choisis n'importe quel dossier existant sur n'importe quel disque monté (clique un disque ci-dessus pour voir son chemin de montage) — ex : un disque externe comme <code>/media/clement/E</code>. Une fois activé, chaque nouvel upload y est écrit au lieu d'aller en base64 dans MySQL. Espace actuellement utilisé : <strong>${esc(String(ds.used_mb))} MB</strong>. Désactiver remet les nouveaux uploads en base immédiatement (réversible, rien n'est déplacé).
+            </div>
+            <div style="margin-top:12px"><button class="btn ba" onclick="saveDiskStorage()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> Enregistrer</button></div>
         </div>
     </div>`;
     renderDiskTiles();
+}
+
+async function saveDiskStorage(){
+    const enabled=document.getElementById('ds-enabled').checked;
+    const dir=document.getElementById('ds-dir').value.trim();
+    const r=await post('/machine/disk_storage',{enabled:enabled?'1':'0',dir});
+    flash(r.success?r.message:r.error,!r.success);
+    if(r.success)loadMachineStorage();
 }
 
 /// Onglet OS de Machine -- verification (lecture seule, /server/updates)

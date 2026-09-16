@@ -80,6 +80,34 @@ fn verifier_session(pool: &DbPool, req: &Request) -> Option<HashMap<String, Valu
     }
 }
 
+const PREFIXE_DISQUE: &str = "DISK:";
+
+fn stockage_disque_config() -> Option<std::path::PathBuf> {
+    let cfg = load_config("config.json");
+    if !cfg.storage.disk_enabled || cfg.storage.disk_dir.trim().is_empty() {
+        return None;
+    }
+    Some(std::path::PathBuf::from(cfg.storage.disk_dir.trim()))
+}
+
+fn ecrire_sur_disque(dossier: &std::path::Path, contenu: &[u8]) -> Option<String> {
+    if std::fs::create_dir_all(dossier).is_err() {
+        return None;
+    }
+    let chemin = dossier.join(format!("{}.bin", Uuid::new_v4()));
+    std::fs::write(&chemin, contenu).ok()?;
+    Some(format!("{}{}", PREFIXE_DISQUE, chemin.to_string_lossy()))
+}
+
+fn lire_contenu_b64(valeur: &str) -> Result<String, String> {
+    match valeur.strip_prefix(PREFIXE_DISQUE) {
+        Some(chemin) => std::fs::read(chemin)
+            .map(|bytes| B64.encode(bytes))
+            .map_err(|e| format!("Lecture disque impossible ({e})")),
+        None => Ok(valeur.to_string()),
+    }
+}
+
 fn json_response(status: u16, body: Value) -> Response<std::io::Cursor<Vec<u8>>> {
     Response::from_data(body.to_string().into_bytes())
         .with_status_code(status)
@@ -812,6 +840,11 @@ fn api_upload(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
         (file_b64.len() as i64 * 3 / 4)
     };
 
+    let valeur_fichier = stockage_disque_config()
+        .and_then(|dossier| B64.decode(&file_b64).ok().map(|bytes| (dossier, bytes)))
+        .and_then(|(dossier, bytes)| ecrire_sur_disque(&dossier, &bytes))
+        .unwrap_or(file_b64);
+
     let id = inserer_ou_modifier(
         pool,
         "fichiers",
@@ -821,7 +854,7 @@ fn api_upload(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
             ("taille", mysql::Value::from(taille_reelle)),
             ("type_fichier", mysql::Value::from(mime_type.as_str())),
             ("visble", mysql::Value::from(visble.as_str())),
-            ("fichier", mysql::Value::from(file_b64.as_str())),
+            ("fichier", mysql::Value::from(valeur_fichier.as_str())),
             ("partage", mysql::Value::from("")),
             ("date", mysql::Value::from(now.as_str())),
         ],
@@ -1772,6 +1805,13 @@ fn api_download(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cur
     if owner != uid && visble != "0" && !is_shared_with(partage, uid) {
         return json_response(403, json!({"error":"Accès refusé"}));
     }
+    let contenu = match row.get("fichier").and_then(|v| v.as_str()) {
+        Some(v) => match lire_contenu_b64(v) {
+            Ok(b64) => b64,
+            Err(e) => return json_response(500, json!({"error": e})),
+        },
+        None => String::new(),
+    };
     json_response(
         200,
         json!({
@@ -1779,7 +1819,7 @@ fn api_download(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cur
             "nom":     row.get("nom").cloned().unwrap_or(json!("")),
             "mime":    row.get("type_fichier").cloned().unwrap_or(json!("")),
             "taille":  row.get("taille").cloned().unwrap_or(json!(0)),
-            "contenu": row.get("fichier").and_then(|v| v.as_str()).unwrap_or(""),
+            "contenu": contenu,
         }),
     )
 }
@@ -1826,22 +1866,25 @@ fn api_send_p2p(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io:
         return json_response(404, json!({"success":false,"error":"Contenu vide"}));
     }
 
-    // FIX : la colonne `fichier` contient du base64 (voir api_upload), pas
-    // un chemin disque -- avant ce correctif, send_file_via_p2p faisait
-    // directement un File::open() dessus, ce qui echouait systematiquement
-    // (base64 n'est pas un chemin valide). On ecrit un fichier temporaire
-    // le temps de l'envoi P2P, supprime juste apres.
-    let bytes = match B64.decode(&chemin) {
-        Ok(b) => b,
-        Err(_) => return json_response(500, json!({"success":false,"error":"Contenu illisible"})),
+    let (chemin_disque, tmp_a_nettoyer) = match chemin.strip_prefix(PREFIXE_DISQUE) {
+        Some(p) => (p.to_string(), None),
+        None => match B64.decode(&chemin) {
+            Ok(bytes) => {
+                let tmp = std::env::temp_dir().join(format!("vex_p2p_send_{}.bin", Uuid::new_v4()));
+                if std::fs::write(&tmp, &bytes).is_err() {
+                    return json_response(500, json!({"success":false,"error":"Écriture temporaire impossible"}));
+                }
+                let p = tmp.to_string_lossy().to_string();
+                (p, Some(tmp))
+            }
+            Err(_) => return json_response(500, json!({"success":false,"error":"Contenu illisible"})),
+        },
     };
-    let tmp = std::env::temp_dir().join(format!("vex_p2p_send_{}.bin", Uuid::new_v4()));
-    if std::fs::write(&tmp, &bytes).is_err() {
-        return json_response(500, json!({"success":false,"error":"Écriture temporaire impossible"}));
-    }
 
-    let res = send_file_via_p2p(pool, &tmp.to_string_lossy(), &nom, to_user);
-    let _ = std::fs::remove_file(&tmp);
+    let res = send_file_via_p2p(pool, &chemin_disque, &nom, to_user);
+    if let Some(tmp) = tmp_a_nettoyer {
+        let _ = std::fs::remove_file(tmp);
+    }
     let status = if res.get("success").and_then(|v| v.as_bool()) == Some(true) {
         200
     } else {

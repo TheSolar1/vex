@@ -155,6 +155,10 @@ pub struct StorageConfig {
     pub blocked_extensions: Vec<String>,
     #[serde(default = "default_90")]
     pub file_retention_days: u64,
+    #[serde(default)]
+    pub disk_enabled: bool,
+    #[serde(default)]
+    pub disk_dir: String,
     #[serde(flatten)]
     pub extra: HashMap<String, Value>,
 }
