@@ -47,7 +47,7 @@ mod sitec {
 }
 
 use crate::p2p::p2p::{
-    handle_request, lancer_sync_periodique, sync_avec_bootstrap, NodeState, P2pConfig,
+    handle_request, lancer_sync_periodique, NodeState, P2pConfig,
 };
 use appeldb::{
     creer_pool, executer_action_table_terminal, regler_privilege_utilisateur, ActionTableTerminal,
@@ -597,17 +597,21 @@ fn main() {
     eprintln!("[VEX] http://0.0.0.0:{}", port);
     logger.info(&format!("VEX en écoute sur http://0.0.0.0:{}", port));
 
-    {
-        let ns = node_state.read().unwrap();
-        let pool_clone = pool.clone();
-        match sync_avec_bootstrap(&pool_clone, &ns) {
-            Ok(()) => logger.info("Sync bootstrap P2P initiale terminée."),
-            Err(e) => logger.error(&format!("Sync bootstrap P2P initiale échouée : {e}")),
-        }
-    }
-
+    // FIX : la sync bootstrap (initiale ET periodique) doit tourner dans un
+    // thread A PART du thread principal -- celui-ci gere les requetes
+    // entrantes une par une (`for request in server.incoming_requests()`
+    // plus bas), donc si bootstrap_url pointe sur ce serveur lui-meme
+    // (vex.hopto.org/neut, cas courant) et que la sync bloque le thread
+    // principal AVANT qu'il entre dans sa boucle d'acceptation, la requete
+    // sortante attend indefiniment une reponse que personne ne peut
+    // produire -- interblocage, qui se traduisait par un timeout
+    // ("Error encountered in the status line: timed out reading
+    // response") a chaque demarrage. `lancer_sync_periodique` fait deja la
+    // sync immediatement avant sa premiere pause (voir p2p.rs), donc elle
+    // sert aussi de sync initiale -- plus besoin d'un appel bloquant a
+    // part ici.
     lancer_sync_periodique(pool.clone(), Arc::clone(&node_state));
-    logger.info("Sync périodique P2P lancée.");
+    logger.info("Sync périodique P2P lancée (sync initiale incluse, en tache de fond).");
 
     // Compteur de requêtes (pour logs périodiques)
     let mut req_count: u64 = 0;

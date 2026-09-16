@@ -1126,13 +1126,27 @@ pub fn admin_handle_api(
         }
 
         "/p2p/sync_now" => {
-            // Force une sync immédiate avec le bootstrap (bloquant ~15s max)
-            drop(ns); // libère le lock avant la sync
-            let ns2 = node_state.read().unwrap();
-            match sync_avec_bootstrap(pool, &ns2) {
-                Ok(()) => json!({"success":true,"message":"Sync bootstrap effectuée."}),
-                Err(e) => json!({"success":false,"error":format!("Bootstrap injoignable : {e}")}),
-            }
+            // FIX : ce serveur traite les requetes une par une sur un seul
+            // thread (`for request in server.incoming_requests()` dans
+            // main.rs, pas de pool de threads) -- appeler sync_avec_bootstrap
+            // de facon BLOQUANTE ici interblocait des que bootstrap_url
+            // pointe sur ce serveur lui-meme (vex.hopto.org/neut, cas
+            // courant) : ce thread, en train de traiter CETTE requete
+            // admin, attendait indefiniment une reponse a sa propre requete
+            // sortante -- personne d'autre ne pouvait la traiter. Lancee
+            // desormais dans un thread separe (fire-and-forget) ; le
+            // resultat reste consultable via les logs serveur ou en
+            // rechargeant /p2p juste apres (peers/annuaire mis a jour).
+            drop(ns);
+            let pool_clone = pool.clone();
+            let node_state_clone = Arc::clone(node_state);
+            std::thread::spawn(move || {
+                let ns2 = node_state_clone.read().unwrap();
+                if let Err(e) = sync_avec_bootstrap(&pool_clone, &ns2) {
+                    eprintln!("[p2p] Sync bootstrap (declenchee depuis l'admin) echouee : {e}");
+                }
+            });
+            json!({"success":true,"message":"Sync bootstrap lancée en arrière-plan — recharge la page dans quelques secondes pour voir le résultat."})
         }
 
         "/p2p/kick" => {
