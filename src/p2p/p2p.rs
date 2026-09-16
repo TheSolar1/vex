@@ -364,16 +364,27 @@ pub fn fusionner_annuaire(pool: &DbPool, texte: &str) {
 // 2. Récupère l'annuaire du bootstrap (GET /neut/annuaire)
 // 3. Fusionne dans la DB locale
 // ══════════════════════════════════════════════════════════════════
-pub fn sync_avec_bootstrap(pool: &DbPool, node_state: &NodeState) {
+/// Retourne `Ok(())` seulement si au moins une des deux etapes essentielles
+/// (enregistrement aupres du bootstrap OU recuperation de son annuaire) a
+/// reussi -- avant, toutes les erreurs reseau/HTTP etaient avalees par des
+/// `let _ =`/`if let Ok`, si bien que le bouton "Sync bootstrap" de l'admin
+/// affichait toujours "effectuee" meme quand le bootstrap etait injoignable
+/// (DNS, TLS, timeout, 4xx/5xx) -- BUG CONSTATE EN PRATIQUE ("ca ne marche
+/// pas" alors que rien ne le signalait).
+pub fn sync_avec_bootstrap(pool: &DbPool, node_state: &NodeState) -> Result<(), String> {
     let base = node_state.config.bootstrap_url.trim_end_matches('/');
     let annuaire_local = generer_annuaire(pool, node_state);
+    let mut erreurs: Vec<String> = Vec::new();
 
     // 0. Pousser notre annuaire complet (nœuds + users) vers le bootstrap
     //    pour qu’il puisse le répliquer aux autres pairs.
-    let _ = ureq::post(&format!("{}/sync", base))
+    if let Err(e) = ureq::post(&format!("{}/sync", base))
         .set("Content-Type", "application/x-www-form-urlencoded")
         .timeout(std::time::Duration::from_secs(10))
-        .send_string(&format!("annuaire={}", urlenc(&annuaire_local)));
+        .send_string(&format!("annuaire={}", urlenc(&annuaire_local)))
+    {
+        erreurs.push(format!("POST /sync : {e}"));
+    }
 
     // 1. S'enregistrer / envoyer notre annuaire
     let reg_body = format!(
@@ -385,32 +396,63 @@ pub fn sync_avec_bootstrap(pool: &DbPool, node_state: &NodeState) {
         urlenc(&node_state.signer(node_state.node_id.as_bytes())),
     );
 
-    let _ = ureq::post(&format!("{}/register", base))
+    let register_ok = match ureq::post(&format!("{}/register", base))
         .set("Content-Type", "application/x-www-form-urlencoded")
         .timeout(std::time::Duration::from_secs(10))
-        .send_string(&reg_body);
+        .send_string(&reg_body)
+    {
+        Ok(_) => true,
+        Err(e) => {
+            erreurs.push(format!("POST /register : {e}"));
+            false
+        }
+    };
 
     // 2. Récupérer l'annuaire du bootstrap
-    if let Ok(resp) = ureq::get(&format!("{}/annuaire", base))
+    let annuaire_ok = match ureq::get(&format!("{}/annuaire", base))
         .timeout(std::time::Duration::from_secs(15))
         .call()
     {
-        if let Ok(body) = resp.into_string() {
-            fusionner_annuaire(pool, &body);
+        Ok(resp) => match resp.into_string() {
+            Ok(body) => {
+                fusionner_annuaire(pool, &body);
+                true
+            }
+            Err(e) => {
+                erreurs.push(format!("lecture reponse /annuaire : {e}"));
+                false
+            }
+        },
+        Err(e) => {
+            erreurs.push(format!("GET /annuaire : {e}"));
+            false
         }
-    }
+    };
 
     // 3. Récupérer les nouveaux nœuds ajoutés depuis la dernière sync
-    if let Ok(resp) = ureq::get(&format!("{}/nouveautes", base))
+    match ureq::get(&format!("{}/nouveautes", base))
         .timeout(std::time::Duration::from_secs(10))
         .call()
     {
-        if let Ok(body) = resp.into_string() {
-            fusionner_annuaire(pool, &body);
+        Ok(resp) => {
+            if let Ok(body) = resp.into_string() {
+                fusionner_annuaire(pool, &body);
+            }
         }
+        Err(e) => erreurs.push(format!("GET /nouveautes : {e}")),
     }
 
-    eprintln!("[p2p] Sync bootstrap terminée — {}", chrono::Local::now());
+    if !erreurs.is_empty() {
+        eprintln!("[p2p] Sync bootstrap ({base}) — erreur(s) : {}", erreurs.join(" | "));
+    } else {
+        eprintln!("[p2p] Sync bootstrap terminée — {}", chrono::Local::now());
+    }
+
+    if register_ok || annuaire_ok {
+        Ok(())
+    } else {
+        Err(erreurs.join(" | "))
+    }
 }
 
 /// Lance la sync en arrière-plan dans un thread dédié.
@@ -423,7 +465,7 @@ pub fn lancer_sync_periodique(pool: DbPool, node_state: Arc<RwLock<NodeState>>) 
     std::thread::spawn(move || loop {
         {
             let ns = node_state.read().unwrap();
-            sync_avec_bootstrap(&pool, &ns);
+            let _ = sync_avec_bootstrap(&pool, &ns);
         }
         std::thread::sleep(interval);
     });
@@ -1084,11 +1126,13 @@ pub fn admin_handle_api(
         }
 
         "/p2p/sync_now" => {
-            // Force une sync immédiate avec le bootstrap (bloquant ~5s max)
+            // Force une sync immédiate avec le bootstrap (bloquant ~15s max)
             drop(ns); // libère le lock avant la sync
             let ns2 = node_state.read().unwrap();
-            sync_avec_bootstrap(pool, &ns2);
-            json!({"success":true,"message":"Sync bootstrap effectuée."})
+            match sync_avec_bootstrap(pool, &ns2) {
+                Ok(()) => json!({"success":true,"message":"Sync bootstrap effectuée."}),
+                Err(e) => json!({"success":false,"error":format!("Bootstrap injoignable : {e}")}),
+            }
         }
 
         "/p2p/kick" => {

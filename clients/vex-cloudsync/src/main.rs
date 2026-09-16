@@ -27,7 +27,8 @@
 // ══════════════════════════════════════════════════════════════════
 
 mod device_auth;
-use device_auth::ouvrir_navigateur;
+mod fenetre_mdp;
+mod i18n;
 
 use std::collections::VecDeque;
 use std::env;
@@ -56,22 +57,49 @@ const DISPLAY_NAME: &str = "VEX";
 // patcher un fichier signe casse sa signature, et signer a la volee cote
 // serveur exigerait d'y mettre la cle, refuse pour des raisons de
 // securite). L'"adaptatif" se fait donc cote CLIENT : au demarrage, on
-// essaie chaque URL candidate et on garde la premiere qui repond -- utile
-// tant que l'acces public (vex.hopto.org) et l'acces local (IP du Pi) ne
-// sont pas garantis fonctionner en meme temps (probleme de routeur en
-// cours, voir conversation).
-const BASE_URL_CANDIDATS: &[&str] = &["https://vex.hopto.org", "http://192.168.1.14:8080"];
+// essaie chaque URL candidate et on garde la premiere qui repond.
+//
+// HTTPS FORCE (voir conversation, suite a un audit) : l'ancien candidat
+// "http://192.168.1.14:8080" (acces reseau local direct, sans certificat)
+// a ete retire, et exiger_https() ci-dessous rejette explicitement toute
+// adresse non-https, y compris celle tapee a la main par l'utilisateur --
+// le mot de passe n'est jamais envoye en clair (SRP-6a, voir
+// vex-sync-client::api), mais l'echange SRP (email, valeur publique,
+// preuve, cookie de session) circulait lui bel et bien en clair sur ce
+// candidat HTTP, exploitable par quiconque ecoute le reseau local.
+const BASE_URL_CANDIDATS: &[&str] = &["https://vex.hopto.org"];
 
-/// Essaie VEX_BASE_URL en priorite (utile pour les tests/dev), sinon
-/// interroge chaque candidat (timeout court) et garde le premier qui
-/// repond. Un endpoint sans auth et toujours 200 (meme pour un code
-/// inconnu) sert de "ping".
-fn detecter_base_url() -> Option<String> {
+fn exiger_https(url: &str) -> Option<&str> {
+    let url = url.trim().trim_end_matches('/');
+    if url.starts_with("https://") {
+        Some(url)
+    } else {
+        if !url.is_empty() {
+            println!("Adresse ignoree (pas en https) : {url}");
+        }
+        None
+    }
+}
+
+/// Essaie VEX_BASE_URL en priorite (utile pour les tests/dev -- seul
+/// echappatoire non soumis a exiger_https, deja protege par le fait qu'il
+/// faut un acces shell a la machine pour le positionner), puis l'adresse
+/// choisie par l'utilisateur dans la fenetre de connexion (voir
+/// fenetre_mdp.rs -- configurable au lieu d'etre limitee au candidat code
+/// en dur ci-dessous, utile pour qui heberge sa propre instance VEX en
+/// https), enfin les candidats par defaut. Un endpoint sans auth et
+/// toujours 200 (meme pour un code inconnu) sert de "ping".
+fn detecter_base_url(url_utilisateur: &str) -> Option<String> {
     if let Ok(v) = env::var("VEX_BASE_URL") {
         return Some(v);
     }
     let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(4)).build();
-    for candidat in BASE_URL_CANDIDATS {
+    let mut candidats: Vec<&str> = Vec::new();
+    if let Some(u) = exiger_https(url_utilisateur) {
+        candidats.push(u);
+    }
+    candidats.extend(BASE_URL_CANDIDATS.iter().copied());
+    for candidat in candidats {
         println!("Test de connexion a {candidat}...");
         if agent.get(&format!("{candidat}/api/appareil/statut?code=ping")).call().is_ok() {
             println!("-> {candidat} repond, utilise pour cette session.");
@@ -105,17 +133,17 @@ fn build_windows() -> Result<u32, String> {
 /// process::exit ici, plus de console pour l'afficher (voir `main`, le
 /// message doit remonter sur la page locale a la place).
 fn verifier_compatibilite(etat: &EtatPartage) -> Result<(), String> {
+    let langue = i18n::langue_courante();
     match build_windows() {
         Ok(build) if build >= BUILD_MINIMUM => {
-            journaliser(etat, format!("Windows build {build} : compatible."));
+            journaliser(etat, i18n::t(&langue, i18n::Cle::JournalWindowsCompatible).replace("{build}", &build.to_string()));
             Ok(())
         }
-        Ok(build) => Err(format!(
-            "Windows build {build} detecte -- l'API Cloud Files necessite au moins le \
-             build {BUILD_MINIMUM} (Windows 10 version 1709 ou plus recent)."
-        )),
+        Ok(build) => Err(i18n::t(&langue, i18n::Cle::ErreurWindowsIncompatible)
+            .replace("{build}", &build.to_string())
+            .replace("{minimum}", &BUILD_MINIMUM.to_string())),
         Err(e) => {
-            journaliser(etat, format!("Avertissement : verification de version Windows impossible ({e}) -- on continue quand meme."));
+            journaliser(etat, i18n::t(&langue, i18n::Cle::JournalWindowsVerifImpossible).replace("{erreur}", &e));
             Ok(())
         }
     }
@@ -142,8 +170,31 @@ fn decoder_blob(blob: &[u8]) -> Option<Cible> {
 fn encoder_blob_fichier(id: i64) -> Vec<u8> { format!("f:{id}").into_bytes() }
 fn encoder_blob_dossier(id: i64) -> Vec<u8> { format!("d:{id}").into_bytes() }
 
+/// BUG CORRIGE : cette fonction exigeait la variable d'environnement
+/// VEX_LOCAL_PATH via .expect() -- jamais definie nulle part dans
+/// l'installation normale (pas de script d'installation qui la pose), donc
+/// l'app plantait systematiquement ici (panic), juste apres avoir trouve le
+/// serveur mais avant meme de demander un code d'autorisation. Constate en
+/// pratique : aucune requete cote serveur, aucun appareil jamais autorise,
+/// et rien de visible pour l'utilisateur (fenetre sans console). Dossier
+/// par defaut maintenant, meme principe que OneDrive/Dropbox -- cree s'il
+/// n'existe pas encore. VEX_LOCAL_PATH reste utilisable pour forcer un
+/// autre emplacement (tests, utilisateur avance).
+/// Chemin propose par defaut dans la fenetre de premier lancement (voir
+/// `main`) -- separe de `get_client_path` pour ne pas creer le dossier avant
+/// que l'utilisateur ait confirme (ou change) cet emplacement.
+fn chemin_par_defaut() -> String {
+    let base = env::var("USERPROFILE").unwrap_or_else(|_| ".".to_string());
+    PathBuf::from(base).join("VEX Cloud").to_string_lossy().to_string()
+}
+
 fn get_client_path() -> String {
-    env::var("VEX_LOCAL_PATH").expect("variable d'environnement VEX_LOCAL_PATH requise")
+    if let Ok(chemin) = env::var("VEX_LOCAL_PATH") {
+        return chemin;
+    }
+    let chemin = fenetre_mdp::charger_dossier_choisi().unwrap_or_else(chemin_par_defaut);
+    let _ = std::fs::create_dir_all(&chemin);
+    chemin
 }
 
 pub struct Filter {
@@ -365,7 +416,7 @@ fn creer_raccourci_bureau(client_path: &str, icone: &str) {
     let (icone_fichier, icone_index) = icone.rsplit_once(',').unwrap_or((icone, "0"));
 
     let script = format!(
-        r#"$s = New-Object -ComObject WScript.Shell; $l = $s.CreateShortcut('{bureau}'); $l.TargetPath = '{client_path}'; $l.IconLocation = '{icone_fichier},{icone_index}'; $l.Description = 'VEX Cloud Sync'; $l.Save()"#
+        r#"$s = New-Object -ComObject WScript.Shell; $l = $s.CreateShortcut('{bureau}'); $l.TargetPath = '{client_path}'; $l.IconLocation = '{icone_fichier},{icone_index}'; $l.Description = 'VEX Cloud Client'; $l.Save()"#
     );
     let resultat = std::process::Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", &script])
@@ -390,6 +441,46 @@ fn creer_raccourci_bureau(client_path: &str, icone: &str) {
 fn chemin_jeton() -> PathBuf {
     let base = env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".to_string());
     PathBuf::from(base).join("VexCloudSync").join("device.json")
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ICONES — integrees dans l'executable (include_bytes!, resolu a la
+// COMPILATION sur la machine du developpeur -- inoffensif, ca ne fait
+// qu'embarquer les octets dans le binaire) puis extraites sur le disque
+// de l'UTILISATEUR au premier lancement.
+//
+// BUG CORRIGE : le code precedent construisait le chemin des icones via
+// `env!("CARGO_MANIFEST_DIR")`, qui pointe vers le dossier du projet sur
+// la machine ou l'exe a ete compile -- fige dans le binaire distribue.
+// Sur le PC de n'importe quel utilisateur (le seul qui execute vraiment
+// cet exe), ce chemin n'existe pas -- Windows ne trouve pas l'icone et
+// retombe sur l'icone de dossier generique. D'ou "il n'y a pas d'icone"
+// constate en pratique par un utilisateur autre que le developpeur.
+const ICONE_DOSSIER_OCTETS: &[u8] = include_bytes!("../vex-folder-icon.ico");
+const ICONE_RACCOURCI_OCTETS: &[u8] = include_bytes!("../vex-icon.ico");
+
+fn dossier_vex_local() -> PathBuf {
+    let base = env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".to_string());
+    PathBuf::from(base).join("VexCloudSync")
+}
+
+/// Ecrit les icones embarquees sur le disque local (ecrase a chaque lancement
+/// pour rester synchronise avec la version du binaire) et retourne leurs
+/// chemins absolus, valides sur CETTE machine.
+fn extraire_icones_locales() -> (String, String) {
+    let dossier = dossier_vex_local();
+    let _ = std::fs::create_dir_all(&dossier);
+
+    let chemin_dossier_icone = dossier.join("vex-folder-icon.ico");
+    let chemin_raccourci_icone = dossier.join("vex-icon.ico");
+
+    let _ = std::fs::write(&chemin_dossier_icone, ICONE_DOSSIER_OCTETS);
+    let _ = std::fs::write(&chemin_raccourci_icone, ICONE_RACCOURCI_OCTETS);
+
+    (
+        chemin_dossier_icone.to_string_lossy().to_string(),
+        chemin_raccourci_icone.to_string_lossy().to_string(),
+    )
 }
 
 fn charger_jeton(base_url: &str) -> Option<String> {
@@ -418,6 +509,58 @@ fn nom_appareil() -> String {
     env::var("COMPUTERNAME").unwrap_or_else(|_| "Appareil Windows".to_string())
 }
 
+/// Signal "deja installe" : soit un dossier de synchro a deja ete choisi
+/// lors d'un lancement precedent (voir `main`), soit la racine Cloud Files
+/// est deja enregistree pour cet utilisateur. Le deuxieme cas couvre une
+/// installation faite avec une version anterieure a l'ajout de la fenetre
+/// de premier lancement (donc sans dossier.txt) -- BUG CONSTATE EN PRATIQUE :
+/// sans cette verification, l'app ne detectait pas une synchro deja active
+/// et redemandait tout comme si de rien n'etait.
+fn deja_installe() -> bool {
+    if fenetre_mdp::charger_dossier_choisi().is_some() {
+        return true;
+    }
+    if let Ok(sid) = SecurityId::current_user() {
+        if SyncRootIdBuilder::new(PROVIDER_NAME)
+            .user_security_id(sid)
+            .build()
+            .is_registered()
+            .unwrap_or(false)
+        {
+            return true;
+        }
+    }
+    // BUG CONSTATE EN PRATIQUE : les deux verifications ci-dessus peuvent
+    // toutes les deux repasser a "non installe" apres un "Reinstaller" (qui
+    // efface dossier.txt sans desenregistrer la racine) si la racine n'avait
+    // en fait jamais ete correctement enregistree (ex. connexion jamais
+    // menee a bien) -- dernier filet : le dossier par defaut existe deja et
+    // contient quelque chose, signe qu'un lancement precedent y a deja mis
+    // des fichiers, meme si les deux verifications precedentes disent non.
+    std::fs::read_dir(chemin_par_defaut()).map(|mut e| e.next().is_some()).unwrap_or(false)
+}
+
+/// Retire la synchro et la configuration locale (PAS les fichiers
+/// synchronises de l'utilisateur -- voir `fenetre_mdp::demander_action_installation`).
+/// Desenregistre aussi la racine Cloud Files si elle est encore active,
+/// sinon Windows la considererait toujours comme "en cours de synchro" apres
+/// suppression de la config.
+fn desinstaller() {
+    if let Ok(sid) = SecurityId::current_user() {
+        let sync_root_id = SyncRootIdBuilder::new(PROVIDER_NAME).user_security_id(sid).build();
+        if sync_root_id.is_registered().unwrap_or(false) {
+            let _ = sync_root_id.unregister();
+        }
+    }
+    fenetre_mdp::effacer_configuration_locale();
+    let _ = std::fs::remove_file(chemin_jeton());
+    if let Ok(profil) = env::var("USERPROFILE") {
+        let _ = std::fs::remove_file(format!("{profil}\\Desktop\\VEX.lnk"));
+    }
+    let langue = i18n::langue_courante();
+    fenetre_mdp::afficher_message("VEX Cloud Client", i18n::t(&langue, i18n::Cle::Desinstallee));
+}
+
 // ══════════════════════════════════════════════════════════════════
 // ETAT PARTAGE + PAGE LOCALE (remplace le cmd)
 // ══════════════════════════════════════════════════════════════════
@@ -442,49 +585,38 @@ fn signaler_erreur(etat: &EtatPartage, msg: impl Into<String>) {
     etat.lock().unwrap().erreur = Some(msg.into());
 }
 
-fn reponse_html(s: &str) -> tiny_http::Response<std::io::Cursor<Vec<u8>>> {
-    tiny_http::Response::from_string(s)
-        .with_header(tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap())
-}
-fn reponse_json(v: serde_json::Value) -> tiny_http::Response<std::io::Cursor<Vec<u8>>> {
-    tiny_http::Response::from_string(v.to_string())
-        .with_header(tiny_http::Header::from_bytes("Content-Type", "application/json").unwrap())
-}
-fn json_statut(etat: &EtatPartage) -> serde_json::Value {
-    let e = etat.lock().unwrap();
-    serde_json::json!({
-        "lignes": e.lignes.iter().cloned().collect::<Vec<_>>(),
-        "erreur": e.erreur,
-        "termine": e.termine,
-        "dossier": e.dossier,
-    })
-}
+use fenetre_mdp::{afficher_message, demander_mot_de_passe};
 
-fn lancer_serveur_local(etat: EtatPartage, tx_password: mpsc::Sender<String>) -> String {
-    let server = tiny_http::Server::http("127.0.0.1:0").expect("impossible de demarrer le serveur local");
-    let port = match server.server_addr() {
-        tiny_http::ListenAddr::IP(addr) => addr.port(),
-    };
-    let url = format!("http://127.0.0.1:{port}/");
-    std::thread::spawn(move || {
-        for mut req in server.incoming_requests() {
-            let methode = req.method().as_str().to_string();
-            let chemin = req.url().split('?').next().unwrap_or("").to_string();
-            let reponse = match (methode.as_str(), chemin.as_str()) {
-                ("GET", "/") => reponse_html(include_str!("../assets/setup.html")),
-                ("GET", "/api/statut") => reponse_json(json_statut(&etat)),
-                ("POST", "/api/password") => {
-                    let mut corps = String::new();
-                    let _ = std::io::Read::read_to_string(req.as_reader(), &mut corps);
-                    let _ = tx_password.send(corps);
-                    reponse_json(serde_json::json!({"ok": true}))
-                }
-                _ => reponse_json(serde_json::json!({"error": "introuvable"})),
-            };
-            let _ = req.respond(reponse);
+/// Affiche l'etat courant dans une boite de dialogue native (declenche par
+/// le clic sur "Ouvrir VEX Cloud Sync" dans la barre des taches). Remplace
+/// l'ancienne page web locale de suivi.
+fn afficher_statut(etat: &EtatPartage) {
+    use i18n::Cle;
+    let langue = i18n::langue_courante();
+    let e = etat.lock().unwrap();
+    let mut texte = String::new();
+    if let Some(err) = &e.erreur {
+        texte.push_str(&format!("{}{err}\n\n", i18n::t(&langue, Cle::StatutErreurPrefixe)));
+    }
+    texte.push_str(&format!(
+        "{}{}\n",
+        i18n::t(&langue, Cle::StatutLabel),
+        if e.termine { i18n::t(&langue, Cle::StatutConnecte) } else { i18n::t(&langue, Cle::StatutEnCours) }
+    ));
+    if let Some(dossier) = &e.dossier {
+        texte.push_str(&format!("{}{dossier}\n", i18n::t(&langue, Cle::StatutDossierLabel)));
+    }
+    // "Derniere etape" seulement en cas d'erreur (utile pour comprendre ce
+    // qui bloquait) -- sur un succes, c'est juste la derniere ligne de log
+    // interne (ex. "Marquage des fichiers locaux..."), qui ne veut rien dire
+    // pour l'utilisateur et donne l'impression a tort que ce n'est pas fini.
+    if e.erreur.is_some() {
+        if let Some(derniere) = e.lignes.back() {
+            texte.push_str(&format!("\n{}{derniere}", i18n::t(&langue, Cle::StatutDerniereEtapeLabel)));
         }
-    });
-    url
+    }
+    drop(e);
+    afficher_message("VEX Cloud Client", &texte);
 }
 
 /// Deroule tout le flux (compatibilite, detection serveur, autorisation,
@@ -493,59 +625,58 @@ fn lancer_serveur_local(etat: EtatPartage, tx_password: mpsc::Sender<String>) ->
 /// de console). Bloque en fin de fonction jusqu'a reception d'un signal
 /// d'arret (clic "Quitter" dans la barre des taches), pour garder la
 /// session Cloud Filter vivante tout du long.
-fn executer_synchro(password: String, etat: EtatPartage, rx_quitter: mpsc::Receiver<()>) {
+fn executer_synchro(password: String, url_serveur: String, etat: EtatPartage, rx_quitter: mpsc::Receiver<()>) {
+    let langue = i18n::langue_courante();
     if let Err(e) = verifier_compatibilite(&etat) {
         signaler_erreur(&etat, e);
         return;
     }
 
-    journaliser(&etat, "Recherche du serveur VEX...");
-    let base_url = match detecter_base_url() {
+    journaliser(&etat, i18n::t(&langue, i18n::Cle::JournalRechercheServeur));
+    let base_url = match detecter_base_url(&url_serveur) {
         Some(u) => u.trim_end_matches('/').to_string(),
         None => {
-            signaler_erreur(&etat, "Impossible de joindre le serveur VEX (aucune adresse connue ne repond -- verifie ta connexion).");
+            signaler_erreur(&etat, i18n::t(&langue, i18n::Cle::ErreurServeurInjoignable));
             return;
         }
     };
-    journaliser(&etat, format!("Serveur trouve : {base_url}"));
+    journaliser(&etat, i18n::t(&langue, i18n::Cle::JournalServeurTrouve).replace("{url}", &base_url));
 
     let client_path = get_client_path();
     // Deux icones distinctes (feedback utilisateur) : le dossier teinte VEX
     // pour la racine de synchro dans l'Explorateur (comme OneDrive/GDrive),
     // le logo officiel VEX pour le raccourci Bureau (identifie l'app, pas
     // un dossier).
-    let icone = env::var("VEX_ICON_PATH").unwrap_or_else(|_| {
-        format!("{}\\vex-folder-icon.ico,0", env!("CARGO_MANIFEST_DIR"))
-    });
-    let icone_raccourci = env::var("VEX_SHORTCUT_ICON_PATH").unwrap_or_else(|_| {
-        format!("{}\\vex-icon.ico,0", env!("CARGO_MANIFEST_DIR"))
-    });
+    let (icone_dossier_locale, icone_raccourci_locale) = extraire_icones_locales();
+    let icone = env::var("VEX_ICON_PATH").unwrap_or_else(|_| format!("{},0", icone_dossier_locale));
+    let icone_raccourci = env::var("VEX_SHORTCUT_ICON_PATH")
+        .unwrap_or_else(|_| format!("{},0", icone_raccourci_locale));
 
     let jeton = match charger_jeton(&base_url) {
         Some(j) => {
-            journaliser(&etat, "Appareil deja autorise, reutilisation du jeton local.");
+            journaliser(&etat, i18n::t(&langue, i18n::Cle::JournalAppareilDejaAutorise));
             j
         }
         None => {
-            journaliser(&etat, "Aucun appareil autorise -- verifie ton navigateur pour autoriser cet appareil...");
+            journaliser(&etat, i18n::t(&langue, i18n::Cle::JournalAucunAppareilAutorise));
             match device_auth::attendre_approbation(&base_url, &nom_appareil()) {
                 Ok(j) => {
                     sauver_jeton(&base_url, &j);
                     j
                 }
                 Err(e) => {
-                    signaler_erreur(&etat, format!("Autorisation echouee : {e}"));
+                    signaler_erreur(&etat, i18n::t(&langue, i18n::Cle::ErreurAutorisationEchouee).replace("{erreur}", &e.to_string()));
                     return;
                 }
             }
         }
     };
-    journaliser(&etat, "Appareil autorise.");
+    journaliser(&etat, i18n::t(&langue, i18n::Cle::JournalAppareilAutorise));
 
     let client = VexClient::depuis_jeton(&base_url, &jeton, &password);
 
     if let Err(e) = std::fs::create_dir_all(&client_path) {
-        signaler_erreur(&etat, format!("Impossible de creer le dossier local : {e}"));
+        signaler_erreur(&etat, i18n::t(&langue, i18n::Cle::ErreurDossierLocal).replace("{erreur}", &e.to_string()));
         return;
     }
 
@@ -565,28 +696,28 @@ fn executer_synchro(password: String, etat: EtatPartage, rx_quitter: mpsc::Recei
         let enregistrement = match enregistrement {
             Ok(e) => e,
             Err(e) => {
-                signaler_erreur(&etat, format!("Chemin de synchro invalide : {e:?}"));
+                signaler_erreur(&etat, i18n::t(&langue, i18n::Cle::ErreurCheminInvalide).replace("{erreur}", &format!("{e:?}")));
                 return;
             }
         };
         if let Err(e) = sync_root_id.register(enregistrement) {
-            signaler_erreur(&etat, format!("Echec d'enregistrement de la racine de synchro : {e:?}"));
+            signaler_erreur(&etat, i18n::t(&langue, i18n::Cle::ErreurEnregistrementRacine).replace("{erreur}", &format!("{e:?}")));
             return;
         }
-        journaliser(&etat, "Racine de synchro enregistree.");
+        journaliser(&etat, i18n::t(&langue, i18n::Cle::JournalRacineEnregistree));
     } else {
-        journaliser(&etat, "Racine de synchro deja enregistree.");
+        journaliser(&etat, i18n::t(&langue, i18n::Cle::JournalRacineDejaEnregistree));
     }
 
     creer_raccourci_bureau(&client_path, &icone_raccourci);
 
-    journaliser(&etat, "Marquage des fichiers locaux deja presents comme synchronises...");
+    journaliser(&etat, i18n::t(&langue, i18n::Cle::JournalMarquageFichiers));
     mark_in_sync(Path::new(&client_path), &client, 0);
 
     let connection = match Session::new().connect(&client_path, Filter { client }) {
         Ok(c) => c,
         Err(e) => {
-            signaler_erreur(&etat, format!("Echec de connexion de la session Cloud Filter : {e:?}"));
+            signaler_erreur(&etat, i18n::t(&langue, i18n::Cle::ErreurConnexionCloudFilter).replace("{erreur}", &format!("{e:?}")));
             return;
         }
     };
@@ -611,56 +742,138 @@ enum EvenementTray {
 
 fn main() {
     let etat: EtatPartage = Arc::new(Mutex::new(EtatUi::default()));
-    let (tx_password, rx_password) = mpsc::channel::<String>();
-    let url_locale = lancer_serveur_local(etat.clone(), tx_password);
-    ouvrir_navigateur(&url_locale);
+
+    let (icone_dossier_locale, _) = extraire_icones_locales();
+
+    // Deja configure sur cette machine (relance apres un premier lancement
+    // reussi) : on propose de reinstaller ou desinstaller plutot que de
+    // redemander silencieusement dossier+mot de passe comme si de rien
+    // n'etait. "Continuer" (Annuler dans la boite de dialogue) garde le
+    // comportement normal.
+    if deja_installe() {
+        match fenetre_mdp::demander_action_installation(&icone_dossier_locale, &get_client_path()) {
+            fenetre_mdp::ActionInstallation::Desinstaller => {
+                desinstaller();
+                return;
+            }
+            fenetre_mdp::ActionInstallation::Reinstaller => {
+                fenetre_mdp::effacer_configuration_locale();
+                let _ = std::fs::remove_file(chemin_jeton());
+            }
+            // Fermer cette fenetre (croix, Echap) = reconnecter normalement,
+            // PAS quitter. BUG CONSTATE EN PRATIQUE : le `return` ici faisait
+            // que tout relancement de l'app apres extinction (redemarrage
+            // Windows, crash, fermeture manuelle) qui tombe sur ce dialogue
+            // se terminait immediatement sans jamais rouvrir de session
+            // Cloud Filter -- la racine de synchro restait enregistree aupres
+            // de Windows mais sans fournisseur actif derriere, d'ou l'erreur
+            // Explorateur "Le fournisseur de fichiers cloud s'est ferme de
+            // maniere inattendue". Ici on ne rouvre PAS la fenetre de choix
+            // de dossier (deja_installe()==true => elle est deja sautee plus
+            // bas), seulement le mot de passe puis la reconnexion a la racine
+            // deja enregistree (voir `deja_enregistree` dans
+            // `executer_synchro`, qui ne re-enregistre pas si c'est deja fait).
+            fenetre_mdp::ActionInstallation::Continuer => {}
+        }
+    }
+
+    // Tout premier lancement (aucun dossier encore choisi) : on demande OU
+    // synchroniser avant meme de demander le mot de passe -- une fenetre,
+    // fermee proprement, puis la suivante s'ouvre (voir fenetre_mdp.rs pour
+    // le detail du cycle de vie, identique a demander_mot_de_passe). Si
+    // l'utilisateur ferme sans choisir, on garde simplement le dossier par
+    // defaut plutot que de bloquer le lancement.
+    if fenetre_mdp::charger_dossier_choisi().is_none() {
+        if let Some(chemin) =
+            fenetre_mdp::demander_dossier_destination(&icone_dossier_locale, &chemin_par_defaut())
+        {
+            fenetre_mdp::sauvegarder_dossier_choisi(&chemin);
+        }
+    }
+
+    let Some((mdp, url_serveur)) = demander_mot_de_passe(&icone_dossier_locale) else {
+        return;
+    };
 
     let (tx_evt, rx_evt) = mpsc::channel::<EvenementTray>();
-    let mut tray = tray_item::TrayItem::new("VEX Cloud Sync", tray_item::IconSource::Resource("")).ok();
+    // BUG CORRIGE : IconSource::Resource("") cherchait une ressource nommee
+    // par une chaine VIDE dans l'exe -- echoue toujours (LoadImageW renvoie
+    // NULL), TrayItem::new() remontait une erreur silencieusement avalee
+    // par le .ok() juste en dessous. Resultat en pratique : AUCUNE icone
+    // dans la barre des taches, jamais, meme quand tout le reste (jeton,
+    // synchro) fonctionnait correctement. IconSource::RawIcon avec un vrai
+    // handle charge depuis le fichier .ico evite ce probleme de resolution
+    // de ressource par nom.
+    let icone_brute = fenetre_mdp::charger_icone_brute(&icone_dossier_locale, 32);
+    let mut tray = tray_item::TrayItem::new(
+        "VEX Cloud Client",
+        tray_item::IconSource::RawIcon(icone_brute),
+    )
+    .ok();
     if let Some(t) = tray.as_mut() {
+        let langue_tray = i18n::langue_courante();
         let tx1 = tx_evt.clone();
-        let _ = t.add_menu_item("Ouvrir VEX Cloud Sync", move || {
+        let _ = t.add_menu_item(i18n::t(&langue_tray, i18n::Cle::TrayOuvrir), move || {
             let _ = tx1.send(EvenementTray::Ouvrir);
         });
         let tx2 = tx_evt.clone();
-        let _ = t.add_menu_item("Quitter", move || {
+        let _ = t.add_menu_item(i18n::t(&langue_tray, i18n::Cle::TrayQuitter), move || {
             let _ = tx2.send(EvenementTray::Quitter);
         });
     }
 
     let (tx_quitter_worker, rx_quitter_worker) = mpsc::channel::<()>();
-    let mut rx_quitter_worker = Some(rx_quitter_worker);
     let (tx_worker_termine, rx_worker_termine) = mpsc::channel::<()>();
-    let mut worker_lance = false;
+    {
+        let etat2 = etat.clone();
+        let tx_t = tx_worker_termine.clone();
+        std::thread::spawn(move || {
+            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                executer_synchro(mdp, url_serveur, etat2.clone(), rx_quitter_worker);
+            }))
+            .is_err()
+            {
+                let langue = i18n::langue_courante();
+                signaler_erreur(&etat2, i18n::t(&langue, i18n::Cle::ErreurInterneInattendue));
+            }
+            let _ = tx_t.send(());
+        });
+    }
+
+    // Icone "connecte" (badge vert + coche) une fois la synchro etablie
+    // avec succes -- distingue visuellement "en cours de connexion" de
+    // "tout fonctionne", demande explicitement par l'utilisateur.
+    let mut deja_signale_connecte = false;
+    // Avant : rien n'informait l'utilisateur du resultat de la connexion --
+    // il fallait cliquer "Ouvrir VEX Cloud Client" dans la barre des taches
+    // pour le decouvrir. On affiche maintenant `afficher_statut` tout seul,
+    // une fois, des que l'issue (succes OU erreur) est connue.
+    let mut deja_affiche_resultat = false;
 
     loop {
-        if !worker_lance {
-            if let Ok(mdp) = rx_password.try_recv() {
-                if let Some(rx_q) = rx_quitter_worker.take() {
-                    worker_lance = true;
-                    let etat2 = etat.clone();
-                    let tx_t = tx_worker_termine.clone();
-                    std::thread::spawn(move || {
-                        if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                            executer_synchro(mdp, etat2.clone(), rx_q);
-                        }))
-                        .is_err()
-                        {
-                            signaler_erreur(&etat2, "Erreur interne inattendue -- relance l'application.");
-                        }
-                        let _ = tx_t.send(());
-                    });
-                }
+        let (termine, a_erreur) = {
+            let e = etat.lock().unwrap();
+            (e.termine, e.erreur.is_some())
+        };
+
+        if !deja_signale_connecte && termine {
+            deja_signale_connecte = true;
+            if let Some(t) = tray.as_mut() {
+                let icone_connectee = fenetre_mdp::charger_icone_connectee(&icone_dossier_locale, 32);
+                let _ = t.set_icon(tray_item::IconSource::RawIcon(icone_connectee));
             }
         }
 
+        if !deja_affiche_resultat && (termine || a_erreur) {
+            deja_affiche_resultat = true;
+            afficher_statut(&etat);
+        }
+
         match rx_evt.try_recv() {
-            Ok(EvenementTray::Ouvrir) => ouvrir_navigateur(&url_locale),
+            Ok(EvenementTray::Ouvrir) => afficher_statut(&etat),
             Ok(EvenementTray::Quitter) => {
                 let _ = tx_quitter_worker.send(());
-                if worker_lance {
-                    let _ = rx_worker_termine.recv_timeout(std::time::Duration::from_secs(10));
-                }
+                let _ = rx_worker_termine.recv_timeout(std::time::Duration::from_secs(10));
                 break;
             }
             Err(_) => {}

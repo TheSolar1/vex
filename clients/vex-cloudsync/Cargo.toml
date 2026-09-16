@@ -19,6 +19,10 @@ path = "src/bin/checkremote.rs"
 name = "approuver_test"
 path = "src/bin/approuver_test.rs"
 
+[[bin]]
+name = "desinstaller"
+path = "src/bin/desinstaller.rs"
+
 [dependencies]
 cloud-filter = "0.0.6"
 ctrlc = "3"
@@ -29,18 +33,31 @@ num-traits = "0.2"
 sha2 = "0.10"
 getrandom = { version = "0.2", features = ["std"] }
 
-# Page de configuration locale stylee (remplace le cmd -- meme pattern que
-# vex-sync-client) + icone dans la barre des taches.
-tiny_http = "0.12"
 tray-item = "0.10"
 
 # Reutilise VexClient/filecrypto/srp deja ecrits et testes ce soir --
 # pas de duplication.
 vex-sync-client = { path = "../vex-sync-client" }
 
-# ShellExecuteW pour ouvrir le navigateur -- plus fiable que lancer
-# explorer.exe en sous-processus (voir device_auth.rs::ouvrir_navigateur).
-windows = { version = "0.58", features = ["Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_Foundation"] }
+# ShellExecuteW pour ouvrir le navigateur, + fenetre native de saisie du mot
+# de passe (remplace la page web locale + tiny_http). Un seul crate Win32
+# (windows-rs) pour tout -- ne PAS ajouter native-windows-gui/-derive a cote :
+# combine avec ce crate, ca fait planter l'exe au demarrage (STATUS_DLL_NOT_FOUND,
+# constate et diagnostique en pratique -- cause exacte non identifiee avec
+# certitude, mais reproductible de facon fiable des que les deux coexistent
+# dans le meme binaire, meme sans jamais appeler le code nwg).
+windows = { version = "0.58", features = [
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Controls",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_Foundation",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Com",
+    "Win32_Graphics_Gdi",
+    "Win32_Graphics_Dwm",
+] }
 
 [build-dependencies]
 winresource = "0.1"

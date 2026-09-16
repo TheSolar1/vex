@@ -386,6 +386,17 @@ __NAV_HTML__
                     Aperçu d'une page de paiement (carte / crypto) — maquette visuelle, aucun paiement n'est réellement traité pour l'instant.
                     <a href="/static/login/paiement.html" target="_blank" style="color:var(--accent);font-weight:600;margin-left:6px">Voir l'aperçu ↗</a>
                 </div>
+                <div style="margin-top:12px;padding:12px 14px;background:var(--surface2);border:1px dashed var(--panel-border);border-radius:8px">
+                    <div style="font-size:.82rem;color:var(--text-m);margin-bottom:8px">
+                        Le vrai paiement (Stripe) tourne en dehors de VEX — un service séparé, hébergé sur le Pi, jamais dans ce dépôt Git/GitHub (pour limiter les abus). Colle ici son URL publique une fois déployé, pour que ce lien pointe dessus au lieu de la maquette.
+                    </div>
+                    <div style="display:flex;gap:8px">
+                        <input type="text" id="external-payment-url" class="ci" placeholder="https://paiement.vex.hopto.org" style="flex:1">
+                        <!-- valeur remplie par loadRoles() -->
+
+                        <button class="btn bg2" onclick="saveExternalPaymentUrl()">Enregistrer</button>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="card">
@@ -399,7 +410,7 @@ __NAV_HTML__
 
     <!-- Machine (mise a jour VEX / stockage / etat) -- 4 entrees separees de sidebar, ce conteneur est partage -->
     <div class="sec" id="sec-machine">
-        <div class="pt"><img src="/static/img/solid/microchip.svg" class="ico-accent" alt=""> {{T_SB_MACHINE}}</div>
+        <div class="pt"><img src="/static/img/solid/microchip.svg" class="ico-accent" alt="" id="machine-pt-icon"> <span id="machine-pt-label">{{T_SB_MACHINE}}</span></div>
         <div id="machine-content"><div class="loading"><span class="spin"></span></div></div>
     </div>
 
@@ -499,7 +510,7 @@ const PRIVILEGES={1:{nom:I18N.PRIV_FONDATEUR,c:'fona'},2:{nom:I18N.PRIV_SUPER_AD
 const pNom=p=>(S.configData?.privilege_labels?.[String(p)])||PRIVILEGES[p]?.nom||('niveau '+p);
 const pCol=p=>PRIVILEGES[p]?.c||'#888';
 const S={section:'dashboard',users:[],blocks:[],vex_pages:[],dbTable:null,dbPage:1,configData:null,allChecked:false,vipTypes:[]};
-let IS_SUPER=false,DB_COLS=[];
+let IS_SUPER=false,IS_FOUNDER=false,DB_COLS=[];
 
 document.querySelectorAll('.sb-a[data-sec]').forEach(a=>a.addEventListener('click',()=>nav(a.dataset.sec)));
 function nav(sec){
@@ -561,6 +572,7 @@ async function loadDash(){
     if(d.is_super){document.getElementById('sb-p2p').style.display='';document.getElementById('sb-backup').style.display='';}
     if(d.is_founder){document.querySelectorAll('.sb-machine-item').forEach(el=>el.style.display='');document.getElementById('sb-sep-machine').style.display='';}
     IS_SUPER=d.is_super||false;
+    IS_FOUNDER=d.is_founder||false;
     document.getElementById('sql-zone').style.display=IS_SUPER?'':'none';
     const cfgR=await api('/config');
     if(cfgR.success){
@@ -609,7 +621,15 @@ function renderUsers(users){
         const options=u.privilege===1?[1,...[2,3,4,5,6,7,8,9,10,11,12]]:[2,3,4,5,6,7,8,9,10,11,12];
         const po=options.map(p=>`<option value="${p}" ${u.privilege==p?'selected':''} ${p===1?'disabled':''}>${p} — ${pNom(p)}</option>`).join('');
         const badge=`<span class="b bx" style="color:${pCol(u.privilege)};border:1px solid ${pCol(u.privilege)}44">${u.privilege} — ${esc(pNom(u.privilege))}</span>`;
-        return`<tr data-s="${(u.nom+u.email).toLowerCase()}"><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${badge}</td><td><select class="isel" style="color:${pCol(u.privilege)};font-weight:600" onchange="setPriv(${u.id},this.value)">${po}</select></td><td><select class="vip-sel" onchange="setVip(${u.id},this.value)">${vipOpts(u.vip)}</select></td><td><button class="btn br2" onclick="delUser(${u.id},'${esc(u.nom)}')"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SUPPRIMER}</button></td></tr>`;
+        // FIX (protection des roles payes) : le select VIP est desactive pour
+        // un admin/superadmin (pas le fondateur) si le plan actuel a ete
+        // paye -- le serveur bloque deja cote API, ceci evite juste l'aller-
+        // retour inutile et rend la regle visible. Le fondateur garde le
+        // select actif mais voit le badge "payé" pour etre averti avant de
+        // changer quoi que ce soit.
+        const vipLock=u.vip_paye&&!IS_FOUNDER;
+        const vipPaidBadge=u.vip_paye?` <span class="b bx" title="Plan payé par le client">💳</span>`:'';
+        return`<tr data-s="${(u.nom+u.email).toLowerCase()}"><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${badge}</td><td><select class="isel" style="color:${pCol(u.privilege)};font-weight:600" onchange="setPriv(${u.id},this.value)">${po}</select></td><td><select class="vip-sel" onchange="setVip(${u.id},this.value)" ${vipLock?'disabled title="Plan payé — seul le fondateur peut le modifier"':''}>${vipOpts(u.vip)}</select>${vipPaidBadge}</td><td><button class="btn br2" onclick="delUser(${u.id},'${esc(u.nom)}')"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SUPPRIMER}</button></td></tr>`;
     }).join('')}</tbody></table>`;
 }
 function filterUsers(q){document.querySelectorAll('#utbl tbody tr').forEach(r=>{r.style.display=r.dataset.s.includes(q.toLowerCase())?'':'none';});}
@@ -781,7 +801,7 @@ function renderCfg(){
         html+=`<div class="card" style="margin-bottom:14px"><div class="ch"><span><img src="/static/img/solid/${icon}.svg" class="ico ico-accent" alt=""> ${title}</span></div><div class="cb"><div class="cgr">${fields.map(([k,l,t,o])=>{const v=d[k]??'';let inp;
             if(t==='bool')inp=`<select class="ci" data-sec="${sec}" data-key="${k}"><option value="true" ${v===true||v==='true'?'selected':''}>${I18N.CFG_OPTION_ACTIVE}</option><option value="false" ${!v||v==='false'?'selected':''}>${I18N.CFG_OPTION_DESACTIVE}</option></select>`;
             else if(t==='select')inp=`<select class="ci" data-sec="${sec}" data-key="${k}">${(o||[]).map(x=>`<option value="${x}" ${v===x?'selected':''}>${x}</option>`).join('')}</select>`;
-            else inp=`<input type="${t==='number'?'number':'text'}" class="ci" data-sec="${sec}" data-key="${k}" value="${esc(String(v))}">`;
+            else inp=`<input type="${t==='number'?'number':t==='password'?'password':'text'}" class="ci" data-sec="${sec}" data-key="${k}" value="${esc(String(v))}">`;
             return`<div><label class="cl">${l}<small>${sec}.${k}</small></label>${inp}</div>`;}).join('')}</div></div></div>`;});
     html+=`<button class="btn ba" style="padding:10px 26px;font-size:.9rem" onclick="saveCfg()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SAUVEGARDER}</button>`;
     document.getElementById('config-content').innerHTML=html;
@@ -1292,6 +1312,27 @@ async function loadRoles(){
     renderPlans();
     renderRevenus();
     renderDiscounts();
+    const extUrl=S.configData.plans?.external_payment_url||'';
+    document.getElementById('external-payment-url').value=extUrl;
+    if(extUrl){
+        const lien=document.querySelector('a[href="/static/login/paiement.html"]');
+        if(lien)lien.outerHTML=`<a href="${esc(extUrl)}" target="_blank" style="color:var(--accent);font-weight:600;margin-left:6px">Ouvrir la page de paiement ↗</a>`;
+    }
+}
+async function saveExternalPaymentUrl(){
+    const url=document.getElementById('external-payment-url').value.trim();
+    const nc=JSON.parse(JSON.stringify(S.configData));
+    if(!nc.plans)nc.plans={available_plans:[]};
+    nc.plans.external_payment_url=url;
+    const r=await post('/config',{config:JSON.stringify(nc)});
+    flash(r.success?r.message:r.error,!r.success);
+    if(r.success){
+        S.configData.plans=S.configData.plans||{};
+        S.configData.plans.external_payment_url=url;
+        document.querySelector('a[href="/static/login/paiement.html"]').outerHTML=url
+            ? `<a href="${esc(url)}" target="_blank" style="color:var(--accent);font-weight:600;margin-left:6px">Ouvrir la page de paiement ↗</a>`
+            : `<a href="/static/login/paiement.html" target="_blank" style="color:var(--accent);font-weight:600;margin-left:6px">Voir l'aperçu (maquette) ↗</a>`;
+    }
 }
 // FIX (codes de reduction) : la page de paiement est une maquette non
 // fonctionnelle (voir static/login/paiement.html), donc ces codes ne sont
@@ -1417,8 +1458,19 @@ async function loadMachine(){
     renderMachineTab();
 }
 
+const MACHINE_TAB_TITRES={
+    update:{icon:'code-commit',label:()=>I18N.MACHINE_ONGLET_MAJ},
+    storage:{icon:'hard-drive',label:()=>I18N.MACHINE_ONGLET_STOCKAGE},
+    os:{icon:'arrow-up-right-dots',label:()=>I18N.MACHINE_ONGLET_OS},
+};
 function renderMachineTab(){
     if(pollTimers.mach){clearInterval(pollTimers.mach);pollTimers.mach=null;}
+    // FIX : le titre en haut de section affichait toujours "Machine", meme
+    // sur l'onglet Stockage -- deroutant une fois que Machine a ete eclate
+    // en 3 entrees separees de sidebar. Le titre suit maintenant l'onglet.
+    const t=MACHINE_TAB_TITRES[machineTab]||MACHINE_TAB_TITRES.update;
+    document.getElementById('machine-pt-icon').src='/static/img/solid/'+t.icon+'.svg';
+    document.getElementById('machine-pt-label').textContent=t.label();
     if(machineTab==='storage')return loadMachineStorage();
     if(machineTab==='os')return loadMachineOs();
     return loadUpdateCheck('machine-content','mach');

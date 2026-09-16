@@ -762,7 +762,7 @@ fn handle_api(
                 pool,
                 "login",
                 &[],
-                &["id", "nom", "email", "privilege", "vip"],
+                &["id", "nom", "email", "privilege", "vip", "vip_paye"],
                 Some("privilege ASC, nom ASC"),
                 None,
             );
@@ -780,6 +780,10 @@ fn handle_api(
                 "email":     u.get("email").and_then(|v| v.as_str()).unwrap_or(""),
                 "privilege": u.get("privilege").and_then(|v| v.as_i64()).unwrap_or(0),
                 "vip":       u.get("vip").and_then(|v| v.as_str()).filter(|s| !s.is_empty() && *s != "0").map(|_| "vip").unwrap_or(""),
+                // Plan obtenu via un vrai paiement (point 5, pas encore branche) --
+                // voir garde dans /users/vip. Toujours 0 tant qu'aucun paiement reel
+                // n'ecrit cette colonne.
+                "vip_paye":  u.get("vip_paye").and_then(|v| v.as_i64()).unwrap_or(0) != 0,
             })).collect::<Vec<_>>() })
         }
 
@@ -804,6 +808,31 @@ fn handle_api(
                 .get("uid")
                 .and_then(|v| v.parse::<i64>().ok())
                 .unwrap_or(0);
+            // FIX (protection des roles payes) : un plan marque `vip_paye`
+            // (mis par un vrai paiement, voir migration db_init.rs) ne doit
+            // pas pouvoir etre change par un admin/superadmin -- seul le
+            // fondateur (privilege=1) le peut, avec un avertissement dans la
+            // reponse plutot qu'un blocage silencieux.
+            let cible = selectionner(
+                pool,
+                "login",
+                &[("id", mysql::Value::from(tid))],
+                &["vip_paye"],
+                None,
+                Some(1),
+            );
+            let etait_paye = cible
+                .first()
+                .and_then(|u| u.get("vip_paye"))
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0)
+                != 0;
+            if etait_paye && privilege != 1 {
+                return respond_json(request, json!({
+                    "success": false,
+                    "error": "Ce plan a été payé par l'utilisateur — seul le fondateur peut le modifier.",
+                }));
+            }
             // La colonne `vip` (VARCHAR) n'est lue qu'en booleen partout
             // ailleurs (i64 : 0=free, non-zero=vip) -- voir access_control::
             // plan_autorise. Le formulaire admin envoie l'identifiant du plan
@@ -814,10 +843,20 @@ fn handle_api(
             inserer_ou_modifier(
                 pool,
                 "login",
-                &[("vip", mysql::Value::from(vip))],
+                // Un changement fait depuis cet endpoint admin n'est jamais un
+                // paiement reel : `vip_paye` retombe a 0 (le futur webhook de
+                // paiement, point 5, est le seul a devoir le remettre a 1).
+                &[("vip", mysql::Value::from(vip)), ("vip_paye", mysql::Value::from(0i64))],
                 &[("id", mysql::Value::from(tid))],
             );
-            json!({"success":true,"message":i18n::t(langue, Cle::AdmUsersMsgVipModifie)})
+            if etait_paye {
+                json!({
+                    "success": true,
+                    "message": "Plan modifié — attention : ce compte avait un plan payé, le client a peut-être payé pour l'ancien plan.",
+                })
+            } else {
+                json!({"success":true,"message":i18n::t(langue, Cle::AdmUsersMsgVipModifie)})
+            }
         }
 
         "/users/delete" => {

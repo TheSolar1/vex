@@ -22,6 +22,12 @@ keys/*
 !keys/.gitkeep
 static/onlyoffice/data/*.key
 
+# Paiement reel (Stripe) : service volontairement SEPARE de VEX, jamais
+# dans ce depot/GitHub (demande utilisateur -- limiter les abus, isoler
+# les cles/le webhook du code public). Vit uniquement sur le Pi, deploye
+# a part. Voir paiement-pi/README.md pour le deploiement.
+paiement-pi/
+
 # IDE / éditeurs
 .vscode/
 .idea/

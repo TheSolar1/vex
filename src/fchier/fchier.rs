@@ -1823,10 +1823,25 @@ fn api_send_p2p(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io:
         None => return json_response(404, json!({"success":false,"error":"Fichier introuvable"})),
     };
     if chemin.is_empty() {
-        return json_response(404, json!({"success":false,"error":"Chemin vide"}));
+        return json_response(404, json!({"success":false,"error":"Contenu vide"}));
     }
 
-    let res = send_file_via_p2p(pool, &chemin, &nom, to_user);
+    // FIX : la colonne `fichier` contient du base64 (voir api_upload), pas
+    // un chemin disque -- avant ce correctif, send_file_via_p2p faisait
+    // directement un File::open() dessus, ce qui echouait systematiquement
+    // (base64 n'est pas un chemin valide). On ecrit un fichier temporaire
+    // le temps de l'envoi P2P, supprime juste apres.
+    let bytes = match B64.decode(&chemin) {
+        Ok(b) => b,
+        Err(_) => return json_response(500, json!({"success":false,"error":"Contenu illisible"})),
+    };
+    let tmp = std::env::temp_dir().join(format!("vex_p2p_send_{}.bin", Uuid::new_v4()));
+    if std::fs::write(&tmp, &bytes).is_err() {
+        return json_response(500, json!({"success":false,"error":"Écriture temporaire impossible"}));
+    }
+
+    let res = send_file_via_p2p(pool, &tmp.to_string_lossy(), &nom, to_user);
+    let _ = std::fs::remove_file(&tmp);
     let status = if res.get("success").and_then(|v| v.as_bool()) == Some(true) {
         200
     } else {

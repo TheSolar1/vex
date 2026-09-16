@@ -577,9 +577,11 @@ fn main() {
     {
         let ns = node_state.read().unwrap();
         let pool_clone = pool.clone();
-        sync_avec_bootstrap(&pool_clone, &ns);
+        match sync_avec_bootstrap(&pool_clone, &ns) {
+            Ok(()) => logger.info("Sync bootstrap P2P initiale terminée."),
+            Err(e) => logger.error(&format!("Sync bootstrap P2P initiale échouée : {e}")),
+        }
     }
-    logger.info("Sync bootstrap P2P initiale terminée.");
 
     lancer_sync_periodique(pool.clone(), Arc::clone(&node_state));
     logger.info("Sync périodique P2P lancée.");

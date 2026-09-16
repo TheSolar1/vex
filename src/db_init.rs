@@ -145,6 +145,16 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
     let _ = conn.query_drop("ALTER TABLE `login` ADD COLUMN `recovery_salt` VARCHAR(64) DEFAULT NULL");
     let _ = conn.query_drop("ALTER TABLE `login` ADD COLUMN `recovery_proof_hash` VARCHAR(64) DEFAULT NULL");
 
+    // ── FIX (protection des roles payes) ─────────────────────────────
+    // Marque un plan VIP obtenu via un vrai paiement (point 5, pas encore
+    // branche : aucun code ne met encore cette colonne a 1 aujourd'hui --
+    // elle est ajoutee en avance pour que le webhook de paiement n'ait
+    // qu'a l'ecrire plus tard). Sert de garde dans /users/vip : un
+    // admin/superadmin ne doit pas pouvoir retirer/changer silencieusement
+    // le plan d'un client qui a paye pour l'obtenir -- seul le fondateur
+    // le peut, avec un avertissement.
+    let _ = conn.query_drop("ALTER TABLE `login` ADD COLUMN `vip_paye` TINYINT(1) NOT NULL DEFAULT 0");
+
     // ── srp_sessions (éphémère, corrèle srp_step1 → srp_step2) ──────
     conn.query_drop(
         "CREATE TABLE IF NOT EXISTS `srp_sessions` (
