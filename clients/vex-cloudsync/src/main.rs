@@ -794,11 +794,46 @@ fn executer_synchro(password: String, url_serveur: String, etat: EtatPartage, rx
     reconcilier(Path::new(&client_path), &client);
     let client_pour_reconciliation = client.clone();
 
-    let connection = match Session::new().connect(&client_path, Filter { client }) {
+    // FIX (HRESULT 0x8007017A, "la racine de synchronisation du cloud est
+    // deja connectee a un autre fournisseur") : si un lancement precedent
+    // n'a pas correctement libere sa connexion Cloud Filter (kill brutal
+    // du process, plantage), Windows peut garder la racine marquee
+    // "connectee" alors que plus rien n'est reellement connecte dessus --
+    // aucune API de ce crate ne permet de forcer la deconnexion d'ailleurs
+    // que le process qui l'a ouverte. Seul un desenregistrement +
+    // reenregistrement de la racine remet les choses d'aplomb. On le tente
+    // automatiquement une fois avant d'abandonner, plutot que de forcer
+    // l'utilisateur a desinstaller/reinstaller a la main.
+    let connection = match Session::new().connect(&client_path, Filter { client: client_pour_reconciliation.clone() }) {
         Ok(c) => c,
-        Err(e) => {
-            signaler_erreur(&etat, i18n::t(&langue, i18n::Cle::ErreurConnexionCloudFilter).replace("{erreur}", &format!("{e:?}")));
-            return;
+        Err(_) => {
+            journaliser(&etat, "Connexion Cloud Filter refusee (racine deja marquee connectee) -- nouvelle tentative apres reinitialisation...");
+            let _ = sync_root_id.unregister();
+            let info = match SyncRootInfo::default()
+                .with_display_name(DISPLAY_NAME)
+                .with_hydration_type(HydrationType::Full)
+                .with_population_type(PopulationType::Full)
+                .with_icon(&icone)
+                .with_version(env!("CARGO_PKG_VERSION"))
+                .with_path(Path::new(&client_path))
+            {
+                Ok(info) => info,
+                Err(e) => {
+                    signaler_erreur(&etat, i18n::t(&langue, i18n::Cle::ErreurCheminInvalide).replace("{erreur}", &format!("{e:?}")));
+                    return;
+                }
+            };
+            if let Err(e) = sync_root_id.register(info) {
+                signaler_erreur(&etat, i18n::t(&langue, i18n::Cle::ErreurEnregistrementRacine).replace("{erreur}", &format!("{e:?}")));
+                return;
+            }
+            match Session::new().connect(&client_path, Filter { client: client_pour_reconciliation.clone() }) {
+                Ok(c) => c,
+                Err(e) => {
+                    signaler_erreur(&etat, i18n::t(&langue, i18n::Cle::ErreurConnexionCloudFilter).replace("{erreur}", &format!("{e:?}")));
+                    return;
+                }
+            }
         }
     };
 
