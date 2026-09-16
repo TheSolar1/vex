@@ -631,9 +631,13 @@ fn serve_page_view(pool: &DbPool, id: &str, session: &SessionInfo, langue: &str)
         .sitec-bloc-texte{{font-size:16px;white-space:pre-wrap;}}\
         .sitec-bloc-image img{{max-width:100%;height:auto;border-radius:8px;display:block;}}\
         .sitec-bloc-image-legende{{font-size:13px;color:#65676b;margin-top:6px;}}\
+        .sitec-bloc-bouton{{text-align:center;}}\
         .sitec-bloc-bouton a{{display:inline-block;padding:12px 24px;background:#2e7d32;color:#fff;\
         text-decoration:none;border-radius:8px;font-weight:600;}}\
         .sitec-bloc-bouton a:hover{{filter:brightness(0.92);}}\
+        .sitec-bloc-groupe-boutons{{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}}\
+        .sitec-bloc-groupe-boutons a{{display:inline-block;padding:12px 24px;background:#2e7d32;color:#fff;\
+        text-decoration:none;border-radius:8px;font-weight:600;}}\
         .sitec-bloc-video{{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;\
         border-radius:8px;background:#000;}}\
         .sitec-bloc-video iframe,.sitec-bloc-video video{{position:absolute;top:0;left:0;\
@@ -1224,7 +1228,8 @@ const BLOCS_EXTRA_CSS: &str = "\
 .sitec-carousel-track{display:flex;gap:12px;}\
 .sitec-carousel-track img{height:260px;border-radius:8px;flex-shrink:0;}\
 .sitec-bloc-audio audio{width:100%;}\
-.sitec-bloc-groupe-boutons{display:flex;gap:10px;flex-wrap:wrap;}\
+.sitec-bloc-bouton{text-align:center;}\
+.sitec-bloc-groupe-boutons{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}\
 .sitec-bloc-groupe-boutons a{display:inline-block;padding:12px 24px;background:#2e7d32;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;}\
 .sitec-bloc-separateur{border:none;border-top:1px solid #dcdfe3;margin:10px 0;}\
 .sitec-espace-s{height:20px;}.sitec-espace-m{height:40px;}.sitec-espace-l{height:80px;}.sitec-espace-xl{height:140px;}\
