@@ -382,7 +382,16 @@ __NAV_HTML__
             </div>
             <div class="cb">
                 <div id="plans-content"></div>
-                <div style="margin-top:16px;padding:12px 14px;background:var(--surface2);border:1px dashed var(--panel-border);border-radius:8px;font-size:.82rem;color:var(--text-m)">
+                <div style="margin-top:16px;padding:12px 14px;background:var(--surface2);border:1px dashed var(--panel-border);border-radius:8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+                    <div style="flex:1;min-width:220px">
+                        <div style="font-weight:600;font-size:.85rem">Plans payants</div>
+                        <div style="font-size:.78rem;color:var(--text-m);margin-top:2px" id="paid-plans-statut">
+                            Tant que c'est désactivé, aucun utilisateur ne voit de section "Abonnement" / bouton Upgrade, même si une URL de paiement est configurée.
+                        </div>
+                    </div>
+                    <button class="btn" id="btn-toggle-paid-plans" onclick="togglePaidPlans()">…</button>
+                </div>
+                <div style="margin-top:12px;padding:12px 14px;background:var(--surface2);border:1px dashed var(--panel-border);border-radius:8px;font-size:.82rem;color:var(--text-m)">
                     Aperçu d'une page de paiement (carte / crypto) — maquette visuelle, aucun paiement n'est réellement traité pour l'instant.
                     <a href="/static/login/paiement.html" target="_blank" style="color:var(--accent);font-weight:600;margin-left:6px">Voir l'aperçu ↗</a>
                 </div>
@@ -1318,6 +1327,27 @@ async function loadRoles(){
         const lien=document.querySelector('a[href="/static/login/paiement.html"]');
         if(lien)lien.outerHTML=`<a href="${esc(extUrl)}" target="_blank" style="color:var(--accent);font-weight:600;margin-left:6px">Ouvrir la page de paiement ↗</a>`;
     }
+    majBoutonPaidPlans();
+}
+function majBoutonPaidPlans(){
+    const actif=!!S.configData.plans?.paid_plans_enabled;
+    const btn=document.getElementById('btn-toggle-paid-plans');
+    btn.className='btn '+(actif?'br2':'ba');
+    btn.innerHTML=actif
+        ? '<img src="/static/img/solid/xmark.svg" class="ico" style="filter:invert(1)" alt=""> Désactiver'
+        : '<img src="/static/img/solid/check.svg" class="ico" style="filter:invert(1)" alt=""> Activer les plans payés';
+    document.getElementById('paid-plans-statut').innerHTML=actif
+        ? 'Actifs — tous les utilisateurs voient la section "Abonnement" et le bouton Upgrade (si une URL de paiement est configurée ci-dessous).'
+        : 'Désactivés — aucun utilisateur ne voit de section "Abonnement" ni de bouton Upgrade, même si une URL de paiement est configurée.';
+}
+async function togglePaidPlans(){
+    const actif=!!S.configData.plans?.paid_plans_enabled;
+    const nc=JSON.parse(JSON.stringify(S.configData));
+    if(!nc.plans)nc.plans={available_plans:[]};
+    nc.plans.paid_plans_enabled=!actif;
+    const r=await post('/config',{config:JSON.stringify(nc)});
+    flash(r.success?r.message:r.error,!r.success);
+    if(r.success){S.configData.plans=S.configData.plans||{};S.configData.plans.paid_plans_enabled=!actif;majBoutonPaidPlans();}
 }
 async function saveExternalPaymentUrl(){
     const url=document.getElementById('external-payment-url').value.trim();

@@ -168,6 +168,7 @@ __NAV_HTML__
       <a href="#autologin" class="sidebar-link" data-sec="autologin"><i class="fas fa-link"></i><span>{{T_SIDEBAR_AUTOLOGIN}}</span></a>
       <a href="#sync" class="sidebar-link" data-sec="sync"><i class="fas fa-arrows-rotate"></i><span>{{T_SIDEBAR_SYNC}}</span></a>
       <a href="#notifications" class="sidebar-link" data-sec="notifications"><i class="fas fa-bell"></i><span>{{T_SIDEBAR_NOTIFICATIONS}}</span></a>
+      <a href="#abonnement" class="sidebar-link" data-sec="abonnement" id="sidebar-abonnement" style="display:none"><i class="fas fa-rocket"></i><span>Abonnement</span></a>
       <a href="/constiontu.html" class="sidebar-link"><i class="fas fa-shield-alt"></i><span>{{T_SIDEBAR_CONFIDENTIALITE}}</span></a>
     </aside>
 
@@ -392,6 +393,26 @@ __NAV_HTML__
         </div>
       </div>
 
+      <div id="abonnement-section" class="section-content">
+        <div class="card">
+          <h2><i class="fas fa-rocket"></i> Abonnement</h2>
+          <p>Ton plan actuel et la facturation.</p>
+          <div style="margin-top:16px;padding:16px;background:var(--sidebar-hover);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.03em">Plan actuel</div>
+              <div id="abo-plan-actuel" style="font-size:20px;font-weight:700;margin-top:4px">—</div>
+            </div>
+            <a id="abo-upgrade-btn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="text-decoration:none">
+              <i class="fas fa-rocket"></i> Passer à un plan payé
+            </a>
+          </div>
+          <div style="margin-top:18px">
+            <div style="font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px">Facturation</div>
+            <p id="abo-facturation-msg" style="color:var(--text-dim);font-size:14px">—</p>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -587,6 +608,35 @@ __NAV_HTML__
     renderLangueSelect(r.data.supported_languages, r.data.langue);
     renderUser(r.data);
     renderAutologin(r.data.autologin);
+    chargerAbonnement();
+  }
+
+  // Section "Abonnement" : masquee tant que l'admin n'a pas active les
+  // plans payes (voir Roles & Plans > "Activer les plans payes") -- pas
+  // de section a montrer si l'upgrade n'est de toute facon pas possible.
+  async function chargerAbonnement(){
+    try{
+      const r=await (await fetch('/api/login/config',{credentials:'include'})).json();
+      const plans=r.plans||{};
+      const actif=!!plans.paid_plans_enabled;
+      const urlPaiement=plans.external_payment_url||'';
+      const lien=$('#sidebar-abonnement');
+      if(lien) lien.style.display=(actif&&urlPaiement)?'':'none';
+      const estVip=S.user?.vip===1;
+      const planActuelEl=$('#abo-plan-actuel');
+      if(planActuelEl) planActuelEl.textContent=estVip?(I18N.PREMIUM||'VIP'):(I18N.GRATUIT||'Gratuit');
+      const btn=$('#abo-upgrade-btn');
+      if(btn){
+        if(urlPaiement){ btn.href=urlPaiement; btn.style.display=''; }
+        else { btn.style.display='none'; }
+      }
+      const facturation=$('#abo-facturation-msg');
+      if(facturation){
+        facturation.textContent = estVip
+          ? "La facturation est gérée sur la page de paiement externe — aucune donnée de carte n'est stockée par VEX."
+          : "Aucune facturation en cours — tu es sur le plan gratuit.";
+      }
+    }catch(e){ /* section reste masquée si la config est indisponible */ }
   }
 
   function switchSection(sec){

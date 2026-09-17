@@ -75,6 +75,12 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
                 "plans": {
                     "available_plans": config.plans.available_plans,
                     "discount_codes": config.plans.extra.get("discount_codes").cloned().unwrap_or(json!([])),
+                    // Interrupteur admin (Roles & Plans) : tant qu'il n'est
+                    // pas active, aucun utilisateur ne doit voir de section
+                    // "Abonnement"/upgrade -- pas de page de paiement
+                    // fonctionnelle a proposer avant que l'admin le decide.
+                    "paid_plans_enabled": config.plans.extra.get("paid_plans_enabled").cloned().unwrap_or(json!(false)),
+                    "external_payment_url": config.plans.extra.get("external_payment_url").cloned().unwrap_or(json!("")),
                 },
             }),
             200,
