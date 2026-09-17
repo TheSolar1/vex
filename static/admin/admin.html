@@ -391,19 +391,16 @@ __NAV_HTML__
                     </div>
                     <button class="btn" id="btn-toggle-paid-plans" onclick="togglePaidPlans()">…</button>
                 </div>
-                <div style="margin-top:12px;padding:12px 14px;background:var(--surface2);border:1px dashed var(--panel-border);border-radius:8px;font-size:.82rem;color:var(--text-m)">
-                    Aperçu d'une page de paiement (carte / crypto) — maquette visuelle, aucun paiement n'est réellement traité pour l'instant.
-                    <a href="/static/login/paiement.html" target="_blank" style="color:var(--accent);font-weight:600;margin-left:6px">Voir l'aperçu ↗</a>
-                </div>
                 <div style="margin-top:12px;padding:12px 14px;background:var(--surface2);border:1px dashed var(--panel-border);border-radius:8px">
                     <div style="font-size:.82rem;color:var(--text-m);margin-bottom:8px">
-                        Le vrai paiement (Stripe) tourne en dehors de VEX — un service séparé, hébergé sur le Pi, jamais dans ce dépôt Git/GitHub (pour limiter les abus). Colle ici son URL publique une fois déployé, pour que ce lien pointe dessus au lieu de la maquette.
+                        URL du service de paiement (hébergé à part, hors de ce dépôt).
                     </div>
                     <div style="display:flex;gap:8px">
                         <input type="text" id="external-payment-url" class="ci" placeholder="https://paiement.vex.hopto.org" style="flex:1">
                         <!-- valeur remplie par loadRoles() -->
 
                         <button class="btn bg2" id="btn-save-payment-url" onclick="saveExternalPaymentUrl()">Enregistrer</button>
+                        <button class="btn bg2" onclick="const u=document.getElementById('external-payment-url').value.trim(); if(u)window.open(u,'_blank')" title="Ouvrir dans un nouvel onglet"><img src="/static/img/solid/arrow-up-right-from-square.svg" class="ico ico-gray" alt=""></button>
                     </div>
                 </div>
             </div>
@@ -1332,10 +1329,6 @@ async function loadRoles(){
     champUrl.disabled=!IS_FOUNDER;
     const btnSaveUrl=document.getElementById('btn-save-payment-url');
     if(btnSaveUrl){btnSaveUrl.disabled=!IS_FOUNDER;btnSaveUrl.title=IS_FOUNDER?'':'Seul le fondateur peut modifier cette URL.';}
-    if(extUrl){
-        const lien=document.querySelector('a[href="/static/login/paiement.html"]');
-        if(lien)lien.outerHTML=`<a href="${esc(extUrl)}" target="_blank" style="color:var(--accent);font-weight:600;margin-left:6px">Ouvrir la page de paiement ↗</a>`;
-    }
     majBoutonPaidPlans();
 }
 function majBoutonPaidPlans(){
@@ -1369,9 +1362,6 @@ async function saveExternalPaymentUrl(){
     if(r.success){
         S.configData.plans=S.configData.plans||{};
         S.configData.plans.external_payment_url=url;
-        document.querySelector('a[href="/static/login/paiement.html"]').outerHTML=url
-            ? `<a href="${esc(url)}" target="_blank" style="color:var(--accent);font-weight:600;margin-left:6px">Ouvrir la page de paiement ↗</a>`
-            : `<a href="/static/login/paiement.html" target="_blank" style="color:var(--accent);font-weight:600;margin-left:6px">Voir l'aperçu (maquette) ↗</a>`;
     }
 }
 // FIX (codes de reduction) : la page de paiement est une maquette non
