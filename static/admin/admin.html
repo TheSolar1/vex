@@ -403,7 +403,7 @@ __NAV_HTML__
                         <input type="text" id="external-payment-url" class="ci" placeholder="https://paiement.vex.hopto.org" style="flex:1">
                         <!-- valeur remplie par loadRoles() -->
 
-                        <button class="btn bg2" onclick="saveExternalPaymentUrl()">Enregistrer</button>
+                        <button class="btn bg2" id="btn-save-payment-url" onclick="saveExternalPaymentUrl()">Enregistrer</button>
                     </div>
                 </div>
             </div>
@@ -1322,7 +1322,16 @@ async function loadRoles(){
     renderRevenus();
     renderDiscounts();
     const extUrl=S.configData.plans?.external_payment_url||'';
-    document.getElementById('external-payment-url').value=extUrl;
+    const champUrl=document.getElementById('external-payment-url');
+    champUrl.value=extUrl;
+    // FIX (URL de paiement pas facilement modifiable) : c'est l'endroit
+    // vers lequel de l'argent va circuler -- verrouillee pour tout le
+    // monde sauf le fondateur (le serveur refuse deja le changement cote
+    // API, ceci evite juste l'aller-retour inutile et rend la regle
+    // visible).
+    champUrl.disabled=!IS_FOUNDER;
+    const btnSaveUrl=document.getElementById('btn-save-payment-url');
+    if(btnSaveUrl){btnSaveUrl.disabled=!IS_FOUNDER;btnSaveUrl.title=IS_FOUNDER?'':'Seul le fondateur peut modifier cette URL.';}
     if(extUrl){
         const lien=document.querySelector('a[href="/static/login/paiement.html"]');
         if(lien)lien.outerHTML=`<a href="${esc(extUrl)}" target="_blank" style="color:var(--accent);font-weight:600;margin-left:6px">Ouvrir la page de paiement ↗</a>`;
@@ -1351,6 +1360,7 @@ async function togglePaidPlans(){
 }
 async function saveExternalPaymentUrl(){
     const url=document.getElementById('external-payment-url').value.trim();
+    if(!await confirmerDialogue("Changer l'URL de paiement redirige immédiatement TOUS les utilisateurs qui cliquent \"Upgrade\" vers cette adresse. Confirmer ?",{danger:true}))return;
     const nc=JSON.parse(JSON.stringify(S.configData));
     if(!nc.plans)nc.plans={available_plans:[]};
     nc.plans.external_payment_url=url;

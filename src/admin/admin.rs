@@ -1122,6 +1122,23 @@ fn handle_api(
                 let new_cfg_str = body.get("config").cloned().unwrap_or_default();
                 match serde_json::from_str::<Value>(&new_cfg_str) {
                     Ok(v) => {
+                        // FIX (URL de paiement pas facilement modifiable) :
+                        // c'est l'endroit vers lequel de l'argent va
+                        // circuler -- un admin/superadmin compromis ou
+                        // maladroit ne doit pas pouvoir la changer en un
+                        // clic comme n'importe quel autre reglage. Seul le
+                        // fondateur peut la modifier ; le reste du POST
+                        // (tout le reste de config.json) passe normalement
+                        // pour tout le monde.
+                        let actuel = read_config(config_path);
+                        let url_actuelle = actuel.pointer("/plans/external_payment_url").and_then(|x| x.as_str()).unwrap_or("");
+                        let url_nouvelle = v.pointer("/plans/external_payment_url").and_then(|x| x.as_str()).unwrap_or("");
+                        if privilege != 1 && url_actuelle != url_nouvelle {
+                            return respond_json(request, json!({
+                                "success": false,
+                                "error": "Seul le fondateur peut modifier l'URL de paiement externe.",
+                            }));
+                        }
                         let _ = std::fs::write(
                             config_path,
                             serde_json::to_string_pretty(&v).unwrap_or_default(),
