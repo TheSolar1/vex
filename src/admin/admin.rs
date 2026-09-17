@@ -1139,6 +1139,18 @@ fn handle_api(
                                 "error": "Seul le fondateur peut modifier l'URL de paiement externe.",
                             }));
                         }
+                        // Meme regle pour l'interrupteur "plans payes" --
+                        // active pour tout le monde des qu'un admin/
+                        // superadmin le declenche, ca ne doit pas etre
+                        // aussi accessible qu'un reglage ordinaire.
+                        let actif_actuel = actuel.pointer("/plans/paid_plans_enabled").and_then(|x| x.as_bool()).unwrap_or(false);
+                        let actif_nouveau = v.pointer("/plans/paid_plans_enabled").and_then(|x| x.as_bool()).unwrap_or(false);
+                        if privilege != 1 && actif_actuel != actif_nouveau {
+                            return respond_json(request, json!({
+                                "success": false,
+                                "error": "Seul le fondateur peut activer/désactiver les plans payants.",
+                            }));
+                        }
                         let _ = std::fs::write(
                             config_path,
                             serde_json::to_string_pretty(&v).unwrap_or_default(),
@@ -1222,8 +1234,8 @@ fn handle_api(
             if deja_present {
                 dirs.retain(|d| d.trim_end_matches('/') != dir);
             } else {
-                if std::fs::create_dir_all(&dir).is_err() {
-                    return respond_json(request, json!({"success":false,"error":format!("Impossible de créer/accéder au dossier « {} ».", dir)}));
+                if let Err(e) = creer_dossier_stockage(&dir) {
+                    return respond_json(request, json!({"success":false,"error":e}));
                 }
                 dirs.push(dir.clone());
             }
@@ -2550,6 +2562,42 @@ fn mount_pour_chemin(chemin: &std::path::Path, mounts: &[String]) -> Option<Stri
 /// `fichiers`), les sauvegardes VEX, et le reste ("systeme / autres
 /// fichiers", calcule par difference). Estimation au meilleur effort --
 /// `du` sur un tres gros dossier peut prendre quelques secondes.
+/// FIX (bouton "Utiliser ce disque" echouait a la racine "/") : le dossier
+/// propose par defaut pour le disque racine est "/vex_fichiers" --
+/// creer un dossier directement sous "/" demande les droits root, que
+/// l'utilisateur `clement` (celui qui fait tourner VEX) n'a pas. On tente
+/// d'abord normalement, puis en secours via `sudo -n` (deja utilise
+/// ailleurs sur cette machine, voir project_vex_pi_deploiement) --
+/// re-attribue aussi la propriete a l'utilisateur courant, sinon VEX ne
+/// pourrait plus ecrire de fichiers dedans par la suite (mkdir via sudo
+/// creerait un dossier appartenant a root).
+fn creer_dossier_stockage(dir: &str) -> Result<(), String> {
+    if std::fs::create_dir_all(dir).is_ok() {
+        return Ok(());
+    }
+    #[cfg(unix)]
+    {
+        let (ok_mkdir, out_mkdir) = run_shell_command(&format!("sudo -n mkdir -p '{}'", dir.replace('\'', "'\\''")));
+        if !ok_mkdir {
+            return Err(format!(
+                "Impossible de créer le dossier « {dir} » (droits insuffisants, même avec sudo) : {out_mkdir}"
+            ));
+        }
+        let utilisateur = run_shell_command("whoami").1.trim().to_string();
+        let (ok_chown, out_chown) = run_shell_command(&format!("sudo -n chown -R {}:{} '{}'", utilisateur, utilisateur, dir.replace('\'', "'\\''")));
+        if !ok_chown {
+            return Err(format!(
+                "Dossier « {dir} » créé mais impossible d'en devenir propriétaire (chown a échoué) : {out_chown} -- VEX ne pourra pas y écrire de fichiers."
+            ));
+        }
+        Ok(())
+    }
+    #[cfg(not(unix))]
+    {
+        Err(format!("Impossible de créer/accéder au dossier « {} ».", dir))
+    }
+}
+
 fn disks_avec_repartition(pool: &DbPool) -> Vec<Value> {
     let mut disks = disks_info();
     let mounts: Vec<String> = disks

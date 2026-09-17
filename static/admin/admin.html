@@ -37,6 +37,10 @@ body{padding-top:60px}
 .sec{display:none}.sec.on{display:block;animation:fu .18s ease}
 @keyframes fu{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 .flash{display:flex;align-items:center;gap:9px;padding:11px 15px;border-radius:var(--r);margin-bottom:18px;font-size:.87rem;font-weight:500;background:var(--alt);border:1px solid var(--aglow);color:var(--accent)}
+.toast{display:flex;align-items:center;gap:9px;padding:12px 16px;border-radius:var(--r);font-size:.87rem;font-weight:600;box-shadow:0 12px 32px rgba(0,0,0,.25);background:var(--surface);border:1px solid var(--border);color:var(--text);opacity:0;transform:translateY(12px);transition:.22s ease;pointer-events:none;max-width:360px}
+.toast.ok{border-color:var(--aglow);color:var(--accent)}
+.toast.err{border-color:rgba(220,38,38,.3);color:var(--danger)}
+.toast.show{opacity:1;transform:translateY(0)}
 .flash.err{background:color-mix(in srgb, var(--danger) 8%, transparent);border-color:color-mix(in srgb, var(--danger) 22%, transparent);color:var(--danger)}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -240,7 +244,6 @@ __NAV_HTML__
 </nav>
 
 <main class="main">
-    <div id="flash-area"></div>
 
     <!-- Dashboard -->
     <div class="sec on" id="sec-dashboard">
@@ -509,6 +512,8 @@ __NAV_HTML__
 </main>
 </div>
 
+<div id="toast-area" style="position:fixed;bottom:24px;right:24px;z-index:5000;display:flex;flex-direction:column;gap:10px;pointer-events:none;"></div>
+
 <script>
 {{I18N_JS}}
 /* ── Constantes ── */
@@ -537,10 +542,18 @@ function nav(sec){
     ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,logs:loadLogs,onlyoffice:loadEditor,p2p:loadP2p,apps:loadApps,extensions:loadExt,roles:loadRoles,backup:loadBackups}[sec]||Function)();
     history.replaceState(null,'','?section='+sec);
 }
+// FIX (demande utilisateur) : les messages doivent apparaitre en bas a
+// droite, comme partout ailleurs dans VEX (fchier/mess/sitec) -- avant,
+// ce message s'affichait en HAUT du contenu (inline, #flash-area),
+// facile a manquer et incoherent avec le reste de l'appli.
 function flash(msg,err=false){
-    const el=document.getElementById('flash-area');
-    el.innerHTML=`<div class="flash ${err?'err':''}">${err?'<img src="/static/img/solid/circle-xmark.svg" class="ico ico-red" alt="">':'<img src="/static/img/solid/circle-check.svg" class="ico ico-accent" alt="">'} ${esc(msg)}</div>`;
-    setTimeout(()=>el.innerHTML='',4000);
+    const area=document.getElementById('toast-area');
+    const el=document.createElement('div');
+    el.className='toast '+(err?'err':'ok');
+    el.innerHTML=`${err?'<img src="/static/img/solid/circle-xmark.svg" class="ico ico-red" alt="">':'<img src="/static/img/solid/circle-check.svg" class="ico ico-accent" alt="">'} <span>${esc(msg)}</span>`;
+    area.appendChild(el);
+    requestAnimationFrame(()=>el.classList.add('show'));
+    setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),300);},4000);
 }
 async function api(p,o={}){try{const r=await fetch('/api/admin'+p,{credentials:'include',headers:{'Content-Type':'application/x-www-form-urlencoded',...(o.headers||{})},...o});return r.json();}catch(e){return{success:false,error:String(e)};}}
 function post(p,d={}){return api(p,{method:'POST',body:Object.entries(d).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(typeof v==='object'?JSON.stringify(v):v)).join('&')});}
@@ -1338,6 +1351,11 @@ function majBoutonPaidPlans(){
     btn.innerHTML=actif
         ? '<img src="/static/img/solid/xmark.svg" class="ico" style="filter:invert(1)" alt=""> Désactiver'
         : '<img src="/static/img/solid/check.svg" class="ico" style="filter:invert(1)" alt=""> Activer les plans payés';
+    // FIX (demande utilisateur) : reservé au fondateur, comme l'URL de
+    // paiement -- le serveur refuse deja le changement, ceci evite juste
+    // l'aller-retour inutile.
+    btn.disabled=!IS_FOUNDER;
+    btn.title=IS_FOUNDER?'':'Seul le fondateur peut activer/désactiver les plans payants.';
     document.getElementById('paid-plans-statut').innerHTML=actif
         ? 'Actifs — tous les utilisateurs voient la section "Abonnement" et le bouton Upgrade (si une URL de paiement est configurée ci-dessous).'
         : 'Désactivés — aucun utilisateur ne voit de section "Abonnement" ni de bouton Upgrade, même si une URL de paiement est configurée.';
@@ -1400,12 +1418,13 @@ async function saveDiscounts(){
     const r=await post('/config',{config:JSON.stringify(nc)});
     if(r.success){S.configData=nc;flash('Codes de réduction sauvegardés.');}else flash(r.error,true);
 }
-// FIX (section Revenus) : pas de vrai systeme de paiement branche (page
-// non fonctionnelle, voir plus bas) -- donc pas de vraies transactions a
-// sommer. Calcule a la place un MRR ESTIME a partir de donnees reelles :
-// combien d'utilisateurs ont chaque plan (colonne `vip`, deja existante)
-// x le prix configure pour ce plan. Honnete sur ce que c'est (une
-// estimation), pas une fausse UI de revenus factices.
+// FIX (section Revenus, demande utilisateur "des données réelles") :
+// paiement-pi (Stripe/PayPal) ecrit vip_paye=1 en base a chaque paiement
+// confirme (webhook/capture) -- on ne compte donc plus TOUS les comptes
+// avec un `vip` (qui inclut les VIP donnes a la main par un admin, jamais
+// payes), seulement ceux avec vip_paye=true. Chaque paiement met aussi a
+// jour `vip` avec l'ID du plan reellement achete (voir paiement-pi ->
+// maj_plan_utilisateur), donc le regroupement par plan est lui aussi reel.
 async function renderRevenus(){
     const box=document.getElementById('revenus-content');
     if(!box)return;
@@ -1414,20 +1433,23 @@ async function renderRevenus(){
     if(!r.success){box.innerHTML=`<div style="padding:14px;color:var(--text-m)">${esc(r.error||'Erreur.')}</div>`;return;}
     const users=r.data||[];
     const plans=S.configData.plans?.available_plans||[];
+    const payants=users.filter(u=>u.vip_paye);
     const compte={};
-    users.forEach(u=>{if(u.vip)compte[u.vip]=(compte[u.vip]||0)+1;});
+    payants.forEach(u=>{if(u.vip)compte[u.vip]=(compte[u.vip]||0)+1;});
     let mrr=0;
     const lignes=plans.filter(p=>p.price_eur_month>0).map(p=>{
         const n=compte[p.id]||0;
         mrr+=n*p.price_eur_month;
         return `<tr><td>${esc(p.name||p.id)}</td><td class="m">${n}</td><td class="m">${p.price_eur_month}€</td><td class="m"><strong>${(n*p.price_eur_month).toFixed(2)}€</strong></td></tr>`;
     }).join('');
+    const nonPayantsAvecVip=users.filter(u=>u.vip&&!u.vip_paye).length;
     box.innerHTML=`
         <div class="sg" style="margin-bottom:14px">
-            <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/euro-sign.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${mrr.toFixed(2)}€</div><div class="sc-l">MRR estimé / mois</div></div>
+            <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/euro-sign.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${mrr.toFixed(2)}€</div><div class="sc-l">MRR réel / mois</div></div>
+            <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/users.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${payants.length}</div><div class="sc-l">Abonnés payants confirmés</div></div>
         </div>
-        ${lignes?`<table class="t"><thead><tr><th>Plan</th><th>Abonnés</th><th>Prix</th><th>Sous-total</th></tr></thead><tbody>${lignes}</tbody></table>`:'<div style="padding:14px;color:var(--text-m);font-size:.84rem">Aucun plan payant configuré.</div>'}
-        <div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">Estimation basée sur le nombre d'utilisateurs par plan × son prix configuré — aucun paiement réel n'est traité pour l'instant (voir la maquette plus bas), donc pas de vraies transactions à afficher ici.</div>`;
+        ${lignes?`<table class="t"><thead><tr><th>Plan</th><th>Abonnés</th><th>Prix</th><th>Sous-total</th></tr></thead><tbody>${lignes}</tbody></table>`:`<div style="padding:14px;color:var(--text-m);font-size:.84rem">Aucun paiement confirmé pour le moment.</div>`}
+        <div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">Basé sur <code>vip_paye</code> (mis à jour par le webhook Stripe / la capture PayPal à chaque paiement confirmé sur paiement-pi) — plans annuels non inclus dans ce MRR mensuel.${nonPayantsAvecVip?` ${nonPayantsAvecVip} compte(s) ont un plan VIP donné manuellement (pas payé), exclus d'ici.`:''}</div>`;
 }
 async function saveRoleLabels(){
     const nc=JSON.parse(JSON.stringify(S.configData));
