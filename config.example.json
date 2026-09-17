@@ -301,14 +301,6 @@
     "tor_addr": "",
     "use_tor": true
   },
-  "payment": {
-    "currency": "EUR",
-    "mode": "free",
-    "provider": "stripe",
-    "stripe_public_key": "",
-    "stripe_secret_key": "",
-    "trial_days": 14
-  },
   "plans": {
     "available_plans": [
       {

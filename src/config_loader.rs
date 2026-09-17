@@ -22,7 +22,6 @@ pub struct VexConfig {
     pub onlyoffice_server: OnlyofficeServerConfig,
     pub plans: PlansConfig,
     pub autologin: AutologinConfig,
-    pub payment: PaymentConfig,
     pub extensions: ExtensionsConfig,
 
     // Conserve toutes les clés _comment etc. pour la réécriture sans perte
@@ -291,41 +290,6 @@ fn default_30() -> u32 {
 }
 fn default_10() -> u32 {
     10
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PaymentConfig {
-    #[serde(default = "default_free")]
-    pub mode: String,
-    #[serde(default = "default_eur")]
-    pub currency: String,
-    #[serde(default = "default_stripe")]
-    pub provider: String,
-    #[serde(default)]
-    pub stripe_public_key: String,
-    #[serde(default)]
-    pub stripe_secret_key: String,
-    #[serde(default = "default_14")]
-    pub trial_days: u32,
-    #[serde(flatten)]
-    pub extra: HashMap<String, Value>,
-}
-impl Default for PaymentConfig {
-    fn default() -> Self {
-        serde_json::from_str("{}").unwrap()
-    }
-}
-fn default_free() -> String {
-    "free".into()
-}
-fn default_eur() -> String {
-    "EUR".into()
-}
-fn default_stripe() -> String {
-    "stripe".into()
-}
-fn default_14() -> u32 {
-    14
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

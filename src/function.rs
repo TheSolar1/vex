@@ -706,6 +706,21 @@ pub fn build_nav_html(ctx: &NavContext) -> String {
         for a in apps_extensions(false).into_iter().filter(|a| app_visible(&choix_apps, &a.url)) {
             v.push((a.icon, a.label, a.url, false));
         }
+        // "Upgrade" : lien vers la page de paiement externe (paiement-pi,
+        // hors VEX -- voir Admin > Rôles & Plans où l'URL se configure).
+        // N'apparaît que si un admin l'a réellement configurée, sinon rien
+        // à montrer (pas de page de paiement fonctionnelle à proposer).
+        let url_paiement = crate::config_loader::load_config("config.json")
+            .plans
+            .extra
+            .get("external_payment_url")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        if !url_paiement.is_empty() {
+            v.push(("fas fa-rocket".to_string(), "Upgrade".to_string(), url_paiement, false));
+        }
         if is_admin { v.push(("fas fa-shield-alt".to_string(), "Administration".to_string(), "/admin".to_string(), true)); }
         v
     };
@@ -757,12 +772,20 @@ pub fn build_nav_html(ctx: &NavContext) -> String {
     for (icon, label, url, is_adm) in &sidebar_links {
         let active = if url.as_str() != "#" && url.contains(ctx.page_key) && !ctx.page_key.is_empty() { " active" } else { "" };
         let adm_cls = if *is_adm { " admin-item" } else { "" };
+        // Entrées externes (ex: page d'upgrade sur paiement-pi, hors VEX) :
+        // ouvertes dans un nouvel onglet plutôt que de faire quitter
+        // l'appli -- toute URL absolue est traitée comme externe.
+        let target = if url.starts_with("http://") || url.starts_with("https://") {
+            " target=\"_blank\" rel=\"noopener noreferrer\""
+        } else {
+            ""
+        };
         let icon_name = icon.split_whitespace().find(|p| p.starts_with("fa-")).map(|p| p.trim_start_matches("fa-")).unwrap_or("file");
         let item = format!(
-            "<a href=\"{}\" class=\"nav-sidebar-item-7844{}{}\">\
+            "<a href=\"{}\" class=\"nav-sidebar-item-7844{}{}\"{}>\
             <img src=\"/static/img/solid/{}.svg\" class=\"sidebar-svg-7844\" alt=\"\">\
             <span>{}</span></a>",
-            url, active, adm_cls, icon_name, label
+            html_escape(url), active, adm_cls, target, icon_name, label
         );
         if *is_adm { sidebar_admin.push_str(&item); } else { sidebar_normal.push_str(&item); }
     }

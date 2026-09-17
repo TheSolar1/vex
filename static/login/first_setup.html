@@ -83,6 +83,10 @@ input:focus{outline:none;border-color:#4caf50;box-shadow:0 0 0 3px rgba(76,175,8
             <input type="email" id="email" placeholder="admin@example.com" required>
         </div>
         <div class="form-group">
+            <label for="pseudo"><span class="label-icon">🏷️</span> Pseudo <span style="font-weight:400;opacity:.7;font-size:12px;">(optionnel — pour te connecter sans ton email)</span></label>
+            <input type="text" id="pseudo" placeholder="mon_pseudo" maxlength="64">
+        </div>
+        <div class="form-group">
             <label for="motdepass"><span class="label-icon">🔒</span> Mot de passe</label>
             <input type="password" id="motdepass" placeholder="••••••••" required>
             <p class="hint"><span>ℹ️</span> <span id="pass-hint">__PASS_MIN_LEN__ caractères minimum</span></p>
@@ -243,9 +247,10 @@ async function envoyerCodeRecuperationParEmail() {
 }
 
 async function submitSetup() {
-    const nom   = document.getElementById('nom').value.trim();
-    const email = document.getElementById('email').value.trim();
-    const mdp   = document.getElementById('motdepass').value;
+    const nom    = document.getElementById('nom').value.trim();
+    const email  = document.getElementById('email').value.trim();
+    const pseudo = document.getElementById('pseudo').value.trim();
+    const mdp    = document.getElementById('motdepass').value;
     const mdp2  = document.getElementById('motdepass2').value;
     const btn   = document.getElementById('setup-btn');
 
@@ -272,7 +277,7 @@ async function submitSetup() {
         const proofHash = await VEX.preuveRecuperation(code, recoverySalt);
 
         const body = new URLSearchParams({
-            setup: '1', nom, email,
+            setup: '1', nom, email, pseudo,
             srp_salt: salt_hex, srp_verifier: verifier_hex,
             file_key_wrapped_pwd: wrappedPwd,
             file_key_wrapped_recovery: wrappedRecovery,

@@ -507,6 +507,15 @@ fn handle_signup(request: Request, pool: &DbPool, config: &VexConfig, body: &Has
     let file_key_wrapped_recovery = body.get("file_key_wrapped_recovery").cloned().unwrap_or_default();
     let recovery_salt = body.get("recovery_salt").cloned().unwrap_or_default();
     let recovery_proof_hash = body.get("recovery_proof_hash").cloned().unwrap_or_default();
+    // Pseudo optionnel choisi des l'inscription (avant : uniquement
+    // modifiable apres coup dans les parametres du compte, voir
+    // /api/account/pseudo). Memes regles de validation que la-bas.
+    let pseudo = html_escape(body.get("pseudo").cloned().unwrap_or_default().trim());
+
+    if !pseudo.is_empty() && (pseudo.len() > 64 || pseudo.contains('@') || pseudo.chars().any(|c| c.is_whitespace())) {
+        respond_json(request, json!({"success":false,"error":"Pseudo invalide."}), 200);
+        return;
+    }
 
     // Validation de forme : salt = 16 octets hex (32 car.), verifier = 256 octets hex (512 car.)
     if salt_hex.len() != 32 || !salt_hex.chars().all(|c| c.is_ascii_hexdigit()) {
@@ -540,6 +549,21 @@ fn handle_signup(request: Request, pool: &DbPool, config: &VexConfig, body: &Has
         return;
     }
 
+    if !pseudo.is_empty() {
+        let existing_pseudo = selectionner(
+            pool,
+            "login",
+            &[("pseudo", mysql::Value::from(pseudo.as_str()))],
+            &["id"],
+            None,
+            Some(1),
+        );
+        if !existing_pseudo.is_empty() {
+            respond_json(request, json!({"success":false,"error":"Ce pseudo est déjà utilisé."}), 200);
+            return;
+        }
+    }
+
     // FIX (INSERT login echoue silencieusement) : `motdepass` est
     // NOT NULL dans le CREATE TABLE d'origine, rendu nullable seulement
     // par une migration ALTER TABLE ultérieure (db_init.rs) exécutée avec
@@ -552,23 +576,22 @@ fn handle_signup(request: Request, pool: &DbPool, config: &VexConfig, body: &Has
     // désormais explicitement une valeur, sans dépendre du succès de
     // cette migration -- la colonne n'est de toute facon plus utilisée
     // (authentification SRP).
-    let result = inserer_ou_modifier(
-        pool,
-        "login",
-        &[
-            ("nom", mysql::Value::from(nom.as_str())),
-            ("email", mysql::Value::from(email.as_str())),
-            ("motdepass", mysql::Value::from("")),
-            ("srp_salt", mysql::Value::from(salt_hex.as_str())),
-            ("srp_verifier", mysql::Value::from(verifier_hex.as_str())),
-            ("vip", mysql::Value::from(0i64)),
-            ("file_key_wrapped_pwd", mysql::Value::from(file_key_wrapped_pwd.as_str())),
-            ("file_key_wrapped_recovery", mysql::Value::from(file_key_wrapped_recovery.as_str())),
-            ("recovery_salt", mysql::Value::from(recovery_salt.as_str())),
-            ("recovery_proof_hash", mysql::Value::from(recovery_proof_hash.as_str())),
-        ],
-        &[],
-    );
+    let mut donnees_insert: Vec<(&str, mysql::Value)> = vec![
+        ("nom", mysql::Value::from(nom.as_str())),
+        ("email", mysql::Value::from(email.as_str())),
+        ("motdepass", mysql::Value::from("")),
+        ("srp_salt", mysql::Value::from(salt_hex.as_str())),
+        ("srp_verifier", mysql::Value::from(verifier_hex.as_str())),
+        ("vip", mysql::Value::from(0i64)),
+        ("file_key_wrapped_pwd", mysql::Value::from(file_key_wrapped_pwd.as_str())),
+        ("file_key_wrapped_recovery", mysql::Value::from(file_key_wrapped_recovery.as_str())),
+        ("recovery_salt", mysql::Value::from(recovery_salt.as_str())),
+        ("recovery_proof_hash", mysql::Value::from(recovery_proof_hash.as_str())),
+    ];
+    if !pseudo.is_empty() {
+        donnees_insert.push(("pseudo", mysql::Value::from(pseudo.as_str())));
+    }
+    let result = inserer_ou_modifier(pool, "login", &donnees_insert, &[]);
 
     if result > 0 {
         respond_json(

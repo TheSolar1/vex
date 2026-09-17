@@ -83,12 +83,18 @@ fn handle_post(pool: &DbPool, body: &HashMap<String, String>, langue: &str) -> S
     let file_key_wrapped_recovery = body.get("file_key_wrapped_recovery").cloned().unwrap_or_default();
     let recovery_salt = body.get("recovery_salt").cloned().unwrap_or_default();
     let recovery_proof_hash = body.get("recovery_proof_hash").cloned().unwrap_or_default();
+    // Pseudo optionnel choisi des la creation du tout premier compte --
+    // memes regles que /api/account/pseudo et handle_signup (login.rs).
+    let pseudo = html_escape(body.get("pseudo").cloned().unwrap_or_default().trim());
 
     if nom.is_empty() || email.is_empty() {
         return jerr(t(langue, Cle::SetupErreurChampsObligatoires));
     }
     if !email.contains('@') || !email.contains('.') {
         return jerr(t(langue, Cle::LoginErreurEmailInvalide));
+    }
+    if !pseudo.is_empty() && (pseudo.len() > 64 || pseudo.contains('@') || pseudo.chars().any(|c| c.is_whitespace())) {
+        return jerr("Pseudo invalide.");
     }
     // Validation de forme : salt = 16 octets hex (32 car.), verifier = 256 octets hex (512 car. max)
     if salt_hex.len() != 32 || !salt_hex.chars().all(|c| c.is_ascii_hexdigit()) {
@@ -110,31 +116,31 @@ fn handle_post(pool: &DbPool, body: &HashMap<String, String>, langue: &str) -> S
     // aller consulter les eprintln du serveur. On affiche desormais le
     // vrai message SQL (meme esprit que le detail d'erreur deja affiche
     // sur la page de connexion normale).
-    let id = match inserer_avec_erreur(
-        pool,
-        "login",
-        &[
-            ("nom", mysql::Value::from(html_escape(&nom).as_str())),
-            ("email", mysql::Value::from(html_escape(&email).as_str())),
-            // FIX (INSERT login echoue silencieusement) : voir le meme fix
-            // dans login.rs handle_signup -- `motdepass` est NOT NULL a la
-            // creation de la table, rendu nullable seulement par une
-            // migration qui peut avoir echoue en silence. On ne depend plus
-            // de son succes.
-            ("motdepass", mysql::Value::from("")),
-            ("srp_salt", mysql::Value::from(salt_hex.as_str())),
-            ("srp_verifier", mysql::Value::from(verifier_hex.as_str())),
-            ("file_key_wrapped_pwd", mysql::Value::from(file_key_wrapped_pwd.as_str())),
-            ("file_key_wrapped_recovery", mysql::Value::from(file_key_wrapped_recovery.as_str())),
-            ("recovery_salt", mysql::Value::from(recovery_salt.as_str())),
-            ("recovery_proof_hash", mysql::Value::from(recovery_proof_hash.as_str())),
-            // Superadmin (2), pas fondateur (1) : le fondateur est un role
-            // protege/permanent qui ne devrait pas etre attribue automatiquement
-            // au premier compte cree, meme legitime.
-            ("privilege", mysql::Value::from(2i64)),
-            ("vip", mysql::Value::from(1i64)),
-        ],
-    ) {
+    let mut donnees_insert: Vec<(&str, mysql::Value)> = vec![
+        ("nom", mysql::Value::from(html_escape(&nom).as_str())),
+        ("email", mysql::Value::from(html_escape(&email).as_str())),
+        // FIX (INSERT login echoue silencieusement) : voir le meme fix
+        // dans login.rs handle_signup -- `motdepass` est NOT NULL a la
+        // creation de la table, rendu nullable seulement par une
+        // migration qui peut avoir echoue en silence. On ne depend plus
+        // de son succes.
+        ("motdepass", mysql::Value::from("")),
+        ("srp_salt", mysql::Value::from(salt_hex.as_str())),
+        ("srp_verifier", mysql::Value::from(verifier_hex.as_str())),
+        ("file_key_wrapped_pwd", mysql::Value::from(file_key_wrapped_pwd.as_str())),
+        ("file_key_wrapped_recovery", mysql::Value::from(file_key_wrapped_recovery.as_str())),
+        ("recovery_salt", mysql::Value::from(recovery_salt.as_str())),
+        ("recovery_proof_hash", mysql::Value::from(recovery_proof_hash.as_str())),
+        // Superadmin (2), pas fondateur (1) : le fondateur est un role
+        // protege/permanent qui ne devrait pas etre attribue automatiquement
+        // au premier compte cree, meme legitime.
+        ("privilege", mysql::Value::from(2i64)),
+        ("vip", mysql::Value::from(1i64)),
+    ];
+    if !pseudo.is_empty() {
+        donnees_insert.push(("pseudo", mysql::Value::from(pseudo.as_str())));
+    }
+    let id = match inserer_avec_erreur(pool, "login", &donnees_insert) {
         Ok(id) if id > 0 => id,
         Ok(_) => return jerr(t(langue, Cle::LoginErreurInscription)),
         Err(e) => return jerr(&format!("{} ({e})", t(langue, Cle::LoginErreurInscription))),
