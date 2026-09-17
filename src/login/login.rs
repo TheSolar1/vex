@@ -62,6 +62,15 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
             respond_json(request, json!({"error":"Forbidden"}), 403);
             return;
         }
+        // FIX : `config` est charge UNE SEULE FOIS au demarrage (main.rs) et
+        // reste fige pour toute la duree de vie du process -- un admin qui
+        // change les plans/prix/l'URL de paiement depuis le panel ne voyait
+        // son changement pris en compte qu'apres un redemarrage complet du
+        // serveur, sans aucun message pour l'indiquer. Ces reglages
+        // changent en cours de route (contrairement au reste de la config
+        // demarrage comme le port ou la base) : on relit le fichier a
+        // chaque appel, comme deja fait ailleurs (function.rs, admin.rs).
+        let config = crate::config_loader::load_config("config.json");
         respond_json(
             request,
             json!({
