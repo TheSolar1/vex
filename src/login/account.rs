@@ -13,9 +13,13 @@ use crate::function::{
 };
 use crate::i18n::{self, Cle};
 use crate::utils::{strip_port, url_decode};
+use hmac::{Hmac, Mac};
 use serde_json::{json, Value};
+use sha2::Sha256;
 use std::collections::HashMap;
 use tiny_http::{Request, Response};
+
+type HmacSha256 = Hmac<Sha256>;
 
 pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, remote_full: &str) {
     let remote_ip = strip_port(remote_full);
@@ -267,6 +271,52 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
                 &[("email", mysql::Value::from(user_email.as_str()))],
             );
             respond_json(request, json!({"success":true,"pseudo":pseudo}), 200);
+        }
+
+        // ── Lien de paiement signe (evite de retaper son email sur le
+        // service externe paiement-pi, qui n'a pas acces a notre session)
+        // ───────────────────────────────────────────────────────────
+        // FIX (demande utilisateur) : la premiere version de paiement-pi
+        // demandait l'email sur SA propre page pour savoir a quel compte
+        // rattacher le paiement, puisque ce service tourne separement de
+        // VEX (voir CLAUDE.md) et n'a jamais accès à notre cookie de
+        // session. On genere ici un lien signe (uid + expiration + HMAC)
+        // que paiement-pi peut verifier lui-meme SANS jamais avoir besoin
+        // de lire notre base ou notre session -- juste un secret partage,
+        // configure independamment des deux cotes (jamais de session/
+        // cookie partages, toujours deux services separes).
+        ("POST", "/api/account/lien_paiement") => {
+            let body = read_body(&mut request);
+            let plan_id = body.get("plan_id").cloned().unwrap_or_default();
+            let periode = body.get("periode").cloned().unwrap_or_else(|| "mois".to_string());
+            if plan_id.is_empty() {
+                respond_json(request, json!({"success":false,"error":"plan_id manquant."}), 400);
+                return;
+            }
+            let url_base = config.plans.extra.get("external_payment_url").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+            let secret = config.plans.extra.get("paiement_secret").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+            if url_base.is_empty() || secret.is_empty() {
+                respond_json(request, json!({"success":false,"error":"Paiement non configuré côté serveur."}), 200);
+                return;
+            }
+            let exp = maintenant_epoch() + 600; // lien valable 10 minutes
+            let message = format!("{}.{}", user_id, exp);
+            let mut mac = match HmacSha256::new_from_slice(secret.as_bytes()) {
+                Ok(m) => m,
+                Err(_) => {
+                    respond_json(request, json!({"success":false,"error":"Secret de paiement invalide."}), 500);
+                    return;
+                }
+            };
+            mac.update(message.as_bytes());
+            let sig = hex::encode(mac.finalize().into_bytes());
+            let sep = if url_base.contains('?') { "&" } else { "?" };
+            let url = format!(
+                "{url_base}{sep}uid={user_id}&exp={exp}&sig={sig}&plan={plan}&periode={periode}",
+                plan = url_encode_simple(&plan_id),
+                periode = url_encode_simple(&periode),
+            );
+            respond_json(request, json!({"success":true,"url":url}), 200);
         }
 
         // ── Changer le mot de passe ───────────────────────────────
@@ -744,6 +794,22 @@ fn generate_token(len: usize) -> Result<String, getrandom::Error> {
     }
 
     Ok(token)
+}
+
+fn maintenant_epoch() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+}
+
+fn url_encode_simple(s: &str) -> String {
+    let mut out = String::new();
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char),
+            _ => out.push_str(&format!("%{:02X}", b)),
+        }
+    }
+    out
 }
 
 fn hash_autologin_token(token: &str, server_secret: &str) -> String {

@@ -706,16 +706,9 @@ pub fn build_nav_html(ctx: &NavContext) -> String {
         for a in apps_extensions(false).into_iter().filter(|a| app_visible(&choix_apps, &a.url)) {
             v.push((a.icon, a.label, a.url, false));
         }
-        // "Upgrade" : lien vers la page de paiement externe (paiement-pi,
-        // hors VEX -- voir Admin > Rôles & Plans où l'URL se configure).
-        // N'apparaît que si un admin l'a réellement configurée, sinon rien
-        // à montrer (pas de page de paiement fonctionnelle à proposer).
-        let cfg_plans = &crate::config_loader::load_config("config.json").plans;
-        let plans_payants_actives = cfg_plans.extra.get("paid_plans_enabled").and_then(|v| v.as_bool()).unwrap_or(false);
-        let url_paiement = cfg_plans.extra.get("external_payment_url").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
-        if plans_payants_actives && !url_paiement.is_empty() {
-            v.push(("fas fa-rocket".to_string(), "Upgrade".to_string(), url_paiement, false));
-        }
+        // FIX (demande utilisateur) : le paiement n'est pas une "app" --
+        // retiré de cette liste. L'accès reste dans Compte > Abonnement
+        // uniquement (voir account.html).
         if is_admin { v.push(("fas fa-shield-alt".to_string(), "Administration".to_string(), "/admin".to_string(), true)); }
         v
     };

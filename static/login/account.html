@@ -396,15 +396,15 @@ __NAV_HTML__
       <div id="abonnement-section" class="section-content">
         <div class="card">
           <h2><i class="fas fa-rocket"></i> Abonnement</h2>
-          <p>Ton plan actuel et la facturation.</p>
-          <div style="margin-top:16px;padding:16px;background:var(--sidebar-hover);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-            <div>
-              <div style="font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.03em">Plan actuel</div>
-              <div id="abo-plan-actuel" style="font-size:20px;font-weight:700;margin-top:4px">—</div>
-            </div>
-            <a id="abo-upgrade-btn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="text-decoration:none">
-              <i class="fas fa-rocket"></i> Passer à un plan payé
-            </a>
+          <p>Ton plan actuel et les offres disponibles.</p>
+          <div style="margin-top:16px;padding:16px;background:var(--sidebar-hover);border-radius:10px">
+            <div style="font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.03em">Plan actuel</div>
+            <div id="abo-plan-actuel" style="font-size:20px;font-weight:700;margin-top:4px">—</div>
+          </div>
+          <div style="margin-top:20px">
+            <div style="font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.03em;margin-bottom:10px">Offres disponibles</div>
+            <div id="abo-plans-liste" style="display:grid;gap:10px">—</div>
+            <div class="err" id="abo-plans-err" style="color:#dc2626;font-size:13px;margin-top:8px"></div>
           </div>
           <div style="margin-top:18px">
             <div style="font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px">Facturation</div>
@@ -618,21 +618,39 @@ __NAV_HTML__
   // que l'activation admin ait un effet visible immediatement (avant :
   // rien ne se voyait tant que l'URL externe n'etait pas aussi remplie,
   // ce qui donnait l'impression que le bouton "Activer" ne faisait rien).
+  let ABO_PLANS=[], ABO_URL_PAIEMENT='';
   async function chargerAbonnement(){
     try{
       const r=await (await fetch('/api/login/config',{credentials:'include'})).json();
       const plans=r.plans||{};
       const actif=!!plans.paid_plans_enabled;
-      const urlPaiement=plans.external_payment_url||'';
+      ABO_URL_PAIEMENT=plans.external_payment_url||'';
+      ABO_PLANS=plans.available_plans||[];
       const lien=$('#sidebar-abonnement');
       if(lien) lien.style.display=actif?'':'none';
       const estVip=S.user?.vip===1;
       const planActuelEl=$('#abo-plan-actuel');
       if(planActuelEl) planActuelEl.textContent=estVip?(I18N.PREMIUM||'VIP'):(I18N.GRATUIT||'Gratuit');
-      const btn=$('#abo-upgrade-btn');
-      if(btn){
-        if(urlPaiement){ btn.href=urlPaiement; btn.style.display=''; btn.classList.remove('btn-secondary'); }
-        else { btn.removeAttribute('href'); btn.style.display=''; btn.style.pointerEvents='none'; btn.style.opacity='.6'; btn.innerHTML='<i class="fas fa-clock"></i> Bientôt disponible'; }
+
+      const liste=$('#abo-plans-liste');
+      if(liste){
+        const payants=ABO_PLANS.filter(p=>(p.price_eur_month>0)||(p.price_eur_year>0));
+        if(!payants.length){
+          liste.innerHTML='<div style="color:var(--text-dim);font-size:14px">Aucune offre payante configurée pour le moment.</div>';
+        }else{
+          liste.innerHTML=payants.map(p=>`
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border:1px solid var(--panel-border);border-radius:10px;flex-wrap:wrap">
+              <div>
+                <div style="font-weight:700">${esc(p.name||p.id)}</div>
+                <div style="color:var(--text-dim);font-size:13px;margin-top:2px">
+                  ${p.price_eur_month?esc(String(p.price_eur_month))+'€/mois':''}${p.price_eur_year?' · '+esc(String(p.price_eur_year))+'€/an':''}
+                </div>
+              </div>
+              ${urlPaiementDisponible()
+                ? `<button type="button" class="btn btn-primary" onclick="choisirPlanAbonnement('${esc(p.id)}')"><i class="fas fa-rocket"></i> Choisir</button>`
+                : `<button type="button" class="btn" disabled style="opacity:.6"><i class="fas fa-clock"></i> Bientôt disponible</button>`}
+            </div>`).join('');
+        }
       }
       const facturation=$('#abo-facturation-msg');
       if(facturation){
@@ -642,6 +660,26 @@ __NAV_HTML__
       }
     }catch(e){ /* section reste masquée si la config est indisponible */ }
   }
+  function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function urlPaiementDisponible(){ return !!ABO_URL_PAIEMENT; }
+  async function choisirPlanAbonnement(planId){
+    try{
+      const r=await (await fetch('/api/account/lien_paiement',{
+        method:'POST',credentials:'include',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:new URLSearchParams({plan_id:planId,periode:'mois'}),
+      })).json();
+      if(!r.success||!r.url){ toast(r.error||"Paiement indisponible pour le moment.",true); return; }
+      const theme=document.documentElement.getAttribute('data-theme')||'light';
+      const sep=r.url.includes('?')?'&':'?';
+      window.open(r.url+sep+'theme='+encodeURIComponent(theme),'_blank','noopener,noreferrer');
+    }catch(e){ toast("Impossible de contacter le serveur.",true); }
+  }
+  // FIX : onclick="..." genere dans du innerHTML est resolu en portee
+  // GLOBALE par le navigateur, pas dans cette IIFE -- sans ca, cliquer
+  // "Choisir" echouait silencieusement ("choisirPlanAbonnement is not
+  // defined"), meme code deja rencontre ailleurs dans ce fichier.
+  window.choisirPlanAbonnement=choisirPlanAbonnement;
 
   function switchSection(sec){
     if(sec==='preferences'){ loadAffichage(); loadExtPrefs(); }
