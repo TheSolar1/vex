@@ -612,8 +612,12 @@ __NAV_HTML__
   }
 
   // Section "Abonnement" : masquee tant que l'admin n'a pas active les
-  // plans payes (voir Roles & Plans > "Activer les plans payes") -- pas
-  // de section a montrer si l'upgrade n'est de toute facon pas possible.
+  // plans payes (voir Roles & Plans > "Activer les plans payes"). Visible
+  // des que c'est active, meme sans URL de paiement configuree encore --
+  // affiche alors un message "bientot disponible" au lieu du bouton, pour
+  // que l'activation admin ait un effet visible immediatement (avant :
+  // rien ne se voyait tant que l'URL externe n'etait pas aussi remplie,
+  // ce qui donnait l'impression que le bouton "Activer" ne faisait rien).
   async function chargerAbonnement(){
     try{
       const r=await (await fetch('/api/login/config',{credentials:'include'})).json();
@@ -621,14 +625,14 @@ __NAV_HTML__
       const actif=!!plans.paid_plans_enabled;
       const urlPaiement=plans.external_payment_url||'';
       const lien=$('#sidebar-abonnement');
-      if(lien) lien.style.display=(actif&&urlPaiement)?'':'none';
+      if(lien) lien.style.display=actif?'':'none';
       const estVip=S.user?.vip===1;
       const planActuelEl=$('#abo-plan-actuel');
       if(planActuelEl) planActuelEl.textContent=estVip?(I18N.PREMIUM||'VIP'):(I18N.GRATUIT||'Gratuit');
       const btn=$('#abo-upgrade-btn');
       if(btn){
-        if(urlPaiement){ btn.href=urlPaiement; btn.style.display=''; }
-        else { btn.style.display='none'; }
+        if(urlPaiement){ btn.href=urlPaiement; btn.style.display=''; btn.classList.remove('btn-secondary'); }
+        else { btn.removeAttribute('href'); btn.style.display=''; btn.style.pointerEvents='none'; btn.style.opacity='.6'; btn.innerHTML='<i class="fas fa-clock"></i> Bientôt disponible'; }
       }
       const facturation=$('#abo-facturation-msg');
       if(facturation){
