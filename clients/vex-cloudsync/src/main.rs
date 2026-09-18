@@ -804,11 +804,21 @@ fn executer_synchro(password: String, url_serveur: String, etat: EtatPartage, rx
 
     journaliser(&etat, i18n::t(&langue, i18n::Cle::JournalMarquageFichiers));
     mark_in_sync(Path::new(&client_path), &client, 0);
-    // Retire tout de suite les placeholders locales dont l'original a ete
-    // supprime cote serveur pendant que l'app etait fermee (voir
-    // reconcilier) -- avant meme d'entrer dans la boucle d'attente.
-    reconcilier(Path::new(&client_path), &client);
+    // FIX (demande utilisateur : "le synchronisateur ne marche toujours
+    // pas, statut connexion en cours [bloque]") -- reconcilier() parcourt
+    // recursivement TOUT l'arbre de dossiers cote serveur (un appel reseau
+    // par dossier, via creer_placeholders_manquants) de facon SYNCHRONE,
+    // avant meme que la connexion Cloud Filter ne soit etablie et que
+    // e.termine passe a true. Avec une arborescence un peu grosse ou une
+    // connexion lente, ca bloquait l'ecran sur "Connexion en cours..."
+    // indefiniment. On la lance desormais en tache de fond, sans retarder
+    // la connexion elle-meme.
     let client_pour_reconciliation = client.clone();
+    let client_pour_thread_init = client.clone();
+    let chemin_pour_thread_init = client_path.clone();
+    std::thread::spawn(move || {
+        reconcilier(Path::new(&chemin_pour_thread_init), &client_pour_thread_init);
+    });
 
     // FIX (HRESULT 0x8007017A, "la racine de synchronisation du cloud est
     // deja connectee a un autre fournisseur") : si un lancement precedent
