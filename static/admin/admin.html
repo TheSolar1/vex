@@ -1480,6 +1480,9 @@ async function renderRevenus(){
     const nonPayantsAvecVip=users.filter(u=>u.vip&&!u.vip_paye).length;
     const totalUsers=users.length;
     const tauxConversion=totalUsers?(payants.length/totalUsers*100):0;
+    const arpuPayant=payants.length?mrr/payants.length:0;
+    const arpuGlobal=totalUsers?mrr/totalUsers:0;
+    const stats=(rStats.success&&rStats.data)||{};
 
     // ── Graphique "taux d'utilisation par mois" (comptes distincts ayant
     // ouvert une session, table loginc, 6 derniers mois) ────────────────
@@ -1507,13 +1510,37 @@ async function renderRevenus(){
             <span><strong style="color:var(--accent)">${tauxConversion.toFixed(1)}%</strong> de conversion</span>
         </div>`;
 
+    // ── Repartition par role (privilege) -- photo complete de la base ───
+    const roles=stats.repartition_privilege||[];
+    const maxRole=Math.max(1,...roles.map(r=>r.n));
+    const graphRoles=roles.length?`
+        <div style="display:flex;flex-direction:column;gap:6px">
+            ${roles.map(r=>`
+                <div style="display:flex;align-items:center;gap:8px;font-size:.78rem">
+                    <div style="width:110px;flex-shrink:0;color:var(--text-m)">${esc(pNom(r.privilege))}</div>
+                    <div style="flex:1;background:var(--surface2);border-radius:5px;overflow:hidden;height:14px">
+                        <div style="width:${r.n/maxRole*100}%;height:100%;background:var(--accent)"></div>
+                    </div>
+                    <div style="width:28px;text-align:right;font-weight:700">${r.n}</div>
+                </div>`).join('')}
+        </div>`
+        :`<div style="padding:14px;color:var(--text-m);font-size:.84rem">Aucune donnée.</div>`;
+
     box.innerHTML=`
         <div class="sg" style="margin-bottom:14px">
             <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/euro-sign.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${mrr.toFixed(2)}€</div><div class="sc-l">MRR réel / mois</div></div>
             <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/users.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${payants.length}</div><div class="sc-l">Abonnés payants confirmés</div></div>
+            <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/user.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${totalUsers-payants.length}</div><div class="sc-l">Comptes gratuits</div></div>
+            <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/scale-balanced.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${arpuPayant.toFixed(2)}€</div><div class="sc-l">ARPU (par payant)</div></div>
+            <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/scale-balanced.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${arpuGlobal.toFixed(2)}€</div><div class="sc-l">ARPU (tous comptes)</div></div>
+            <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/bolt.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${stats.actifs_1h??'—'}</div><div class="sc-l">Actifs (1h)</div></div>
+            <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/calendar-day.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${stats.actifs_24h??'—'}</div><div class="sc-l">Actifs (24h)</div></div>
+            <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/calendar-week.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${stats.actifs_7j??'—'}</div><div class="sc-l">Actifs (7 jours)</div></div>
+            <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/arrow-right-arrow-left.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${stats.sessions_30j??'—'}</div><div class="sc-l">Connexions (30 jours)</div></div>
+            <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/gift.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${nonPayantsAvecVip}</div><div class="sc-l">VIP offerts (non payés)</div></div>
         </div>
         ${lignes?`<table class="t"><thead><tr><th>Plan</th><th>Abonnés</th><th>Prix</th><th>Sous-total</th></tr></thead><tbody>${lignes}</tbody></table>`:`<div style="padding:14px;color:var(--text-m);font-size:.84rem">Aucun paiement confirmé pour le moment.</div>`}
-        <div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">Basé sur <code>vip_paye</code> (mis à jour par le webhook Stripe / la capture PayPal à chaque paiement confirmé sur paiement-pi) — plans annuels non inclus dans ce MRR mensuel.${nonPayantsAvecVip?` ${nonPayantsAvecVip} compte(s) ont un plan VIP donné manuellement (pas payé), exclus d'ici.`:''}</div>
+        <div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">Basé sur <code>vip_paye</code> (mis à jour par le webhook Stripe / la capture PayPal à chaque paiement confirmé sur paiement-pi) — plans annuels non inclus dans ce MRR mensuel.</div>
 
         <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border)">
             <div style="font-weight:700;font-size:.86rem;margin-bottom:2px"><img src="/static/img/solid/chart-column.svg" class="ico ico-accent" alt=""> Taux d'utilisation par mois</div>
@@ -1524,6 +1551,11 @@ async function renderRevenus(){
         <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border)">
             <div style="font-weight:700;font-size:.86rem;margin-bottom:8px"><img src="/static/img/solid/percent.svg" class="ico ico-accent" alt=""> Taux d'achat (conversion gratuit → payant)</div>
             ${barreConversion}
+        </div>
+
+        <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border)">
+            <div style="font-weight:700;font-size:.86rem;margin-bottom:8px"><img src="/static/img/solid/id-badge.svg" class="ico ico-accent" alt=""> Répartition des comptes par rôle</div>
+            ${graphRoles}
         </div>
 
         <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border)">

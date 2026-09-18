@@ -5,8 +5,10 @@
 use crate::access_control::{get_cookie, get_header};
 use crate::appeldb::{
     compter_lignes, compter_sessions_actives, decrire_table, executer_sql_admin, get_taille_db,
-    get_tailles_tables, inserer_ou_modifier, lire_lignes_table, lister_tables, selectionner,
-    supprimer_ligne, utilisateurs_actifs_par_mois, verifier_connexion_avec_expiration, DbPool,
+    get_tailles_tables, inserer_ou_modifier, lire_lignes_table, lister_tables,
+    repartition_par_privilege, selectionner, sessions_depuis, supprimer_ligne,
+    utilisateurs_actifs_depuis, utilisateurs_actifs_par_mois, verifier_connexion_avec_expiration,
+    DbPool,
 };
 use crate::config_loader::{load_config, VexConfig};
 use crate::function::{build_nav_html, get_user_language, get_user_preferences, NavContext};
@@ -790,9 +792,15 @@ fn handle_api(
         "/revenus_stats" => {
             let total = compter_lignes(pool, "login", &[]);
             let mensuel = utilisateurs_actifs_par_mois(pool, 6);
+            let privileges = repartition_par_privilege(pool);
             json!({ "success": true, "data": {
                 "total_users": total,
                 "actifs_par_mois": mensuel.iter().map(|(m, n)| json!({"mois": m, "n": n})).collect::<Vec<_>>(),
+                "actifs_1h": compter_sessions_actives(pool, 60),
+                "actifs_24h": utilisateurs_actifs_depuis(pool, 24),
+                "actifs_7j": utilisateurs_actifs_depuis(pool, 24 * 7),
+                "sessions_30j": sessions_depuis(pool, 30),
+                "repartition_privilege": privileges.iter().map(|(p, n)| json!({"privilege": p, "n": n})).collect::<Vec<_>>(),
             }})
         }
 

@@ -479,6 +479,52 @@ pub fn utilisateurs_actifs_par_mois(pool: &DbPool, mois: u32) -> Vec<(String, u6
     .unwrap_or_default()
 }
 
+/// Comptes distincts ayant ouvert une session dans les `heures` dernieres
+/// heures -- sert pour "actifs 24h" / "actifs 7 jours" (section Revenus).
+pub fn utilisateurs_actifs_depuis(pool: &DbPool, heures: u32) -> u64 {
+    let mut conn = match pool.get_conn() {
+        Ok(c) => c,
+        Err(_) => return 0,
+    };
+    conn.exec_first(
+        "SELECT COUNT(DISTINCT `email`) FROM `loginc` WHERE `datecra` > NOW() - INTERVAL ? HOUR",
+        (heures,),
+    )
+    .ok()
+    .flatten()
+    .unwrap_or(0)
+}
+
+/// Nombre total de connexions (lignes loginc) sur les `jours` derniers
+/// jours -- volume d'usage brut, distinct du nombre de comptes actifs.
+pub fn sessions_depuis(pool: &DbPool, jours: u32) -> u64 {
+    let mut conn = match pool.get_conn() {
+        Ok(c) => c,
+        Err(_) => return 0,
+    };
+    conn.exec_first(
+        "SELECT COUNT(*) FROM `loginc` WHERE `datecra` > NOW() - INTERVAL ? DAY",
+        (jours,),
+    )
+    .ok()
+    .flatten()
+    .unwrap_or(0)
+}
+
+/// Repartition des comptes par niveau de privilege (2=super admin ... 10=
+/// aucun/utilisateur normal) -- donne une vraie photo de la base au lieu de
+/// se limiter au seul statut payant/gratuit.
+pub fn repartition_par_privilege(pool: &DbPool) -> Vec<(i64, u64)> {
+    let mut conn = match pool.get_conn() {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
+    conn.query(
+        "SELECT `privilege`, COUNT(*) AS n FROM `login` WHERE `privilege` != 1 GROUP BY `privilege` ORDER BY `privilege` ASC",
+    )
+    .unwrap_or_default()
+}
+
 // ══════════════════════════════════════════════════════════════════
 // FONCTION 7 : get_taille_db()
 // ══════════════════════════════════════════════════════════════════
