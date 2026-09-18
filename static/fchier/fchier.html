@@ -478,7 +478,7 @@ __NAV_HTML__
     <div class="form-group">
       <label>{{T_NOM_DOSSIER}}</label>
       <input type="text" id="folder-name" placeholder="{{T_PLACEHOLDER_MON_DOSSIER}}" maxlength="100"
-             onkeydown="if(event.key==='Enter') doCreateFolder()">
+             onkeydown="if(event.key==='Enter' && !event.isComposing) doCreateFolder()">
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('folderModal')">{{T_ANNULER}}</button>
@@ -497,7 +497,7 @@ __NAV_HTML__
     </div>
     <div class="form-group">
       <label>{{T_NOUVEAU_NOM}}</label>
-      <input type="text" id="rename-input" maxlength="255" onkeydown="if(event.key==='Enter') doRename()">
+      <input type="text" id="rename-input" maxlength="255" onkeydown="if(event.key==='Enter' && !event.isComposing) doRename()">
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('renameModal')">{{T_ANNULER}}</button>
@@ -561,7 +561,7 @@ __NAV_HTML__
     </div>
     <div class="form-group">
       <label>{{T_ID_DESTINATAIRE}}</label>
-      <input type="number" id="p2p-to-user" placeholder="ex: 42" min="1" onkeydown="if(event.key==='Enter') doSendP2p()">
+      <input type="number" id="p2p-to-user" placeholder="ex: 42" min="1" onkeydown="if(event.key==='Enter' && !event.isComposing) doSendP2p()">
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('p2pModal')">{{T_ANNULER}}</button>

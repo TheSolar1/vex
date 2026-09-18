@@ -119,18 +119,19 @@
     .al-disabled{background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.2);border-radius:10px;padding:20px;color:var(--danger);font-size:14px;text-align:center;margin-top:10px;}
     #al-token{word-break:break-all;overflow-wrap:anywhere;font-family:monospace;font-size:13px;color:var(--text);}
 
-    /* FIX (demande utilisateur) : bas-DROITE partout dans VEX (comme
-       fchier/mess/sitec/admin), pas bas-centre. */
+    /* Style unifié avec fchier/mess/sitec : carte claire + icône + liseré coloré. */
     .toast{
       position:fixed;bottom:16px;right:16px;transform:translateY(12px);
-      max-width:360px;padding:12px 14px;border-radius:12px;font-weight:600;
-      color:#fff;box-shadow:0 12px 32px rgba(0,0,0,.25);opacity:0;
-      transition:.22s ease;pointer-events:none;display:flex;align-items:center;gap:8px;
+      max-width:360px;padding:12px 18px;border-radius:8px;font-weight:600;font-size:13px;
+      background:var(--surface);border:1px solid var(--panel-border);color:var(--text);
+      box-shadow:0 4px 12px rgba(0,0,0,.15);opacity:0;
+      transition:.22s ease;pointer-events:none;display:flex;align-items:center;gap:10px;
       z-index:2000;
     }
-    .toast.ok{background:rgba(0,0,0,.85);}
-    .toast.error{background:#b91c1c;}
+    .toast.ok{border-left:4px solid var(--accent);}
+    .toast.error{border-left:4px solid var(--danger, #b91c1c);}
     .toast.show{opacity:1;transform:translateY(0);}
+    .toast .ico{display:inline-block;width:14px;height:14px;vertical-align:middle;flex-shrink:0;}
 
     .section-content{display:none;}
     .section-content.active{display:block;}
@@ -432,7 +433,8 @@ __NAV_HTML__
   };
   function toast(msg, err=false){
     const t=$('#toast'); if(!t) return;
-    t.textContent=msg;
+    const icon = err ? '/static/img/solid/circle-xmark.svg' : '/static/img/solid/circle-check.svg';
+    t.innerHTML = `<img class="ico ico-sm" src="${icon}"><span>${msg}</span>`;
     t.classList.remove('ok','error');
     t.classList.add(err?'error':'ok');
     t.classList.add('show');
@@ -643,6 +645,11 @@ __NAV_HTML__
           // FIX (demande utilisateur : "un systeme de carte comme Claude")
           // -- cartes verticales (nom / prix en avant / caracteristiques /
           // bouton en bas), pas une simple ligne prix+bouton.
+          // FIX (demande utilisateur : "une section par defaut pour inciter
+          // au paiement") -- le plan le plus cher est mis en avant (badge
+          // "Recommandé", bordure accentuée, legerement agrandi) pour guider
+          // le choix, comme les pages de tarifs habituelles.
+          const planVedetteId=payants.reduce((max,p)=>(p.price_eur_month??0)>(max?.price_eur_month??-1)?p:max,null)?.id;
           liste.innerHTML=payants.map(p=>{
             const carac=p.features||{};
             const listeCarac=[
@@ -652,8 +659,10 @@ __NAV_HTML__
               carac.api_access?'Accès API':null,
               carac.email_sending?'Envoi d’emails':null,
             ].filter(Boolean);
+            const vedette=p.id===planVedetteId;
             return `
-            <div style="display:flex;flex-direction:column;padding:20px;border:1px solid var(--panel-border);border-radius:14px;background:var(--surface);transition:.15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--panel-border)'">
+            <div style="position:relative;display:flex;flex-direction:column;padding:20px;border:${vedette?'2px solid var(--accent)':'1px solid var(--panel-border)'};border-radius:14px;background:${vedette?'var(--sidebar-hover)':'var(--surface)'};transition:.15s;${vedette?'transform:scale(1.03);box-shadow:0 8px 24px rgba(0,0,0,.12)':''}" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='${vedette?'var(--accent)':'var(--panel-border)'}'">
+              ${vedette?`<div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:3px 12px;border-radius:999px;letter-spacing:.02em;white-space:nowrap"><i class="fas fa-star"></i> Recommandé</div>`:''}
               <div style="font-weight:700;font-size:16px">${esc(p.name||p.id)}</div>
               <div style="margin:10px 0 2px">
                 <span style="font-size:28px;font-weight:800;color:var(--accent)">${p.price_eur_month??0}€</span>
