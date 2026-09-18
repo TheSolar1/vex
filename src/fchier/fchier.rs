@@ -487,7 +487,13 @@ fn parse_taille_octets(s: &str) -> i64 {
 /// pour max_files (convention deja utilisee dans config.json).
 fn quota_du_plan(cfg: &crate::config_loader::VexConfig, plan_id: &str) -> (i64, i64) {
     let plan = cfg.plans.available_plans.iter()
-        .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(plan_id));
+        .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(plan_id))
+        // FIX (demande utilisateur : quota affichait 500 Mo/50 fichiers au
+        // lieu du vrai plan "free" configure) -- un plan_id qui ne
+        // correspond a aucune entree (plan supprime, valeur historique en
+        // base, etc.) retombait sur des valeurs fantomes jamais definies
+        // dans config.json. On retombe desormais sur le plan "free" reel.
+        .or_else(|| cfg.plans.available_plans.iter().find(|p| p.get("id").and_then(|v| v.as_str()) == Some("free")));
     let features = plan.and_then(|p| p.get("features"));
     let storage = features.and_then(|f| f.get("storage")).and_then(|v| v.as_str()).unwrap_or("500MB");
     let max_octets = parse_taille_octets(storage);
