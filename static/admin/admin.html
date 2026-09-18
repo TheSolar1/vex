@@ -1611,6 +1611,7 @@ function renderPlans(){
                 <div><label class="cl">${I18N.ROLES_PRIX_EUROS_MOIS}</label><input type="number" min="0" step="0.01" class="ci" data-plan-i="${i}" data-plan-k="price_eur_month" value="${p.price_eur_month}"></div>
                 <div><label class="cl">Prix (€/an)</label><input type="number" min="0" step="0.01" class="ci" data-plan-i="${i}" data-plan-k="price_eur_year" value="${p.price_eur_year??''}" placeholder="optionnel"></div>
                 <div><label class="cl">${I18N.ROLES_STOCKAGE}</label><input type="text" class="ci" data-plan-i="${i}" data-plan-k="features.storage" value="${esc(p.features?.storage||'')}"></div>
+                <div><label class="cl">Fichiers max <small>(-1 = illimité)</small></label><input type="number" step="1" class="ci" data-plan-i="${i}" data-plan-k="features.max_files" value="${p.features?.max_files??50}"></div>
             </div>
             <button class="btn br2" style="margin-top:10px" onclick="removePlan(${i})"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.ROLES_SUPPRIMER_CE_PLAN}</button>
         </div></div>`).join('')+`<button class="btn ba" onclick="savePlans()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.ROLES_SAUVEGARDER_PLANS}</button>`;
@@ -1631,6 +1632,7 @@ async function savePlans(){
         if(k==='price_eur_month')v=Math.max(0,Number(v)||0);
         if(k==='price_eur_year'){v=v===''?null:Math.max(0,Number(v)||0);}
         if(k==='features.storage'){nc.plans.available_plans[i].features=nc.plans.available_plans[i].features||{};nc.plans.available_plans[i].features.storage=v;}
+        else if(k==='features.max_files'){nc.plans.available_plans[i].features=nc.plans.available_plans[i].features||{};nc.plans.available_plans[i].features.max_files=Math.trunc(Number(v));}
         else nc.plans.available_plans[i][k]=v;
     });
     const r=await post('/config',{config:JSON.stringify(nc)});

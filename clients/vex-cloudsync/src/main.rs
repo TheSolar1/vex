@@ -40,7 +40,7 @@ use cloud_filter::{
     filter::{info, ticket, Request, SyncFilter},
     metadata::Metadata,
     placeholder::{ConvertOptions, Placeholder},
-    placeholder_file::PlaceholderFile,
+    placeholder_file::{BatchCreate, PlaceholderFile},
     root::{HydrationType, PopulationType, SecurityId, Session, SyncRootIdBuilder, SyncRootInfo},
     utility::WriteAt,
 };
@@ -454,16 +454,72 @@ fn nettoyer_placeholders_orphelines(local_dir: &Path, distants: &std::collection
     }
 }
 
+/// FIX (demande utilisateur : "ça ne s'actualise pas [avec] les
+/// modifications effectuées dans le cloud") : avant, un fichier/dossier
+/// ajoute cote serveur (autre appareil, admin) n'apparaissait localement
+/// que si l'Explorateur redemandait le contenu du dossier a Windows
+/// (fetch_placeholders, declenche par exemple en rouvrant le dossier) --
+/// aucun mecanisme ne le forçait pendant que l'app tournait deja. Cree
+/// directement les placeholders manquantes sur le disque, avec la meme
+/// API que fetch_placeholders (PlaceholderFile::create au lieu de
+/// ticket.pass_with_placeholder, voir cloud-filter::placeholder_file --
+/// recommande par la doc du crate pour un usage hors requete Explorateur).
+/// Recursif : parcourt aussi les sous-dossiers, y compris ceux tout juste
+/// crees a cet appel.
+fn creer_placeholders_manquants(local_dir: &Path, client: &VexClient, dossier_distant_id: i64) {
+    let Ok((dossiers, fichiers)) = client.lister_dossier(dossier_distant_id) else { return };
+    let noms_locaux: std::collections::HashSet<String> = std::fs::read_dir(local_dir)
+        .map(|it| {
+            it.filter_map(|e| e.ok())
+                .map(|e| e.file_name().to_string_lossy().to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let mut a_creer: Vec<PlaceholderFile> = Vec::new();
+    for d in &dossiers {
+        if !noms_locaux.contains(&d.nom) {
+            a_creer.push(
+                PlaceholderFile::new(&d.nom)
+                    .metadata(Metadata::directory())
+                    .mark_in_sync()
+                    .blob(encoder_blob_dossier(d.id)),
+            );
+        }
+    }
+    for f in &fichiers {
+        if !noms_locaux.contains(&f.nom) {
+            a_creer.push(
+                PlaceholderFile::new(&f.nom)
+                    .metadata(Metadata::file().size(f.taille.max(0) as u64))
+                    .mark_in_sync()
+                    .blob(encoder_blob_fichier(f.id)),
+            );
+        }
+    }
+    if !a_creer.is_empty() {
+        if let Err(e) = a_creer.create(local_dir) {
+            println!("creer_placeholders_manquants: creation echouee dans {local_dir:?} : {e:?}");
+        }
+    }
+
+    for d in &dossiers {
+        creer_placeholders_manquants(&local_dir.join(&d.nom), client, d.id);
+    }
+}
+
 fn reconcilier(local_dir: &Path, client: &VexClient) {
     let mut distants = std::collections::HashSet::new();
     lister_distant_tous_blobs(client, 0, &mut distants);
     nettoyer_placeholders_orphelines(local_dir, &distants);
+    creer_placeholders_manquants(local_dir, client, 0);
 }
 
-/// Reconciliation periodique en arriere-plan : detecte et retire les
-/// placeholders locales dont l'original a ete supprime cote serveur
-/// depuis la derniere synchro (voir reconcilier). Tourne toutes les 3
-/// minutes tant que la session Cloud Filter est active.
+/// Reconciliation periodique en arriere-plan : retire les placeholders
+/// locales dont l'original a ete supprime cote serveur ET cree celles qui
+/// sont apparues cote serveur depuis la derniere synchro (voir
+/// reconcilier). Tourne toutes les 3 minutes tant que la session Cloud
+/// Filter est active.
 fn lancer_reconciliation_periodique(client_path: String, client: VexClient) -> mpsc::Sender<()> {
     let (tx_stop, rx_stop) = mpsc::channel::<()>();
     std::thread::spawn(move || loop {
@@ -888,6 +944,52 @@ fn deja_en_cours() -> Option<windows::Win32::Foundation::HANDLE> {
     }
 }
 
+/// FIX (demande utilisateur : "ça ne se relance pas au démarrage") --
+/// jamais implemente jusqu'ici (voir PLAN-INSTALLATION-1-CLIC.md, qui le
+/// listait comme etape a faire "une fois l'auth par jeton en place" --
+/// c'est deja le cas, voir device_auth.rs). Ajoute une entree dans
+/// HKCU\Software\Microsoft\Windows\CurrentVersion\Run pointant vers
+/// l'executable courant : mecanisme standard, ne necessite pas les droits
+/// admin (HKCU, pas HKLM), reecrit a chaque lancement pour rester a jour
+/// si l'exe a ete deplace/mis a jour (ex: reinstallation a un autre
+/// chemin).
+fn assurer_demarrage_auto() {
+    use windows::Win32::System::Registry::{
+        RegCreateKeyExW, RegSetValueExW, RegCloseKey, HKEY_CURRENT_USER,
+        KEY_WRITE, REG_OPTION_NON_VOLATILE, REG_SZ,
+    };
+    use windows::core::PCWSTR;
+
+    let Ok(exe) = std::env::current_exe() else { return };
+    let valeur = format!("\"{}\"", exe.to_string_lossy());
+    let sous_cle: Vec<u16> = "Software\\Microsoft\\Windows\\CurrentVersion\\Run\0".encode_utf16().collect();
+    let nom_valeur: Vec<u16> = "VEXCloudSync\0".encode_utf16().collect();
+    let mut data: Vec<u16> = valeur.encode_utf16().collect();
+    data.push(0);
+    let data_bytes: &[u8] = unsafe {
+        std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 2)
+    };
+
+    unsafe {
+        let mut hkey = Default::default();
+        let r = RegCreateKeyExW(
+            HKEY_CURRENT_USER,
+            PCWSTR(sous_cle.as_ptr()),
+            0,
+            PCWSTR::null(),
+            REG_OPTION_NON_VOLATILE,
+            KEY_WRITE,
+            None,
+            &mut hkey,
+            None,
+        );
+        if r.is_ok() {
+            let _ = RegSetValueExW(hkey, PCWSTR(nom_valeur.as_ptr()), 0, REG_SZ, Some(data_bytes));
+            let _ = RegCloseKey(hkey);
+        }
+    }
+}
+
 fn main() {
     let _verrou_instance = match deja_en_cours() {
         Some(h) => h,
@@ -897,6 +999,8 @@ fn main() {
             return;
         }
     };
+
+    assurer_demarrage_auto();
 
     let etat: EtatPartage = Arc::new(Mutex::new(EtatUi::default()));
 

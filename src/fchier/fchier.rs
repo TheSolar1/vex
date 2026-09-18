@@ -491,7 +491,14 @@ fn quota_du_plan(cfg: &crate::config_loader::VexConfig, plan_id: &str) -> (i64, 
     let features = plan.and_then(|p| p.get("features"));
     let storage = features.and_then(|f| f.get("storage")).and_then(|v| v.as_str()).unwrap_or("500MB");
     let max_octets = parse_taille_octets(storage);
-    let max_fichiers = features.and_then(|f| f.get("max_files")).and_then(|v| v.as_i64()).unwrap_or(50);
+    // FIX (demande utilisateur : "si la limite a 0 ca bug") -- as_i64() ne
+    // lit QUE les JSON number, jamais une string ("0" tape a la main via un
+    // editeur JSON brut) : ca retombait silencieusement sur 50 par defaut
+    // au lieu de vraiment bloquer a 0. Accepte desormais aussi une valeur
+    // texte.
+    let max_fichiers = features.and_then(|f| f.get("max_files")).and_then(|v| {
+        v.as_i64().or_else(|| v.as_str().and_then(|s| s.trim().parse::<i64>().ok()))
+    }).unwrap_or(50);
     (max_octets, max_fichiers)
 }
 

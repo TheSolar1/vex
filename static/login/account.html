@@ -410,7 +410,7 @@ __NAV_HTML__
           </div>
           <div style="margin-top:20px">
             <div style="font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.03em;margin-bottom:10px">Offres disponibles</div>
-            <div id="abo-plans-liste" style="display:flex;flex-direction:column;gap:14px;max-width:340px">—</div>
+            <div id="abo-plans-liste" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px">—</div>
             <div class="err" id="abo-plans-err" style="color:var(--danger);font-size:13px;margin-top:8px"></div>
           </div>
           <div style="margin-top:18px">
@@ -703,7 +703,9 @@ __NAV_HTML__
       if(!r.success||!r.url){ toast(r.error||"Paiement indisponible pour le moment.",true); return; }
       const theme=document.documentElement.getAttribute('data-theme')||'light';
       const sep=r.url.includes('?')?'&':'?';
-      window.open(r.url+sep+'theme='+encodeURIComponent(theme),'_blank','noopener,noreferrer');
+      // FIX (demande utilisateur : "Choisir ne doit pas ouvrir un nouvel
+      // onglet") : navigue dans l'onglet courant au lieu d'en ouvrir un.
+      window.location.href=r.url+sep+'theme='+encodeURIComponent(theme);
     }catch(e){ toast("Impossible de contacter le serveur.",true); }
   }
   // FIX : onclick="..." genere dans du innerHTML est resolu en portee
