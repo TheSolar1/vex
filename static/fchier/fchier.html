@@ -2118,7 +2118,16 @@ function toast(msg, type = 'info', dur = 3500) {
   const icons = { ok: ICO+'circle-check.svg', error: ICO+'circle-xmark.svg', info: ICO+'circle-info.svg' };
   el.innerHTML = `<img class="ico ico-sm" src="${icons[type]||icons.info}"><span>${escHtml(msg)}</span>`;
   area.appendChild(el);
-  setTimeout(() => { el.style.opacity='0'; el.style.transition='.3s'; setTimeout(() => area.removeChild(el), 300); }, dur);
+  // FIX (demande utilisateur : "si la souris reste dessus ca ne disparait
+  // pas") -- survoler un toast annule son minuteur de disparition ; il ne
+  // repart qu'une fois la souris partie.
+  let minuteur=null;
+  const armerDisparition=()=>{
+    minuteur=setTimeout(() => { el.style.opacity='0'; el.style.transition='.3s'; setTimeout(() => area.removeChild(el), 300); }, dur);
+  };
+  el.addEventListener('mouseenter', () => clearTimeout(minuteur));
+  el.addEventListener('mouseleave', armerDisparition);
+  armerDisparition();
 }
 
 async function apiFetch(url, body) {

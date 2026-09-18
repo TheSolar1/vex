@@ -531,38 +531,6 @@ fn lancer_reconciliation_periodique(client_path: String, client: VexClient) -> m
     tx_stop
 }
 
-/// Cree (ou met a jour) un raccourci "VEX.lnk" sur le Bureau, pointant vers
-/// le dossier de synchro, avec l'icone VEX. Mecanisme standard et sans
-/// risque (celui qu'utilise n'importe quel logiciel qui pose une icone sur
-/// le Bureau a l'installation) -- pas de registre systeme, pas de droits
-/// admin, rien a voir avec les "dossiers connus" de la barre laterale.
-/// Windows range lui-meme la position de l'icone ; pas de controle possible
-/// sur "a cote de Ce PC" precisement.
-fn creer_raccourci_bureau(client_path: &str, icone: &str) {
-    let bureau = match env::var("USERPROFILE") {
-        Ok(p) => format!("{p}\\Desktop\\VEX.lnk"),
-        Err(_) => return,
-    };
-    // L'icone COM (IShellLink.IconLocation) attend "chemin,index" separement.
-    let (icone_fichier, icone_index) = icone.rsplit_once(',').unwrap_or((icone, "0"));
-
-    let script = format!(
-        r#"$s = New-Object -ComObject WScript.Shell; $l = $s.CreateShortcut('{bureau}'); $l.TargetPath = '{client_path}'; $l.IconLocation = '{icone_fichier},{icone_index}'; $l.Description = 'VEX Cloud Client'; $l.Save()"#
-    );
-    let resultat = std::process::Command::new("powershell")
-        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
-        .output();
-    match resultat {
-        Ok(sortie) if sortie.status.success() => println!("Raccourci Bureau cree/mis a jour : {bureau}"),
-        Ok(sortie) => println!(
-            "Raccourci Bureau : echec ({}) -- {}",
-            sortie.status,
-            String::from_utf8_lossy(&sortie.stderr)
-        ),
-        Err(e) => println!("Raccourci Bureau : impossible de lancer powershell ({e})"),
-    }
-}
-
 /// Fichier local (hors depot, propre a la machine) ou le jeton d'appareil
 /// approuve est mis en cache pour eviter de refaire le flux d'autorisation
 /// a chaque lancement. Protection : permissions par defaut du profil
@@ -774,14 +742,8 @@ fn executer_synchro(password: String, url_serveur: String, etat: EtatPartage, rx
     journaliser(&etat, i18n::t(&langue, i18n::Cle::JournalServeurTrouve).replace("{url}", &base_url));
 
     let client_path = get_client_path();
-    // Deux icones distinctes (feedback utilisateur) : le dossier teinte VEX
-    // pour la racine de synchro dans l'Explorateur (comme OneDrive/GDrive),
-    // le logo officiel VEX pour le raccourci Bureau (identifie l'app, pas
-    // un dossier).
-    let (icone_dossier_locale, icone_raccourci_locale) = extraire_icones_locales();
+    let (icone_dossier_locale, _) = extraire_icones_locales();
     let icone = env::var("VEX_ICON_PATH").unwrap_or_else(|_| format!("{},0", icone_dossier_locale));
-    let icone_raccourci = env::var("VEX_SHORTCUT_ICON_PATH")
-        .unwrap_or_else(|_| format!("{},0", icone_raccourci_locale));
 
     let jeton = match charger_jeton(&base_url) {
         Some(j) => {
@@ -839,8 +801,6 @@ fn executer_synchro(password: String, url_serveur: String, etat: EtatPartage, rx
     } else {
         journaliser(&etat, i18n::t(&langue, i18n::Cle::JournalRacineDejaEnregistree));
     }
-
-    creer_raccourci_bureau(&client_path, &icone_raccourci);
 
     journaliser(&etat, i18n::t(&langue, i18n::Cle::JournalMarquageFichiers));
     mark_in_sync(Path::new(&client_path), &client, 0);

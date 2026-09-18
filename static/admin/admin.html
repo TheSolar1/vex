@@ -387,31 +387,24 @@ __NAV_HTML__
             </div>
             <div class="cb">
                 <div id="plans-content"></div>
-            </div>
-        </div>
-        <div class="card">
-            <div class="ch"><span><img src="/static/img/solid/link.svg" class="ico ico-accent" alt=""> Paiement externe</span></div>
-            <div class="cb">
-                <div style="padding:12px 14px;background:var(--surface2);border:1px dashed var(--panel-border);border-radius:8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+                <!-- FIX (demande utilisateur, plusieurs fois : "ENLEVE Paiement
+                     externe") -- la carte dediee a ete supprimee. Seul le
+                     necessaire (activer les plans payes + URL) reste, replie
+                     ici plutot que dans sa propre section. -->
+                <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:14px;flex-wrap:wrap">
                     <div style="flex:1;min-width:220px">
                         <div style="font-weight:600;font-size:.85rem">Plans payants</div>
                         <div style="font-size:.78rem;color:var(--text-m);margin-top:2px" id="paid-plans-statut">
-                            Tant que c'est désactivé, aucun utilisateur ne voit de section "Abonnement" / bouton Upgrade, même si une URL de paiement est configurée.
+                            Tant que c'est désactivé, aucun utilisateur ne voit de section "Abonnement" / bouton Upgrade.
                         </div>
                     </div>
                     <button class="btn" id="btn-toggle-paid-plans" onclick="togglePaidPlans()">…</button>
                 </div>
-                <div style="margin-top:12px;padding:12px 14px;background:var(--surface2);border:1px dashed var(--panel-border);border-radius:8px">
-                    <div style="font-size:.82rem;color:var(--text-m);margin-bottom:8px">
-                        URL du service de paiement (hébergé à part, hors de ce dépôt).
-                    </div>
-                    <div style="display:flex;gap:8px">
-                        <input type="text" id="external-payment-url" class="ci" placeholder="https://paiement.vex.hopto.org" style="flex:1">
-                        <!-- valeur remplie par loadRoles() -->
-
-                        <button class="btn bg2" id="btn-save-payment-url" onclick="saveExternalPaymentUrl()">Enregistrer</button>
-                        <button class="btn bg2" onclick="const u=document.getElementById('external-payment-url').value.trim(); if(u)window.open(u,'_blank')" title="Ouvrir dans un nouvel onglet"><img src="/static/img/solid/arrow-up-right-from-square.svg" class="ico ico-gray" alt=""></button>
-                    </div>
+                <div style="margin-top:10px;display:flex;gap:8px">
+                    <input type="text" id="external-payment-url" class="ci" placeholder="https://paiement.vex.hopto.org" style="flex:1">
+                    <!-- valeur remplie par loadRoles() -->
+                    <button class="btn bg2" id="btn-save-payment-url" onclick="saveExternalPaymentUrl()">Enregistrer</button>
+                    <button class="btn bg2" onclick="const u=document.getElementById('external-payment-url').value.trim(); if(u)window.open(u,'_blank')" title="Ouvrir dans un nouvel onglet"><img src="/static/img/solid/arrow-up-right-from-square.svg" class="ico ico-gray" alt=""></button>
                 </div>
             </div>
         </div>
@@ -569,7 +562,13 @@ function flash(msg,err=false){
     el.innerHTML=`${err?'<img src="/static/img/solid/circle-xmark.svg" class="ico ico-red" alt="">':'<img src="/static/img/solid/circle-check.svg" class="ico ico-accent" alt="">'} <span>${esc(msg)}</span>`;
     area.appendChild(el);
     requestAnimationFrame(()=>el.classList.add('show'));
-    setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),300);},4000);
+    // FIX (demande utilisateur : "si la souris reste dessus ca ne
+    // disparait pas") -- meme comportement que fchier.
+    let minuteur=null;
+    const armerDisparition=()=>{minuteur=setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),300);},4000);};
+    el.addEventListener('mouseenter',()=>clearTimeout(minuteur));
+    el.addEventListener('mouseleave',armerDisparition);
+    armerDisparition();
 }
 async function api(p,o={}){try{const r=await fetch('/api/admin'+p,{credentials:'include',headers:{'Content-Type':'application/x-www-form-urlencoded',...(o.headers||{})},...o});return r.json();}catch(e){return{success:false,error:String(e)};}}
 function post(p,d={}){return api(p,{method:'POST',body:Object.entries(d).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(typeof v==='object'?JSON.stringify(v):v)).join('&')});}

@@ -874,7 +874,11 @@ function toast(msg, type='', dur=3500) {
   el.className= `toast ${type}`;
   el.innerHTML= `<img class="ico ico-sm" src="${ICO}${icons[type]||'circle-info'}.svg"><span>${esc(msg)}</span>`;
   area.appendChild(el);
-  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='.3s'; setTimeout(()=>area.removeChild(el),300); }, dur);
+  let minuteur=null;
+  const armerDisparition=()=>{minuteur=setTimeout(()=>{ el.style.opacity='0'; el.style.transition='.3s'; setTimeout(()=>area.removeChild(el),300); }, dur);};
+  el.addEventListener('mouseenter',()=>clearTimeout(minuteur));
+  el.addEventListener('mouseleave',armerDisparition);
+  armerDisparition();
 }
 
 function esc(s) {

@@ -435,6 +435,7 @@ __NAV_HTML__
     const box = $('#msg-global'); if(!box) return;
     box.innerHTML = `<div class="message ${ok?'success':'error'}">${txt}</div>`;
   };
+  let _toastMinuteur=null;
   function toast(msg, err=false){
     const t=$('#toast'); if(!t) return;
     const icon = err ? '/static/img/solid/circle-xmark.svg' : '/static/img/solid/circle-check.svg';
@@ -442,7 +443,16 @@ __NAV_HTML__
     t.classList.remove('ok','error');
     t.classList.add(err?'error':'ok');
     t.classList.add('show');
-    setTimeout(()=>t.classList.remove('show'),2400);
+    // FIX (demande utilisateur : "si la souris reste dessus ca ne
+    // disparait pas") -- listeners attaches une seule fois (element
+    // singleton), pas a chaque appel.
+    if(!t.dataset.hoverBound){
+      t.dataset.hoverBound='1';
+      t.addEventListener('mouseenter',()=>clearTimeout(_toastMinuteur));
+      t.addEventListener('mouseleave',()=>{_toastMinuteur=setTimeout(()=>t.classList.remove('show'),2400);});
+    }
+    clearTimeout(_toastMinuteur);
+    _toastMinuteur=setTimeout(()=>t.classList.remove('show'),2400);
   }
   function setMsg(el, text, ok){ if(!el) return; el.style.display='block'; el.className='message '+(ok?'success':'error'); el.textContent=text; }
   async function j(url, opts={}){
