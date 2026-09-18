@@ -123,11 +123,18 @@ body > .controls-bar {
 .ctrl-btn.hangup:hover { background: color-mix(in srgb, var(--danger) 85%, black); }
 .ctrl-btn.active-toggle { background: var(--accent); color: var(--surface); }
 
-/* FIX (demande utilisateur : "je veux que les erreur/info soient comme
-   dans fchier, en bas a droite, sur toutes les pages") */
-.toast { position: fixed; bottom: 24px; right: 24px; background: var(--panel); border: 1px solid var(--panel-border); color: var(--text); padding: 12px 18px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.15); font-size: 13px; font-weight: 600; display:flex; align-items:center; gap:10px; border-left:4px solid var(--accent); opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; transform: translateY(8px); z-index: 200; }
-.toast.show { opacity: 1; transform: translateY(0); }
-.toast svg { width:14px; height:14px; flex-shrink:0; color:var(--accent) }
+/* FIX (demande utilisateur, plusieurs fois : "je veux le meme style
+   exactement que dans fchier pour info/erreur, pas autre chose") -- avant,
+   un seul element #toast fixe, toujours borde en vert (aucune variante
+   erreur), donc pas la meme architecture que fchier (zone dynamique,
+   plusieurs toasts empilables, couleur selon ok/erreur). Repris a
+   l'identique. */
+#toast-area{position:fixed;bottom:24px;right:24px;z-index:5000;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.toast{background:var(--surface,var(--panel));border:1px solid var(--panel-border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);padding:12px 18px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;animation:toast-in .25s ease;pointer-events:all;max-width:340px}
+@keyframes toast-in{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.toast.ok{border-left:4px solid var(--accent)}
+.toast.error{border-left:4px solid var(--danger)}
+.ico-sm{width:14px;height:14px;flex-shrink:0}
 
 .empty-hint { text-align: center; color: var(--text-dim); font-size: 13px; margin: 40px 0; }
 
@@ -227,7 +234,7 @@ body > .controls-bar {
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div id="toast-area"></div>
 
 <script>
 {{I18N_JS}}
@@ -253,15 +260,26 @@ const enc = new TextEncoder(), dec = new TextDecoder();
 function b64(bytes) { let bin = ""; for (const b of new Uint8Array(bytes)) bin += String.fromCharCode(b); return btoa(bin); }
 function fromB64(str) { const bin = atob(str); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); return arr; }
 function genSessionId() { const arr = new Uint8Array(24); crypto.getRandomValues(arr); return b64(arr).replace(/[+/=]/g, c => ({ "+": "-", "/": "_", "=": "" }[c])); }
-function toast(msg) {
-  const t = document.getElementById("toast");
-  t.innerHTML = '<svg viewBox="0 0 512 512"><path fill="currentColor" d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM216 336l24 0 0-64-24 0c-13.3 0-24-10.7-24-24s10.7-24 24-24l48 0c13.3 0 24 10.7 24 24l0 88 8 0c13.3 0 24 10.7 24 24s-10.7 24-24 24l-80 0c-13.3 0-24-10.7-24-24s10.7-24 24-24zm40-208a32 32 0 1 1 0 64 32 32 0 1 1 0-64z"/></svg><span>'+String(msg).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</span>';
-  t.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2600);
-  if(!t.dataset.hoverBound){
-    t.dataset.hoverBound='1';
-    t.addEventListener('mouseenter',()=>clearTimeout(toast._t));
-    t.addEventListener('mouseleave',()=>{toast._t=setTimeout(()=>t.classList.remove("show"),2600);});
-  }
+// FIX (demande utilisateur, plusieurs fois : "je veux le meme style
+// exactement que dans fchier pour info/erreur") -- meme fonction que
+// fchier.html (zone dynamique, plusieurs toasts empilables, type ok/error).
+const ICO = '/static/img/solid/';
+function toast(msg, type = 'ok', dur = 3500) {
+  const area = document.getElementById('toast-area');
+  const existant = [...area.children].find(c => c.dataset.msg === msg);
+  if (existant) { existant.dispatchEvent(new Event('vex-relancer')); return; }
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.dataset.msg = msg;
+  const icone = type === 'error' ? 'circle-xmark' : 'circle-check';
+  el.innerHTML = `<img class="ico ico-sm" src="${ICO}${icone}.svg" alt=""><span>${String(msg).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`;
+  area.appendChild(el);
+  let minuteur = null;
+  const armerDisparition = () => { minuteur = setTimeout(() => { el.style.opacity = '0'; el.style.transition = '.3s'; setTimeout(() => area.removeChild(el), 300); }, dur); };
+  el.addEventListener('mouseenter', () => clearTimeout(minuteur));
+  el.addEventListener('mouseleave', armerDisparition);
+  el.addEventListener('vex-relancer', () => { clearTimeout(minuteur); armerDisparition(); });
+  armerDisparition();
 }
 function setStatus(text, live) { const pill = document.getElementById("statusPill"); pill.style.display = "inline-flex"; document.getElementById("statusText").textContent = text; document.getElementById("statusDot").classList.toggle("live", !!live); }
 
