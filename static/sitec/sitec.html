@@ -3602,14 +3602,18 @@ async function removeShare(id, email) {
 function toast(msg, type='', dur=3000) {
   const icons = {ok:'circle-check', err:'circle-xmark'};
   const area = document.getElementById('toast-area');
+  const existant=[...area.children].find(c=>c.dataset.msg===msg);
+  if(existant){ existant.dispatchEvent(new Event('vex-relancer')); return; }
   const el = document.createElement('div');
   el.className = `toast ${type}`;
+  el.dataset.msg=msg;
   el.innerHTML = `<img class="ico ico-sm" src="${ICO}${icons[type]||'circle-info'}.svg"><span>${esc(msg)}</span>`;
   area.appendChild(el);
   let minuteur=null;
   const armerDisparition=()=>{minuteur=setTimeout(()=>{ el.style.opacity='0'; el.style.transition='.3s'; setTimeout(()=>area.removeChild(el),300); }, dur);};
   el.addEventListener('mouseenter',()=>clearTimeout(minuteur));
   el.addEventListener('mouseleave',armerDisparition);
+  el.addEventListener('vex-relancer',()=>{clearTimeout(minuteur);armerDisparition();});
   armerDisparition();
 }
 function esc(s) {

@@ -108,6 +108,22 @@ body{padding-top:60px}
 .cl{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-m);display:block;margin-bottom:4px;font-family:var(--mono)}
 .cl small{opacity:.5;font-size:.66rem;display:block;font-weight:400;text-transform:none;letter-spacing:0}
 .cgr{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:11px}
+/* FIX (demande utilisateur, plusieurs fois : "refonte visuelle" de
+   Roles & Plans) -- les plans etaient de simples formulaires empiles,
+   sans hierarchie visuelle. Meme traitement "carte" que les tuiles
+   Revenus (.sc) : bandeau colore en haut, cercle flou en fond, prix mis
+   en avant, plutot qu'un bloc de champs plats. */
+.plans-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.plan-card{background:linear-gradient(155deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);position:relative;overflow:hidden;padding:16px}
+.plan-card::before{content:'';position:absolute;left:0;top:0;right:0;height:3px;background:linear-gradient(90deg,var(--pc,var(--accent)) 0%,transparent 100%);opacity:.8}
+.plan-card::after{content:'';position:absolute;right:-14px;top:-14px;width:64px;height:64px;border-radius:50%;background:var(--pc,var(--accent));opacity:.08;filter:blur(1px)}
+.plan-card .pc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:12px}
+.plan-card .pc-prix{font-size:1.5rem;font-weight:900;color:var(--pc,var(--accent));line-height:1}
+.plan-card .pc-prix small{font-size:.68rem;font-weight:600;color:var(--text-m);text-transform:none;letter-spacing:0}
+.plan-card .pc-del{background:none;border:1px solid var(--border);border-radius:7px;width:28px;height:28px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+.plan-card .pc-del:hover{border-color:var(--danger);background:color-mix(in srgb, var(--danger) 10%, transparent)}
+.plan-card .pc-del img{width:12px;height:12px}
+.plan-card .cgr{grid-template-columns:1fr 1fr;gap:9px}
 .mtabs{display:flex;gap:6px;background:var(--surface2);border-radius:var(--r);padding:4px;margin-bottom:18px;width:fit-content}
 .mtab{padding:8px 16px;border-radius:calc(var(--r) - 3px);border:none;background:none;cursor:pointer;font-size:.83rem;font-weight:700;color:var(--text-m);font-family:var(--sans);transition:.15s}
 .mtab.on{background:var(--surface);color:var(--accent);box-shadow:var(--shadow)}
@@ -557,8 +573,17 @@ function nav(sec){
 // facile a manquer et incoherent avec le reste de l'appli.
 function flash(msg,err=false){
     const area=document.getElementById('toast-area');
+    // FIX (demande utilisateur : "c'est degueulasse" -- capture d'ecran
+    // montrant le meme message empile 5-6 fois) : cliquer plusieurs fois
+    // sur une meme tuile (ex. Revenus) recreait a chaque fois une nouvelle
+    // carte identique au lieu de reutiliser celle deja affichee. On
+    // reutilise le toast existant portant le meme message au lieu d'en
+    // empiler un nouveau.
+    const existant=[...area.children].find(c=>c.dataset.msg===msg);
+    if(existant){ existant.dispatchEvent(new Event('vex-relancer')); return; }
     const el=document.createElement('div');
     el.className='toast '+(err?'err':'ok');
+    el.dataset.msg=msg;
     el.innerHTML=`${err?'<img src="/static/img/solid/circle-xmark.svg" class="ico ico-red" alt="">':'<img src="/static/img/solid/circle-check.svg" class="ico ico-accent" alt="">'} <span>${esc(msg)}</span>`;
     area.appendChild(el);
     requestAnimationFrame(()=>el.classList.add('show'));
@@ -568,6 +593,7 @@ function flash(msg,err=false){
     const armerDisparition=()=>{minuteur=setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),300);},4000);};
     el.addEventListener('mouseenter',()=>clearTimeout(minuteur));
     el.addEventListener('mouseleave',armerDisparition);
+    el.addEventListener('vex-relancer',()=>{clearTimeout(minuteur);armerDisparition();});
     armerDisparition();
 }
 async function api(p,o={}){try{const r=await fetch('/api/admin'+p,{credentials:'include',headers:{'Content-Type':'application/x-www-form-urlencoded',...(o.headers||{})},...o});return r.json();}catch(e){return{success:false,error:String(e)};}}
@@ -1606,8 +1632,19 @@ async function saveRoleLabels(){
 }
 function renderPlans(){
     const plans=S.configData.plans?.available_plans||[];
-    document.getElementById('plans-content').innerHTML=plans.map((p,i)=>`
-        <div class="card" style="margin-bottom:10px"><div class="cb">
+    const couleurs=['#6b7280','#4fa553','#3b82f6','#a855f7','#f59e0b','#ec4899'];
+    document.getElementById('plans-content').innerHTML=`<div class="plans-grid">`+plans.map((p,i)=>{
+        const gratuit=!(Number(p.price_eur_month)>0)&&!(Number(p.price_eur_year)>0);
+        const pc=gratuit?'#6b7280':couleurs[(i%(couleurs.length-1))+1];
+        return `
+        <div class="plan-card" style="--pc:${pc}">
+            <div class="pc-head">
+                <div>
+                    <div class="pc-prix">${gratuit?I18N.ROLES_GRATUIT_BADGE||'Gratuit':(p.price_eur_month+'€'+'<small> /mois</small>')}</div>
+                    ${(!gratuit&&p.price_eur_year)?`<div style="font-size:.72rem;color:var(--text-m);margin-top:2px">ou ${p.price_eur_year}€/an</div>`:''}
+                </div>
+                <button class="pc-del" onclick="removePlan(${i})" title="${I18N.ROLES_SUPPRIMER_CE_PLAN}"><img src="/static/img/solid/trash.svg" alt="" style="filter:invert(30%) sepia(90%) saturate(4000%) hue-rotate(340deg)"></button>
+            </div>
             <div class="cgr">
                 <div><label class="cl">ID</label><input type="text" class="ci" data-plan-i="${i}" data-plan-k="id" value="${esc(p.id)}"></div>
                 <div><label class="cl">${I18N.ROLES_NOM_AFFICHE}</label><input type="text" class="ci" data-plan-i="${i}" data-plan-k="name" value="${esc(p.name)}"></div>
@@ -1616,8 +1653,8 @@ function renderPlans(){
                 <div><label class="cl">${I18N.ROLES_STOCKAGE}</label><input type="text" class="ci" data-plan-i="${i}" data-plan-k="features.storage" value="${esc(p.features?.storage||'')}"></div>
                 <div><label class="cl">Fichiers max <small>(-1 = illimité)</small></label><input type="number" step="1" class="ci" data-plan-i="${i}" data-plan-k="features.max_files" value="${p.features?.max_files??50}"></div>
             </div>
-            <button class="btn br2" style="margin-top:10px" onclick="removePlan(${i})"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.ROLES_SUPPRIMER_CE_PLAN}</button>
-        </div></div>`).join('')+`<button class="btn ba" onclick="savePlans()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.ROLES_SAUVEGARDER_PLANS}</button>`;
+        </div>`;
+    }).join('')+`</div><button class="btn ba" style="margin-top:14px" onclick="savePlans()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.ROLES_SAUVEGARDER_PLANS}</button>`;
 }
 function addPlan(){
     if(!S.configData.plans)S.configData.plans={available_plans:[],enforce_plan_restrictions:true};

@@ -2113,8 +2113,15 @@ document.addEventListener('keydown', e => {
 
 function toast(msg, type = 'info', dur = 3500) {
   const area = document.getElementById('toast-area');
+  // FIX (demande utilisateur : cliquer plusieurs fois sur un meme element
+  // empilait le meme message en plusieurs cartes identiques) : on
+  // reutilise le toast existant portant le meme message au lieu d'en
+  // recreer un nouveau par-dessus.
+  const existant=[...area.children].find(c=>c.dataset.msg===msg);
+  if(existant){ existant.dispatchEvent(new Event('vex-relancer')); return; }
   const el   = document.createElement('div');
   el.className = `toast ${type}`;
+  el.dataset.msg = msg;
   const icons = { ok: ICO+'circle-check.svg', error: ICO+'circle-xmark.svg', info: ICO+'circle-info.svg' };
   el.innerHTML = `<img class="ico ico-sm" src="${icons[type]||icons.info}"><span>${escHtml(msg)}</span>`;
   area.appendChild(el);
@@ -2127,6 +2134,7 @@ function toast(msg, type = 'info', dur = 3500) {
   };
   el.addEventListener('mouseenter', () => clearTimeout(minuteur));
   el.addEventListener('mouseleave', armerDisparition);
+  el.addEventListener('vex-relancer', () => { clearTimeout(minuteur); armerDisparition(); });
   armerDisparition();
 }
 
