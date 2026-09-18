@@ -37,15 +37,15 @@ body{padding-top:60px}
 .sec{display:none}.sec.on{display:block;animation:fu .18s ease}
 @keyframes fu{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 .flash{display:flex;align-items:center;gap:9px;padding:11px 15px;border-radius:var(--r);margin-bottom:18px;font-size:.87rem;font-weight:500;background:var(--alt);border:1px solid var(--aglow);color:var(--accent)}
-/* FIX (demande utilisateur, plusieurs fois : "meme style d'erreur/info que
-   fchier") -- avant, .toast.ok/.toast.err teintaient TOUT le texte en vert/
-   rouge (color:var(--accent)/var(--danger)) au lieu de garder le texte en
-   couleur normale avec juste une bordure gauche coloree comme fchier. Le
-   message devenait difficile a lire (tout en vert clair sur fond clair). */
-.toast{display:flex;align-items:center;gap:9px;padding:12px 16px;border-radius:var(--r);font-size:.87rem;font-weight:600;box-shadow:0 12px 32px rgba(0,0,0,.25);background:var(--surface);border:1px solid var(--border);color:var(--text);opacity:0;transform:translateY(12px);transition:.22s ease;pointer-events:all;max-width:360px}
+/* FIX (demande utilisateur, plusieurs fois : "je veux comment dans fchier,
+   pas autrement") -- reprend EXACTEMENT les memes valeurs que le .toast de
+   fchier.html (fond/ombre/padding/police/icone), au lieu d'une variante
+   admin qui ressemblait juste vaguement (ombre plus dure, icone coloree en
+   vert/rouge au lieu de rester neutre, tailles differentes). */
+.toast{background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);padding:12px 18px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;animation:toast-in .25s ease;pointer-events:all;max-width:340px}
+@keyframes toast-in{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 .toast.ok{border-left:4px solid var(--accent)}
 .toast.err{border-left:4px solid var(--danger)}
-.toast.show{opacity:1;transform:translateY(0)}
 .flash.err{background:color-mix(in srgb, var(--danger) 8%, transparent);border-color:color-mix(in srgb, var(--danger) 22%, transparent);color:var(--danger)}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -589,13 +589,16 @@ function flash(msg,err=false){
     const el=document.createElement('div');
     el.className='toast '+(err?'err':'ok');
     el.dataset.msg=msg;
-    el.innerHTML=`${err?'<img src="/static/img/solid/circle-xmark.svg" class="ico ico-red" alt="">':'<img src="/static/img/solid/circle-check.svg" class="ico ico-accent" alt="">'} <span>${esc(msg)}</span>`;
+    // FIX (demande utilisateur : "je veux comment dans fchier, pas
+    // autrement") -- icone neutre (pas de filtre vert/rouge dessus,
+    // exactement comme fchier : seule la bordure gauche est coloree) et
+    // taille ico-sm comme fchier, pas ico standard.
+    el.innerHTML=`<img class="ico ico-sm" src="/static/img/solid/${err?'circle-xmark':'circle-check'}.svg" alt=""><span>${esc(msg)}</span>`;
     area.appendChild(el);
-    requestAnimationFrame(()=>el.classList.add('show'));
     // FIX (demande utilisateur : "si la souris reste dessus ca ne
     // disparait pas") -- meme comportement que fchier.
     let minuteur=null;
-    const armerDisparition=()=>{minuteur=setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),300);},4000);};
+    const armerDisparition=()=>{minuteur=setTimeout(()=>{el.style.opacity='0';el.style.transition='.3s';setTimeout(()=>area.removeChild(el),300);},4000);};
     el.addEventListener('mouseenter',()=>clearTimeout(minuteur));
     el.addEventListener('mouseleave',armerDisparition);
     el.addEventListener('vex-relancer',()=>{clearTimeout(minuteur);armerDisparition();});
