@@ -1374,14 +1374,14 @@ async function loadRoles(){
     const extUrl=S.configData.plans?.external_payment_url||'';
     const champUrl=document.getElementById('external-payment-url');
     champUrl.value=extUrl;
-    // FIX (URL de paiement pas facilement modifiable) : c'est l'endroit
-    // vers lequel de l'argent va circuler -- verrouillee pour tout le
-    // monde sauf le fondateur (le serveur refuse deja le changement cote
-    // API, ceci evite juste l'aller-retour inutile et rend la regle
-    // visible).
-    champUrl.disabled=!IS_FOUNDER;
+    // FIX (demande utilisateur : "je veux qu'on puisse pas changer l'url")
+    // -- c'est l'endroit vers lequel l'argent va circuler : plus personne,
+    // meme le fondateur, ne peut la changer depuis le panel (le serveur
+    // refuse deja le changement cote API pour tout le monde). Champ
+    // toujours en lecture seule, bouton toujours desactive.
+    champUrl.disabled=true;
     const btnSaveUrl=document.getElementById('btn-save-payment-url');
-    if(btnSaveUrl){btnSaveUrl.disabled=!IS_FOUNDER;btnSaveUrl.title=IS_FOUNDER?'':'Seul le fondateur peut modifier cette URL.';}
+    if(btnSaveUrl){btnSaveUrl.disabled=true;btnSaveUrl.title='Non modifiable depuis le panel — édite config.json directement sur le serveur si besoin.';}
     majBoutonPaidPlans();
 }
 function majBoutonPaidPlans(){
