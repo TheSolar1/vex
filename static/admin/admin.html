@@ -1565,12 +1565,16 @@ function toggleHistoriqueRevenus(champ){
     if(box.style.display!=='none' && box.dataset.champ===champ){ box.style.display='none'; return; }
     const hist=S._revenusHistorique||[];
     const labels={mrr:'MRR (€)',payants:'Abonnés payants',total_users:'Comptes gratuits'};
-    box.dataset.champ=champ;
-    box.style.display='block';
     if(hist.length<2){
-        box.innerHTML=`<div style="font-size:.82rem;color:var(--text-m)"><img src="/static/img/solid/circle-info.svg" class="ico ico-accent" alt=""> Pas encore assez d'historique pour ${esc(labels[champ]||champ)} — un point est enregistré à chaque visite de cette page, l'évolution apparaîtra au fil des jours.</div>`;
+        // FIX (demande utilisateur) : message ephemere en toast plutot
+        // qu'encadre persistant -- rien a garder affiche ici, juste un
+        // etat "pas encore de donnees" sans graphe a montrer.
+        flash(`Pas encore assez d'historique pour ${labels[champ]||champ} — un point est enregistré à chaque visite de cette page.`, false);
+        box.style.display='none';
         return;
     }
+    box.dataset.champ=champ;
+    box.style.display='block';
     const vals=hist.map(h=>champ==='total_users'?(h.total_users-h.payants):Number(h[champ]));
     const max=Math.max(1,...vals), min=Math.min(0,...vals);
     const w=600,h=90,pad=4;

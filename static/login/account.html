@@ -616,7 +616,7 @@ __NAV_HTML__
     renderLangueSelect(r.data.supported_languages, r.data.langue);
     renderUser(r.data);
     renderAutologin(r.data.autologin);
-    chargerAbonnement();
+    verifierAbonnementVisible();
   }
 
   // Section "Abonnement" : masquee tant que l'admin n'a pas active les
@@ -626,8 +626,15 @@ __NAV_HTML__
   // que l'activation admin ait un effet visible immediatement (avant :
   // rien ne se voyait tant que l'URL externe n'etait pas aussi remplie,
   // ce qui donnait l'impression que le bouton "Activer" ne faisait rien).
-  let ABO_PLANS=[], ABO_URL_PAIEMENT='';
-  async function chargerAbonnement(){
+  // FIX (demande utilisateur : "il faut diviser [la page] pour que tout ne
+  // soit pas charge en meme temps") -- chargerAbonnement() construisait
+  // TOUTE la section Abonnement (cartes de plans, avantages, etc.) des le
+  // chargement de la page, meme si l'utilisateur ne l'ouvre jamais.
+  // Separe en deux : une verification legere (juste necessaire pour savoir
+  // si le lien doit apparaitre dans la sidebar), et le rendu lourd des
+  // cartes, differe a l'ouverture reelle de l'onglet (voir switchSection).
+  let ABO_PLANS=[], ABO_URL_PAIEMENT='', ABO_CHARGE=false;
+  async function verifierAbonnementVisible(){
     try{
       const r=await (await fetch('/api/login/config',{credentials:'include'})).json();
       const plans=r.plans||{};
@@ -636,6 +643,12 @@ __NAV_HTML__
       ABO_PLANS=plans.available_plans||[];
       const lien=$('#sidebar-abonnement');
       if(lien) lien.style.display=actif?'':'none';
+    }catch(e){ /* section reste masquee si la config est indisponible */ }
+  }
+  async function chargerAbonnement(){
+    if(!ABO_PLANS.length) await verifierAbonnementVisible();
+    ABO_CHARGE=true;
+    try{
       const estVip=S.user?.vip===1;
       const planActuelEl=$('#abo-plan-actuel');
       if(planActuelEl) planActuelEl.textContent=estVip?(I18N.PREMIUM||'VIP'):(I18N.GRATUIT||'Gratuit');
@@ -717,6 +730,7 @@ __NAV_HTML__
   function switchSection(sec){
     if(sec==='preferences'){ loadAffichage(); loadExtPrefs(); }
     if(sec==='sync'){ loadAppareilsSync(); }
+    if(sec==='abonnement' && !ABO_CHARGE){ chargerAbonnement(); }
     document.querySelectorAll('.section-content').forEach(s=>s.classList.remove('active'));
     document.querySelectorAll('.sidebar-link').forEach(l=>l.classList.remove('active'));
     const target=$(`#${sec}-section`); if(target) target.classList.add('active');
