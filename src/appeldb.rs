@@ -457,6 +457,29 @@ pub fn compter_sessions_actives(pool: &DbPool, minutes: u32) -> u64 {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// FONCTION 6bis : utilisateurs_actifs_par_mois()
+// Compte les comptes distincts ayant ouvert au moins une session (table
+// `loginc`, deja utilisee par compter_sessions_actives) par mois, sur les
+// `mois` derniers mois -- sert de "taux d'utilisation mensuel" cote admin
+// (section Revenus). Aucune nouvelle colonne necessaire : `loginc.datecra`
+// existe deja a chaque connexion reussie (voir login.rs::handle_srp_step2).
+// ══════════════════════════════════════════════════════════════════
+pub fn utilisateurs_actifs_par_mois(pool: &DbPool, mois: u32) -> Vec<(String, u64)> {
+    let mut conn = match pool.get_conn() {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
+    conn.exec(
+        "SELECT DATE_FORMAT(`datecra`, '%Y-%m') AS mois, COUNT(DISTINCT `email`) AS n
+         FROM `loginc`
+         WHERE `datecra` > NOW() - INTERVAL ? MONTH
+         GROUP BY mois ORDER BY mois ASC",
+        (mois,),
+    )
+    .unwrap_or_default()
+}
+
+// ══════════════════════════════════════════════════════════════════
 // FONCTION 7 : get_taille_db()
 // ══════════════════════════════════════════════════════════════════
 pub fn get_taille_db(pool: &DbPool) -> f64 {

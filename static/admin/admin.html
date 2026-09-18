@@ -412,6 +412,18 @@ __NAV_HTML__
                         <button class="btn bg2" id="btn-save-payment-url" onclick="saveExternalPaymentUrl()">Enregistrer</button>
                         <button class="btn bg2" onclick="const u=document.getElementById('external-payment-url').value.trim(); if(u)window.open(u,'_blank')" title="Ouvrir dans un nouvel onglet"><img src="/static/img/solid/arrow-up-right-from-square.svg" class="ico ico-gray" alt=""></button>
                     </div>
+                    <!-- FIX (demande utilisateur : "tout regler dans l'admin") : les cles
+                         Stripe/PayPal et le taux de commission restent geres UNIQUEMENT sur
+                         paiement-pi (voir CLAUDE.md -- jamais dans ce depot/VEX), qui a deja
+                         sa propre page /admin protegee par token pour ca. On ajoute juste un
+                         raccourci pratique ici plutot que de dupliquer ces champs sensibles
+                         dans VEX. -->
+                    <div style="margin-top:10px;font-size:.78rem">
+                        <button class="btn bg2" onclick="const upi=document.getElementById('external-payment-url').value.trim(); if(upi)window.open(upi.replace(/\/$/,'')+'/admin','_blank')" style="width:100%">
+                            <img src="/static/img/solid/gear.svg" class="ico ico-accent" alt=""> Configurer Stripe / PayPal / commission (paiement-pi)
+                        </button>
+                        <div style="color:var(--text-m);margin-top:6px">Ouvre la page d'admin dédiée de paiement-pi (protégée par son propre token, jamais accessible depuis ici).</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1452,7 +1464,7 @@ async function renderRevenus(){
     const box=document.getElementById('revenus-content');
     if(!box)return;
     box.innerHTML='<div class="loading"><span class="spin"></span></div>';
-    const r=await api('/users');
+    const [r,rStats]=await Promise.all([api('/users'),api('/revenus_stats')]);
     if(!r.success){box.innerHTML=`<div style="padding:14px;color:var(--text-m)">${esc(r.error||'Erreur.')}</div>`;return;}
     const users=r.data||[];
     const plans=S.configData.plans?.available_plans||[];
@@ -1466,13 +1478,58 @@ async function renderRevenus(){
         return `<tr><td>${esc(p.name||p.id)}</td><td class="m">${n}</td><td class="m">${p.price_eur_month}€</td><td class="m"><strong>${(n*p.price_eur_month).toFixed(2)}€</strong></td></tr>`;
     }).join('');
     const nonPayantsAvecVip=users.filter(u=>u.vip&&!u.vip_paye).length;
+    const totalUsers=users.length;
+    const tauxConversion=totalUsers?(payants.length/totalUsers*100):0;
+
+    // ── Graphique "taux d'utilisation par mois" (comptes distincts ayant
+    // ouvert une session, table loginc, 6 derniers mois) ────────────────
+    const mensuel=(rStats.success&&rStats.data?.actifs_par_mois)||[];
+    const maxMensuel=Math.max(1,...mensuel.map(m=>m.n));
+    const moisLabel=m=>{const[y,mo]=m.split('-');return['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc'][Number(mo)-1]+' '+y.slice(2);};
+    const graphMensuel=mensuel.length?`
+        <div style="display:flex;align-items:flex-end;gap:10px;height:120px;padding:10px 4px 0">
+            ${mensuel.map(m=>`
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
+                    <div style="font-size:.72rem;font-weight:700;margin-bottom:4px">${m.n}</div>
+                    <div style="width:100%;max-width:34px;background:var(--accent);border-radius:5px 5px 0 0;height:${Math.max(4,m.n/maxMensuel*90)}px"></div>
+                    <div style="font-size:.68rem;color:var(--text-m);margin-top:6px">${moisLabel(m.mois)}</div>
+                </div>`).join('')}
+        </div>`
+        :`<div style="padding:14px;color:var(--text-m);font-size:.84rem">Pas encore assez de connexions enregistrées.</div>`;
+
+    // ── Repartition gratuit / payant (barre horizontale) ────────────────
+    const barreConversion=`
+        <div style="display:flex;height:22px;border-radius:6px;overflow:hidden;background:var(--surface2)">
+            <div style="width:${tauxConversion}%;background:var(--accent)" title="${payants.length} payant(s)"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:.76rem;color:var(--text-m);margin-top:6px">
+            <span>${payants.length} payant(s) / ${totalUsers} compte(s)</span>
+            <span><strong style="color:var(--accent)">${tauxConversion.toFixed(1)}%</strong> de conversion</span>
+        </div>`;
+
     box.innerHTML=`
         <div class="sg" style="margin-bottom:14px">
             <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/euro-sign.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${mrr.toFixed(2)}€</div><div class="sc-l">MRR réel / mois</div></div>
             <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/users.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${payants.length}</div><div class="sc-l">Abonnés payants confirmés</div></div>
         </div>
         ${lignes?`<table class="t"><thead><tr><th>Plan</th><th>Abonnés</th><th>Prix</th><th>Sous-total</th></tr></thead><tbody>${lignes}</tbody></table>`:`<div style="padding:14px;color:var(--text-m);font-size:.84rem">Aucun paiement confirmé pour le moment.</div>`}
-        <div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">Basé sur <code>vip_paye</code> (mis à jour par le webhook Stripe / la capture PayPal à chaque paiement confirmé sur paiement-pi) — plans annuels non inclus dans ce MRR mensuel.${nonPayantsAvecVip?` ${nonPayantsAvecVip} compte(s) ont un plan VIP donné manuellement (pas payé), exclus d'ici.`:''}</div>`;
+        <div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">Basé sur <code>vip_paye</code> (mis à jour par le webhook Stripe / la capture PayPal à chaque paiement confirmé sur paiement-pi) — plans annuels non inclus dans ce MRR mensuel.${nonPayantsAvecVip?` ${nonPayantsAvecVip} compte(s) ont un plan VIP donné manuellement (pas payé), exclus d'ici.`:''}</div>
+
+        <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border)">
+            <div style="font-weight:700;font-size:.86rem;margin-bottom:2px"><img src="/static/img/solid/chart-column.svg" class="ico ico-accent" alt=""> Taux d'utilisation par mois</div>
+            <div style="font-size:.76rem;color:var(--text-m);margin-bottom:6px">Comptes distincts ayant ouvert une session, par mois.</div>
+            ${graphMensuel}
+        </div>
+
+        <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border)">
+            <div style="font-weight:700;font-size:.86rem;margin-bottom:8px"><img src="/static/img/solid/percent.svg" class="ico ico-accent" alt=""> Taux d'achat (conversion gratuit → payant)</div>
+            ${barreConversion}
+        </div>
+
+        <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border)">
+            <div style="font-weight:700;font-size:.86rem;margin-bottom:6px"><img src="/static/img/solid/arrow-trend-down.svg" class="ico ico-accent" alt=""> Taux de résiliation</div>
+            <div style="font-size:.8rem;color:var(--text-m)">Pas encore mesurable : aucun évènement d'annulation d'abonnement n'est encore reçu depuis paiement-pi (seul le paiement initial est suivi via <code>vip_paye</code>). Nécessite de brancher les webhooks Stripe <code>customer.subscription.deleted</code> / l'annulation PayPal côté <code>paiement-pi</code> pour être fiable.</div>
+        </div>`;
 }
 async function saveRoleLabels(){
     const nc=JSON.parse(JSON.stringify(S.configData));

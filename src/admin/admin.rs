@@ -6,7 +6,7 @@ use crate::access_control::{get_cookie, get_header};
 use crate::appeldb::{
     compter_lignes, compter_sessions_actives, decrire_table, executer_sql_admin, get_taille_db,
     get_tailles_tables, inserer_ou_modifier, lire_lignes_table, lister_tables, selectionner,
-    supprimer_ligne, verifier_connexion_avec_expiration, DbPool,
+    supprimer_ligne, utilisateurs_actifs_par_mois, verifier_connexion_avec_expiration, DbPool,
 };
 use crate::config_loader::{load_config, VexConfig};
 use crate::function::{build_nav_html, get_user_language, get_user_preferences, NavContext};
@@ -785,6 +785,15 @@ fn handle_api(
                 // n'ecrit cette colonne.
                 "vip_paye":  u.get("vip_paye").and_then(|v| v.as_i64()).unwrap_or(0) != 0,
             })).collect::<Vec<_>>() })
+        }
+
+        "/revenus_stats" => {
+            let total = compter_lignes(pool, "login", &[]);
+            let mensuel = utilisateurs_actifs_par_mois(pool, 6);
+            json!({ "success": true, "data": {
+                "total_users": total,
+                "actifs_par_mois": mensuel.iter().map(|(m, n)| json!({"mois": m, "n": n})).collect::<Vec<_>>(),
+            }})
         }
 
         "/users/privilege" => {
