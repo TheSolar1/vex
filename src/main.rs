@@ -910,6 +910,19 @@ fn serve_static(request: tiny_http::Request, path: &str) {
                 resp = resp.with_header(
                     tiny_http::Header::from_bytes("Cache-Control", "no-cache, no-store, must-revalidate").unwrap(),
                 );
+            } else {
+                // FIX (demande utilisateur : "rendre fchier ultra rapide") :
+                // le commentaire ci-dessus disait que les images/polices
+                // "restent en cache normalement", mais sans Cache-Control
+                // explicite le navigateur ne fait que du cache heuristique
+                // (souvent quelques minutes) -- chaque navigation dans
+                // fchier (des dizaines d'icones .svg identiques a chaque
+                // dossier) refaisait donc des requetes reseau evitables.
+                // Ces fichiers (icones, polices, css) ne changent qu'au
+                // deploiement d'un correctif VEX, jamais a la volee.
+                resp = resp.with_header(
+                    tiny_http::Header::from_bytes("Cache-Control", "public, max-age=604800").unwrap(),
+                );
             }
             let _ = request.respond(resp);
         }

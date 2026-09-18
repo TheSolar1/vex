@@ -412,18 +412,6 @@ __NAV_HTML__
                         <button class="btn bg2" id="btn-save-payment-url" onclick="saveExternalPaymentUrl()">Enregistrer</button>
                         <button class="btn bg2" onclick="const u=document.getElementById('external-payment-url').value.trim(); if(u)window.open(u,'_blank')" title="Ouvrir dans un nouvel onglet"><img src="/static/img/solid/arrow-up-right-from-square.svg" class="ico ico-gray" alt=""></button>
                     </div>
-                    <!-- FIX (demande utilisateur : "tout regler dans l'admin") : les cles
-                         Stripe/PayPal et le taux de commission restent geres UNIQUEMENT sur
-                         paiement-pi (voir CLAUDE.md -- jamais dans ce depot/VEX), qui a deja
-                         sa propre page /admin protegee par token pour ca. On ajoute juste un
-                         raccourci pratique ici plutot que de dupliquer ces champs sensibles
-                         dans VEX. -->
-                    <div style="margin-top:10px;font-size:.78rem">
-                        <button class="btn bg2" onclick="const upi=document.getElementById('external-payment-url').value.trim(); if(upi)window.open(upi.replace(/\/$/,'')+'/admin','_blank')" style="width:100%">
-                            <img src="/static/img/solid/gear.svg" class="ico ico-accent" alt=""> Configurer Stripe / PayPal / commission (paiement-pi)
-                        </button>
-                        <div style="color:var(--text-m);margin-top:6px">Ouvre la page d'admin dédiée de paiement-pi (protégée par son propre token, jamais accessible depuis ici).</div>
-                    </div>
                 </div>
             </div>
         </div>
