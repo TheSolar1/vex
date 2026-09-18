@@ -328,7 +328,8 @@ __NAV_HTML__
         <span>{{T_PARTAGE_AVEC_MOI}}</span>
       </button>
     </nav>
-    
+
+    <div id="quota-widget" style="margin-top:20px;padding:14px 16px;border-top:1px solid var(--border);font-size:.76rem"></div>
   </aside>
 
   <main class="content">
@@ -1166,9 +1167,39 @@ function renderAll() {
   renderGrid(d.dossiers || [], d.fichiers || [], d.pages || []);
   renderList(d.dossiers || [], d.fichiers || [], d.pages || []);
   renderFolderTreeSidebar();
+  renderQuota(d.quota);
   const chemin = d.chemin || [];
   const last   = chemin[chemin.length - 1];
   document.getElementById('content-title').textContent = last ? last.nom : I18N.MES_FICHIERS;
+}
+
+// FIX (demande utilisateur : "je veux un avertissement pour voir où on en
+// est dans la consommation de place") -- avant, le quota etait calcule
+// cote serveur mais jamais affiche nulle part.
+function formatOctets(o){
+  if(o>=1024*1024*1024) return (o/(1024*1024*1024)).toFixed(1)+' Go';
+  return (o/(1024*1024)).toFixed(0)+' Mo';
+}
+function renderQuota(q){
+  const box=document.getElementById('quota-widget');
+  if(!box||!q) return;
+  const illimite=q.max>=Number.MAX_SAFE_INTEGER-1;
+  const pct=illimite?0:Math.min(100,(q.utilise/Math.max(1,q.max))*100);
+  const couleur=pct>=95?'var(--danger, #dc2626)':pct>=80?'var(--orange, #f59e0b)':'var(--accent)';
+  const fichiersIllimite=q.nb_fichiers_max<0;
+  box.innerHTML=`
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;color:var(--text-dim)">
+      <span>Stockage</span>
+      <span>${illimite?formatOctets(q.utilise)+' (illimité)':formatOctets(q.utilise)+' / '+formatOctets(q.max)}</span>
+    </div>
+    ${illimite?'':`<div style="height:6px;border-radius:4px;background:var(--border);overflow:hidden;margin-bottom:6px">
+      <div style="height:100%;width:${pct}%;background:${couleur}"></div>
+    </div>`}
+    ${pct>=90&&!illimite?`<div style="color:var(--danger, #dc2626);font-weight:600;margin-bottom:6px">⚠ Espace presque plein — envisage un plan supérieur.</div>`:''}
+    <div style="display:flex;justify-content:space-between;color:var(--text-dim)">
+      <span>Fichiers</span>
+      <span>${q.nb_fichiers}${fichiersIllimite?'':' / '+q.nb_fichiers_max}</span>
+    </div>`;
 }
 
 function renderGrid(dossiers, fichiers, pages) {

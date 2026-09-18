@@ -525,6 +525,36 @@ pub fn repartition_par_privilege(pool: &DbPool) -> Vec<(i64, u64)> {
     .unwrap_or_default()
 }
 
+/// Enregistre (ou met a jour) le snapshot Revenus du jour -- voir
+/// revenus_snapshots (db_init.rs). Appele a chaque chargement de la page
+/// Admin > Revenus ; INSERT ... ON DUPLICATE KEY UPDATE ecrase juste la
+/// ligne du jour si elle existe deja (plusieurs visites le meme jour ne
+/// creent pas plusieurs lignes).
+pub fn enregistrer_snapshot_revenus(pool: &DbPool, mrr: f64, payants: u64, total_users: u64) {
+    let mut conn = match pool.get_conn() { Ok(c) => c, Err(_) => return };
+    let _ = conn.exec_drop(
+        "INSERT INTO `revenus_snapshots` (`jour`, `mrr`, `payants`, `total_users`)
+         VALUES (CURDATE(), ?, ?, ?)
+         ON DUPLICATE KEY UPDATE `mrr` = VALUES(`mrr`), `payants` = VALUES(`payants`), `total_users` = VALUES(`total_users`)",
+        (mrr, payants, total_users),
+    );
+}
+
+/// Historique des `jours` derniers snapshots Revenus, du plus ancien au
+/// plus recent -- alimente le graphique dans le temps au clic sur une
+/// tuile de stat (MRR / payants).
+pub fn historique_revenus(pool: &DbPool, jours: u32) -> Vec<(String, f64, i64, i64)> {
+    let mut conn = match pool.get_conn() { Ok(c) => c, Err(_) => return vec![] };
+    conn.exec(
+        "SELECT DATE_FORMAT(`jour`, '%Y-%m-%d'), `mrr`, `payants`, `total_users`
+         FROM `revenus_snapshots`
+         WHERE `jour` > CURDATE() - INTERVAL ? DAY
+         ORDER BY `jour` ASC",
+        (jours,),
+    )
+    .unwrap_or_default()
+}
+
 // ══════════════════════════════════════════════════════════════════
 // FONCTION 7 : get_taille_db()
 // ══════════════════════════════════════════════════════════════════

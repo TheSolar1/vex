@@ -449,6 +449,53 @@ pub fn handle(pool: &DbPool, req: &mut Request) -> Response<std::io::Cursor<Vec<
 }
 
 // ══════════════════════════════════════════════════════════════════
+// FIX (demande utilisateur : "la limite de place ne marche pas") : le
+// quota renvoye par /data etait un 5 Go CODE EN DUR pour tout le monde,
+// jamais reellement applique nulle part (aucun controle dans api_upload).
+// On lit desormais la vraie limite du plan de l'utilisateur (config.json
+// -> plans.available_plans[].features.storage / max_files) et on la fait
+// respecter a l'upload.
+// ══════════════════════════════════════════════════════════════════
+fn plan_id_utilisateur(pool: &DbPool, uid: i64) -> String {
+    let vip = selectionner(pool, "login", &[("id", mysql::Value::from(uid))], &["vip"], None, Some(1))
+        .into_iter()
+        .next()
+        .and_then(|u| u.get("vip").and_then(|v| v.as_str()).map(|s| s.to_string()))
+        .unwrap_or_default();
+    if vip.trim().is_empty() || vip == "0" { "free".to_string() } else { vip }
+}
+
+/// Parse une taille lisible ("500MB", "20 GB", "1TB") en octets. Une valeur
+/// vide/invalide ou "illimité" retombe sur i64::MAX (pas de limite).
+fn parse_taille_octets(s: &str) -> i64 {
+    let s = s.trim();
+    if s.is_empty() { return i64::MAX; }
+    let coupe = s.find(|c: char| !c.is_ascii_digit() && c != '.').unwrap_or(s.len());
+    let (nombre, unite) = s.split_at(coupe);
+    let n: f64 = match nombre.parse() { Ok(v) => v, Err(_) => return i64::MAX };
+    let mult = match unite.trim().to_uppercase().as_str() {
+        "TB" | "TO" => 1024.0 * 1024.0 * 1024.0 * 1024.0,
+        "GB" | "GO" => 1024.0 * 1024.0 * 1024.0,
+        "KB" | "KO" => 1024.0,
+        "" | "B" | "MB" | "MO" => 1024.0 * 1024.0,
+        _ => 1024.0 * 1024.0,
+    };
+    (n * mult) as i64
+}
+
+/// Renvoie (quota_octets, quota_fichiers) pour le plan donne. -1 = illimite
+/// pour max_files (convention deja utilisee dans config.json).
+fn quota_du_plan(cfg: &crate::config_loader::VexConfig, plan_id: &str) -> (i64, i64) {
+    let plan = cfg.plans.available_plans.iter()
+        .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(plan_id));
+    let features = plan.and_then(|p| p.get("features"));
+    let storage = features.and_then(|f| f.get("storage")).and_then(|v| v.as_str()).unwrap_or("500MB");
+    let max_octets = parse_taille_octets(storage);
+    let max_fichiers = features.and_then(|f| f.get("max_files")).and_then(|v| v.as_i64()).unwrap_or(50);
+    (max_octets, max_fichiers)
+}
+
+// ══════════════════════════════════════════════════════════════════
 // GET /api/fchier/data
 // ══════════════════════════════════════════════════════════════════
 fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<Vec<u8>>> {
@@ -725,18 +772,20 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
     };
 
 
-    // ── Quota
-    let quota: i64 = selectionner(
+    // ── Quota (reel, base sur le plan de l'utilisateur -- voir plan_id_utilisateur/quota_du_plan)
+    let fichiers_uid = selectionner(
         pool,
         "fichiers",
         &[("id_utilisateur", mysql::Value::from(uid))],
         &["taille"],
         None,
         None,
-    )
-    .iter()
-    .filter_map(|r| r.get("taille").and_then(|v| v.as_i64()))
-    .sum();
+    );
+    let quota: i64 = fichiers_uid.iter().filter_map(|r| r.get("taille").and_then(|v| v.as_i64())).sum();
+    let nb_fichiers = fichiers_uid.len() as i64;
+    let cfg = load_config("config.json");
+    let plan_id = plan_id_utilisateur(pool, uid);
+    let (quota_max, fichiers_max) = quota_du_plan(&cfg, &plan_id);
 
     json_response(
         200,
@@ -748,7 +797,11 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
             "dossier_courant": dossier,
             "shared":      shared,
             "all_folders": all_folders,
-            "quota":       {"utilise": quota, "max": 5_368_709_120i64},
+            "quota":       {
+                "utilise": quota, "max": quota_max,
+                "nb_fichiers": nb_fichiers, "nb_fichiers_max": fichiers_max,
+                "plan": plan_id,
+            },
         }),
     )
 }
@@ -850,10 +903,6 @@ fn api_upload(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
         return json_response(400, json!({"error": format!("Extension .{} non autorisée", ext)}));
     }
 
-    // Horodatage a la seconde pres (et non au jour pres) : necessaire pour
-    // qu'un client de synchronisation puisse detecter une modification
-    // survenue le meme jour que la precedente (voir aussi api_edit_content).
-    let now = chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string();
     // Taille réelle depuis le base64 si non fournie
     let taille_reelle = if taille > 0 {
         taille
@@ -861,6 +910,37 @@ fn api_upload(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
         // base64: 4 chars = 3 bytes
         (file_b64.len() as i64 * 3 / 4)
     };
+
+    // FIX (demande utilisateur : "la limite de place ne marche pas") --
+    // jamais verifie avant : on controle desormais que l'upload ne fasse
+    // depasser ni le quota de stockage ni le nombre max de fichiers du
+    // plan de l'utilisateur (config.json -> plans.available_plans).
+    let cfg = load_config("config.json");
+    let plan_id = plan_id_utilisateur(pool, uid);
+    let (quota_max, fichiers_max) = quota_du_plan(&cfg, &plan_id);
+    let fichiers_existants = selectionner(
+        pool, "fichiers",
+        &[("id_utilisateur", mysql::Value::from(uid))],
+        &["taille"], None, None,
+    );
+    let deja_utilise: i64 = fichiers_existants.iter().filter_map(|r| r.get("taille").and_then(|v| v.as_i64())).sum();
+    if quota_max != i64::MAX && deja_utilise + taille_reelle > quota_max {
+        return json_response(413, json!({"error": format!(
+            "Espace de stockage insuffisant ({:.1} Mo utilisés sur {:.1} Mo) — passe à un plan supérieur pour continuer.",
+            deja_utilise as f64 / 1_048_576.0, quota_max as f64 / 1_048_576.0,
+        )}));
+    }
+    if fichiers_max >= 0 && (fichiers_existants.len() as i64) >= fichiers_max {
+        return json_response(413, json!({"error": format!(
+            "Nombre de fichiers maximum atteint ({} / {}) — passe à un plan supérieur pour continuer.",
+            fichiers_existants.len(), fichiers_max,
+        )}));
+    }
+
+    // Horodatage a la seconde pres (et non au jour pres) : necessaire pour
+    // qu'un client de synchronisation puisse detecter une modification
+    // survenue le meme jour que la precedente (voir aussi api_edit_content).
+    let now = chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string();
 
     let valeur_fichier = stockage_disque_config()
         .and_then(|dossier| B64.decode(&file_b64).ok().map(|bytes| (dossier, bytes)))

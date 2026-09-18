@@ -4,11 +4,11 @@
 
 use crate::access_control::{get_cookie, get_header};
 use crate::appeldb::{
-    compter_lignes, compter_sessions_actives, decrire_table, executer_sql_admin, get_taille_db,
-    get_tailles_tables, inserer_ou_modifier, lire_lignes_table, lister_tables,
-    repartition_par_privilege, selectionner, sessions_depuis, supprimer_ligne,
-    utilisateurs_actifs_depuis, utilisateurs_actifs_par_mois, verifier_connexion_avec_expiration,
-    DbPool,
+    compter_lignes, compter_sessions_actives, decrire_table, enregistrer_snapshot_revenus,
+    executer_sql_admin, get_taille_db, get_tailles_tables, historique_revenus,
+    inserer_ou_modifier, lire_lignes_table, lister_tables, repartition_par_privilege,
+    selectionner, sessions_depuis, supprimer_ligne, utilisateurs_actifs_depuis,
+    utilisateurs_actifs_par_mois, verifier_connexion_avec_expiration, DbPool,
 };
 use crate::config_loader::{load_config, VexConfig};
 use crate::function::{build_nav_html, get_user_language, get_user_preferences, NavContext};
@@ -752,9 +752,7 @@ fn handle_api(
                     "nom":       u.get("nom").and_then(|v| v.as_str()).unwrap_or(""),
                     "email":     u.get("email").and_then(|v| v.as_str()).unwrap_or(""),
                     "privilege": u.get("privilege").and_then(|v| v.as_i64()).unwrap_or(0),
-                    // Stocke en base "0"/"1" (voir /users/vip) ; le front attend
-                    // l'identifiant de plan "vip" pour presélectionner l'option.
-                    "vip":       u.get("vip").and_then(|v| v.as_str()).filter(|s| !s.is_empty() && *s != "0").map(|_| "vip").unwrap_or(""),
+                    "vip":       u.get("vip").and_then(|v| v.as_str()).filter(|s| !s.is_empty() && *s != "0").unwrap_or(""),
                 })).collect::<Vec<_>>(),
             }})
         }
@@ -781,7 +779,15 @@ fn handle_api(
                 "nom":       u.get("nom").and_then(|v| v.as_str()).unwrap_or(""),
                 "email":     u.get("email").and_then(|v| v.as_str()).unwrap_or(""),
                 "privilege": u.get("privilege").and_then(|v| v.as_i64()).unwrap_or(0),
-                "vip":       u.get("vip").and_then(|v| v.as_str()).filter(|s| !s.is_empty() && *s != "0").map(|_| "vip").unwrap_or(""),
+                // FIX (bug decouvert avec un 2e plan payant "ultra_vip") :
+                // renvoyait toujours la chaine litterale "vip" des qu'un
+                // compte avait un plan quelconque -- le <select> VIP de la
+                // table Utilisateurs (vipOpts, qui compare a l'id reel du
+                // plan) selectionnait donc TOUJOURS "Gratuit" pour tout
+                // plan different de "vip", et Revenus regroupait tous les
+                // payants sous une seule ligne au lieu de les repartir par
+                // plan reel. On renvoie desormais l'id de plan tel quel.
+                "vip":       u.get("vip").and_then(|v| v.as_str()).filter(|s| !s.is_empty() && *s != "0").unwrap_or(""),
                 // Plan obtenu via un vrai paiement (point 5, pas encore branche) --
                 // voir garde dans /users/vip. Toujours 0 tant qu'aucun paiement reel
                 // n'ecrit cette colonne.
@@ -793,6 +799,30 @@ fn handle_api(
             let total = compter_lignes(pool, "login", &[]);
             let mensuel = utilisateurs_actifs_par_mois(pool, 6);
             let privileges = repartition_par_privilege(pool);
+
+            // ── Snapshot du jour (MRR + payants), pour le graphique dans le
+            // temps au clic sur une tuile -- voir enregistrer_snapshot_revenus.
+            let vex_cfg = load_config(config_path);
+            let plans = &vex_cfg.plans.available_plans;
+            let payants_rows = selectionner(pool, "login", &[], &["vip", "vip_paye"], None, None);
+            let mut mrr = 0.0f64;
+            let mut nb_payants = 0u64;
+            for u in &payants_rows {
+                let paye = u.get("vip_paye").and_then(|v| v.as_i64()).unwrap_or(0) != 0;
+                if !paye { continue; }
+                let plan_id = u.get("vip").and_then(|v| v.as_str()).unwrap_or("");
+                if plan_id.is_empty() || plan_id == "0" { continue; }
+                nb_payants += 1;
+                if let Some(prix) = plans.iter()
+                    .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(plan_id))
+                    .and_then(|p| p.get("price_eur_month")).and_then(|v| v.as_f64())
+                {
+                    mrr += prix;
+                }
+            }
+            enregistrer_snapshot_revenus(pool, mrr, nb_payants, total);
+            let historique = historique_revenus(pool, 90);
+
             json!({ "success": true, "data": {
                 "total_users": total,
                 "actifs_par_mois": mensuel.iter().map(|(m, n)| json!({"mois": m, "n": n})).collect::<Vec<_>>(),
@@ -801,6 +831,9 @@ fn handle_api(
                 "actifs_7j": utilisateurs_actifs_depuis(pool, 24 * 7),
                 "sessions_30j": sessions_depuis(pool, 30),
                 "repartition_privilege": privileges.iter().map(|(p, n)| json!({"privilege": p, "n": n})).collect::<Vec<_>>(),
+                "historique": historique.iter().map(|(j, mrr, payants, tu)| json!({
+                    "jour": j, "mrr": mrr, "payants": payants, "total_users": tu,
+                })).collect::<Vec<_>>(),
             }})
         }
 

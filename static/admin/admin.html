@@ -1526,11 +1526,18 @@ async function renderRevenus(){
         </div>`
         :`<div style="padding:14px;color:var(--text-m);font-size:.84rem">Aucune donnée.</div>`;
 
+    // FIX (demande utilisateur : "quand tu cliques sur une tuile, affiche un
+    // graphe dans le temps") -- l'historique (revenus_snapshots, un point
+    // par jour) est enregistre a chaque chargement de cette page (voir
+    // /revenus_stats cote serveur). Pas d'historique avant aujourd'hui : le
+    // graphe se remplit progressivement au fil des visites.
+    const historique=stats.historique||[];
+    S._revenusHistorique=historique;
     box.innerHTML=`
         <div class="sg" style="margin-bottom:14px">
-            <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/euro-sign.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${mrr.toFixed(2)}€</div><div class="sc-l">MRR réel / mois</div></div>
-            <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/users.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${payants.length}</div><div class="sc-l">Abonnés payants confirmés</div></div>
-            <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/user.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${totalUsers-payants.length}</div><div class="sc-l">Comptes gratuits</div></div>
+            <div class="sc" style="--si:var(--accent);cursor:pointer" onclick="toggleHistoriqueRevenus('mrr')" title="Cliquer pour voir l'évolution"><div class="sc-i"><img src="/static/img/solid/euro-sign.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${mrr.toFixed(2)}€</div><div class="sc-l">MRR réel / mois</div></div>
+            <div class="sc" style="--si:var(--accent);cursor:pointer" onclick="toggleHistoriqueRevenus('payants')" title="Cliquer pour voir l'évolution"><div class="sc-i"><img src="/static/img/solid/users.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${payants.length}</div><div class="sc-l">Abonnés payants confirmés</div></div>
+            <div class="sc" style="--si:var(--accent);cursor:pointer" onclick="toggleHistoriqueRevenus('total_users')" title="Cliquer pour voir l'évolution"><div class="sc-i"><img src="/static/img/solid/user.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${totalUsers-payants.length}</div><div class="sc-l">Comptes gratuits</div></div>
             <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/scale-balanced.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${arpuPayant.toFixed(2)}€</div><div class="sc-l">ARPU (par payant)</div></div>
             <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/scale-balanced.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${arpuGlobal.toFixed(2)}€</div><div class="sc-l">ARPU (tous comptes)</div></div>
             <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/bolt.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${stats.actifs_1h??'—'}</div><div class="sc-l">Actifs (1h)</div></div>
@@ -1539,6 +1546,7 @@ async function renderRevenus(){
             <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/arrow-right-arrow-left.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${stats.sessions_30j??'—'}</div><div class="sc-l">Connexions (30 jours)</div></div>
             <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/gift.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${nonPayantsAvecVip}</div><div class="sc-l">VIP offerts (non payés)</div></div>
         </div>
+        <div id="revenus-historique" style="display:none;margin-bottom:14px;padding:14px;background:var(--surface2);border-radius:8px"></div>
         ${lignes?`<table class="t"><thead><tr><th>Plan</th><th>Abonnés</th><th>Prix</th><th>Sous-total</th></tr></thead><tbody>${lignes}</tbody></table>`:`<div style="padding:14px;color:var(--text-m);font-size:.84rem">Aucun paiement confirmé pour le moment.</div>`}
         <div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">Basé sur <code>vip_paye</code> (mis à jour par le webhook Stripe / la capture PayPal à chaque paiement confirmé sur paiement-pi) — plans annuels non inclus dans ce MRR mensuel.</div>
 
@@ -1561,6 +1569,41 @@ async function renderRevenus(){
         <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border)">
             <div style="font-weight:700;font-size:.86rem;margin-bottom:6px"><img src="/static/img/solid/arrow-trend-down.svg" class="ico ico-accent" alt=""> Taux de résiliation</div>
             <div style="font-size:.8rem;color:var(--text-m)">Pas encore mesurable : aucun évènement d'annulation d'abonnement n'est encore reçu depuis paiement-pi (seul le paiement initial est suivi via <code>vip_paye</code>). Nécessite de brancher les webhooks Stripe <code>customer.subscription.deleted</code> / l'annulation PayPal côté <code>paiement-pi</code> pour être fiable.</div>
+        </div>`;
+}
+function toggleHistoriqueRevenus(champ){
+    const box=document.getElementById('revenus-historique');
+    if(!box) return;
+    if(box.style.display!=='none' && box.dataset.champ===champ){ box.style.display='none'; return; }
+    const hist=S._revenusHistorique||[];
+    const labels={mrr:'MRR (€)',payants:'Abonnés payants',total_users:'Comptes gratuits'};
+    box.dataset.champ=champ;
+    box.style.display='block';
+    if(hist.length<2){
+        box.innerHTML=`<div style="font-size:.82rem;color:var(--text-m)"><img src="/static/img/solid/circle-info.svg" class="ico ico-accent" alt=""> Pas encore assez d'historique pour ${esc(labels[champ]||champ)} — un point est enregistré à chaque visite de cette page, l'évolution apparaîtra au fil des jours.</div>`;
+        return;
+    }
+    const vals=hist.map(h=>champ==='total_users'?(h.total_users-h.payants):Number(h[champ]));
+    const max=Math.max(1,...vals), min=Math.min(0,...vals);
+    const w=600,h=90,pad=4;
+    const pts=vals.map((v,i)=>{
+        const x=pad+(i/(vals.length-1))*(w-2*pad);
+        const y=h-pad-((v-min)/(max-min||1))*(h-2*pad);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    const dernier=vals[vals.length-1];
+    const premier=vals[0];
+    const variation=premier?((dernier-premier)/Math.abs(premier)*100):0;
+    box.innerHTML=`
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="font-weight:700;font-size:.82rem"><img src="/static/img/solid/chart-line.svg" class="ico ico-accent" alt=""> ${esc(labels[champ]||champ)} — ${hist.length} jour(s) d'historique</div>
+            <div style="font-size:.78rem;color:${variation>=0?'var(--accent)':'var(--danger,#dc2626)'};font-weight:700">${variation>=0?'+':''}${variation.toFixed(1)}%</div>
+        </div>
+        <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:90px;display:block">
+            <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2"></polyline>
+        </svg>
+        <div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--text-m);margin-top:4px">
+            <span>${hist[0].jour}</span><span>${hist[hist.length-1].jour}</span>
         </div>`;
 }
 async function saveRoleLabels(){

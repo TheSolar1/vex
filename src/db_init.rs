@@ -373,6 +373,23 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
     )?;
 
+    // ── revenus_snapshots (demande utilisateur : graphique dans le temps
+    // au clic sur une tuile de Admin > Revenus) : une ligne par jour,
+    // ecrasee/mise a jour a chaque chargement de la page ce jour-la --
+    // pas de tache planifiee (l'architecture mono-thread de ce serveur
+    // rend risque tout job periodique bloquant, voir le bug d'interblocage
+    // P2P deja rencontre) donc l'historique s'accumule simplement a chaque
+    // visite de l'admin sur cette page.
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `revenus_snapshots` (
+            `jour`         DATE  NOT NULL,
+            `mrr`          FLOAT NOT NULL DEFAULT 0,
+            `payants`      INT   NOT NULL DEFAULT 0,
+            `total_users`  INT   NOT NULL DEFAULT 0,
+            PRIMARY KEY (`jour`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+    )?;
+
     eprintln!("[db_init] Base '{}' initialisée avec succès.", cfg.dbname);
     Ok(())
 }
