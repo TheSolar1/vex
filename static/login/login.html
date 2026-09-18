@@ -43,9 +43,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .modal-footer{padding:24px;border-top:1px solid var(--panel-border);display:flex;gap:12px;justify-content:flex-end}
 .btn-cancel{padding:10px 20px;background:var(--surface2);color:var(--text);border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}
 .security-note{margin-top:18px;font-size:11px;color:var(--text-dim);text-align:center;line-height:1.5}
+/* FIX (demande utilisateur, plusieurs fois : "meme style d'erreur/info que
+   fchier sur TOUT le serveur") -- cette page (login) utilisait encore un
+   encadre de message inline au lieu du toast bas-droite standard. */
+#toast-area{position:fixed;bottom:24px;right:24px;z-index:5000;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.toast{background:var(--surface);border:1px solid var(--panel-border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);padding:12px 18px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;animation:toast-in .25s ease;pointer-events:all;max-width:340px}
+@keyframes toast-in{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.toast.ok{border-left:4px solid var(--accent)}
+.toast.error{border-left:4px solid var(--danger)}
+.toast .ico{width:14px;height:14px;flex-shrink:0}
 </style>
 </head>
 <body>
+<div id="toast-area"></div>
 <div class="login-wrapper">
     <div class="logo">
         <h1>VEX</h1>
@@ -414,10 +424,31 @@ async function loadConfig() {
     } catch { return {}; }
 }
 
+// FIX (demande utilisateur, plusieurs fois : "meme style d'erreur/info que
+// fchier sur TOUT le serveur") -- showMsg() affichait un encadre inline
+// dans la page au lieu du toast bas-droite standard. Signature conservee
+// (id/msg/type) pour ne pas toucher tous les appels existants, mais route
+// maintenant vers un vrai toast fchier-style.
 function showMsg(id, msg, type) {
-    const el = document.getElementById(id);
-    if (!msg) { el.innerHTML = ''; return; }
-    el.innerHTML = `<div class="message ${type}">${esc(msg)}</div>`;
+    if (!msg) return;
+    toast(msg, type === 'error' ? 'error' : 'ok');
+}
+function toast(msg, type = 'ok', dur = 3500) {
+    const area = document.getElementById('toast-area');
+    const existant = [...area.children].find(c => c.dataset.msg === msg);
+    if (existant) { existant.dispatchEvent(new Event('vex-relancer')); return; }
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.dataset.msg = msg;
+    const icone = type === 'error' ? 'circle-xmark' : 'circle-check';
+    el.innerHTML = `<img class="ico" src="/static/img/solid/${icone}.svg" alt=""><span>${esc(msg)}</span>`;
+    area.appendChild(el);
+    let minuteur = null;
+    const armerDisparition = () => { minuteur = setTimeout(() => { el.style.opacity = '0'; el.style.transition = '.3s'; setTimeout(() => area.removeChild(el), 300); }, dur); };
+    el.addEventListener('mouseenter', () => clearTimeout(minuteur));
+    el.addEventListener('mouseleave', armerDisparition);
+    el.addEventListener('vex-relancer', () => { clearTimeout(minuteur); armerDisparition(); });
+    armerDisparition();
 }
 
 function esc(s) {

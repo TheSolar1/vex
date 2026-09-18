@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Autologin - VEX</title>
 <link rel="icon" href="/static/img/favicon.ico" type="image/svg+xml">
+<link rel="stylesheet" href="/static/css/theme.css">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{
@@ -94,9 +95,19 @@ body{
   font-weight:600;
 }
 .back-link:hover{text-decoration:underline}
+/* FIX (demande utilisateur, plusieurs fois : "meme style d'erreur/info que
+   fchier sur TOUT le serveur") -- encadre inline remplace par le toast
+   bas-droite standard. */
+#toast-area{position:fixed;bottom:24px;right:24px;z-index:5000;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.toast{background:#fff;border:1px solid #e4e6eb;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);padding:12px 18px;font-size:13px;font-weight:600;color:#1c1e21;display:flex;align-items:center;gap:10px;animation:toast-in .25s ease;pointer-events:all;max-width:340px}
+@keyframes toast-in{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.toast.ok{border-left:4px solid #4caf50}
+.toast.error{border-left:4px solid #c62828}
+.toast .ico{width:14px;height:14px;flex-shrink:0}
 </style>
 </head>
 <body>
+<div id="toast-area"></div>
 <div class="autologin-wrapper">
   <div class="logo">
     <h1>VEX</h1>
@@ -126,13 +137,31 @@ body{
 </div>
 
 <script>
+// FIX (demande utilisateur, plusieurs fois : "meme style d'erreur/info que
+// fchier sur TOUT le serveur") -- encadre inline remplace par un vrai
+// toast bas-droite (signature conservee pour ne pas toucher tous les
+// appels existants).
+function escToast(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function showMsg(msg, type) {
-  const box = document.getElementById('msg-box');
-  if (!msg) {
-    box.innerHTML = '';
-    return;
-  }
-  box.innerHTML = `<div class="message ${type}">${msg}</div>`;
+  if (!msg) return;
+  toast(msg, type === 'error' ? 'error' : 'ok');
+}
+function toast(msg, type = 'ok', dur = 3500) {
+  const area = document.getElementById('toast-area');
+  const existant = [...area.children].find(c => c.dataset.msg === msg);
+  if (existant) { existant.dispatchEvent(new Event('vex-relancer')); return; }
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.dataset.msg = msg;
+  const icone = type === 'error' ? 'circle-xmark' : 'circle-check';
+  el.innerHTML = `<img class="ico" src="/static/img/solid/${icone}.svg" alt=""><span>${escToast(msg)}</span>`;
+  area.appendChild(el);
+  let minuteur = null;
+  const armerDisparition = () => { minuteur = setTimeout(() => { el.style.opacity = '0'; el.style.transition = '.3s'; setTimeout(() => area.removeChild(el), 300); }, dur); };
+  el.addEventListener('mouseenter', () => clearTimeout(minuteur));
+  el.addEventListener('mouseleave', armerDisparition);
+  el.addEventListener('vex-relancer', () => { clearTimeout(minuteur); armerDisparition(); });
+  armerDisparition();
 }
 
 document.getElementById('autologin-form').addEventListener('submit', function(e) {
