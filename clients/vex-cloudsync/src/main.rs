@@ -981,7 +981,18 @@ fn main() {
     // redemander silencieusement dossier+mot de passe comme si de rien
     // n'etait. "Continuer" (Annuler dans la boite de dialogue) garde le
     // comportement normal.
-    if deja_installe() {
+    //
+    // DEMANDE UTILISATEUR : ce dialogue s'affichait a CHAQUE lancement des
+    // que deja_installe() est vrai -- donc a chaque redemarrage Windows via
+    // assurer_demarrage_auto, bloquant la synchro tant que personne n'etait
+    // devant l'ecran pour le fermer. Une fois le mot de passe mis en cache
+    // (voir charger_mdp_sauvegarde / sauvegarder_mdp plus bas), un
+    // relancement est par definition une reprise automatique et non une
+    // reinstallation manuelle -- on saute directement ce dialogue dans ce
+    // cas (equivalent a fermer sur "Continuer"). Sans mot de passe en
+    // cache (premiere fois avec cette version, ou apres un "Reinstaller"),
+    // le dialogue reste affiche comme avant.
+    if deja_installe() && fenetre_mdp::charger_mdp_sauvegarde().is_none() {
         match fenetre_mdp::demander_action_installation(&icone_dossier_locale, &get_client_path()) {
             fenetre_mdp::ActionInstallation::Desinstaller => {
                 desinstaller();
@@ -1022,8 +1033,25 @@ fn main() {
         }
     }
 
-    let Some((mdp, url_serveur)) = demander_mot_de_passe(&icone_dossier_locale) else {
-        return;
+    // DEMANDE UTILISATEUR : sur une machine deja configuree (jeton + dossier
+    // deja enregistres, voir deja_installe()), ne plus redemander le mot de
+    // passe de chiffrement a chaque lancement -- avant ce correctif, un
+    // redemarrage Windows (assurer_demarrage_auto relance l'app) laissait la
+    // synchro bloquee sur cette fenetre tant que quelqu'un n'etait pas
+    // physiquement devant la machine pour le retaper. Le mot de passe est
+    // desormais mis en cache via DPAPI (voir fenetre_mdp::sauvegarder_mdp) --
+    // lisible uniquement par ce compte Windows sur cette machine, pas en
+    // clair sur le disque. Si le cache est absent/invalide (premiere
+    // installation, ou "Reinstaller"), la fenetre s'affiche normalement.
+    let (mdp, url_serveur) = match (deja_installe(), fenetre_mdp::charger_mdp_sauvegarde()) {
+        (true, Some(mdp)) => (mdp, fenetre_mdp::charger_url_preferee()),
+        _ => {
+            let Some((mdp, url_serveur)) = demander_mot_de_passe(&icone_dossier_locale) else {
+                return;
+            };
+            fenetre_mdp::sauvegarder_mdp(&mdp);
+            (mdp, url_serveur)
+        }
     };
 
     let (tx_evt, rx_evt) = mpsc::channel::<EvenementTray>();

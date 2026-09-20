@@ -890,6 +890,7 @@ pub fn sauvegarder_dossier_choisi(chemin: &str) {
 pub fn effacer_configuration_locale() {
     let _ = std::fs::remove_file(chemin_fichier_url());
     let _ = std::fs::remove_file(chemin_fichier_dossier());
+    effacer_mdp_sauvegarde();
 }
 
 #[derive(Clone, Copy)]
@@ -1747,4 +1748,74 @@ fn sauvegarder_url_preferee(url: &str) {
         let _ = std::fs::create_dir_all(parent);
     }
     let _ = std::fs::write(chemin, url);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Mot de passe de chiffrement — sauvegarde via DPAPI (CryptProtectData /
+// CryptUnprotectData) plutot qu'en clair. DEMANDE UTILISATEUR : sans ca,
+// le mot de passe (jamais stocke jusqu'ici, voir device_auth.rs) etait
+// redemande a CHAQUE lancement, y compris au demarrage automatique de
+// Windows -- ce qui bloquait la synchro apres chaque redemarrage tant que
+// quelqu'un n'etait pas physiquement devant la machine pour le ressaisir.
+//
+// DPAPI chiffre le blob avec une cle derivee du compte Windows de
+// l'utilisateur courant (CryptProtectData sans CRYPTPROTECT_LOCAL_MACHINE) :
+// le fichier resultant n'est lisible en clair que par ce meme compte
+// Windows sur cette meme machine, contrairement a un fichier texte simple
+// comme device.json/serveur.txt. "Reinstaller" (voir effacer_configuration_locale)
+// l'efface comme le reste de la config locale.
+// ══════════════════════════════════════════════════════════════════
+use windows::Win32::Security::Cryptography::{CryptProtectData, CryptUnprotectData, CRYPT_INTEGER_BLOB};
+
+const NOM_FICHIER_MDP: &str = "mdp.bin";
+
+fn chemin_fichier_mdp() -> std::path::PathBuf {
+    let base = std::env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".to_string());
+    std::path::PathBuf::from(base).join("VexCloudSync").join(NOM_FICHIER_MDP)
+}
+
+unsafe fn dpapi_proteger(donnees: &[u8]) -> Option<Vec<u8>> {
+    let mut entree = CRYPT_INTEGER_BLOB { cbData: donnees.len() as u32, pbData: donnees.as_ptr() as *mut u8 };
+    let mut sortie = CRYPT_INTEGER_BLOB::default();
+    CryptProtectData(&mut entree, None, None, None, None, 0, &mut sortie).ok()?;
+    let resultat = std::slice::from_raw_parts(sortie.pbData, sortie.cbData as usize).to_vec();
+    let _ = windows::Win32::Foundation::LocalFree(windows::Win32::Foundation::HLOCAL(sortie.pbData as *mut _));
+    Some(resultat)
+}
+
+unsafe fn dpapi_deproteger(donnees: &[u8]) -> Option<Vec<u8>> {
+    let mut entree = CRYPT_INTEGER_BLOB { cbData: donnees.len() as u32, pbData: donnees.as_ptr() as *mut u8 };
+    let mut sortie = CRYPT_INTEGER_BLOB::default();
+    CryptUnprotectData(&mut entree, None, None, None, None, 0, &mut sortie).ok()?;
+    let resultat = std::slice::from_raw_parts(sortie.pbData, sortie.cbData as usize).to_vec();
+    let _ = windows::Win32::Foundation::LocalFree(windows::Win32::Foundation::HLOCAL(sortie.pbData as *mut _));
+    Some(resultat)
+}
+
+/// Mot de passe de chiffrement sauvegarde lors d'un lancement precedent
+/// (voir sauvegarder_mdp), ou None si aucun n'est enregistre ou si le
+/// dechiffrement DPAPI echoue (ex. fichier copie sur une autre machine ou
+/// sous un autre compte Windows -- redemande alors normalement le mot de
+/// passe plutot que de planter).
+pub fn charger_mdp_sauvegarde() -> Option<String> {
+    let chiffre = std::fs::read(chemin_fichier_mdp()).ok()?;
+    let clair = unsafe { dpapi_deproteger(&chiffre) }?;
+    String::from_utf8(clair).ok().filter(|s| !s.is_empty())
+}
+
+pub fn sauvegarder_mdp(mdp: &str) {
+    let Some(chiffre) = (unsafe { dpapi_proteger(mdp.as_bytes()) }) else { return };
+    let chemin = chemin_fichier_mdp();
+    if let Some(parent) = chemin.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let _ = std::fs::write(chemin, chiffre);
+}
+
+/// Efface le mot de passe sauvegarde -- utilise quand la synchro echoue au
+/// demarrage silencieux (mot de passe probablement change ou blob DPAPI
+/// invalide) pour retomber sur la fenetre de saisie au lieu de boucler
+/// indefiniment sur un echec silencieux.
+pub fn effacer_mdp_sauvegarde() {
+    let _ = std::fs::remove_file(chemin_fichier_mdp());
 }

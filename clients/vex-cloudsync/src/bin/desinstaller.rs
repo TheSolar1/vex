@@ -128,6 +128,7 @@ fn main() {
     let _ = std::fs::remove_file(dossier.join("dossier.txt"));
     let _ = std::fs::remove_file(dossier.join("langue_ui.txt"));
     let _ = std::fs::remove_file(dossier.join("device.json"));
+    let _ = std::fs::remove_file(dossier.join("mdp.bin"));
     if let Ok(profil) = std::env::var("USERPROFILE") {
         let _ = std::fs::remove_file(format!("{profil}\\Desktop\\VEX.lnk"));
     }
