@@ -1567,7 +1567,6 @@ async function renderRevenus(){
             <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/arrow-right-arrow-left.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${stats.sessions_30j??'—'}</div><div class="sc-l">Connexions (30 jours)</div></div>
             <div class="sc" style="--si:var(--accent)"><div class="sc-i"><img src="/static/img/solid/gift.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v">${nonPayantsAvecVip}</div><div class="sc-l">VIP offerts (non payés)</div></div>
         </div>
-        <div id="revenus-historique" style="display:none;margin-bottom:14px;padding:14px;background:var(--surface2);border-radius:8px"></div>
         ${lignes?`<table class="t"><thead><tr><th>Plan</th><th>Abonnés</th><th>Prix</th><th>Sous-total</th></tr></thead><tbody>${lignes}</tbody></table>`:`<div style="padding:14px;color:var(--text-m);font-size:.84rem">Aucun paiement confirmé pour le moment.</div>`}
         <div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">Basé sur <code>vip_paye</code> (mis à jour par le webhook Stripe / la capture PayPal à chaque paiement confirmé sur paiement-pi) — plans annuels non inclus dans ce MRR mensuel.</div>
 
@@ -1593,21 +1592,16 @@ async function renderRevenus(){
         </div>`;
 }
 function toggleHistoriqueRevenus(champ){
-    const box=document.getElementById('revenus-historique');
-    if(!box) return;
-    if(box.style.display!=='none' && box.dataset.champ===champ){ box.style.display='none'; return; }
+    // FIX (demande utilisateur : l'historique des revenus s'affichait dans un
+    // encadre inline sous les tuiles -- remplace par un vrai popup, meme
+    // pattern .modal-bg que le reste de l'admin (voir ouvrirDiskBreakdown).
+    document.querySelectorAll('.modal-bg').forEach(m=>m.remove());
     const hist=S._revenusHistorique||[];
     const labels={mrr:'MRR (€)',payants:'Abonnés payants',total_users:'Comptes gratuits'};
     if(hist.length<2){
-        // FIX (demande utilisateur) : message ephemere en toast plutot
-        // qu'encadre persistant -- rien a garder affiche ici, juste un
-        // etat "pas encore de donnees" sans graphe a montrer.
         flash(`Pas encore assez d'historique pour ${labels[champ]||champ} — un point est enregistré à chaque visite de cette page.`, false);
-        box.style.display='none';
         return;
     }
-    box.dataset.champ=champ;
-    box.style.display='block';
     const vals=hist.map(h=>champ==='total_users'?(h.total_users-h.payants):Number(h[champ]));
     const max=Math.max(1,...vals), min=Math.min(0,...vals);
     const w=600,h=90,pad=4;
@@ -1619,7 +1613,10 @@ function toggleHistoriqueRevenus(champ){
     const dernier=vals[vals.length-1];
     const premier=vals[0];
     const variation=premier?((dernier-premier)/Math.abs(premier)*100):0;
-    box.innerHTML=`
+    const m=document.createElement('div');
+    m.className='modal-bg';
+    m.onclick=(e)=>{if(e.target===m)m.remove();};
+    m.innerHTML=`<div class="modal-box">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
             <div style="font-weight:700;font-size:.82rem"><img src="/static/img/solid/chart-line.svg" class="ico ico-accent" alt=""> ${esc(labels[champ]||champ)} — ${hist.length} jour(s) d'historique</div>
             <div style="font-size:.78rem;color:${variation>=0?'var(--accent)':'var(--danger,#dc2626)'};font-weight:700">${variation>=0?'+':''}${variation.toFixed(1)}%</div>
@@ -1629,7 +1626,10 @@ function toggleHistoriqueRevenus(champ){
         </svg>
         <div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--text-m);margin-top:4px">
             <span>${hist[0].jour}</span><span>${hist[hist.length-1].jour}</span>
-        </div>`;
+        </div>
+        <button class="btn bg2" style="margin-top:14px;width:100%" onclick="this.closest('.modal-bg').remove()">Fermer</button>
+    </div>`;
+    document.body.appendChild(m);
 }
 async function saveRoleLabels(){
     const nc=JSON.parse(JSON.stringify(S.configData));
