@@ -124,17 +124,10 @@
     #al-token{word-break:break-all;overflow-wrap:anywhere;font-family:monospace;font-size:13px;color:var(--text);}
 
     /* Style unifié avec fchier/mess/sitec : carte claire + icône + liseré coloré. */
-    .toast{
-      position:fixed;bottom:16px;right:16px;transform:translateY(12px);
-      max-width:360px;padding:12px 18px;border-radius:8px;font-weight:600;font-size:13px;
-      background:var(--surface);border:1px solid var(--panel-border);color:var(--text);
-      box-shadow:0 4px 12px rgba(0,0,0,.15);opacity:0;
-      transition:.22s ease;pointer-events:none;display:flex;align-items:center;gap:10px;
-      z-index:2000;
-    }
+    .toast{ background:var(--surface);border:1px solid var(--panel-border);box-shadow:0 4px 12px rgba(0,0,0,.15);padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:10px;animation:toast-in .25s ease;pointer-events:all;max-width:360px; }
+    @keyframes toast-in { from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);} }
     .toast.ok{border-left:4px solid var(--accent);}
     .toast.error{border-left:4px solid var(--danger, #b91c1c);}
-    .toast.show{opacity:1;transform:translateY(0);}
     .toast .ico{display:inline-block;width:14px;height:14px;vertical-align:middle;flex-shrink:0;}
 
     .section-content{display:none;}
@@ -424,7 +417,7 @@ __NAV_HTML__
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div id="toast-area" style="position:fixed;bottom:24px;right:24px;z-index:5000;display:flex;flex-direction:column;gap:10px;pointer-events:none;"></div>
 
 <script src="/static/crypto.js"></script>
 <script>
@@ -540,24 +533,27 @@ const SRP = (() => {
     const box = $('#msg-global'); if(!box) return;
     box.innerHTML = `<div class="message ${ok?'success':'error'}">${txt}</div>`;
   };
-  let _toastMinuteur=null;
+  // FIX (uniformisation) : account.html avait son propre toast singleton
+  // (id="toast", une seule bulle réécrite à chaque appel) au lieu du
+  // style standard "fchier" (id="toast-area", une carte empilable par
+  // message, dédupliquée, échappée) utilisé partout ailleurs sur VEX.
   function toast(msg, err=false){
-    const t=$('#toast'); if(!t) return;
+    const area=$('#toast-area'); if(!area) return;
+    const type = err ? 'error' : 'ok';
+    const existant=[...area.children].find(c=>c.dataset.msg===msg);
+    if(existant){ existant.dispatchEvent(new Event('vex-relancer')); return; }
+    const el=document.createElement('div');
+    el.className=`toast ${type}`;
+    el.dataset.msg=msg;
     const icon = err ? '/static/img/solid/circle-xmark.svg' : '/static/img/solid/circle-check.svg';
-    t.innerHTML = `<img class="ico ico-sm" src="${icon}"><span>${msg}</span>`;
-    t.classList.remove('ok','error');
-    t.classList.add(err?'error':'ok');
-    t.classList.add('show');
-    // FIX (demande utilisateur : "si la souris reste dessus ca ne
-    // disparait pas") -- listeners attaches une seule fois (element
-    // singleton), pas a chaque appel.
-    if(!t.dataset.hoverBound){
-      t.dataset.hoverBound='1';
-      t.addEventListener('mouseenter',()=>clearTimeout(_toastMinuteur));
-      t.addEventListener('mouseleave',()=>{_toastMinuteur=setTimeout(()=>t.classList.remove('show'),2400);});
-    }
-    clearTimeout(_toastMinuteur);
-    _toastMinuteur=setTimeout(()=>t.classList.remove('show'),2400);
+    el.innerHTML = `<img class="ico ico-sm" src="${icon}" alt=""><span>${escapeHtmlSync(msg)}</span>`;
+    area.appendChild(el);
+    let minuteur=null;
+    const armerDisparition=()=>{ minuteur=setTimeout(()=>{ el.style.opacity='0'; el.style.transition='.3s'; setTimeout(()=>area.removeChild(el),300); },3500); };
+    el.addEventListener('mouseenter',()=>clearTimeout(minuteur));
+    el.addEventListener('mouseleave',armerDisparition);
+    el.addEventListener('vex-relancer',()=>{ clearTimeout(minuteur); armerDisparition(); });
+    armerDisparition();
   }
   function setMsg(el, text, ok){ if(!el) return; el.style.display='block'; el.className='message '+(ok?'success':'error'); el.textContent=text; }
   async function j(url, opts={}){
