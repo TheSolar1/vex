@@ -554,6 +554,7 @@ const S={section:'dashboard',users:[],blocks:[],vex_pages:[],dbTable:null,dbPage
 let IS_SUPER=false,IS_FOUNDER=false,DB_COLS=[];
 
 document.querySelectorAll('.sb-a[data-sec]').forEach(a=>a.addEventListener('click',()=>nav(a.dataset.sec)));
+document.getElementById('users-table').addEventListener('click',e=>{const b=e.target.closest('[data-del-uid]');if(b)delUser(Number(b.dataset.delUid),b.dataset.delNom);});
 function nav(sec){
     S.section=sec;
     document.querySelectorAll('.sb-a[data-sec]').forEach(a=>a.classList.toggle('on',a.dataset.sec===sec));
@@ -697,7 +698,7 @@ function renderUsers(users){
         // changer quoi que ce soit.
         const vipLock=u.vip_paye&&!IS_FOUNDER;
         const vipPaidBadge=u.vip_paye?` <span class="b bx" title="Plan payé par le client">💳</span>`:'';
-        return`<tr data-s="${(u.nom+u.email).toLowerCase()}"><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${badge}</td><td><select class="isel" style="color:${pCol(u.privilege)};font-weight:600" onchange="setPriv(${u.id},this.value)">${po}</select></td><td><select class="vip-sel" onchange="setVip(${u.id},this.value)" ${vipLock?'disabled title="Plan payé — seul le fondateur peut le modifier"':''}>${vipOpts(u.vip)}</select>${vipPaidBadge}</td><td><button class="btn br2" onclick="delUser(${u.id},'${esc(u.nom)}')"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SUPPRIMER}</button></td></tr>`;
+        return`<tr data-s="${(u.nom+u.email).toLowerCase()}"><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${badge}</td><td><select class="isel" style="color:${pCol(u.privilege)};font-weight:600" onchange="setPriv(${u.id},this.value)">${po}</select></td><td><select class="vip-sel" onchange="setVip(${u.id},this.value)" ${vipLock?'disabled title="Plan payé — seul le fondateur peut le modifier"':''}>${vipOpts(u.vip)}</select>${vipPaidBadge}</td><td><button class="btn br2" data-del-uid="${u.id}" data-del-nom="${esc(u.nom)}"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SUPPRIMER}</button></td></tr>`;
     }).join('')}</tbody></table>`;
 }
 function filterUsers(q){document.querySelectorAll('#utbl tbody tr').forEach(r=>{r.style.display=r.dataset.s.includes(q.toLowerCase())?'':'none';});}
