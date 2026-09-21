@@ -365,7 +365,7 @@ fn handle_send(
         return json_resp(json!({"success":false,"error":i18n::t(&langue, Cle::MessErreurDestinataireIntrouvable)}), 404);
     }
 
-    let now = std::time::SystemTime::now()
+    let _now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
 
     match pool.get_conn() {

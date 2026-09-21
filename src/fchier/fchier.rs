@@ -921,7 +921,7 @@ fn api_upload(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
         taille
     } else {
         // base64: 4 chars = 3 bytes
-        (file_b64.len() as i64 * 3 / 4)
+        file_b64.len() as i64 * 3 / 4
     };
 
     // FIX (demande utilisateur : "la limite de place ne marche pas") --

@@ -33,11 +33,10 @@
 //   rand          = "0.8"
 // ══════════════════════════════════════════════════════════════════
 
-use crate::access_control::{get_cookie, get_header};
 use crate::appeldb::{
     inserer_ou_modifier, mysql_val_to_json, p2p_chunk_recu, p2p_creer_transfer, p2p_get_peer,
-    p2p_get_transfer, p2p_lister_peers, p2p_lister_peers_online, p2p_lister_transfers,
-    p2p_lister_users, p2p_peer_offline, p2p_upsert_peer, p2p_upsert_user, selectionner, DbPool,
+    p2p_get_transfer, p2p_lister_peers, p2p_lister_transfers,
+    p2p_lister_users, p2p_upsert_peer, p2p_upsert_user, DbPool,
 };
 use crate::config_loader::VexConfig;
 use crate::utils::{parse_query, url_decode};
@@ -1075,7 +1074,7 @@ pub fn admin_handle_api(
     pool: &DbPool,
     sub: &str,
     body: &HashMap<String, String>,
-    method: &str,
+    _method: &str,
     node_state: &Arc<RwLock<NodeState>>,
 ) -> Value {
     let ns = node_state.read().unwrap();
