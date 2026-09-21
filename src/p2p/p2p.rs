@@ -296,7 +296,33 @@ pub fn generer_annuaire(pool: &DbPool, node_state: &NodeState) -> String {
 }
 
 /// Parse un annuaire texte reçu d'un pair et fusionne dans la DB locale.
+/// N'accepte que les annuaires signés par un nœud déjà enregistré (via
+/// /p2p/register, qui verifie deja sa signature) -- sinon n'importe qui
+/// pouvait POST /p2p/sync avec un texte arbitraire non signe et ecraser
+/// des associations USER_ID -> NODE_ID (detournement de transferts).
 pub fn fusionner_annuaire(pool: &DbPool, texte: &str) {
+    let corps = match texte.find("\n[SIGNATURE]\n") {
+        Some(pos) => &texte[..pos],
+        None => return,
+    };
+    let sig_line = texte
+        .lines()
+        .skip_while(|l| l.trim() != "[SIGNATURE]")
+        .nth(1)
+        .unwrap_or("");
+    let (signer_node_id, sig) = match sig_line.split_once(':') {
+        Some((n, s)) => (n.trim(), s.trim()),
+        None => return,
+    };
+    let peer = match p2p_get_peer(pool, signer_node_id) {
+        Some(p) => p,
+        None => return,
+    };
+    let pub_key = peer.get("pub_key").and_then(|v| v.as_str()).unwrap_or("");
+    if !NodeState::verifier_signature(pub_key, corps.as_bytes(), sig) {
+        return;
+    }
+
     let mut section = "";
     for line in texte.lines() {
         let line = line.trim();
