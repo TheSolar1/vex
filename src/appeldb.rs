@@ -1162,6 +1162,7 @@ pub fn p2p_creer_transfer(
     from_node: &str,
     to_node: &str,
     from_user: i64,
+    from_user_nom: &str,
     to_user: i64,
     fichier_nom: &str,
     fichier_size: i64,
@@ -1176,12 +1177,18 @@ pub fn p2p_creer_transfer(
             ("from_node", mysql::Value::from(from_node)),
             ("to_node", mysql::Value::from(to_node)),
             ("from_user", mysql::Value::from(from_user)),
+            ("from_user_nom", mysql::Value::from(from_user_nom)),
             ("to_user", mysql::Value::from(to_user)),
             ("fichier_nom", mysql::Value::from(fichier_nom)),
             ("fichier_size", mysql::Value::from(fichier_size)),
             ("chunk_size", mysql::Value::from(chunk_size)),
             ("chunks_total", mysql::Value::from(chunks_total)),
             ("chunks_ok", mysql::Value::from(0i32)),
+            // FIX (securite, consentement P2P) : un fichier recu par
+            // transfert P2P n'est plus livre automatiquement dans l'espace
+            // fichiers du destinataire -- il reste en attente de validation
+            // explicite (voir reconstituer_fichier + /api/fchier/p2p_entrants*)
+            // tant qu'aucun mecanisme d'appairage de confiance n'existe.
             ("status", mysql::Value::from("pending")),
         ],
         &[],

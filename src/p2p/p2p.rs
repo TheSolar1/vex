@@ -554,6 +554,7 @@ pub fn envoyer_fichier(
         &node_state.node_id,
         to_node_id,
         from_user,
+        "",
         to_user,
         file_name,
         file_size as i64,
@@ -733,6 +734,8 @@ pub fn handle_request(
                 .cloned()
                 .unwrap_or_else(|| Uuid::new_v4().to_string());
             let from_node = body.get("from_node").cloned().unwrap_or_default();
+            let from_user: i64 = body.get("from_user").and_then(|v| v.parse().ok()).unwrap_or(0);
+            let from_nom = body.get("from_nom").cloned().unwrap_or_default();
             let to_user: i64 = body
                 .get("to_user")
                 .and_then(|v| v.parse().ok())
@@ -777,7 +780,8 @@ pub fn handle_request(
                 &tid,
                 &from_node,
                 &ns.node_id,
-                0,
+                from_user,
+                &from_nom,
                 to_user,
                 &file_name,
                 file_size,
@@ -946,41 +950,26 @@ fn reconstituer_fichier(
     // Nettoie les chunks temporaires
     fs::remove_dir_all(chunk_dir).ok();
 
-    // Enregistre dans la table fichiers pour que l'utilisateur puisse y accéder
-    let to_user = {
-        // On re-lit le transfert pour avoir to_user
-        if let Some(t) = p2p_get_transfer(pool, tid) {
-            t.get("to_user").and_then(|v| v.as_i64()).unwrap_or(0)
-        } else {
-            0
-        }
-    };
-
-    if to_user > 0 {
-        let taille = fs::metadata(&output_path).map(|m| m.len()).unwrap_or(0) as i64;
-        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-        inserer_ou_modifier(
-            pool,
-            "fichiers",
-            &[
-                ("nom", mysql::Value::from(safe_name.as_str())),
-                (
-                    "fichier",
-                    mysql::Value::from(output_path.to_str().unwrap_or("")),
-                ),
-                (
-                    "type_fichier",
-                    mysql::Value::from("application/octet-stream"),
-                ),
-                ("taille", mysql::Value::from(taille)),
-                ("visble", mysql::Value::from("prive")),
-                ("id_utilisateur", mysql::Value::from(to_user)),
-                ("partage", mysql::Value::from("")),
-                ("date", mysql::Value::from(now.as_str())),
-            ],
-            &[],
-        );
-    }
+    // FIX (securite, consentement P2P) : un noeud pair enregistre pouvait
+    // jusqu'ici pousser un fichier directement dans l'espace `fichiers`
+    // de n'importe quel utilisateur local (to_user pris tel quel, sans
+    // consentement) -- aucun mecanisme de confiance/appairage n'existant
+    // par ailleurs. Le fichier reconstitue reste desormais HORS de la
+    // table `fichiers` (donc invisible dans ExoDrive) tant que le
+    // destinataire ne l'a pas accepte explicitement -- voir
+    // /api/fchier/p2p_entrants_liste|accepter|refuser.
+    inserer_ou_modifier(
+        pool,
+        "p2p_transfers",
+        &[
+            ("status", mysql::Value::from("attente_validation")),
+            (
+                "fichier_chemin_temp",
+                mysql::Value::from(output_path.to_str().unwrap_or("")),
+            ),
+        ],
+        &[("transfer_id", mysql::Value::from(tid))],
+    );
 
     eprintln!("[p2p] Fichier reconstitué : {:?}", output_path);
 }

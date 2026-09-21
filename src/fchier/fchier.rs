@@ -214,7 +214,7 @@ fn load_p2p_state() -> NodeState {
     NodeState::init(&vex_url, p2p_cfg)
 }
 
-fn send_file_via_p2p(pool: &DbPool, file_path: &str, file_name: &str, to_user: i64) -> Value {
+fn send_file_via_p2p(pool: &DbPool, file_path: &str, file_name: &str, to_user: i64, from_uid: i64) -> Value {
     // Trouver le node du destinataire
     let dest_node = selectionner(
         pool,
@@ -265,12 +265,30 @@ fn send_file_via_p2p(pool: &DbPool, file_path: &str, file_name: &str, to_user: i
     let chunks_total = ((file_size + chunk_size as u64 - 1) / chunk_size as u64) as usize;
     let transfer_id = Uuid::new_v4().to_string();
 
+    // Nom affiche a titre informatif au destinataire (auto-declare, non
+    // authentifie -- seule l'identite du noeud emetteur, sig_init
+    // ci-dessous, est cryptographiquement verifiee cote reception).
+    let from_nom = selectionner(
+        pool,
+        "login",
+        &[("id", mysql::Value::from(from_uid))],
+        &["nom"],
+        None,
+        Some(1),
+    )
+    .into_iter()
+    .next()
+    .and_then(|r| r.get("nom").and_then(|v| v.as_str()).map(|s| s.to_string()))
+    .unwrap_or_default();
+
     // Init transfert
     let sig_init = ns.signer(transfer_id.as_bytes());
     let init_body = format!(
-        "transfer_id={}&from_node={}&to_user={}&file_name={}&file_size={}&chunk_size={}&chunks_total={}&sig={}",
+        "transfer_id={}&from_node={}&from_user={}&from_nom={}&to_user={}&file_name={}&file_size={}&chunk_size={}&chunks_total={}&sig={}",
         urlenc_simple(&transfer_id),
         urlenc_simple(&ns.node_id),
+        from_uid,
+        urlenc_simple(&from_nom),
         to_user,
         urlenc_simple(file_name),
         file_size,
@@ -441,6 +459,9 @@ pub fn handle(pool: &DbPool, req: &mut Request) -> Response<std::io::Cursor<Vec<
             "onlyoffice/prepare" => super::onlyoffice::prepare(pool, req, uid),
             "onlyoffice/finish" => super::onlyoffice::finish(pool, req, uid),
             "send_p2p" => api_send_p2p(pool, req, uid),
+            "p2p_entrants_liste" => api_p2p_entrants_liste(pool, uid),
+            "p2p_entrants_accepter" => api_p2p_entrants_decision(pool, req, uid, true),
+            "p2p_entrants_refuser" => api_p2p_entrants_decision(pool, req, uid, false),
             _ => json_response(404, json!({"error":"Endpoint inconnu"})),
         };
     }
@@ -1996,7 +2017,7 @@ fn api_send_p2p(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io:
         },
     };
 
-    let res = send_file_via_p2p(pool, &chemin_disque, &nom, to_user);
+    let res = send_file_via_p2p(pool, &chemin_disque, &nom, to_user, uid);
     if let Some(tmp) = tmp_a_nettoyer {
         let _ = std::fs::remove_file(tmp);
     }
@@ -2006,6 +2027,120 @@ fn api_send_p2p(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io:
         400
     };
     json_response(status, res)
+}
+
+// FIX (securite, consentement P2P) : voir reconstituer_fichier (p2p.rs).
+// Un fichier recu via P2P reste en attente ici tant que le destinataire
+// ne l'a pas explicitement accepte -- ces 3 endpoints sont les seuls a
+// pouvoir faire transitionner un transfert hors de l'etat
+// "attente_validation", et uniquement pour son propre to_user (jamais
+// depuis le corps de la requete, toujours depuis la session).
+fn api_p2p_entrants_liste(pool: &DbPool, uid: i64) -> Response<std::io::Cursor<Vec<u8>>> {
+    let rows = selectionner(
+        pool,
+        "p2p_transfers",
+        &[
+            ("to_user", mysql::Value::from(uid)),
+            ("status", mysql::Value::from("attente_validation")),
+        ],
+        &["transfer_id", "from_node", "from_user_nom", "fichier_nom", "fichier_size", "created_at"],
+        Some("created_at DESC"),
+        None,
+    );
+    let liste: Vec<Value> = rows
+        .into_iter()
+        .map(|r| {
+            json!({
+                "transfer_id": r.get("transfer_id").and_then(|v| v.as_str()).unwrap_or(""),
+                "from_node": r.get("from_node").and_then(|v| v.as_str()).unwrap_or(""),
+                "from_nom": r.get("from_user_nom").and_then(|v| v.as_str()).unwrap_or(""),
+                "fichier_nom": r.get("fichier_nom").and_then(|v| v.as_str()).unwrap_or(""),
+                "fichier_size": r.get("fichier_size").and_then(|v| v.as_i64()).unwrap_or(0),
+                "created_at": r.get("created_at").and_then(|v| v.as_str()).unwrap_or(""),
+            })
+        })
+        .collect();
+    json_response(200, json!({"success":true,"data":liste}))
+}
+
+fn api_p2p_entrants_decision(
+    pool: &DbPool,
+    req: &mut Request,
+    uid: i64,
+    accepter: bool,
+) -> Response<std::io::Cursor<Vec<u8>>> {
+    let body = match parse_json_body(req) {
+        Some(b) => b,
+        None => return json_response(400, json!({"success":false,"error":"JSON invalide"})),
+    };
+    let transfer_id = body.get("transfer_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    if transfer_id.is_empty() {
+        return json_response(400, json!({"success":false,"error":"transfer_id manquant"}));
+    }
+
+    // Ne selectionne QUE si to_user == uid (session) -- un utilisateur ne
+    // peut jamais accepter/refuser le transfert de quelqu'un d'autre.
+    let rows = selectionner(
+        pool,
+        "p2p_transfers",
+        &[
+            ("transfer_id", mysql::Value::from(transfer_id.as_str())),
+            ("to_user", mysql::Value::from(uid)),
+            ("status", mysql::Value::from("attente_validation")),
+        ],
+        &["fichier_nom", "fichier_chemin_temp", "fichier_size"],
+        None,
+        Some(1),
+    );
+    let Some(row) = rows.into_iter().next() else {
+        return json_response(404, json!({"success":false,"error":"Transfert introuvable ou deja traite"}));
+    };
+    let chemin_temp = row.get("fichier_chemin_temp").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let nom = row.get("fichier_nom").and_then(|v| v.as_str()).unwrap_or("fichier").to_string();
+    let taille = row.get("fichier_size").and_then(|v| v.as_i64()).unwrap_or(0);
+
+    if accepter {
+        if chemin_temp.is_empty() || !std::path::Path::new(&chemin_temp).exists() {
+            return json_response(410, json!({"success":false,"error":"Fichier temporaire introuvable (expire ?)"}));
+        }
+        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        inserer_ou_modifier(
+            pool,
+            "fichiers",
+            &[
+                ("nom", mysql::Value::from(nom.as_str())),
+                ("fichier", mysql::Value::from(chemin_temp.as_str())),
+                ("type_fichier", mysql::Value::from("application/octet-stream")),
+                ("taille", mysql::Value::from(taille)),
+                ("visble", mysql::Value::from("prive")),
+                ("id_utilisateur", mysql::Value::from(uid)),
+                ("partage", mysql::Value::from("")),
+                ("date", mysql::Value::from(now.as_str())),
+            ],
+            &[],
+        );
+        inserer_ou_modifier(
+            pool,
+            "p2p_transfers",
+            &[("status", mysql::Value::from("accepte"))],
+            &[("transfer_id", mysql::Value::from(transfer_id.as_str()))],
+        );
+    } else {
+        if !chemin_temp.is_empty() {
+            let _ = std::fs::remove_file(&chemin_temp);
+        }
+        inserer_ou_modifier(
+            pool,
+            "p2p_transfers",
+            &[
+                ("status", mysql::Value::from("refuse")),
+                ("fichier_chemin_temp", mysql::Value::from("")),
+            ],
+            &[("transfer_id", mysql::Value::from(transfer_id.as_str()))],
+        );
+    }
+
+    json_response(200, json!({"success":true}))
 }
 
 fn serve_html(nav_html: &str, langue: &str) -> String {

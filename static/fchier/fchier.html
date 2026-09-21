@@ -657,6 +657,11 @@ __NAV_HTML__
 
 <div id="toast-area" style="position:fixed;bottom:24px;right:24px;z-index:5000;display:flex;flex-direction:column;gap:10px;pointer-events:none;"></div>
 
+<!-- FIX (securite, consentement P2P) : un fichier recu via P2P n'est
+     plus livre automatiquement -- l'utilisateur doit l'accepter ici, en
+     voyant explicitement de quel noeud et de quel utilisateur il vient. -->
+<div id="p2p-entrants-area" style="position:fixed;top:70px;right:24px;z-index:5000;display:flex;flex-direction:column;gap:10px;max-width:340px;"></div>
+
 <style>
 .spinner { width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite; }
 @keyframes spin { to { transform:rotate(360deg); } }
@@ -700,7 +705,84 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadData();
   initDropZone();
   initEmptyAreaContextMenu();
+  initP2pEntrants();
 });
+
+// ══════════════════════════════════════════════════════════════════
+// FIX (securite, consentement P2P) : un pair P2P peut demander a nous
+// envoyer un fichier -- il reste en attente cote serveur tant qu'on ne
+// l'a pas explicitement accepte ici (voir p2p.rs::reconstituer_fichier
+// et /api/fchier/p2p_entrants_*). On affiche le noeud emetteur (identite
+// verifiee par signature cote serveur) et le nom auto-declare par
+// l'emetteur (informatif uniquement, non authentifie).
+// ══════════════════════════════════════════════════════════════════
+const P2P_ENTRANTS_POLL_MS = 20000;
+let p2pEntrantsConnus = new Set();
+function initP2pEntrants() {
+  chargerP2pEntrants();
+  setInterval(chargerP2pEntrants, P2P_ENTRANTS_POLL_MS);
+}
+function formatTaille(o) {
+  if (!o || o < 1024) return (o||0) + ' o';
+  const u = ['Ko','Mo','Go','To']; let n = o, i = -1;
+  do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
+  return n.toFixed(1) + ' ' + u[i];
+}
+async function chargerP2pEntrants() {
+  try {
+    const r = await fetch('/api/fchier/p2p_entrants_liste', { credentials: 'include' });
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d.success) return;
+    const area = document.getElementById('p2p-entrants-area');
+    const vus = new Set(d.data.map(t => t.transfer_id));
+    // Retire les cartes dont le transfert n'est plus en attente (traite ailleurs / expire)
+    [...area.children].forEach(c => { if (!vus.has(c.dataset.tid)) area.removeChild(c); });
+    d.data.forEach(t => {
+      if (document.querySelector(`#p2p-entrants-area [data-tid="${CSS.escape(t.transfer_id)}"]`)) return;
+      const nouveau = !p2pEntrantsConnus.has(t.transfer_id);
+      p2pEntrantsConnus.add(t.transfer_id);
+      const card = document.createElement('div');
+      card.dataset.tid = t.transfer_id;
+      card.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:var(--r,10px);padding:14px;box-shadow:0 4px 16px rgba(0,0,0,.15);';
+      card.innerHTML = `
+        <div style="font-weight:700;font-size:.85rem;margin-bottom:4px;">Fichier P2P recu</div>
+        <div style="font-size:.8rem;color:var(--text-m);margin-bottom:2px;">De : <strong>${escHtml(t.from_nom || 'Inconnu')}</strong> (declare)</div>
+        <div style="font-size:.75rem;color:var(--text-m);margin-bottom:8px;word-break:break-all;">Noeud verifie : <code>${escHtml(t.from_node)}</code></div>
+        <div style="font-size:.82rem;margin-bottom:10px;">${escHtml(t.fichier_nom)} — ${formatTaille(t.fichier_size)}</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary" data-act="accepter" style="flex:1;font-size:.78rem;padding:6px 10px;">Accepter</button>
+          <button class="btn btn-secondary" data-act="refuser" style="flex:1;font-size:.78rem;padding:6px 10px;">Refuser</button>
+        </div>`;
+      card.querySelector('[data-act="accepter"]').addEventListener('click', () => decisionP2pEntrant(t.transfer_id, true, card));
+      card.querySelector('[data-act="refuser"]').addEventListener('click', () => decisionP2pEntrant(t.transfer_id, false, card));
+      area.appendChild(card);
+      if (nouveau) toast(`Fichier P2P recu de ${t.from_nom || 'un pair'} (noeud ${t.from_node.slice(0,8)}…)`, 'info');
+    });
+  } catch (e) { /* pas bloquant */ }
+}
+async function decisionP2pEntrant(transferId, accepter, card) {
+  card.querySelectorAll('button').forEach(b => b.disabled = true);
+  try {
+    const r = await fetch(`/api/fchier/p2p_entrants_${accepter ? 'accepter' : 'refuser'}`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transfer_id: transferId }),
+    });
+    const d = await r.json();
+    if (d.success) {
+      toast(accepter ? 'Fichier accepte, ajoute a vos fichiers.' : 'Fichier refuse.', 'ok');
+      card.remove();
+      if (accepter) loadData();
+    } else {
+      toast(d.error || 'Erreur', 'error');
+      card.querySelectorAll('button').forEach(b => b.disabled = false);
+    }
+  } catch (e) {
+    toast('Erreur reseau', 'error');
+    card.querySelectorAll('button').forEach(b => b.disabled = false);
+  }
+}
 
 // ══════════════════════════════════════════════════════════════════
 // THÈME — récupère la préférence `teme` côté serveur et l'applique

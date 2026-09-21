@@ -260,6 +260,13 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
             UNIQUE KEY `transfer_id` (`transfer_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
     )?;
+    // FIX (securite, consentement P2P) : colonnes pour le flux de
+    // validation manuelle d'un fichier recu -- voir reconstituer_fichier
+    // dans p2p.rs. `from_user_nom` est auto-declare par le noeud emetteur
+    // (jamais garanti authentique, affiche a titre informatif seulement --
+    // l'identite fiable est `from_node`, verifiee par signature).
+    let _ = conn.query_drop("ALTER TABLE `p2p_transfers` ADD COLUMN `from_user_nom` VARCHAR(255) DEFAULT NULL");
+    let _ = conn.query_drop("ALTER TABLE `p2p_transfers` ADD COLUMN `fichier_chemin_temp` VARCHAR(500) DEFAULT NULL");
 
     // ── pref ──────────────────────────────────────────────────────
     conn.query_drop(
