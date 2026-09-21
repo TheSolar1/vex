@@ -26,7 +26,11 @@
   --orange: #f59e0b;
   --blue: #3b82f6;
 
-  --nav-gradient: linear-gradient(135deg,var(--vex-green-1) 0%,var(--vex-green-2) 100%);
+  /* FIX (demande utilisateur : "je veux un fond blanc") : la barre de
+     nav du haut (et son fil d'ariane) utilisait un degrade vert --
+     remplace par un blanc uni en theme clair. Le degrade reste en theme
+     sombre (un fond blanc y casserait le contraste). */
+  --nav-gradient: #ffffff;
   --shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 14px rgba(0,0,0,.04);
   --radius: 12px;
 

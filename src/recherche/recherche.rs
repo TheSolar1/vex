@@ -223,11 +223,19 @@ fn api_abonnement(pool: &DbPool, config: &VexConfig, uid: i64) -> Response<std::
 
 fn serve_html(nav_html: &str, langue: &str) -> String {
     let html = include_str!("../../static/recherche/recherche.html").replace("__NAV_HTML__", nav_html);
-    i18n::appliquer_traductions(&html, langue, &[
+    let html = i18n::appliquer_traductions(&html, langue, &[
         ("{{T_TITRE_ONGLET}}", Cle::RechTitreOnglet),
         ("{{T_TITRE}}", Cle::RechTitre),
         ("{{T_PLACEHOLDER}}", Cle::RechPlaceholder),
         ("{{T_AUCUN_RESULTAT}}", Cle::RechAucunResultat),
         ("{{T_TELECHARGEMENTS}}", Cle::RechTelechargements),
-    ])
+    ]);
+    // FIX (bug, recherche silencieuse) : {{I18N_JS}} n'etait jamais
+    // remplace ici (contrairement a fchier.rs/mess.rs/...) -- il restait
+    // tel quel dans le <script>, ce qui cassait TOUT le JS de la page des
+    // la premiere ligne (ReferenceError) et empechait le moindre appel a
+    // /api/recherche/extensions. La page n'utilise aucune variable
+    // I18N.xxx cote JS (tout passe par les placeholders {{T_...}}
+    // ci-dessus, deja substitues cote serveur), donc un objet vide suffit.
+    html.replacen("{{I18N_JS}}", "const I18N = {};", 1)
 }
