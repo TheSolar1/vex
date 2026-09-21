@@ -428,7 +428,7 @@ __NAV_HTML__
                     <input type="text" id="external-payment-url" class="ci" placeholder="https://paiement.vex.hopto.org" style="flex:1">
                     <!-- valeur remplie par loadRoles() -->
                     <button class="btn bg2" id="btn-save-payment-url" onclick="saveExternalPaymentUrl()">Enregistrer</button>
-                    <button class="btn bg2" onclick="const u=document.getElementById('external-payment-url').value.trim(); if(u)window.open(u,'_blank')" title="Ouvrir dans un nouvel onglet"><img src="/static/img/solid/arrow-up-right-from-square.svg" class="ico ico-gray" alt=""></button>
+                    <button class="btn bg2" id="btn-open-payment-url" onclick="const u=document.getElementById('external-payment-url').value.trim(); if(u)window.open(u,'_blank')" title="Ouvrir dans un nouvel onglet"><img src="/static/img/solid/arrow-up-right-from-square.svg" class="ico ico-gray" alt=""></button>
                 </div>
             </div>
         </div>
@@ -1385,7 +1385,13 @@ async function loadRoles(){
     renderDiscounts();
     const extUrl=S.configData.plans?.external_payment_url||'';
     const champUrl=document.getElementById('external-payment-url');
-    champUrl.value=extUrl;
+    // FIX (demande utilisateur : "enleve ca de l'affichage dans admin")
+    // -- l'URL de paiement reelle ne s'affiche plus du tout dans le panel,
+    // meme en lecture seule (juste une indication qu'une URL est
+    // configuree ou non). Elle reste modifiable uniquement en editant
+    // config.json directement sur le serveur (voir plus bas).
+    champUrl.value='';
+    champUrl.placeholder=extUrl?'Configurée (masquée — éditer config.json sur le serveur pour la voir/changer)':'Aucune URL configurée';
     // FIX (demande utilisateur : "je veux qu'on puisse pas changer l'url")
     // -- c'est l'endroit vers lequel l'argent va circuler : plus personne,
     // meme le fondateur, ne peut la changer depuis le panel (le serveur
@@ -1394,6 +1400,8 @@ async function loadRoles(){
     champUrl.disabled=true;
     const btnSaveUrl=document.getElementById('btn-save-payment-url');
     if(btnSaveUrl){btnSaveUrl.disabled=true;btnSaveUrl.title='Non modifiable depuis le panel — édite config.json directement sur le serveur si besoin.';}
+    const btnOpenUrl=document.getElementById('btn-open-payment-url');
+    if(btnOpenUrl){btnOpenUrl.disabled=true;btnOpenUrl.title='URL masquée dans le panel.';}
     majBoutonPaidPlans();
 }
 function majBoutonPaidPlans(){
