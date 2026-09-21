@@ -2412,7 +2412,7 @@ fn respond_json(request: Request, body: Value) {
     ));
 }
 
-fn read_config(path: &str) -> Value {
+pub(crate) fn read_config(path: &str) -> Value {
     std::fs::read_to_string(path)
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())
@@ -3870,7 +3870,7 @@ fn market_ecrire_cache(mut v: Value) {
 }
 
 /// Recupere la release depuis GitHub (ou le cache).
-fn market_release(cfg: &Value, forcer: bool, langue: &str) -> Result<Value, String> {
+pub(crate) fn market_release(cfg: &Value, forcer: bool, langue: &str) -> Result<Value, String> {
     if !forcer {
         if let Some(v) = market_lire_cache() {
             return Ok(v);
@@ -3898,7 +3898,7 @@ fn market_release(cfg: &Value, forcer: bool, langue: &str) -> Result<Value, Stri
 }
 
 /// Un id d'extension deduit du nom de l'asset ("monchat-0.2.zip" -> "monchat").
-fn market_id_depuis_nom(nom: &str) -> String {
+pub(crate) fn market_id_depuis_nom(nom: &str) -> String {
     let base = nom
         .rsplit('/')
         .next()

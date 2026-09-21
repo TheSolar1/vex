@@ -45,6 +45,9 @@ mod viso {
 mod sitec {
     pub mod sitec;
 }
+mod recherche {
+    pub mod recherche;
+}
 
 use crate::p2p::p2p::{
     handle_request, lancer_sync_periodique, NodeState, P2pConfig,
@@ -742,6 +745,11 @@ fn main() {
                 || p.starts_with("/page/") =>
             {
                 let resp = sitec::sitec::handle(&pool, &mut request);
+                let _ = request.respond(resp);
+            }
+
+            p if p.starts_with("/recherche") || p.starts_with("/api/recherche") => {
+                let resp = recherche::recherche::handle(&pool, &config, &mut request);
                 let _ = request.respond(resp);
             }
 

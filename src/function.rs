@@ -645,6 +645,7 @@ pub fn build_nav_html(ctx: &NavContext) -> String {
             NavApp::new("fas fa-folder-open", "Fichiers", "/fchier/"),
             NavApp::new("fas fa-video", "Vidéos", "/viso/"),
             NavApp::new("fas fa-globe", "Sitec", "/sitec/"),
+            NavApp::new("fas fa-magnifying-glass", "Recherche", "/recherche/"),
         ]
     } else {
         vec![]
@@ -702,6 +703,7 @@ pub fn build_nav_html(ctx: &NavContext) -> String {
             ("fas fa-globe".to_string(), "Sitec".to_string(), "/sitec/".to_string(), false),
             ("fas fa-video".to_string(), "Vidéos".to_string(), "/viso/".to_string(), false),
             ("fas fa-folder-open".to_string(), "Fichiers".to_string(), "/fchier/".to_string(), false),
+            ("fas fa-magnifying-glass".to_string(), "Recherche".to_string(), "/recherche/".to_string(), false),
         ];
         for a in apps_extensions(false).into_iter().filter(|a| app_visible(&choix_apps, &a.url)) {
             v.push((a.icon, a.label, a.url, false));

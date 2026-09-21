@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="fr" id="html-root">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{T_TITRE_ONGLET}}</title>
+  <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="/static/css/theme.css">
+  <style>
+.ico { display:inline-block; width:16px; height:16px; vertical-align:middle; flex-shrink:0; }
+.ico-sm { width:14px; height:14px; }
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg); color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+.main-container { display:flex; min-height:100vh; }
+.contenu { flex:1; padding:32px 24px; max-width:900px; margin:0 auto; width:100%; }
+h1 { font-size:1.4rem; margin-bottom:18px; display:flex; align-items:center; gap:10px; }
+.search-box { display:flex; gap:10px; margin-bottom:24px; }
+.search-box input {
+  flex:1; padding:11px 14px; border-radius:8px; border:1px solid var(--border);
+  background:var(--input, var(--surface)); color:var(--text); font-size:14px;
+}
+.abonnement-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:16px 18px; margin-bottom:24px; display:flex; align-items:center; gap:14px;
+  font-size:13.5px;
+}
+.abonnement-card .badge {
+  padding:4px 10px; border-radius:999px; font-weight:700; font-size:12px;
+  background:var(--accent); color:#fff;
+}
+.abonnement-card .badge.inactif { background:var(--border); color:var(--text-m,var(--text)); }
+.resultats { display:flex; flex-direction:column; gap:10px; }
+.ext-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:14px 16px; display:flex; justify-content:space-between; align-items:center; gap:12px;
+}
+.ext-card .nom { font-weight:600; font-size:14px; word-break:break-all; }
+.ext-card .meta { font-size:12px; color:var(--text-m,var(--text)); opacity:.75; }
+.ext-card a.btn {
+  padding:7px 12px; border-radius:7px; background:var(--accent); color:#fff;
+  text-decoration:none; font-size:12.5px; font-weight:600; flex-shrink:0;
+}
+.vide { text-align:center; padding:30px; opacity:.65; font-size:13.5px; }
+  </style>
+</head>
+<body>
+
+__NAV_HTML__
+
+<div class="main-container">
+  <div class="contenu">
+    <h1><img class="ico" src="/static/img/solid/magnifying-glass.svg" alt=""> {{T_TITRE}}</h1>
+
+    <div class="abonnement-card" id="abonnement-card" style="display:none">
+      <span class="badge" id="abonnement-badge"></span>
+      <span id="abonnement-texte"></span>
+    </div>
+
+    <div class="search-box">
+      <input type="text" id="q" placeholder="{{T_PLACEHOLDER}}" autocomplete="off">
+    </div>
+
+    <div class="resultats" id="resultats"></div>
+  </div>
+</div>
+
+<div id="toast-area" style="position:fixed;bottom:24px;right:24px;z-index:5000;display:flex;flex-direction:column;gap:10px;pointer-events:none;"></div>
+
+<script>
+{{I18N_JS}}
+function escHtml(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+function toast(msg, type='info'){
+  const area=document.getElementById('toast-area');
+  const el=document.createElement('div');
+  el.style.cssText='background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.15);';
+  el.textContent=msg;
+  area.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='.3s'; setTimeout(()=>area.removeChild(el),300); }, 3500);
+}
+
+function formatTaille(o){
+  if(!o || o<1024) return (o||0)+' o';
+  const u=['Ko','Mo','Go']; let n=o, i=-1;
+  do{ n/=1024; i++; }while(n>=1024 && i<u.length-1);
+  return n.toFixed(1)+' '+u[i];
+}
+
+async function chargerAbonnement(){
+  try{
+    const r=await fetch('/api/recherche/abonnement', {credentials:'include'});
+    const d=await r.json();
+    if(!d.success) return;
+    const card=document.getElementById('abonnement-card');
+    const badge=document.getElementById('abonnement-badge');
+    const texte=document.getElementById('abonnement-texte');
+    card.style.display='flex';
+    if(d.data.actif){
+      badge.textContent = d.data.plan_nom || 'VIP';
+      badge.classList.remove('inactif');
+      texte.textContent = d.data.montant_eur > 0
+        ? `${d.data.montant_eur.toFixed(2)} € / mois`
+        : d.data.plan_nom;
+    }else{
+      badge.textContent = 'Free';
+      badge.classList.add('inactif');
+      texte.textContent = d.data.plan_nom || '';
+    }
+  }catch(e){ /* pas bloquant */ }
+}
+
+let rechercheMinuteur=null;
+function rechercherExtensions(q){
+  clearTimeout(rechercheMinuteur);
+  rechercheMinuteur=setTimeout(async ()=>{
+    const zone=document.getElementById('resultats');
+    try{
+      const r=await fetch('/api/recherche/extensions?q='+encodeURIComponent(q), {credentials:'include'});
+      const d=await r.json();
+      if(!d.success){ zone.innerHTML=`<div class="vide">${escHtml(d.error||'Erreur')}</div>`; return; }
+      const items=d.data.items||[];
+      if(!items.length){ zone.innerHTML=`<div class="vide">{{T_AUCUN_RESULTAT}}</div>`; return; }
+      zone.innerHTML=items.map(it=>`
+        <div class="ext-card">
+          <div>
+            <div class="nom">${escHtml(it.nom)}</div>
+            <div class="meta">${formatTaille(it.taille)} · ${it.telechargements||0} {{T_TELECHARGEMENTS}}</div>
+          </div>
+          ${it.url ? `<a class="btn" href="${escHtml(it.url)}" target="_blank" rel="noopener">Télécharger</a>` : ''}
+        </div>`).join('');
+    }catch(e){
+      zone.innerHTML=`<div class="vide">Erreur réseau</div>`;
+    }
+  }, 300);
+}
+
+document.getElementById('q').addEventListener('input', e => rechercherExtensions(e.target.value));
+
+document.addEventListener('DOMContentLoaded', () => {
+  chargerAbonnement();
+  rechercherExtensions('');
+});
+</script>
+</body>
+</html>
