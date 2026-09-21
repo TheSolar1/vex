@@ -368,8 +368,21 @@ fn handle_save(pool: &DbPool, session: &SessionInfo, body: &str, langue: &str) -
     }
 
     let titre = data["titre"].as_str().unwrap_or_else(|| t(langue, Cle::SitecSansTitre)).to_string();
+    // FIX (securite, XSS stocke) : le mode "brut" est rendu SANS aucun
+    // echappement a tout visiteur d'une page publique (voir serve_page_view)
+    // -- c'est voulu (HTML personnalise), mais n'importe quel compte
+    // pouvait jusqu'ici l'activer et publier du <script> execute chez
+    // n'importe qui ouvrant le lien. Reserve desormais aux comptes de
+    // confiance (meme seuil de privilege que le reste du fichier pour
+    // le contournement de propriete, ligne ci-dessus).
     let mode = match data["mode"].as_str() {
-        Some("brut") => "brut",
+        Some("brut") if session.user_privilege <= 6 => "brut",
+        Some("brut") => {
+            return json_resp(
+                json!({"success":false,"error":t(langue, Cle::SitecErreurAccesRefuse)}),
+                403,
+            )
+        }
         Some("blocs") => "blocs",
         _ => "simple",
     };

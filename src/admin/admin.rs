@@ -1169,6 +1169,22 @@ fn handle_api(
 
         "/config" => {
             if method == "POST" {
+                // FIX (securite, elevation de privilege) : ce endpoint ecrit
+                // TOUT config.json sans schema -- y compris extensions.build_cmd
+                // et les start_cmd/stop_cmd OnlyOffice, executes en shell par
+                // les actions reservees superadmin (rebuild, start/stop editeur).
+                // Un simple admin (privilege 3) pouvait donc y injecter une
+                // commande arbitraire, executee des qu'un superadmin declenche
+                // l'action normale correspondante -- escalade vers RCE
+                // equivalent superadmin. Idem pour les identifiants DB, l'URL
+                // de bootstrap P2P, ou privilege_min/plans_autorises des
+                // extensions, egalement reecrits sans restriction ici.
+                if privilege > PRIVILEGE_SUPER {
+                    return respond_json(request, json!({
+                        "success": false,
+                        "error": "Reserve aux super-administrateurs.",
+                    }));
+                }
                 let new_cfg_str = body.get("config").cloned().unwrap_or_default();
                 match serde_json::from_str::<Value>(&new_cfg_str) {
                     Ok(v) => {

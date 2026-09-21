@@ -934,6 +934,13 @@ pub fn handle_viso_action(
             let Some(sid) = params.get("session_id") else {
                 return erreur("session_id manquant.");
             };
+            // FIX (securite) : seule action de signalisation qui n'avait
+            // AUCUNE verification -- meme pas le controle minimal
+            // (session_id = participant actif) applique a toutes les
+            // actions soeurs (heartbeat, recuperer_signaux, etc.).
+            if !session_active(pool, sid) {
+                return erreur(i18n::t(langue, Cle::VisoErreurSessionExpiree));
+            }
             quitter_salle(pool, sid)
         }
 
@@ -951,12 +958,28 @@ pub fn handle_viso_action(
             let Some(sid) = params.get("session_id") else {
                 return erreur("session_id manquant.");
             };
-            if !session_active(pool, sid) {
-                return erreur(i18n::t(langue, Cle::VisoErreurSessionExpiree));
-            }
             let Some(room_id) = params.get("room_id").and_then(|v| v.parse::<i64>().ok()) else {
                 return erreur("room_id manquant.");
             };
+            // FIX (securite, fuite cross-room) : session_active() verifiait
+            // seulement que sid etait un participant actif de N'IMPORTE
+            // QUELLE salle, pas de CELLE demandee (room_id) -- un
+            // participant d'un appel A pouvait donc lister les
+            // participants (session_id, user_id, nom, cle publique) de
+            // n'importe quel autre appel B en cours en devinant son
+            // room_id (auto-increment).
+            let participant_de_cette_salle = compter_lignes(
+                pool,
+                "meet_participants",
+                &[
+                    ("session_id", mysql::Value::from(sid.as_str())),
+                    ("room_id", mysql::Value::from(room_id)),
+                    ("status", mysql::Value::from("connected")),
+                ],
+            ) > 0;
+            if !participant_de_cette_salle {
+                return erreur(i18n::t(langue, Cle::VisoErreurSessionExpiree));
+            }
             json!({"success": true, "data": {"participants": lister_participants(pool, room_id, None)}})
         }
 
