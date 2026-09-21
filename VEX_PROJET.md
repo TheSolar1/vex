@@ -151,7 +151,7 @@ cargo run
 
 Init auto de la base MySQL via `db_init.rs`. Config DB par défaut (`config_loader.rs`), surchargeable via section `"db"` dans `config.json` :
 - host: localhost, port: 3306
-- user: orsql, password: iDq]25F0u8v*z[1d
+- user/password : voir `config.json` (gitignored) sur le serveur — **jamais en clair ici** (identifiant réel retiré de ce fichier, dépôt public : voir historique git pour rotation si besoin)
 - database: user
 
 ---
