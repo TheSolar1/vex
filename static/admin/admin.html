@@ -6,6 +6,9 @@
 <title>{{T_TITRE_ONGLET}}</title>
 <link rel="icon" href="/static/img/favicon.ico" type="image/svg+xml">
 <link rel="stylesheet" href="/static/css/theme.css">
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#4fa553">
+  <link rel="apple-touch-icon" href="/static/img/icon-192.png">
 <style>
 :root,[data-theme="light"]{--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--mono:"Courier New",Courier,monospace;--r:10px;--sb:#f0f2f5;--sb-b:rgba(0,0,0,.07);--sb-t:#6b7280;--sb-text:#111827;--sql-bg:#f8fffe;--sql-border:#c3e6ce;--sql-num:#b0b8c4;--sql-kw:#166534;--sql-fn:#0369a1;--sql-str:#854d0e;--sql-nb:#0891b2;--sql-cmt:#9ca3af;--sql-op:#6b7280;--res-th:#e8f5e9;--res-th-t:#166534;--res-odd:var(--surface);--res-even:#f7fdf8;--res-hov:#ecfdf5;--res-null:#9ca3af;--res-num:#0369a1;--res-pk-bg:#fef9c3;--res-pk-t:#854d0e;--res-affect-bg:#eff6ff;--res-affect-border:#bfdbfe;--res-affect-t:#1d4ed8;}
 [data-theme="dark"]{--sb:#0a0d14;--sb-b:rgba(255,255,255,.05);--sb-t:#6b7280;--sb-text:var(--surface);--sql-bg:#0b1a10;--sql-border:#1a3a26;--sql-num:#3d4a5c;--sql-kw:#4ade80;--sql-fn:#38bdf8;--sql-str:color-mix(in srgb, var(--orange) 70%, white);--sql-nb:#67e8f9;--sql-cmt:#556070;--sql-op:#8892a4;--res-th:#0d2818;--res-th-t:#4ade80;--res-odd:#1a1f2e;--res-even:#1c2534;--res-hov:#1e3a28;--res-null:#4b5563;--res-num:#38bdf8;--res-pk-bg:#2a1f08;--res-pk-t:color-mix(in srgb, var(--orange) 70%, white);--res-affect-bg:#1e2a3a;--res-affect-border:#1e40af;--res-affect-t:color-mix(in srgb, var(--blue) 70%, white);
@@ -2262,5 +2265,6 @@ async function kickPeer(id){if(!await confirmerDialogue(I18N.P2P_CONFIRM_SUPPRIM
 })();
 </script>
 <script src="/static/extensions/vexia/vexia-widget.js"></script>
+  <script src="/static/pwa-register.js" defer></script>
 </body>
 </html>

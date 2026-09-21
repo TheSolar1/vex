@@ -6,6 +6,9 @@
   <title>{{T_TITRE_ONGLET}}</title>
   <link rel="icon" type="image/png" href="/static/img/favicon.ico">
   <link rel="stylesheet" href="/static/css/theme.css">
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#4fa553">
+  <link rel="apple-touch-icon" href="/static/img/icon-192.png">
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     /* FIX (demande utilisateur : "la page est trop lourde") -- remplace la
@@ -997,6 +1000,7 @@ const SRP = (() => {
   });
 })();
 </script>
+  <script src="/static/pwa-register.js" defer></script>
 </body>
 
 <script>

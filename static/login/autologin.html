@@ -6,6 +6,9 @@
 <title>Autologin - VEX</title>
 <link rel="icon" href="/static/img/favicon.ico" type="image/svg+xml">
 <link rel="stylesheet" href="/static/css/theme.css">
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#4fa553">
+  <link rel="apple-touch-icon" href="/static/img/icon-192.png">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{
@@ -200,5 +203,6 @@ document.getElementById('autologin-form').addEventListener('submit', function(e)
   window.location.href = target;
 });
 </script>
+  <script src="/static/pwa-register.js" defer></script>
 </body>
 </html>

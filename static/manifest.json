@@ -1,0 +1,25 @@
+{
+  "name": "VEX",
+  "short_name": "VEX",
+  "description": "VEX — serveur auto-hébergé chiffré : fichiers, mail, messagerie, visio, sites.",
+  "start_url": "/login/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f1115",
+  "theme_color": "#4fa553",
+  "icons": [
+    {
+      "src": "/static/img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

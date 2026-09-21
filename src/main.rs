@@ -918,6 +918,17 @@ fn serve_static(request: tiny_http::Request, path: &str) {
                 resp = resp.with_header(
                     tiny_http::Header::from_bytes("Cache-Control", "no-cache, no-store, must-revalidate").unwrap(),
                 );
+                // PWA (etape 5) : sw.js est servi depuis /static/, ce qui
+                // limiterait sa portee par defaut a /static/* -- ce header
+                // l'autorise a controler tout le site (necessaire pour que
+                // le navigateur propose l'installation de l'app). Le
+                // service worker lui-meme reste volontairement passif hors
+                // des assets statiques (voir sw.js).
+                if path == "/static/sw.js" {
+                    resp = resp.with_header(
+                        tiny_http::Header::from_bytes("Service-Worker-Allowed", "/").unwrap(),
+                    );
+                }
             } else {
                 // FIX (demande utilisateur : "rendre fchier ultra rapide") :
                 // le commentaire ci-dessus disait que les images/polices
