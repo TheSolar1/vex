@@ -482,13 +482,30 @@ body {
 @keyframes toast-in { from{opacity:0;transform:translateY(20px);} to{opacity:1;transform:translateY(0);} }
 .toast.ok  { border-left:4px solid var(--accent); }
 .toast.err { border-left:4px solid var(--danger); }
+
+/* ══ Mobile (etape 5 feuille de route) : liste de pages + editeur cote
+   a cote est illisible en dessous de 768px -- on empile, navigation
+   par le bouton "Retour" (fermerPageMobile(), voir script). N'inclut
+   PAS l'editeur de blocs drag-and-drop (.blocs-editor-layout), qui
+   reste une disposition desktop -- adapter le glisser-deposer au
+   tactile est un chantier a part. ══ */
+@media (max-width: 768px) {
+  .app { flex-direction:column; }
+  .sidebar { width:100%; max-height:100%; }
+  .main { padding:20px 16px; }
+  #app.page-open .sidebar { display:none; }
+  #app.page-open #mobileRetourListe { display:inline-flex !important; align-items:center; gap:6px; }
+}
 </style>
 </head>
 <body>
 
 <div id="vex-navbar"></div>
 
-<div class="app">
+<div class="app" id="app">
+  <button type="button" id="mobileRetourListe" onclick="fermerPageMobile()" style="display:none;position:fixed;top:66px;left:12px;z-index:950;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.15);">
+    <img class="ico ico-sm" src="/static/img/solid/arrow-left.svg" alt=""> Retour
+  </button>
   <aside class="sidebar">
     <button class="btn-nouveau" id="createBtn">
       <img class="ico ico-sm ico-white" src="/static/img/solid/plus.svg"> {{T_NOUVELLE_PAGE}}
@@ -624,8 +641,22 @@ function renderList() {
 }
 
 // ── Ouvrir / créer ────────────────────────────────────────────────
+function fermerPageMobile() {
+  if (dirty && !confirm(I18N.CONFIRM_QUITTER_SANS_SAUVEGARDER)) return;
+  document.getElementById('app').classList.remove('page-open');
+  current = null;
+  dirty = false;
+  history.replaceState({}, '', '/sitec');
+  document.getElementById('main').innerHTML = `
+    <div class="empty-state">
+      <img class="ico ico-lg ico-muted" src="/static/img/solid/globe.svg">
+      <p>${I18N.SELECTIONNEZ_OU_CREEZ}</p>
+    </div>`;
+}
+
 async function openPage(id) {
   if (dirty && !confirm(I18N.CONFIRM_QUITTER_SANS_SAUVEGARDER)) return;
+  document.getElementById('app').classList.add('page-open'); // FIX (mobile) : bascule vers l'editeur
   document.getElementById('main').innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
   try {
     const r = await apiFetch(`${API}/get?id=${encodeURIComponent(id)}`);
