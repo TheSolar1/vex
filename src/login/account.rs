@@ -319,54 +319,171 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
             respond_json(request, json!({"success":true,"url":url}), 200);
         }
 
-        // ── Changer le mot de passe ───────────────────────────────
-        ("POST", "/api/account/password") => {
-            let body = read_body(&mut request);
-            let old_mdp = body.get("enmotdepass").cloned().unwrap_or_default();
-            let new_mdp = body.get("modifier_motdepasse").cloned().unwrap_or_default();
-            let pass_min = config.security.password_min_length as usize;
-
-            if old_mdp.is_empty() || new_mdp.is_empty() {
-                respond_json(
-                    request,
-                    json!({"success":false,"error":i18n::t(&langue, Cle::AccErreurChampsManquants)}),
-                    200,
-                );
-                return;
-            }
-            if new_mdp.len() < pass_min {
-                respond_json(
-                    request,
-                    json!({"success":false,
-                    "error":i18n::t(&langue, Cle::AccErreurMdpTropCourt).replace("{min}", &pass_min.to_string())}),
-                    200,
-                );
-                return;
-            }
-
+        // ── Changer le mot de passe (SRP-6a) : etape 1 ────────────
+        // Le mot de passe (ancien ou nouveau) ne quitte jamais le
+        // navigateur -- meme mecanisme de preuve que la connexion
+        // (voir login.rs). L'email vient de la session serveur, jamais
+        // du client, pour ne jamais pouvoir demarrer une preuve sur un
+        // autre compte que le sien.
+        ("POST", "/api/account/password/step1") => {
             let rows = selectionner(
                 pool,
                 "login",
                 &[("email", mysql::Value::from(user_email.as_str()))],
-                &["motdepass"],
+                &["srp_salt", "srp_verifier", "file_key_wrapped_pwd"],
                 None,
                 Some(1),
             );
-            if rows.is_empty() {
+            let Some(row) = rows.into_iter().next() else {
                 respond_json(
                     request,
                     json!({"success":false,"error":i18n::t(&langue, Cle::AccErreurCompteIntrouvable)}),
                     200,
                 );
                 return;
-            }
-            let current_hash = rows[0]
-                .get("motdepass")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
+            };
+            let salt_hex = row.get("srp_salt").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let verifier_hex = row.get("srp_verifier").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let wrapped_pwd = row.get("file_key_wrapped_pwd").and_then(|v| v.as_str()).map(|s| s.to_string());
 
-            if !verify_password(&old_mdp, &current_hash) {
+            let Some(v_big) = crate::srp::bigint_from_hex(&verifier_hex) else {
+                respond_json(request, json!({"success":false,"error":"Erreur interne (verifier)."}), 500);
+                return;
+            };
+            let grp = crate::srp::group();
+            let b = crate::srp::generate_b();
+            let b_pub = crate::srp::compute_b_public(&grp, &v_big, &b);
+            let token = crate::srp::hex_encode(&crate::srp::random_bytes(24));
+            let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+
+            inserer_ou_modifier(
+                pool,
+                "srp_sessions",
+                &[
+                    ("token", mysql::Value::from(token.as_str())),
+                    ("email", mysql::Value::from(user_email.as_str())),
+                    ("b_hex", mysql::Value::from(crate::srp::hex_encode(&b.to_bytes_be()).as_str())),
+                    ("created_at", mysql::Value::from(now.as_str())),
+                ],
+                &[],
+            );
+
+            respond_json(
+                request,
+                json!({
+                    "success": true,
+                    "salt": salt_hex,
+                    "B": crate::srp::hex_encode(&b_pub.to_bytes_be()),
+                    "token": token,
+                    "file_key_wrapped_pwd": wrapped_pwd,
+                }),
+                200,
+            );
+        }
+
+        // ── Changer le mot de passe (SRP-6a) : etape 2 ────────────
+        // Le client prouve qu'il connait l'ANCIEN mot de passe (M1, comme
+        // au login) puis fournit le nouveau salt/verifier + la masterKey
+        // ExoDrive re-enveloppee sous le nouveau mot de passe (calcules
+        // localement -- voir account.html). Rien de tout ca ne revele le
+        // mot de passe en clair, ni l'ancien ni le nouveau.
+        ("POST", "/api/account/password/step2") => {
+            let body = read_body(&mut request);
+            let token = body.get("token").cloned().unwrap_or_default();
+            let a_hex = body.get("A").cloned().unwrap_or_default();
+            let m1_hex = body.get("M1").cloned().unwrap_or_default();
+            let new_srp_salt = body.get("new_srp_salt").cloned().unwrap_or_default();
+            let new_srp_verifier = body.get("new_srp_verifier").cloned().unwrap_or_default();
+            let new_wrapped_pwd = body.get("new_file_key_wrapped_pwd").cloned().unwrap_or_default();
+
+            if a_hex.is_empty() || a_hex.len() > 512 || !a_hex.chars().all(|c| c.is_ascii_hexdigit())
+                || m1_hex.len() != 64 || !m1_hex.chars().all(|c| c.is_ascii_hexdigit())
+                || token.len() != 48 || !token.chars().all(|c| c.is_ascii_hexdigit())
+                || new_srp_salt.len() != 32 || !new_srp_salt.chars().all(|c| c.is_ascii_hexdigit())
+                || new_srp_verifier.is_empty() || new_srp_verifier.len() > 512 || !new_srp_verifier.chars().all(|c| c.is_ascii_hexdigit())
+                || new_wrapped_pwd.is_empty()
+            {
+                respond_json(request, json!({"success":false,"error":"Champs invalides."}), 400);
+                return;
+            }
+
+            let sess_rows = selectionner(
+                pool,
+                "srp_sessions",
+                &[
+                    ("token", mysql::Value::from(token.as_str())),
+                    ("email", mysql::Value::from(user_email.as_str())),
+                ],
+                &["b_hex", "created_at"],
+                None,
+                Some(1),
+            );
+            let Some(sess) = sess_rows.into_iter().next() else {
+                respond_json(
+                    request,
+                    json!({"success":false,"error":i18n::t(&langue, Cle::AccErreurMdpActuelIncorrect)}),
+                    200,
+                );
+                return;
+            };
+            // Session SRP a usage unique.
+            supprimer_ligne(pool, "srp_sessions", "token", mysql::Value::from(token.as_str()));
+
+            let created_at = sess.get("created_at").and_then(|v| v.as_str()).unwrap_or("");
+            if !crate::c::is_recent_local(created_at, 300) {
+                respond_json(
+                    request,
+                    json!({"success":false,"error":i18n::t(&langue, Cle::AccErreurMdpActuelIncorrect)}),
+                    200,
+                );
+                return;
+            }
+            let b_hex = sess.get("b_hex").and_then(|v| v.as_str()).unwrap_or("");
+
+            let rows = selectionner(
+                pool,
+                "login",
+                &[("email", mysql::Value::from(user_email.as_str()))],
+                &["srp_salt", "srp_verifier"],
+                None,
+                Some(1),
+            );
+            let Some(row) = rows.into_iter().next() else {
+                respond_json(
+                    request,
+                    json!({"success":false,"error":i18n::t(&langue, Cle::AccErreurCompteIntrouvable)}),
+                    200,
+                );
+                return;
+            };
+            let verifier_hex = row.get("srp_verifier").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let salt_hex = row.get("srp_salt").and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+            let (Some(v_big), Some(b_bytes), Some(a_bytes), Some(m1_client), Some(salt_bytes)) = (
+                crate::srp::bigint_from_hex(&verifier_hex),
+                crate::srp::hex_decode(b_hex),
+                crate::srp::hex_decode(&a_hex),
+                crate::srp::hex_decode(&m1_hex),
+                crate::srp::hex_decode(&salt_hex),
+            ) else {
+                respond_json(request, json!({"success":false,"error":"Format invalide."}), 400);
+                return;
+            };
+
+            let grp = crate::srp::group();
+            let b = num_bigint::BigUint::from_bytes_be(&b_bytes);
+            let a_pub = num_bigint::BigUint::from_bytes_be(&a_bytes);
+            if !crate::srp::is_safe_public_value(&a_pub, &grp.n) {
+                respond_json(request, json!({"success":false,"error":"Valeur invalide."}), 400);
+                return;
+            }
+            let b_pub = crate::srp::compute_b_public(&grp, &v_big, &b);
+            let u = crate::srp::compute_u(&a_pub, &b_pub);
+            let s_server = crate::srp::compute_s_server(&grp, &a_pub, &v_big, &u, &b);
+            let k_bytes = crate::srp::compute_k(&s_server);
+            let m1_expected = crate::srp::compute_m1(&grp, &user_email, &salt_bytes, &a_pub, &b_pub, &k_bytes);
+
+            if !crate::srp::constant_time_eq(&m1_client, &m1_expected) {
                 respond_json(
                     request,
                     json!({"success":false,"error":i18n::t(&langue, Cle::AccErreurMdpActuelIncorrect)}),
@@ -375,13 +492,28 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
                 return;
             }
 
-            let new_hash = hash_password(&new_mdp);
             inserer_ou_modifier(
                 pool,
                 "login",
-                &[("motdepass", mysql::Value::from(new_hash.as_str()))],
+                &[
+                    ("srp_salt", mysql::Value::from(new_srp_salt.as_str())),
+                    ("srp_verifier", mysql::Value::from(new_srp_verifier.as_str())),
+                    ("file_key_wrapped_pwd", mysql::Value::from(new_wrapped_pwd.as_str())),
+                ],
                 &[("email", mysql::Value::from(user_email.as_str()))],
             );
+
+            // Invalide les autres sessions actives (le mot de passe a
+            // change) -- garde la session courante pour ne pas deconnecter
+            // l'utilisateur qui vient de faire le changement.
+            if let Ok(mut conn) = pool.get_conn() {
+                use mysql::prelude::Queryable;
+                let _ = conn.exec_drop(
+                    "DELETE FROM `loginc` WHERE `email` = ? AND `idcokier` != ?",
+                    (user_email.as_str(), cookie_val.as_str()),
+                );
+                let _ = conn.exec_drop("DELETE FROM `srp_sessions` WHERE `email` = ?", (user_email.as_str(),));
+            }
 
             respond_json(
                 request,
@@ -703,6 +835,7 @@ fn serve_html_with_nav(request: Request, path: &str, nav_html: &str, theme: &str
                 ("ERREUR_REVOCATION", Cle::AccErreurRevocation),
                 ("MDP_MIS_A_JOUR", Cle::AccMdpMisAJour),
                 ("ERREUR_MDP", Cle::AccErreurMdp),
+                ("ERREUR_MDP_TROP_COURT", Cle::AccErreurMdpTropCourt),
                 ("ID_COPIE", Cle::AccIdCopie),
                 ("COPIE_IMPOSSIBLE", Cle::AccCopieImpossible),
                 ("COPIEZ_ID", Cle::AccCopiezId),
@@ -752,16 +885,6 @@ fn respond_json(request: Request, body: Value, status: u16) {
     );
 }
 
-fn hash_password(password: &str) -> String {
-    use sha2::{Digest, Sha256};
-    let mut h = Sha256::new();
-    h.update(password.as_bytes());
-    format!("{:x}", h.finalize())
-}
-
-fn verify_password(password: &str, hash: &str) -> bool {
-    hash_password(password) == hash
-}
 
 fn generate_token(len: usize) -> Result<String, getrandom::Error> {
     let charset = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";

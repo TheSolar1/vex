@@ -23,7 +23,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 use crate::appeldb::{
-    compter_lignes, inserer_ou_modifier, selectionner, supprimer_ligne, verifier_connexion, DbPool,
+    compter_lignes, inserer_ou_modifier, selectionner, verifier_connexion, DbPool,
 };
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -198,7 +198,6 @@ fn api_generer(
     let id_user = user_info["id"].as_i64().unwrap_or(0);
     let privilege = user_info["privilege"].as_i64().unwrap_or(99);
     let vip = user_info["vip"].as_i64().unwrap_or(0);
-    let email = user_info["email"].as_str().unwrap_or("").to_string();
     let plan = if vip == 1 { "vip" } else { "free" };
 
     if id_user <= 0 {
@@ -229,114 +228,24 @@ fn api_generer(
         );
     }
 
-    // ── Lecture et vérification du mot de passe ───────────────────
-    let body = lire_body(request);
-    let params = parser_body_form(&body);
-    let mdp = params.get("password").map(|s| s.as_str()).unwrap_or("");
-
-    if mdp.is_empty() {
-        return reponse_json(json!({"ok": false, "erreur": "Mot de passe requis."}), 400);
-    }
-
-    // Toujours interroger la DB par email (jamais par id seul)
-    let rows_login = selectionner(
-        pool,
-        "login",
-        &[("email", mysql::Value::from(email.as_str()))],
-        &["motdepass"],
-        None,
-        Some(1),
-    );
-    if rows_login.is_empty() {
-        return reponse_json(
-            json!({"ok": false, "erreur": "Utilisateur introuvable."}),
-            404,
-        );
-    }
-    let hash_db = rows_login[0]["motdepass"].as_str().unwrap_or("");
-    if !verifier_mot_de_passe(mdp, hash_db) {
-        return reponse_json(
-            json!({"ok": false, "erreur": "Mot de passe incorrect."}),
-            403,
-        );
-    }
-
-    // ── Vérification quota tokens ─────────────────────────────────
-    let nb = compter_lignes(
-        pool,
-        "autologin",
-        &[("compteid", mysql::Value::from(id_user))],
-    );
-
-    if nb >= al_cfg.max_tokens {
-        return reponse_json(
-            json!({
-                "ok":            false,
-                "erreur":        format!(
-                    "Vous avez déjà {} lien(s) autologin (maximum : {}). \
-                     Révoquez-le avant d'en créer un nouveau.",
-                    nb, al_cfg.max_tokens
-                ),
-                "deja_existant": true
-            }),
-            409,
-        );
-    }
-
-    // ── Génération token brut CSPRNG + hash SHA-256 ───────────────
-    let token_brut = match generer_token_brut(al_cfg.token_length) {
-        Ok(t) => t,
-        Err(_) => {
-            return reponse_json(
-                json!({"ok": false, "erreur": "Erreur interne de génération."}),
-                500,
-            )
-        }
-    };
-    let token_hash = hasher_token(&token_brut, &al_cfg.server_secret);
-
-    // ✅ Stocke selon le schéma dispo : priorise colonne `nombre` (ancien), sinon `nombre_hash`
-    let mut res = inserer_ou_modifier(
-        pool,
-        "autologin",
-        &[
-            ("compteid", mysql::Value::from(id_user)),
-            ("nombre", mysql::Value::from(token_brut.as_str())),
-        ],
-        &[],
-    );
-    if res < 0 {
-        res = inserer_ou_modifier(
-            pool,
-            "autologin",
-            &[
-                ("compteid", mysql::Value::from(id_user)),
-                ("nombre_hash", mysql::Value::from(token_hash.as_str())),
-            ],
-            &[],
-        );
-    }
-
-    if res < 0 {
-        return reponse_json(
-            json!({"ok": false, "erreur": "Erreur base de données."}),
-            500,
-        );
-    }
-
-    // URL avec le token BRUT — retourné une seule fois, jamais relu depuis la DB
-    let url_autologin = format!("/autologin/connecter?uid={}&token={}", id_user, token_brut);
-
+    let _ = (id_user, lire_body(request));
+    // FIX (securite, migration SRP) : cette route re-verifiait le mot de
+    // passe via la colonne `motdepass`, retiree depuis le passage a
+    // l'authentification SRP-6a (voir login.rs) -- elle etait devenue
+    // TOUJOURS vide, donc cette re-verification echouait systematiquement
+    // (endpoint mort) tout en continuant de faire transiter le mot de
+    // passe en clair vers le serveur, ce que SRP est justement cense
+    // eviter. La creation/suppression de lien autologin depuis
+    // /login/account (route /api/account/autologin/create|delete) fait
+    // deja la meme chose de facon fonctionnelle et sans mot de passe
+    // (protegee par la session), donc cette route legacy est desactivee
+    // plutot que reimplementee en double.
     reponse_json(
         json!({
-            "ok":            true,
-            "message":       "Lien généré. Copiez-le maintenant — il ne sera jamais réaffiché.",
-            "url":           url_autologin,
-            "token_length":  al_cfg.token_length,
-            "avertissement": "Ce lien connecte directement votre compte sans mot de passe. \
-                              Gardez-le confidentiel et ne le partagez jamais."
+            "ok": false,
+            "erreur": "Cette page est obsolete. Generez votre lien autologin depuis /login/account."
         }),
-        200,
+        410,
     )
 }
 
@@ -358,60 +267,23 @@ fn api_supprimer(
         Some(u) => u,
         None => return reponse_json(json!({"ok": false, "erreur": "Non authentifié."}), 401),
     };
-
     let id_user = user_info["id"].as_i64().unwrap_or(0);
-    let email = user_info["email"].as_str().unwrap_or("").to_string();
-
     if id_user <= 0 {
         return reponse_json(json!({"ok": false, "erreur": "Session corrompue."}), 401);
     }
-
-    let body = lire_body(request);
-    let params = parser_body_form(&body);
-    let mdp = params.get("password").map(|s| s.as_str()).unwrap_or("");
-
-    if mdp.is_empty() {
-        return reponse_json(
-            json!({"ok": false, "erreur": "Mot de passe requis pour supprimer."}),
-            400,
-        );
-    }
-
-    let rows = selectionner(
-        pool,
-        "login",
-        &[("email", mysql::Value::from(email.as_str()))],
-        &["motdepass"],
-        None,
-        Some(1),
-    );
-    if rows.is_empty() {
-        return reponse_json(
-            json!({"ok": false, "erreur": "Utilisateur introuvable."}),
-            404,
-        );
-    }
-    let hash_db = rows[0]["motdepass"].as_str().unwrap_or("");
-    if !verifier_mot_de_passe(mdp, hash_db) {
-        return reponse_json(
-            json!({"ok": false, "erreur": "Mot de passe incorrect."}),
-            403,
-        );
-    }
-
-    let ok = supprimer_ligne(pool, "autologin", "compteid", mysql::Value::from(id_user));
-
-    if ok {
-        reponse_json(
-            json!({"ok": true, "message": "Lien autologin révoqué avec succès."}),
-            200,
-        )
-    } else {
-        reponse_json(
-            json!({"ok": false, "erreur": "Aucun lien trouvé ou erreur DB."}),
-            404,
-        )
-    }
+    let _ = lire_body(request);
+    // FIX (securite, migration SRP) : meme raison que api_generer -- la
+    // re-verification par mot de passe est cassee depuis la migration SRP
+    // (colonne `motdepass` toujours vide) et fait transiter le mot de
+    // passe en clair. Route legacy desactivee, /api/account/autologin/delete
+    // (session uniquement) fait deja le travail.
+    reponse_json(
+        json!({
+            "ok": false,
+            "erreur": "Cette page est obsolete. Revoquez votre lien autologin depuis /login/account."
+        }),
+        410,
+    )
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -659,39 +531,6 @@ fn generer_token_brut(longueur: usize) -> Result<String, getrandom::Error> {
     }
 
     Ok(result)
-}
-
-// ══════════════════════════════════════════════════════════════════
-// VÉRIFICATION MOT DE PASSE
-// ✅ bcrypt actif
-// ✅ MD5 legacy actif comme fallback
-// Cargo.toml : bcrypt = "0.15"  |  md5 = "0.10"
-// ══════════════════════════════════════════════════════════════════
-fn verifier_mot_de_passe(brut: &str, hash_db: &str) -> bool {
-    if constant_time_eq(brut.as_bytes(), hash_db.as_bytes()) {
-        true
-    } else if hash_db.starts_with("$2") {
-        // ✅ bcrypt
-        bcrypt::verify(brut, hash_db).unwrap_or(false)
-    } else if hash_db.len() == 32 {
-        // ✅ MD5 legacy (32 hex chars)
-        let digest = format!("{:x}", md5::compute(brut));
-        // Comparaison en temps constant pour éviter les timing attacks
-        constant_time_eq(digest.as_bytes(), hash_db.as_bytes())
-    } else {
-        false
-    }
-}
-
-/// Comparaison en temps constant — évite les attaques par timing
-fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-    a.iter()
-        .zip(b.iter())
-        .fold(0u8, |acc, (x, y)| acc | (x ^ y))
-        == 0
 }
 
 // ══════════════════════════════════════════════════════════════════
