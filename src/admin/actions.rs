@@ -36,6 +36,22 @@ pub(crate) fn set_user_privilege(
     if caller_privilege > PRIVILEGE_SUPER && new_privilege < caller_privilege {
         return Err(i18n::t(langue, Cle::AdmUsersErrPrivilegeSuperieur).to_string());
     }
+    let target = selectionner(
+        pool,
+        "login",
+        &[("id", mysql::Value::from(target_id))],
+        &["privilege"],
+        None,
+        Some(1),
+    );
+    let target_priv = target
+        .first()
+        .and_then(|r| r.get("privilege"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(99);
+    if target_priv <= PRIVILEGE_SUPER && caller_privilege > PRIVILEGE_SUPER {
+        return Err(i18n::t(langue, Cle::AdmUsersErrModifPrivilegeSuperadmin).to_string());
+    }
     inserer_ou_modifier(
         pool,
         "login",
