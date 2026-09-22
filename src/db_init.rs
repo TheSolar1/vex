@@ -397,6 +397,42 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
     )?;
 
+    // ── wiki_pages (app "Wiki", sous-app de Recherche -- voir
+    // src/recherche/recherche.rs) : encyclopédie collaborative interne,
+    // n'existe QUE dans la page /recherche, jamais dans la sidebar
+    // principale. Ecriture ouverte a tout compte connecte (comme un vrai
+    // wiki), suppression/edition d'un article d'autrui reservee aux
+    // comptes de confiance (privilege <= 6, meme seuil que le mode "brut"
+    // de Sitec) pour limiter le vandalisme sans bloquer la contribution.
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `wiki_pages` (
+            `id`         INT      NOT NULL AUTO_INCREMENT,
+            `titre`      VARCHAR(255) NOT NULL,
+            `contenu`    LONGTEXT NOT NULL,
+            `auteur_id`  INT      NOT NULL,
+            `auteur_nom` VARCHAR(250) NOT NULL DEFAULT '',
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `maj`        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            `vues`       INT      NOT NULL DEFAULT 0,
+            PRIMARY KEY (`id`),
+            KEY `titre` (`titre`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    )?;
+
+    // ── wiki_faq (app "FAQ", sous-app de Recherche) : questions/reponses
+    // curatees -- ecriture reservee aux comptes de confiance (privilege
+    // <= 6) contrairement au wiki, lecture/recherche ouverte a tous.
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `wiki_faq` (
+            `id`        INT      NOT NULL AUTO_INCREMENT,
+            `question`  VARCHAR(500) NOT NULL,
+            `reponse`   LONGTEXT NOT NULL,
+            `auteur_id` INT      NOT NULL,
+            `maj`       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    )?;
+
     eprintln!("[db_init] Base '{}' initialisée avec succès.", cfg.dbname);
     Ok(())
 }

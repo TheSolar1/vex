@@ -1,7 +1,15 @@
 // ══════════════════════════════════════════════════════════════════
 // recherche.rs — App "Recherche" VEX (étape 2 feuille de route)
 //
-// Deux fonctions :
+// Point d'entree unique (page /recherche) qui regroupe plusieurs
+// mini-apps de recherche, chacune UNIQUEMENT accessible depuis cette
+// page (jamais dans la sidebar principale ni ailleurs sur VEX) :
+//   - Extensions   catalogue GitHub des extensions Vex (existant)
+//   - Wiki         encyclopedie collaborative interne (tout compte
+//                  connecte peut ecrire, comme un vrai wiki)
+//   - FAQ          questions/reponses curatees (ecriture reservee aux
+//                  comptes de confiance, privilege <= 6)
+//
 //   - GET  /api/recherche/extensions?q=...  Recherche dans le catalogue
 //     d'extensions Vex (réutilise le catalogue GitHub deja utilise par
 //     l'admin, mais version publique : aucune info operationnelle
@@ -12,6 +20,8 @@
 //     financieres sur un projet axe confidentialite). Prevu pour que
 //     les extensions/mini-apps trouvees ici puissent debloquer des
 //     fonctionnalites premium sans dupliquer la logique de plan.
+//   - /api/recherche/wiki/*  CRUD + recherche des articles wiki.
+//   - /api/recherche/faq/*   CRUD + recherche des entrees FAQ.
 // ══════════════════════════════════════════════════════════════════
 
 use crate::appeldb::{selectionner, DbPool};
@@ -102,7 +112,8 @@ pub fn handle(pool: &DbPool, config: &VexConfig, req: &mut Request) -> Response<
             admin_apps: vec![],
         });
         let langue = get_user_language(pool, Some(uid), None, None);
-        return html_response(serve_html(&nav, &langue));
+        let privilege = user.get("privilege").and_then(|v| v.as_i64()).unwrap_or(99);
+        return html_response(serve_html(&nav, &langue, uid, privilege));
     }
 
     if path == "/api/recherche/extensions" {
@@ -124,7 +135,90 @@ pub fn handle(pool: &DbPool, config: &VexConfig, req: &mut Request) -> Response<
         return api_abonnement(pool, config, uid);
     }
 
+    // ── Wiki (lecture/recherche : tout compte connecte) ─────────────
+    if path == "/api/recherche/wiki" {
+        if verifier_session(pool, req).is_none() {
+            return json_response(401, json!({"success":false,"error":"Non connecté"}));
+        }
+        let q = crate::utils::parse_query(&url).get("q").cloned().unwrap_or_default();
+        return wiki_liste(pool, &q);
+    }
+    if path == "/api/recherche/wiki/article" {
+        if verifier_session(pool, req).is_none() {
+            return json_response(401, json!({"success":false,"error":"Non connecté"}));
+        }
+        let id = crate::utils::parse_query(&url).get("id").and_then(|v| v.parse::<i64>().ok()).unwrap_or(0);
+        return wiki_article(pool, id);
+    }
+    if path == "/api/recherche/wiki/save" && req.method() == &tiny_http::Method::Post {
+        let user = match verifier_session(pool, req) {
+            Some(u) => u,
+            None => return json_response(401, json!({"success":false,"error":"Non connecté"})),
+        };
+        let body = lire_body_formulaire(req);
+        return wiki_save(pool, &user, &body);
+    }
+    if path == "/api/recherche/wiki/delete" && req.method() == &tiny_http::Method::Post {
+        let user = match verifier_session(pool, req) {
+            Some(u) => u,
+            None => return json_response(401, json!({"success":false,"error":"Non connecté"})),
+        };
+        let body = lire_body_formulaire(req);
+        let id = body.get("id").and_then(|v| v.parse::<i64>().ok()).unwrap_or(0);
+        return wiki_delete(pool, &user, id);
+    }
+
+    // ── FAQ (lecture/recherche : tout compte connecte, ecriture :
+    // comptes de confiance uniquement, privilege <= 6) ──────────────
+    if path == "/api/recherche/faq" {
+        if verifier_session(pool, req).is_none() {
+            return json_response(401, json!({"success":false,"error":"Non connecté"}));
+        }
+        let q = crate::utils::parse_query(&url).get("q").cloned().unwrap_or_default();
+        return faq_liste(pool, &q);
+    }
+    if path == "/api/recherche/faq/save" && req.method() == &tiny_http::Method::Post {
+        let user = match verifier_session(pool, req) {
+            Some(u) => u,
+            None => return json_response(401, json!({"success":false,"error":"Non connecté"})),
+        };
+        if user.get("privilege").and_then(|v| v.as_i64()).unwrap_or(99) > 6 {
+            return json_response(403, json!({"success":false,"error":"Réservé aux comptes de confiance"}));
+        }
+        let body = lire_body_formulaire(req);
+        return faq_save(pool, &user, &body);
+    }
+    if path == "/api/recherche/faq/delete" && req.method() == &tiny_http::Method::Post {
+        let user = match verifier_session(pool, req) {
+            Some(u) => u,
+            None => return json_response(401, json!({"success":false,"error":"Non connecté"})),
+        };
+        if user.get("privilege").and_then(|v| v.as_i64()).unwrap_or(99) > 6 {
+            return json_response(403, json!({"success":false,"error":"Réservé aux comptes de confiance"}));
+        }
+        let body = lire_body_formulaire(req);
+        let id = body.get("id").and_then(|v| v.parse::<i64>().ok()).unwrap_or(0);
+        return faq_delete(pool, id);
+    }
+
     json_response(404, json!({"error":"Route inconnue"}))
+}
+
+fn lire_body_formulaire(req: &mut Request) -> HashMap<String, String> {
+    let mut contenu = String::new();
+    let _ = std::io::Read::read_to_string(req.as_reader(), &mut contenu);
+    contenu
+        .split('&')
+        .filter_map(|paire| {
+            let mut it = paire.splitn(2, '=');
+            let k = it.next()?;
+            let v = it.next().unwrap_or("");
+            Some((
+                crate::utils::url_decode(k),
+                crate::utils::url_decode(v),
+            ))
+        })
+        .collect()
 }
 
 /// Recherche dans le catalogue d'extensions Vex (source GitHub configurée
@@ -221,7 +315,235 @@ fn api_abonnement(pool: &DbPool, config: &VexConfig, uid: i64) -> Response<std::
     }))
 }
 
-fn serve_html(nav_html: &str, langue: &str) -> String {
+// ══════════════════════════════════════════════════════════════════
+// Wiki (app interne, visible UNIQUEMENT dans /recherche)
+// ══════════════════════════════════════════════════════════════════
+
+const EXTRAIT_LEN: usize = 180;
+
+fn extrait(s: &str, n: usize) -> String {
+    let s = s.trim();
+    if s.chars().count() <= n {
+        s.to_string()
+    } else {
+        let court: String = s.chars().take(n).collect();
+        format!("{}…", court.trim_end())
+    }
+}
+
+fn wiki_liste(pool: &DbPool, q: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+    let mut conn = match pool.get_conn() {
+        Ok(c) => c,
+        Err(_) => return json_response(200, json!({"success":true,"data":{"items":[]}})),
+    };
+    let motif = format!("%{}%", q.trim());
+    let rows: Vec<(i64, String, String, String, String, i64)> = mysql::prelude::Queryable::exec_map(
+        &mut conn,
+        "SELECT id, titre, contenu, auteur_nom, DATE_FORMAT(maj, '%Y-%m-%d %H:%i'), vues \
+         FROM wiki_pages WHERE titre LIKE ? OR contenu LIKE ? ORDER BY maj DESC LIMIT 100",
+        (&motif, &motif),
+        |(id, titre, contenu, auteur_nom, maj, vues): (i64, String, String, String, String, i64)| {
+            (id, titre, contenu, auteur_nom, maj, vues)
+        },
+    )
+    .unwrap_or_default();
+
+    let items: Vec<Value> = rows
+        .into_iter()
+        .map(|(id, titre, contenu, auteur_nom, maj, vues)| {
+            json!({
+                "id": id,
+                "titre": titre,
+                "extrait": extrait(&contenu, EXTRAIT_LEN),
+                "auteur_nom": auteur_nom,
+                "maj": maj,
+                "vues": vues,
+            })
+        })
+        .collect();
+
+    json_response(200, json!({"success":true,"data":{"items":items}}))
+}
+
+fn wiki_article(pool: &DbPool, id: i64) -> Response<std::io::Cursor<Vec<u8>>> {
+    if id <= 0 {
+        return json_response(404, json!({"success":false,"error":"Article introuvable"}));
+    }
+    let rows = selectionner(
+        pool,
+        "wiki_pages",
+        &[("id", mysql::Value::from(id))],
+        &["id", "titre", "contenu", "auteur_id", "auteur_nom", "maj", "vues"],
+        None,
+        Some(1),
+    );
+    let Some(row) = rows.into_iter().next() else {
+        return json_response(404, json!({"success":false,"error":"Article introuvable"}));
+    };
+    // Compteur de vues -- best effort, pas critique si ça rate.
+    if let Ok(mut conn) = pool.get_conn() {
+        let _ = mysql::prelude::Queryable::exec_drop(
+            &mut conn,
+            "UPDATE wiki_pages SET vues = vues + 1 WHERE id = ?",
+            (id,),
+        );
+    }
+    json_response(200, json!({"success":true,"data":row}))
+}
+
+fn wiki_save(
+    pool: &DbPool,
+    user: &HashMap<String, Value>,
+    body: &HashMap<String, String>,
+) -> Response<std::io::Cursor<Vec<u8>>> {
+    let uid = user.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+    let privilege = user.get("privilege").and_then(|v| v.as_i64()).unwrap_or(99);
+    let nom = user.get("nom").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let titre = body.get("titre").map(|s| s.trim().to_string()).unwrap_or_default();
+    let contenu = body.get("contenu").map(|s| s.trim().to_string()).unwrap_or_default();
+    if titre.is_empty() || contenu.is_empty() {
+        return json_response(200, json!({"success":false,"error":"Titre et contenu obligatoires"}));
+    }
+    if titre.chars().count() > 255 {
+        return json_response(200, json!({"success":false,"error":"Titre trop long (255 caractères max)"}));
+    }
+    let id = body.get("id").and_then(|v| v.parse::<i64>().ok()).unwrap_or(0);
+
+    if id > 0 {
+        // Edition d'un article existant : l'auteur peut toujours modifier
+        // le sien, un tiers doit etre un compte de confiance (privilege
+        // <= 6) -- meme logique de limitation du vandalisme que la
+        // suppression.
+        let cible = selectionner(pool, "wiki_pages", &[("id", mysql::Value::from(id))], &["auteur_id"], None, Some(1));
+        let Some(row) = cible.first() else {
+            return json_response(200, json!({"success":false,"error":"Article introuvable"}));
+        };
+        let auteur_id = row.get("auteur_id").and_then(|v| v.as_i64()).unwrap_or(-1);
+        if auteur_id != uid && privilege > 6 {
+            return json_response(200, json!({"success":false,"error":"Seul l'auteur ou un compte de confiance peut modifier cet article"}));
+        }
+        crate::appeldb::inserer_ou_modifier(
+            pool,
+            "wiki_pages",
+            &[("titre", mysql::Value::from(titre)), ("contenu", mysql::Value::from(contenu))],
+            &[("id", mysql::Value::from(id))],
+        );
+        return json_response(200, json!({"success":true,"message":"Article mis à jour","data":{"id":id}}));
+    }
+
+    let nouvel_id = crate::appeldb::inserer_ou_modifier(
+        pool,
+        "wiki_pages",
+        &[
+            ("titre", mysql::Value::from(titre)),
+            ("contenu", mysql::Value::from(contenu)),
+            ("auteur_id", mysql::Value::from(uid)),
+            ("auteur_nom", mysql::Value::from(nom)),
+        ],
+        &[],
+    );
+    if nouvel_id < 0 {
+        return json_response(200, json!({"success":false,"error":"Erreur lors de la création"}));
+    }
+    json_response(200, json!({"success":true,"message":"Article créé","data":{"id":nouvel_id}}))
+}
+
+fn wiki_delete(
+    pool: &DbPool,
+    user: &HashMap<String, Value>,
+    id: i64,
+) -> Response<std::io::Cursor<Vec<u8>>> {
+    let uid = user.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+    let privilege = user.get("privilege").and_then(|v| v.as_i64()).unwrap_or(99);
+    let cible = selectionner(pool, "wiki_pages", &[("id", mysql::Value::from(id))], &["auteur_id"], None, Some(1));
+    let Some(row) = cible.first() else {
+        return json_response(200, json!({"success":false,"error":"Article introuvable"}));
+    };
+    let auteur_id = row.get("auteur_id").and_then(|v| v.as_i64()).unwrap_or(-1);
+    if auteur_id != uid && privilege > 6 {
+        return json_response(200, json!({"success":false,"error":"Seul l'auteur ou un compte de confiance peut supprimer cet article"}));
+    }
+    crate::appeldb::supprimer_ligne(pool, "wiki_pages", "id", mysql::Value::from(id));
+    json_response(200, json!({"success":true,"message":"Article supprimé"}))
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FAQ (app interne, visible UNIQUEMENT dans /recherche) -- lecture
+// ouverte, ecriture reservee aux comptes de confiance (privilege <= 6,
+// verifie dans handle() avant d'appeler faq_save/faq_delete).
+// ══════════════════════════════════════════════════════════════════
+
+fn faq_liste(pool: &DbPool, q: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+    let mut conn = match pool.get_conn() {
+        Ok(c) => c,
+        Err(_) => return json_response(200, json!({"success":true,"data":{"items":[]}})),
+    };
+    let motif = format!("%{}%", q.trim());
+    let rows: Vec<(i64, String, String)> = mysql::prelude::Queryable::exec_map(
+        &mut conn,
+        "SELECT id, question, reponse FROM wiki_faq \
+         WHERE question LIKE ? OR reponse LIKE ? ORDER BY id DESC LIMIT 100",
+        (&motif, &motif),
+        |(id, question, reponse): (i64, String, String)| (id, question, reponse),
+    )
+    .unwrap_or_default();
+
+    let items: Vec<Value> = rows
+        .into_iter()
+        .map(|(id, question, reponse)| json!({"id": id, "question": question, "reponse": reponse}))
+        .collect();
+
+    json_response(200, json!({"success":true,"data":{"items":items}}))
+}
+
+fn faq_save(
+    pool: &DbPool,
+    user: &HashMap<String, Value>,
+    body: &HashMap<String, String>,
+) -> Response<std::io::Cursor<Vec<u8>>> {
+    let uid = user.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+    let question = body.get("question").map(|s| s.trim().to_string()).unwrap_or_default();
+    let reponse = body.get("reponse").map(|s| s.trim().to_string()).unwrap_or_default();
+    if question.is_empty() || reponse.is_empty() {
+        return json_response(200, json!({"success":false,"error":"Question et réponse obligatoires"}));
+    }
+    if question.chars().count() > 500 {
+        return json_response(200, json!({"success":false,"error":"Question trop longue (500 caractères max)"}));
+    }
+    let id = body.get("id").and_then(|v| v.parse::<i64>().ok()).unwrap_or(0);
+
+    if id > 0 {
+        crate::appeldb::inserer_ou_modifier(
+            pool,
+            "wiki_faq",
+            &[("question", mysql::Value::from(question)), ("reponse", mysql::Value::from(reponse))],
+            &[("id", mysql::Value::from(id))],
+        );
+        return json_response(200, json!({"success":true,"message":"Entrée mise à jour","data":{"id":id}}));
+    }
+
+    let nouvel_id = crate::appeldb::inserer_ou_modifier(
+        pool,
+        "wiki_faq",
+        &[
+            ("question", mysql::Value::from(question)),
+            ("reponse", mysql::Value::from(reponse)),
+            ("auteur_id", mysql::Value::from(uid)),
+        ],
+        &[],
+    );
+    if nouvel_id < 0 {
+        return json_response(200, json!({"success":false,"error":"Erreur lors de la création"}));
+    }
+    json_response(200, json!({"success":true,"message":"Entrée créée","data":{"id":nouvel_id}}))
+}
+
+fn faq_delete(pool: &DbPool, id: i64) -> Response<std::io::Cursor<Vec<u8>>> {
+    crate::appeldb::supprimer_ligne(pool, "wiki_faq", "id", mysql::Value::from(id));
+    json_response(200, json!({"success":true,"message":"Entrée supprimée"}))
+}
+
+fn serve_html(nav_html: &str, langue: &str, uid: i64, privilege: i64) -> String {
     let html = include_str!("../../static/recherche/recherche.html").replace("__NAV_HTML__", nav_html);
     let html = i18n::appliquer_traductions(&html, langue, &[
         ("{{T_TITRE_ONGLET}}", Cle::RechTitreOnglet),
@@ -237,5 +559,14 @@ fn serve_html(nav_html: &str, langue: &str) -> String {
     // /api/recherche/extensions. La page n'utilise aucune variable
     // I18N.xxx cote JS (tout passe par les placeholders {{T_...}}
     // ci-dessus, deja substitues cote serveur), donc un objet vide suffit.
-    html.replacen("{{I18N_JS}}", "const I18N = {};", 1)
+    // MON_ID/MON_PRIVILEGE : utilisees cote JS uniquement pour l'affichage
+    // (afficher les boutons modifier/supprimer sur un article dont on est
+    // l'auteur, ou les boutons d'ecriture FAQ pour un compte de confiance)
+    // -- jamais une source de verite, le serveur revalide tout dans
+    // wiki_save/wiki_delete/faq_save/faq_delete.
+    html.replacen(
+        "{{I18N_JS}}",
+        &format!("const I18N = {{}}; const MON_ID = {}; const MON_PRIVILEGE = {};", uid, privilege),
+        1,
+    )
 }
