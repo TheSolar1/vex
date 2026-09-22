@@ -187,6 +187,36 @@ pub fn handle(pool: &DbPool, config: &VexConfig, req: &mut Request) -> Response<
             None => json_response(404, json!({"success":false,"error":"Actualité introuvable"})),
         };
     }
+    // ── Actualites : ecriture reservee aux comptes de confiance
+    // (privilege <= 6, meme regle que le wiki/FAQ) -- demande utilisateur :
+    // "je veux que ca soit automatise" -- plus besoin d'une intervention
+    // manuelle en base a chaque nouvelle actualite, un compte de confiance
+    // peut desormais en creer/modifier/supprimer directement depuis
+    // l'interface.
+    if path == "/api/recherche/actualite/save" && req.method() == &tiny_http::Method::Post {
+        let user = match verifier_session(pool, req) {
+            Some(u) => u,
+            None => return json_response(401, json!({"success":false,"error":"Non connecté"})),
+        };
+        if user.get("privilege").and_then(|v| v.as_i64()).unwrap_or(99) > 6 {
+            return json_response(403, json!({"success":false,"error":"Réservé aux comptes de confiance"}));
+        }
+        let body = lire_body_formulaire(req);
+        return actualite_save(pool, &body);
+    }
+    if path == "/api/recherche/actualite/delete" && req.method() == &tiny_http::Method::Post {
+        let user = match verifier_session(pool, req) {
+            Some(u) => u,
+            None => return json_response(401, json!({"success":false,"error":"Non connecté"})),
+        };
+        if user.get("privilege").and_then(|v| v.as_i64()).unwrap_or(99) > 6 {
+            return json_response(403, json!({"success":false,"error":"Réservé aux comptes de confiance"}));
+        }
+        let body = lire_body_formulaire(req);
+        let id = body.get("id").and_then(|v| v.parse::<i64>().ok()).unwrap_or(0);
+        crate::appeldb::supprimer_ligne(pool, "actualites", "id", mysql::Value::from(id));
+        return json_response(200, json!({"success":true,"message":"Actualité supprimée"}));
+    }
     if path == "/api/recherche/wiki/save" && req.method() == &tiny_http::Method::Post {
         let user = match verifier_session(pool, req) {
             Some(u) => u,
@@ -371,6 +401,42 @@ fn actualites_rechercher(pool: &DbPool, q: &str) -> Vec<Value> {
             })
         })
         .collect()
+}
+
+/// Creation/modification d'une actualite (compte de confiance uniquement,
+/// verifie dans handle() avant l'appel). UPSERT explicite : `id` fourni ->
+/// UPDATE, sinon INSERT.
+fn actualite_save(pool: &DbPool, body: &HashMap<String, String>) -> Response<std::io::Cursor<Vec<u8>>> {
+    let titre = body.get("titre").map(|s| s.trim().to_string()).unwrap_or_default();
+    let contenu = body.get("contenu").map(|s| s.trim().to_string()).unwrap_or_default();
+    if titre.is_empty() || contenu.is_empty() {
+        return json_response(200, json!({"success":false,"error":"Titre et contenu obligatoires"}));
+    }
+    if titre.chars().count() > 255 {
+        return json_response(200, json!({"success":false,"error":"Titre trop long (255 caractères max)"}));
+    }
+    let id = body.get("id").and_then(|v| v.parse::<i64>().ok()).unwrap_or(0);
+
+    if id > 0 {
+        crate::appeldb::inserer_ou_modifier(
+            pool,
+            "actualites",
+            &[("titre", mysql::Value::from(titre)), ("contenu", mysql::Value::from(contenu))],
+            &[("id", mysql::Value::from(id))],
+        );
+        return json_response(200, json!({"success":true,"message":"Actualité mise à jour","data":{"id":id}}));
+    }
+
+    let nouvel_id = crate::appeldb::inserer_ou_modifier(
+        pool,
+        "actualites",
+        &[("titre", mysql::Value::from(titre)), ("contenu", mysql::Value::from(contenu))],
+        &[],
+    );
+    if nouvel_id < 0 {
+        return json_response(200, json!({"success":false,"error":"Erreur lors de la création"}));
+    }
+    json_response(200, json!({"success":true,"message":"Actualité créée","data":{"id":nouvel_id}}))
 }
 
 /// Coeur de la recherche extensions, partagé entre /api/recherche/extensions

@@ -139,6 +139,7 @@ __NAV_HTML__
         <img class="ico ico-loupe" src="/static/img/solid/magnifying-glass.svg" alt="">
         <input type="text" id="q" placeholder="{{T_PLACEHOLDER}}" autocomplete="off">
       </div>
+      <div class="barre-actions" id="actualite-actions" style="display:none"><button class="btn-secondaire" onclick="actualiteOuvrirEdition()"><img class="ico ico-sm" src="/static/img/solid/plus.svg" alt=""> Nouvelle actualité</button></div>
       <div class="resultats" id="resultats"></div>
     </div>
 
@@ -160,6 +161,20 @@ __NAV_HTML__
     <div style="display:flex;gap:10px">
       <button class="btn-primaire" onclick="wikiEnregistrer()"><img class="ico ico-sm" src="/static/img/solid/check.svg" alt=""> Enregistrer</button>
       <button class="btn-secondaire" onclick="document.getElementById('wiki-modal').style.display='none'">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modale édition actualité (comptes de confiance uniquement) ── -->
+<div class="modal-bg2" id="actualite-modal" style="display:none">
+  <div class="modal-box2">
+    <h2 style="margin-bottom:14px;font-size:1.1rem">Actualité VEX</h2>
+    <input type="hidden" id="actualite-edit-id">
+    <input type="text" id="actualite-edit-titre" placeholder="Titre de l'actualité">
+    <textarea id="actualite-edit-contenu" placeholder="Contenu de l'actualité..."></textarea>
+    <div style="display:flex;gap:10px">
+      <button class="btn-primaire" onclick="actualiteEnregistrer()"><img class="ico ico-sm" src="/static/img/solid/check.svg" alt=""> Enregistrer</button>
+      <button class="btn-secondaire" onclick="document.getElementById('actualite-modal').style.display='none'">Annuler</button>
     </div>
   </div>
 </div>
@@ -412,20 +427,65 @@ function wikiFermerArticle(){
   lancerRecherche(document.getElementById('q').value);
 }
 
-/* ══════════════ Actualités VEX (lecture seule, meme lecteur) ══════════════ */
+/* ══════════════ Actualités VEX (creation reservee aux comptes de
+   confiance, lecture ouverte a tous, meme lecteur que le wiki) ══════════════
+   FIX (demande utilisateur : "je veux que ca soit automatise") -- plus
+   besoin d'une intervention manuelle en base, un compte de confiance cree
+   directement depuis l'interface. */
+if(MON_PRIVILEGE<=6) document.getElementById('actualite-actions').style.display='flex';
 async function actualiteOuvrir(id){
   try{
     const r=await fetch('/api/recherche/actualite/article?id='+id, {credentials:'include'});
     const d=await r.json();
     if(!d.success){ toast(d.error||'Erreur'); return; }
     const a=d.data;
+    S.actualiteActuelle=a;
+    const peutModifier = MON_PRIVILEGE<=6;
     document.getElementById('wiki-article-contenu').innerHTML=`
       <h2 style="font-size:1.25rem">${escHtml(a.titre)}</h2>
       <div class="res-meta" style="margin-top:6px">Actualités VEX · ${escHtml(a.date)}</div>
       <div class="contenu">${escHtml(a.contenu)}</div>
+      ${peutModifier?`<div class="actions">
+        <button class="btn-secondaire" onclick="actualiteOuvrirEdition(${a.id})"><img class="ico ico-sm" src="/static/img/solid/pen.svg" alt=""> Modifier</button>
+        <button class="btn-secondaire" onclick="actualiteSupprimer(${a.id})"><img class="ico ico-sm" src="/static/img/solid/trash.svg" alt=""> Supprimer</button>
+      </div>`:''}
     `;
     document.getElementById('vue-resultats').style.display='none';
     document.getElementById('wiki-article-vue').style.display='block';
+  }catch(e){ toast('Erreur réseau'); }
+}
+function actualiteOuvrirEdition(id){
+  const a = id ? S.actualiteActuelle : null;
+  document.getElementById('actualite-edit-id').value = id||'';
+  document.getElementById('actualite-edit-titre').value = a ? a.titre : '';
+  document.getElementById('actualite-edit-contenu').value = a ? a.contenu : '';
+  document.getElementById('actualite-modal').style.display='flex';
+}
+async function actualiteEnregistrer(){
+  const id=document.getElementById('actualite-edit-id').value;
+  const titre=document.getElementById('actualite-edit-titre').value.trim();
+  const contenu=document.getElementById('actualite-edit-contenu').value.trim();
+  if(!titre||!contenu){ toast('Titre et contenu obligatoires'); return; }
+  try{
+    const r=await fetch('/api/recherche/actualite/save', {method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'id='+encodeURIComponent(id)+'&titre='+encodeURIComponent(titre)+'&contenu='+encodeURIComponent(contenu)});
+    const d=await r.json();
+    toast(d.success?d.message:d.error);
+    if(d.success){
+      document.getElementById('actualite-modal').style.display='none';
+      if(id){ actualiteOuvrir(id); } else { document.getElementById('q').value=titre; lancerRecherche(titre); }
+    }
+  }catch(e){ toast('Erreur réseau'); }
+}
+async function actualiteSupprimer(id){
+  if(!window.confirm('Supprimer cette actualité ?')) return;
+  try{
+    const r=await fetch('/api/recherche/actualite/delete', {method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'id='+encodeURIComponent(id)});
+    const d=await r.json();
+    toast(d.success?d.message:d.error);
+    if(d.success) wikiFermerArticle();
   }catch(e){ toast('Erreur réseau'); }
 }
 
