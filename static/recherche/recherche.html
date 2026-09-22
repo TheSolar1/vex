@@ -90,22 +90,18 @@ h1 { font-size:1.4rem; margin-bottom:18px; display:flex; align-items:center; gap
 .article-full .actions { display:flex; gap:8px; margin-top:16px; }
 .retour { background:none; border:none; color:var(--accent); font-weight:600; cursor:pointer; font-size:13.5px; margin-bottom:14px; display:inline-flex; align-items:center; gap:6px; }
 
-/* ── Lecteur "encyclopedie" (Wikipedia) -- reprend les codes visuels
-   d'un article Wikipedia (titre souligne, sections avec filet, sommaire)
-   mais avec les couleurs/typo du theme VEX, pas celles de Wikipedia. ── */
-.wp-titre { font-size:1.7rem; font-weight:700; padding-bottom:10px; border-bottom:1px solid var(--border); margin-bottom:14px; }
-.wp-sommaire {
-  background:var(--surface); border:1px solid var(--border); border-radius:10px;
-  padding:14px 18px; margin:16px 0 20px; display:inline-block; max-width:100%;
-}
-.wp-sommaire .wp-sommaire-titre { font-weight:700; font-size:13px; margin-bottom:8px; }
-.wp-sommaire ol { margin:0; padding-left:20px; font-size:13px; line-height:1.9; }
-.wp-sommaire a { color:var(--accent); text-decoration:none; }
+/* ── Lecteur Wikipedia -- retour utilisateur ("c'est infame") sur la
+   premiere version (titre souligne + sommaire encadre + filets sous
+   chaque titre, trop charge) : version allegee, juste des titres et du
+   texte, meme densite visuelle que le lecteur du wiki interne. ── */
+.wp-titre { font-size:1.4rem; font-weight:700; margin-bottom:4px; }
+.wp-sommaire { font-size:12.5px; opacity:.8; margin:10px 0 18px; line-height:1.8; }
+.wp-sommaire a { color:var(--accent); text-decoration:none; margin-right:12px; }
 .wp-sommaire a:hover { text-decoration:underline; }
-.wp-contenu h2 { font-size:1.2rem; font-weight:700; margin:26px 0 12px; padding-bottom:6px; border-bottom:1px solid var(--border); scroll-margin-top:16px; }
-.wp-contenu h3 { font-size:1.05rem; font-weight:700; margin:20px 0 10px; scroll-margin-top:16px; }
-.wp-contenu h4 { font-size:.95rem; font-weight:700; margin:16px 0 8px; opacity:.9; scroll-margin-top:16px; }
-.wp-contenu p { line-height:1.75; font-size:14.5px; margin:0 0 14px; }
+.wp-contenu h2 { font-size:1.05rem; font-weight:700; margin:22px 0 8px; scroll-margin-top:16px; }
+.wp-contenu h3 { font-size:.95rem; font-weight:700; margin:16px 0 6px; opacity:.9; scroll-margin-top:16px; }
+.wp-contenu h4 { font-size:.9rem; font-weight:700; margin:14px 0 6px; opacity:.8; scroll-margin-top:16px; }
+.wp-contenu p { line-height:1.7; font-size:14px; margin:0 0 12px; }
   </style>
 </head>
 <body>
@@ -331,8 +327,10 @@ function formaterArticleWikipedia(texte){
 
 function rendreSommaire(sommaire){
   if(sommaire.length < 2) return ''; // pas utile pour un article a une seule section
-  const items = sommaire.map(s=>`<li style="margin-left:${(s.niveau-2)*16}px"><a href="#${s.ancre}">${escHtml(s.titre)}</a></li>`).join('');
-  return `<div class="wp-sommaire"><div class="wp-sommaire-titre">Sommaire</div><ol>${items}</ol></div>`;
+  // Version allegee : une simple ligne de liens (pas un encadre), les
+  // sous-sections (niveau 3+) en plus discret.
+  const items = sommaire.map(s=>`<a href="#${s.ancre}" style="${s.niveau>2?'opacity:.7;font-size:.95em':''}">${escHtml(s.titre)}</a>`).join('');
+  return `<div class="wp-sommaire">${items}</div>`;
 }
 
 async function wikipediaOuvrirArticle(index){
