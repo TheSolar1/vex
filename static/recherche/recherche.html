@@ -153,6 +153,17 @@ __NAV_HTML__
 <script>
 {{I18N_JS}}
 function escHtml(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+// Met en gras le terme recherche dans un texte -- toujours escHtml() en
+// premier (le texte affiche reste sur, aucun contenu externe n'est jamais
+// injecte tel quel), la mise en gras ne fait qu'entourer des morceaux du
+// texte deja echappe avec des balises <strong> fixes.
+function surligner(texte, q){
+  const echappe = escHtml(texte);
+  const requete = (q||'').trim();
+  if(!requete) return echappe;
+  const motif = escHtml(requete).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return echappe.replace(new RegExp('('+motif+')', 'ig'), '<strong>$1</strong>');
+}
 const S={};
 
 function toast(msg, type='info'){
@@ -222,8 +233,8 @@ function lancerRecherche(q){
       zone.innerHTML=items.map((it,i)=>{
         const t = TYPES[it.type] || { icone:'circle-question', label:it.type };
         const enTete = `<div class="res-type"><img class="ico ico-sm" src="/static/img/solid/${t.icone}.svg" alt=""> ${escHtml(t.label)}</div>
-          <div class="res-titre">${escHtml(it.titre)}</div>
-          <div class="res-extrait">${escHtml(it.extrait)}</div>`;
+          <div class="res-titre">${surligner(it.titre, q)}</div>
+          <div class="res-extrait">${surligner(it.extrait, q)}</div>`;
 
         if(it.type==='wiki'){
           return `<div class="res-item t-wiki" onclick="wikiOuvrirArticle(${it.id})">${enTete}

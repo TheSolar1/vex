@@ -382,12 +382,13 @@ fn api_global(pool: &DbPool, config: &VexConfig, q: &str) -> Response<std::io::C
     }
 
     // Wikipedia : source externe qui garantit des VRAIS resultats meme
-    // quand le wiki interne VEX est encore vide -- seulement si l'utilisateur
-    // a effectivement tape quelque chose (pas d'appel a Wikipedia pour une
-    // recherche vide, ca n'aurait aucun sens et couterait un aller-retour
-    // reseau inutile a chaque chargement de page).
+    // quand le wiki interne VEX est encore vide -- seulement a partir de 2
+    // caracteres (pas d'appel reseau pour une recherche vide ou une seule
+    // lettre : "e" faisait remonter l'article Wikipedia sur la lettre E,
+    // techniquement correct mais perçu comme du bruit/un bug par les
+    // utilisateurs qui tapent encore leur requete).
     let mut erreur_wikipedia = None;
-    if !q.trim().is_empty() {
+    if q.trim().chars().count() >= 2 {
         match wikipedia_rechercher(q) {
             Ok(resultats) => {
                 for it in resultats {
