@@ -274,6 +274,36 @@ function wikiFermerArticle(){
    interface unifiee, pas de redirection vers wikipedia.org. Le contenu est
    mis en cache localement des la premiere ouverture (wikipedia_cache cote
    serveur) : relire le meme article ne refait plus d'appel reseau. */
+// L'API Wikipedia (prop=extracts&explaintext=1) renvoie du texte brut ou
+// les sections gardent leur marquage wiki litteral ("== Titre ==",
+// "=== Sous-titre ===") -- affiche tel quel avec escHtml + pre-wrap, ca
+// ressemble a un dump de fichier, pas a une page d'encyclopedie. Convertit
+// ici ce marquage en vrais titres HTML et le reste en paragraphes.
+function formaterTexteWikipedia(texte){
+  const lignes = String(texte||'').split('\n');
+  let html = '';
+  let paragrapheCourant = [];
+  const viderParagraphe = () => {
+    const texte = paragrapheCourant.join(' ').trim();
+    if(texte) html += `<p style="margin:0 0 14px">${escHtml(texte)}</p>`;
+    paragrapheCourant = [];
+  };
+  for(const ligne of lignes){
+    const titre = ligne.match(/^(={2,6})\s*(.+?)\s*\1$/);
+    if(titre){
+      viderParagraphe();
+      const niveau = Math.min(titre[1].length, 4); // == -> h2 (le titre principal est deja en h1 au-dessus)
+      html += `<h${niveau} style="margin:22px 0 10px;font-size:${1.3-niveau*0.12}rem">${escHtml(titre[2])}</h${niveau}>`;
+    }else if(ligne.trim()===''){
+      viderParagraphe();
+    }else{
+      paragrapheCourant.push(ligne.trim());
+    }
+  }
+  viderParagraphe();
+  return html || `<p>${escHtml(texte)}</p>`;
+}
+
 async function wikipediaOuvrirArticle(index){
   const it = S.derniersItems && S.derniersItems[index];
   if(!it){ toast('Article introuvable'); return; }
@@ -285,7 +315,7 @@ async function wikipediaOuvrirArticle(index){
     document.getElementById('wiki-article-contenu').innerHTML=`
       <h2 style="font-size:1.25rem">${escHtml(a.titre)}</h2>
       <div class="res-meta" style="margin-top:6px">Wikipédia ${a.source_locale?'· servi depuis le cache local VEX':'· mis en cache localement'}</div>
-      <div class="contenu">${escHtml(a.contenu)}</div>
+      <div class="contenu" style="white-space:normal">${formaterTexteWikipedia(a.contenu)}</div>
     `;
     document.getElementById('vue-resultats').style.display='none';
     document.getElementById('wiki-article-vue').style.display='block';
