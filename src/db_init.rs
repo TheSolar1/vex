@@ -492,6 +492,62 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         "ALTER TABLE `actualites` ADD FULLTEXT INDEX `ft_actualites` (`titre`, `contenu`)",
     );
 
+    // ── meet_rooms / meet_participants / meet_signaling (app Viso,
+    // visioconference -- src/viso/viso.rs) : BUG DECOUVERT EN PRATIQUE le
+    // 22/09 -- ces 3 tables sont utilisees partout dans viso.rs (creation
+    // de salle, participants, signalisation WebRTC chiffree) mais n'ont
+    // JAMAIS ete ajoutees a cette fonction d'auto-init. Consequence
+    // reelle : `creer_salle` echouait TOUJOURS avec "Table
+    // 'user.meet_rooms' doesn't exist" (confirme dans les logs), donc Viso
+    // n'a jamais pu fonctionner sur cette base tant que quelqu'un n'avait
+    // pas cree les tables a la main.
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `meet_rooms` (
+            `id`                INT          NOT NULL AUTO_INCREMENT,
+            `room_code`         VARCHAR(20)  NOT NULL,
+            `creator_id`        INT          NOT NULL,
+            `title`             VARCHAR(255) NOT NULL,
+            `is_public`         TINYINT      NOT NULL DEFAULT 0,
+            `require_password`  TINYINT      NOT NULL DEFAULT 0,
+            `password_hash`     VARCHAR(255) DEFAULT NULL,
+            `max_participants`  INT          NOT NULL DEFAULT 8,
+            `is_active`         TINYINT      NOT NULL DEFAULT 1,
+            `created_at`        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `room_code` (`room_code`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    )?;
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `meet_participants` (
+            `id`         INT          NOT NULL AUTO_INCREMENT,
+            `room_id`    INT          NOT NULL,
+            `user_id`    INT          NOT NULL,
+            `session_id` VARCHAR(64)  NOT NULL,
+            `nom`        VARCHAR(250) NOT NULL DEFAULT '',
+            `x25519_pub` VARCHAR(128) NOT NULL DEFAULT '',
+            `status`     VARCHAR(20)  NOT NULL DEFAULT 'connected',
+            `joined_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `last_seen`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `session_id` (`session_id`),
+            KEY `room_id` (`room_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    )?;
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `meet_signaling` (
+            `id`           INT      NOT NULL AUTO_INCREMENT,
+            `room_id`      INT      NOT NULL,
+            `from_session` VARCHAR(64)  NOT NULL,
+            `to_session`   VARCHAR(64)  NOT NULL,
+            `payload_type` VARCHAR(50)  NOT NULL,
+            `ciphertext`   LONGTEXT NOT NULL,
+            `nonce`        VARCHAR(64)  NOT NULL,
+            `created_at`   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `to_session` (`to_session`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    )?;
+
     eprintln!("[db_init] Base '{}' initialisée avec succès.", cfg.dbname);
     Ok(())
 }
