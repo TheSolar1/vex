@@ -389,10 +389,24 @@ fn api_global(pool: &DbPool, config: &VexConfig, q: &str) -> Response<std::io::C
     // utilisateurs qui tapent encore leur requete).
     let mut erreur_wikipedia = None;
     if q.trim().chars().count() >= 2 {
+        // Miroir local d'abord (FULLTEXT, instantane, zero appel reseau) --
+        // le miroir grandit a chaque article deja consulte (voir
+        // wikipedia_article). Puis la recherche live complete la liste avec
+        // les articles pas encore mis en cache, sans dupliquer un titre deja
+        // trouve localement.
+        let locaux = wikipedia_cache_rechercher(pool, q);
+        let titres_locaux: std::collections::HashSet<String> =
+            locaux.iter().filter_map(|it| it["titre"].as_str().map(|s| s.to_lowercase())).collect();
+        for it in locaux {
+            items.push(it);
+        }
         match wikipedia_rechercher(q) {
             Ok(resultats) => {
                 for it in resultats {
-                    items.push(it);
+                    let deja_local = it["titre"].as_str().map(|t| titres_locaux.contains(&t.to_lowercase())).unwrap_or(false);
+                    if !deja_local {
+                        items.push(it);
+                    }
                 }
             }
             Err(e) => erreur_wikipedia = Some(e),
@@ -466,6 +480,41 @@ fn wikipedia_rechercher(q: &str) -> Result<Vec<Value>, String> {
         }
     }
     Ok(items)
+}
+
+/// Recherche dans le miroir LOCAL des articles Wikipedia deja consultes
+/// (FULLTEXT, meme logique de pertinence que wiki_rechercher) -- zero appel
+/// reseau, contrairement a wikipedia_rechercher (API live). Le miroir
+/// grandit a chaque nouvel article ouvert (voir wikipedia_article), donc ce
+/// qui est deja recherche localement devient de plus en plus complet a
+/// l'usage : "un vrai moteur de recherche" qui s'ameliore avec le temps
+/// plutot qu'un simple cache passe-plat.
+fn wikipedia_cache_rechercher(pool: &DbPool, q: &str) -> Vec<Value> {
+    let Some(requete) = requete_fulltext(q) else { return vec![] };
+    let mut conn = match pool.get_conn() {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
+    let rows: Vec<(String, String)> = mysql::prelude::Queryable::exec_map(
+        &mut conn,
+        "SELECT titre, extrait FROM wikipedia_cache \
+         WHERE MATCH(titre, extrait) AGAINST(? IN BOOLEAN MODE) \
+         ORDER BY MATCH(titre, extrait) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 10",
+        (&requete, &requete),
+        |(titre, extrait): (String, String)| (titre, extrait),
+    )
+    .unwrap_or_default();
+
+    rows.into_iter()
+        .map(|(titre, extrait_complet)| {
+            json!({
+                "type": "wikipedia",
+                "titre": titre,
+                "extrait": extrait(&extrait_complet, EXTRAIT_LEN),
+                "meta": "Wikipédia · miroir local",
+            })
+        })
+        .collect()
 }
 
 /// Article Wikipedia complet, servi depuis le miroir LOCAL (wikipedia_cache)
@@ -650,14 +699,60 @@ fn extrait(s: &str, n: usize) -> String {
     }
 }
 
+/// Construit une requete MySQL "boolean full-text search" a partir du texte
+/// tape par l'utilisateur : chaque mot devient un prefixe ("wik" -> "wik*"),
+/// ce qui permet de trouver un article des les premiers caracteres d'un mot
+/// tapes, comme un vrai moteur de recherche (pas seulement des mots
+/// complets). Les operateurs boolean de MySQL (+-<>()~*"@) sont retires du
+/// texte utilisateur avant construction pour eviter toute syntaxe surprise.
+fn requete_fulltext(q: &str) -> Option<String> {
+    let mots: Vec<String> = q
+        .split_whitespace()
+        .map(|m| m.chars().filter(|c| !"+-<>()~*\"@".contains(*c)).collect::<String>())
+        .filter(|m: &String| !m.is_empty())
+        .map(|m| format!("{}*", m))
+        .collect();
+    if mots.is_empty() {
+        None
+    } else {
+        Some(mots.join(" "))
+    }
+}
+
 /// Coeur de la recherche wiki, partagé entre /api/recherche/wiki et
-/// /api/recherche/global. Recherche texte simple (LIKE) sur titre+contenu,
-/// requete parametree (pas d'injection SQL possible via `q`).
+/// /api/recherche/global.
+///
+/// FIX (demande utilisateur : "un vrai moteur de recherche") : recherche
+/// desormais par PERTINENCE (index FULLTEXT MySQL, voir la migration dans
+/// db_init.rs) au lieu d'un simple LIKE '%...%' qui ne classait rien et ne
+/// renvoyait les resultats que par date de modification. Le LIKE reste en
+/// repli (mots trop courts pour l'index -- ft_min_word_len exclut les mots
+/// de moins de 4 caracteres --, ou correspondance au milieu d'un mot que
+/// FULLTEXT en mode prefixe ne trouve pas) pour ne jamais renvoyer moins de
+/// resultats qu'avant ce changement.
 fn wiki_rechercher(pool: &DbPool, q: &str) -> Vec<Value> {
     let mut conn = match pool.get_conn() {
         Ok(c) => c,
         Err(_) => return vec![],
     };
+
+    if let Some(requete) = requete_fulltext(q) {
+        let rows: Vec<(i64, String, String, String, String, i64)> = mysql::prelude::Queryable::exec_map(
+            &mut conn,
+            "SELECT id, titre, contenu, auteur_nom, DATE_FORMAT(maj, '%Y-%m-%d %H:%i'), vues \
+             FROM wiki_pages WHERE MATCH(titre, contenu) AGAINST(? IN BOOLEAN MODE) \
+             ORDER BY MATCH(titre, contenu) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 100",
+            (&requete, &requete),
+            |(id, titre, contenu, auteur_nom, maj, vues): (i64, String, String, String, String, i64)| {
+                (id, titre, contenu, auteur_nom, maj, vues)
+            },
+        )
+        .unwrap_or_default();
+        if !rows.is_empty() {
+            return rows.into_iter().map(vers_item_wiki).collect();
+        }
+    }
+
     let motif = format!("%{}%", q.trim());
     let rows: Vec<(i64, String, String, String, String, i64)> = mysql::prelude::Queryable::exec_map(
         &mut conn,
@@ -669,19 +764,18 @@ fn wiki_rechercher(pool: &DbPool, q: &str) -> Vec<Value> {
         },
     )
     .unwrap_or_default();
+    rows.into_iter().map(vers_item_wiki).collect()
+}
 
-    rows.into_iter()
-        .map(|(id, titre, contenu, auteur_nom, maj, vues)| {
-            json!({
-                "id": id,
-                "titre": titre,
-                "extrait": extrait(&contenu, EXTRAIT_LEN),
-                "auteur_nom": auteur_nom,
-                "maj": maj,
-                "vues": vues,
-            })
-        })
-        .collect()
+fn vers_item_wiki((id, titre, contenu, auteur_nom, maj, vues): (i64, String, String, String, String, i64)) -> Value {
+    json!({
+        "id": id,
+        "titre": titre,
+        "extrait": extrait(&contenu, EXTRAIT_LEN),
+        "auteur_nom": auteur_nom,
+        "maj": maj,
+        "vues": vues,
+    })
 }
 
 fn wiki_liste(pool: &DbPool, q: &str) -> Response<std::io::Cursor<Vec<u8>>> {

@@ -418,6 +418,15 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
             KEY `titre` (`titre`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     )?;
+    // Migration : index plein texte (classement par pertinence via
+    // MATCH...AGAINST au lieu d'un simple LIKE '%...%' qui ne classe rien
+    // et ne trouve que des sous-chaines litterales) -- demande utilisateur
+    // "un vrai moteur de recherche". `let _` : echoue silencieusement si
+    // deja cree par un demarrage precedent (pas d'equivalent portable a
+    // "ADD FULLTEXT INDEX IF NOT EXISTS" sur toutes les versions MySQL 8).
+    let _ = conn.query_drop(
+        "ALTER TABLE `wiki_pages` ADD FULLTEXT INDEX `ft_wiki` (`titre`, `contenu`)",
+    );
 
     // ── wiki_faq (app "FAQ", sous-app de Recherche) : questions/reponses
     // curatees -- ecriture reservee aux comptes de confiance (privilege
@@ -448,6 +457,14 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
             PRIMARY KEY (`titre`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     )?;
+    // Migration : index plein texte sur le miroir local -- les articles
+    // deja mis en cache deviennent ainsi cherchables INSTANTANEMENT (sans
+    // appel reseau, classes par pertinence) en plus de la recherche live
+    // sur l'API Wikipedia. Le miroir grandit a l'usage et sert de plus en
+    // plus de resultats directement depuis cette base au fil du temps.
+    let _ = conn.query_drop(
+        "ALTER TABLE `wikipedia_cache` ADD FULLTEXT INDEX `ft_wikipedia_cache` (`titre`, `extrait`)",
+    );
 
     eprintln!("[db_init] Base '{}' initialisée avec succès.", cfg.dbname);
     Ok(())
