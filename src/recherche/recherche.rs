@@ -232,6 +232,15 @@ fn lire_body_formulaire(req: &mut Request) -> HashMap<String, String> {
 /// Coeur de la recherche extensions, partagé entre /api/recherche/extensions
 /// (reponse detaillee, format historique) et /api/recherche/global (format
 /// unifie). Renvoie (items au format detaille, erreur eventuelle).
+///
+/// FIX (qualite du contenu) : une extension publie plusieurs fichiers dans
+/// la meme release GitHub (ex. qseal.extension.json, qseal.mod.rs,
+/// qseal.qseal-core.js...) -- l'ancienne version listait chacun comme un
+/// resultat separe, donc chercher "qseal" faisait apparaitre 2-3 entrees
+/// quasi identiques avec des noms de fichiers techniques. Regroupe
+/// desormais par id d'extension : un seul resultat, taille cumulee, nom
+/// lisible (le manifeste .extension.json sert de nom d'affichage/lien
+/// quand present).
 fn extensions_rechercher(q: &str) -> (Vec<Value>, Option<String>) {
     let cfg = crate::admin::admin::read_config("config.json");
     let recherche = q.trim().to_lowercase();
@@ -241,7 +250,17 @@ fn extensions_rechercher(q: &str) -> (Vec<Value>, Option<String>) {
         Err(e) => return (vec![], Some(e)),
     };
 
-    let mut items = Vec::new();
+    struct Groupe {
+        nom_affiche: String,
+        taille: u64,
+        url: String,
+        maj: String,
+        telechargements: u64,
+        a_manifeste: bool,
+    }
+    let mut groupes: std::collections::HashMap<String, Groupe> = std::collections::HashMap::new();
+    let mut ordre: Vec<String> = Vec::new();
+
     if let Some(assets) = rel["assets"].as_array() {
         for a in assets {
             let nom = a["name"].as_str().unwrap_or("").to_string();
@@ -258,17 +277,70 @@ fn extensions_rechercher(q: &str) -> (Vec<Value>, Option<String>) {
             if !recherche.is_empty() && !bas.contains(&recherche) && !id.contains(&recherche) {
                 continue;
             }
-            items.push(json!({
-                "nom": nom,
-                "id": id,
-                "taille": a["size"].as_u64().unwrap_or(0),
-                "url": a["browser_download_url"].as_str().unwrap_or(""),
-                "maj": a["updated_at"].as_str().unwrap_or(""),
-                "telechargements": a["download_count"].as_u64().unwrap_or(0),
-            }));
+            let taille = a["size"].as_u64().unwrap_or(0);
+            let url = a["browser_download_url"].as_str().unwrap_or("").to_string();
+            let maj = a["updated_at"].as_str().unwrap_or("").to_string();
+            let telechargements = a["download_count"].as_u64().unwrap_or(0);
+
+            if !groupes.contains_key(&id) {
+                ordre.push(id.clone());
+            }
+            let g = groupes.entry(id.clone()).or_insert(Groupe {
+                nom_affiche: nom_lisible(&id),
+                taille: 0,
+                url: url.clone(),
+                maj: maj.clone(),
+                telechargements: 0,
+                a_manifeste: false,
+            });
+            g.taille += taille;
+            g.telechargements = g.telechargements.max(telechargements);
+            // Le manifeste sert de lien/date canonique quand il existe.
+            if manifeste || !g.a_manifeste {
+                g.url = url;
+                g.maj = maj;
+            }
+            if manifeste {
+                g.a_manifeste = true;
+            }
         }
     }
+
+    let items = ordre
+        .into_iter()
+        .map(|id| {
+            let g = &groupes[&id];
+            json!({
+                "nom": g.nom_affiche,
+                "id": id,
+                "taille": g.taille,
+                "url": g.url,
+                "maj": g.maj,
+                "telechargements": g.telechargements,
+            })
+        })
+        .collect();
     (items, None)
+}
+
+/// "qseal" -> "Qseal", "mon_extension" -> "Mon extension" -- nom d'affichage
+/// lisible a partir d'un id technique (minuscules + underscores/tirets).
+fn nom_lisible(id: &str) -> String {
+    let mut mots: Vec<String> = id
+        .split(|c: char| c == '_' || c == '-')
+        .filter(|m| !m.is_empty())
+        .map(|m| {
+            let mut c = m.chars();
+            match c.next() {
+                Some(premiere) => premiere.to_uppercase().collect::<String>() + c.as_str(),
+                None => String::new(),
+            }
+        })
+        .collect();
+    if mots.is_empty() {
+        mots.push(id.to_string());
+    }
+    mots.join(" ")
 }
 
 /// Recherche dans le catalogue d'extensions Vex (source GitHub configurée
