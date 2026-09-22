@@ -100,7 +100,6 @@ __NAV_HTML__
         <img class="ico ico-loupe" src="/static/img/solid/magnifying-glass.svg" alt="">
         <input type="text" id="q" placeholder="{{T_PLACEHOLDER}}" autocomplete="off">
       </div>
-      <div class="barre-actions"><button class="btn-primaire" onclick="wikiOuvrirEdition()"><img class="ico ico-sm" src="/static/img/solid/plus.svg" alt=""> Nouvel article wiki</button></div>
       <div class="resultats" id="resultats"></div>
     </div>
 
@@ -204,7 +203,12 @@ function lancerRecherche(q){
         </div>`;
       }).join('');
     }catch(e){
-      zone.innerHTML=`<div class="vide">Erreur réseau</div>`;
+      // FIX (debug) : affiche le vrai message d'erreur au lieu d'un
+      // "Erreur réseau" generique qui masquait tout probleme de rendu
+      // (ex: exception JS pendant la construction du HTML) -- si ca
+      // recasse un jour, le message visible dira exactement pourquoi.
+      console.error('[recherche] lancerRecherche a échoué :', e);
+      zone.innerHTML=`<div class="vide">Erreur : ${escHtml(e && e.message || String(e))}</div>`;
     }
   }, 300);
 }
