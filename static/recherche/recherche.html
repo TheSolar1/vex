@@ -19,16 +19,20 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 .main-container { display:flex; min-height:100vh; }
-.contenu { flex:1; padding:32px 24px; max-width:900px; margin:0 auto; width:100%; }
+.contenu { flex:1; padding:32px 24px; max-width:760px; margin:0 auto; width:100%; }
 h1 { font-size:1.4rem; margin-bottom:18px; display:flex; align-items:center; gap:10px; }
-.search-box { display:flex; gap:10px; margin-bottom:24px; }
+.search-box { display:flex; gap:10px; margin-bottom:6px; position:relative; }
 .search-box input {
-  flex:1; padding:11px 14px; border-radius:8px; border:1px solid var(--border);
-  background:var(--input, var(--surface)); color:var(--text); font-size:14px;
+  flex:1; padding:13px 16px 13px 42px; border-radius:24px; border:1px solid var(--border);
+  background:var(--input, var(--surface)); color:var(--text); font-size:15px;
+  box-shadow:0 1px 4px rgba(0,0,0,.06);
 }
+.search-box input:focus { outline:none; border-color:var(--accent); box-shadow:0 1px 8px rgba(0,0,0,.1); }
+.search-box .ico-loupe { position:absolute; left:15px; top:50%; transform:translateY(-50%); opacity:.55; pointer-events:none; }
+.barre-actions { display:flex; justify-content:flex-end; margin:14px 0; }
 .abonnement-card {
   background:var(--surface); border:1px solid var(--border); border-radius:10px;
-  padding:16px 18px; margin-bottom:24px; display:flex; align-items:center; gap:14px;
+  padding:16px 18px; margin-bottom:20px; display:flex; align-items:center; gap:14px;
   font-size:13.5px;
 }
 .abonnement-card .badge {
@@ -36,40 +40,21 @@ h1 { font-size:1.4rem; margin-bottom:18px; display:flex; align-items:center; gap
   background:var(--accent); color:#fff;
 }
 .abonnement-card .badge.inactif { background:var(--border); color:var(--text-m,var(--text)); }
-.resultats { display:flex; flex-direction:column; gap:10px; }
-.ext-card {
-  background:var(--surface); border:1px solid var(--border); border-radius:10px;
-  padding:14px 16px; display:flex; justify-content:space-between; align-items:center; gap:12px;
-}
-.ext-card .nom { font-weight:600; font-size:14px; word-break:break-all; }
-.ext-card .meta { font-size:12px; color:var(--text-m,var(--text)); opacity:.75; }
-.ext-card a.btn {
-  padding:7px 12px; border-radius:7px; background:var(--accent); color:#fff;
-  text-decoration:none; font-size:12.5px; font-weight:600; flex-shrink:0;
-}
-.vide { text-align:center; padding:30px; opacity:.65; font-size:13.5px; }
+.resultats { display:flex; flex-direction:column; gap:2px; margin-top:14px; }
+.vide { text-align:center; padding:40px 20px; opacity:.6; font-size:13.5px; }
 
-/* ── Onglets (apps de recherche, visibles UNIQUEMENT ici) ── */
-.tabs { display:flex; gap:6px; margin-bottom:20px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
-.tab {
-  padding:9px 16px; border:none; background:none; color:var(--text-m,var(--text)); opacity:.7;
-  font-size:13.5px; font-weight:600; cursor:pointer; border-bottom:2px solid transparent;
-  display:flex; align-items:center; gap:7px; margin-bottom:-1px;
+/* ── Resultats style moteur de recherche : type + titre + extrait ── */
+.res-item { padding:14px 8px; border-bottom:1px solid var(--border); cursor:pointer; }
+.res-item:hover .res-titre { text-decoration:underline; }
+.res-item .res-type {
+  font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+  color:var(--accent); margin-bottom:3px; display:flex; align-items:center; gap:5px;
 }
-.tab:hover { opacity:1; }
-.tab.actif { opacity:1; color:var(--accent); border-bottom-color:var(--accent); }
-.vue { display:none; }
-.vue.actif { display:block; }
+.res-item .res-titre { font-size:15.5px; font-weight:600; color:var(--text); margin-bottom:3px; }
+.res-item .res-extrait { font-size:13px; opacity:.75; line-height:1.5; }
+.res-item .res-meta { font-size:11.5px; opacity:.55; margin-top:4px; }
+.res-item a.res-dl { color:var(--accent); text-decoration:none; font-weight:600; font-size:12.5px; }
 
-/* ── Wiki / FAQ ── */
-.wiki-card {
-  background:var(--surface); border:1px solid var(--border); border-radius:10px;
-  padding:14px 16px; margin-bottom:10px; cursor:pointer;
-}
-.wiki-card:hover { border-color:var(--accent); }
-.wiki-card .titre { font-weight:700; font-size:14.5px; margin-bottom:4px; }
-.wiki-card .extrait { font-size:13px; opacity:.8; line-height:1.5; margin-bottom:6px; }
-.wiki-card .meta { font-size:11.5px; opacity:.6; }
 .btn-primaire {
   padding:9px 16px; border-radius:8px; background:var(--accent); color:#fff; border:none;
   font-size:13.5px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px;
@@ -78,7 +63,6 @@ h1 { font-size:1.4rem; margin-bottom:18px; display:flex; align-items:center; gap
   padding:9px 16px; border-radius:8px; background:var(--surface); border:1px solid var(--border); color:var(--text);
   font-size:13.5px; font-weight:600; cursor:pointer;
 }
-.barre-actions { display:flex; justify-content:flex-end; margin-bottom:14px; }
 .modal-bg2 {
   position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center;
   z-index:6000; padding:20px;
@@ -110,42 +94,20 @@ __NAV_HTML__
       <span id="abonnement-texte"></span>
     </div>
 
-    <div class="tabs" id="tabs">
-      <button class="tab actif" data-tab="extensions"><img class="ico ico-sm" src="/static/img/solid/puzzle-piece.svg" alt=""> Extensions</button>
-      <button class="tab" data-tab="wiki"><img class="ico ico-sm" src="/static/img/solid/book.svg" alt=""> Wiki</button>
-      <button class="tab" data-tab="faq"><img class="ico ico-sm" src="/static/img/solid/circle-question.svg" alt=""> FAQ</button>
-    </div>
-
-    <!-- ── Vue Extensions (existant) ── -->
-    <div class="vue actif" id="vue-extensions">
+    <!-- ── Vue resultats (une seule barre, resultats melanges Wiki + Extensions) ── -->
+    <div id="vue-resultats">
       <div class="search-box">
+        <img class="ico ico-loupe" src="/static/img/solid/magnifying-glass.svg" alt="">
         <input type="text" id="q" placeholder="{{T_PLACEHOLDER}}" autocomplete="off">
       </div>
+      <div class="barre-actions"><button class="btn-primaire" onclick="wikiOuvrirEdition()"><img class="ico ico-sm" src="/static/img/solid/plus.svg" alt=""> Nouvel article wiki</button></div>
       <div class="resultats" id="resultats"></div>
     </div>
 
-    <!-- ── Vue Wiki (nouveau) ── -->
-    <div class="vue" id="vue-wiki">
-      <div id="wiki-liste-vue">
-        <div class="search-box">
-          <input type="text" id="wiki-q" placeholder="Rechercher un article du wiki..." autocomplete="off">
-        </div>
-        <div class="barre-actions"><button class="btn-primaire" onclick="wikiOuvrirEdition()"><img class="ico ico-sm" src="/static/img/solid/plus.svg" alt=""> Nouvel article</button></div>
-        <div class="resultats" id="wiki-resultats"></div>
-      </div>
-      <div id="wiki-article-vue" style="display:none">
-        <button class="retour" onclick="wikiFermerArticle()"><img class="ico ico-sm" src="/static/img/solid/arrow-left.svg" alt=""> Retour au wiki</button>
-        <div class="article-full" id="wiki-article-contenu"></div>
-      </div>
-    </div>
-
-    <!-- ── Vue FAQ (nouveau) ── -->
-    <div class="vue" id="vue-faq">
-      <div class="search-box">
-        <input type="text" id="faq-q" placeholder="Rechercher dans la FAQ..." autocomplete="off">
-      </div>
-      <div class="barre-actions" id="faq-actions" style="display:none"><button class="btn-primaire" onclick="faqOuvrirEdition()"><img class="ico ico-sm" src="/static/img/solid/plus.svg" alt=""> Nouvelle question</button></div>
-      <div class="resultats" id="faq-resultats"></div>
+    <!-- ── Vue article wiki ouvert ── -->
+    <div id="wiki-article-vue" style="display:none">
+      <button class="retour" onclick="wikiFermerArticle()"><img class="ico ico-sm" src="/static/img/solid/arrow-left.svg" alt=""> Retour aux résultats</button>
+      <div class="article-full" id="wiki-article-contenu"></div>
     </div>
   </div>
 </div>
@@ -164,25 +126,12 @@ __NAV_HTML__
   </div>
 </div>
 
-<!-- ── Modale édition FAQ ── -->
-<div class="modal-bg2" id="faq-modal" style="display:none">
-  <div class="modal-box2">
-    <h2 style="margin-bottom:14px;font-size:1.1rem">Entrée FAQ</h2>
-    <input type="hidden" id="faq-edit-id">
-    <input type="text" id="faq-edit-question" placeholder="Question">
-    <textarea id="faq-edit-reponse" placeholder="Réponse..."></textarea>
-    <div style="display:flex;gap:10px">
-      <button class="btn-primaire" onclick="faqEnregistrer()"><img class="ico ico-sm" src="/static/img/solid/check.svg" alt=""> Enregistrer</button>
-      <button class="btn-secondaire" onclick="document.getElementById('faq-modal').style.display='none'">Annuler</button>
-    </div>
-  </div>
-</div>
-
 <div id="toast-area" style="position:fixed;bottom:24px;right:24px;z-index:5000;display:flex;flex-direction:column;gap:10px;pointer-events:none;"></div>
 
 <script>
 {{I18N_JS}}
 function escHtml(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+const S={itemsWiki:{}};
 
 function toast(msg, type='info'){
   const area=document.getElementById('toast-area');
@@ -191,13 +140,6 @@ function toast(msg, type='info'){
   el.textContent=msg;
   area.appendChild(el);
   setTimeout(()=>{ el.style.opacity='0'; el.style.transition='.3s'; setTimeout(()=>area.removeChild(el),300); }, 3500);
-}
-
-function formatTaille(o){
-  if(!o || o<1024) return (o||0)+' o';
-  const u=['Ko','Mo','Go']; let n=o, i=-1;
-  do{ n/=1024; i++; }while(n>=1024 && i<u.length-1);
-  return n.toFixed(1)+' '+u[i];
 }
 
 async function chargerAbonnement(){
@@ -223,71 +165,52 @@ async function chargerAbonnement(){
   }catch(e){ /* pas bloquant */ }
 }
 
+/* ══════════════ Recherche unifiee (style moteur de recherche) ══════════════
+   Une seule barre : chaque app de Recherche (Wiki, Extensions...) pousse
+   directement ses resultats dans la meme liste, pas d'onglets separes. */
 let rechercheMinuteur=null;
-function rechercherExtensions(q){
+function lancerRecherche(q){
   clearTimeout(rechercheMinuteur);
   rechercheMinuteur=setTimeout(async ()=>{
     const zone=document.getElementById('resultats');
+    zone.innerHTML=`<div class="vide">Recherche…</div>`;
     try{
-      const r=await fetch('/api/recherche/extensions?q='+encodeURIComponent(q), {credentials:'include'});
+      const r=await fetch('/api/recherche/global?q='+encodeURIComponent(q), {credentials:'include'});
       const d=await r.json();
       if(!d.success){ zone.innerHTML=`<div class="vide">${escHtml(d.error||'Erreur')}</div>`; return; }
       const items=d.data.items||[];
-      if(!items.length){ zone.innerHTML=`<div class="vide">{{T_AUCUN_RESULTAT}}</div>`; return; }
-      zone.innerHTML=items.map(it=>`
-        <div class="ext-card">
-          <div>
-            <div class="nom">${escHtml(it.nom)}</div>
-            <div class="meta">${formatTaille(it.taille)} · ${it.telechargements||0} {{T_TELECHARGEMENTS}}</div>
-          </div>
-          ${it.url ? `<a class="btn" href="${escHtml(it.url)}" target="_blank" rel="noopener">Télécharger</a>` : ''}
-        </div>`).join('');
+      S.itemsWiki={};
+      items.filter(it=>it.type==='wiki').forEach(it=>{ S.itemsWiki[it.id]=it; });
+      if(!items.length){
+        zone.innerHTML = q.trim()
+          ? `<div class="vide">{{T_AUCUN_RESULTAT}}</div>`
+          : `<div class="vide">Tapez pour rechercher dans le wiki et les extensions VEX.</div>`;
+        return;
+      }
+      zone.innerHTML=items.map(it=>{
+        if(it.type==='wiki'){
+          return `<div class="res-item" onclick="wikiOuvrirArticle(${it.id})">
+            <div class="res-type"><img class="ico ico-sm" src="/static/img/solid/book.svg" alt=""> Wiki</div>
+            <div class="res-titre">${escHtml(it.titre)}</div>
+            <div class="res-extrait">${escHtml(it.extrait)}</div>
+            <div class="res-meta">${escHtml(it.meta)}</div>
+          </div>`;
+        }
+        return `<div class="res-item">
+          <div class="res-type"><img class="ico ico-sm" src="/static/img/solid/puzzle-piece.svg" alt=""> Extension</div>
+          <div class="res-titre">${escHtml(it.titre)}</div>
+          <div class="res-extrait">${escHtml(it.extrait)}</div>
+          <div class="res-meta">${it.url?`<a class="res-dl" href="${escHtml(it.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Télécharger</a>`:''}</div>
+        </div>`;
+      }).join('');
     }catch(e){
       zone.innerHTML=`<div class="vide">Erreur réseau</div>`;
     }
   }, 300);
 }
+document.getElementById('q').addEventListener('input', e => lancerRecherche(e.target.value));
 
-document.getElementById('q').addEventListener('input', e => rechercherExtensions(e.target.value));
-
-/* ══════════════ Onglets (apps de recherche) ══════════════ */
-document.querySelectorAll('.tab').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('actif'));
-    document.querySelectorAll('.vue').forEach(v=>v.classList.remove('actif'));
-    btn.classList.add('actif');
-    document.getElementById('vue-'+btn.dataset.tab).classList.add('actif');
-    if(btn.dataset.tab==='wiki' && !S.wikiCharge){ S.wikiCharge=true; rechercherWiki(''); }
-    if(btn.dataset.tab==='faq' && !S.faqCharge){ S.faqCharge=true; rechercherFaq(''); }
-  });
-});
-const S={wikiCharge:false,faqCharge:false};
-
-/* ══════════════ Wiki ══════════════ */
-let wikiMinuteur=null;
-function rechercherWiki(q){
-  clearTimeout(wikiMinuteur);
-  wikiMinuteur=setTimeout(async ()=>{
-    const zone=document.getElementById('wiki-resultats');
-    try{
-      const r=await fetch('/api/recherche/wiki?q='+encodeURIComponent(q), {credentials:'include'});
-      const d=await r.json();
-      if(!d.success){ zone.innerHTML=`<div class="vide">${escHtml(d.error||'Erreur')}</div>`; return; }
-      const items=d.data.items||[];
-      if(!items.length){ zone.innerHTML=`<div class="vide">Aucun article. Soyez le premier à en créer un !</div>`; return; }
-      zone.innerHTML=items.map(it=>`
-        <div class="wiki-card" onclick="wikiOuvrirArticle(${it.id})">
-          <div class="titre">${escHtml(it.titre)}</div>
-          <div class="extrait">${escHtml(it.extrait)}</div>
-          <div class="meta">Par ${escHtml(it.auteur_nom||'?')} · maj ${escHtml(it.maj)} · ${it.vues||0} vue(s)</div>
-        </div>`).join('');
-    }catch(e){
-      zone.innerHTML=`<div class="vide">Erreur réseau</div>`;
-    }
-  }, 300);
-}
-document.getElementById('wiki-q').addEventListener('input', e => rechercherWiki(e.target.value));
-
+/* ══════════════ Wiki (lecture/ecriture d'un article) ══════════════ */
 async function wikiOuvrirArticle(id){
   try{
     const r=await fetch('/api/recherche/wiki/article?id='+id, {credentials:'include'});
@@ -298,21 +221,21 @@ async function wikiOuvrirArticle(id){
     const peutModifier = (a.auteur_id===MON_ID) || MON_PRIVILEGE<=6;
     document.getElementById('wiki-article-contenu').innerHTML=`
       <h2 style="font-size:1.25rem">${escHtml(a.titre)}</h2>
-      <div class="meta" style="margin-top:6px;font-size:12px;opacity:.65">Par ${escHtml(a.auteur_nom||'?')} · maj ${escHtml(a.maj)} · ${a.vues||0} vue(s)</div>
+      <div class="res-meta" style="margin-top:6px">Par ${escHtml(a.auteur_nom||'?')} · maj ${escHtml(a.maj)} · ${a.vues||0} vue(s)</div>
       <div class="contenu">${escHtml(a.contenu)}</div>
       ${peutModifier?`<div class="actions">
         <button class="btn-secondaire" onclick="wikiOuvrirEdition(${a.id})"><img class="ico ico-sm" src="/static/img/solid/pen.svg" alt=""> Modifier</button>
         <button class="btn-secondaire" onclick="wikiSupprimer(${a.id})"><img class="ico ico-sm" src="/static/img/solid/trash.svg" alt=""> Supprimer</button>
       </div>`:''}
     `;
-    document.getElementById('wiki-liste-vue').style.display='none';
+    document.getElementById('vue-resultats').style.display='none';
     document.getElementById('wiki-article-vue').style.display='block';
   }catch(e){ toast('Erreur réseau'); }
 }
 function wikiFermerArticle(){
   document.getElementById('wiki-article-vue').style.display='none';
-  document.getElementById('wiki-liste-vue').style.display='block';
-  rechercherWiki(document.getElementById('wiki-q').value);
+  document.getElementById('vue-resultats').style.display='block';
+  lancerRecherche(document.getElementById('q').value);
 }
 function wikiOuvrirEdition(id){
   const article = id ? S.articleActuel : null;
@@ -334,12 +257,12 @@ async function wikiEnregistrer(){
     toast(d.success?d.message:d.error);
     if(d.success){
       document.getElementById('wiki-modal').style.display='none';
-      if(id){ wikiOuvrirArticle(id); } else { wikiFermerArticle(); }
+      if(id){ wikiOuvrirArticle(id); } else { document.getElementById('q').value=titre; lancerRecherche(titre); }
     }
   }catch(e){ toast('Erreur réseau'); }
 }
 async function wikiSupprimer(id){
-  if(!await confirmerDialogueLocal('Supprimer cet article du wiki ?')) return;
+  if(!window.confirm('Supprimer cet article du wiki ?')) return;
   try{
     const r=await fetch('/api/recherche/wiki/delete', {method:'POST', credentials:'include',
       headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'id='+encodeURIComponent(id)});
@@ -349,80 +272,9 @@ async function wikiSupprimer(id){
   }catch(e){ toast('Erreur réseau'); }
 }
 
-/* ══════════════ FAQ ══════════════ */
-if(MON_PRIVILEGE<=6) document.getElementById('faq-actions').style.display='flex';
-let faqMinuteur=null;
-function rechercherFaq(q){
-  clearTimeout(faqMinuteur);
-  faqMinuteur=setTimeout(async ()=>{
-    const zone=document.getElementById('faq-resultats');
-    try{
-      const r=await fetch('/api/recherche/faq?q='+encodeURIComponent(q), {credentials:'include'});
-      const d=await r.json();
-      if(!d.success){ zone.innerHTML=`<div class="vide">${escHtml(d.error||'Erreur')}</div>`; return; }
-      const items=d.data.items||[];
-      if(!items.length){ zone.innerHTML=`<div class="vide">Aucune question pour l'instant.</div>`; return; }
-      // Items gardes en memoire (indexes par id) plutot que serialises dans
-      // un attribut onclick -- une reponse contenant un guillemet simple
-      // casserait l'attribut HTML et permettrait une injection de script.
-      S.faqItems={};
-      items.forEach(it=>{ S.faqItems[it.id]=it; });
-      const peutModifier = MON_PRIVILEGE<=6;
-      zone.innerHTML=items.map(it=>`
-        <div class="wiki-card" style="cursor:default">
-          <div class="titre">${escHtml(it.question)}</div>
-          <div class="extrait">${escHtml(it.reponse)}</div>
-          ${peutModifier?`<div class="actions">
-            <button class="btn-secondaire" onclick="faqOuvrirEdition(${it.id})"><img class="ico ico-sm" src="/static/img/solid/pen.svg" alt=""> Modifier</button>
-            <button class="btn-secondaire" onclick="faqSupprimer(${it.id})"><img class="ico ico-sm" src="/static/img/solid/trash.svg" alt=""> Supprimer</button>
-          </div>`:''}
-        </div>`).join('');
-    }catch(e){
-      zone.innerHTML=`<div class="vide">Erreur réseau</div>`;
-    }
-  }, 300);
-}
-document.getElementById('faq-q').addEventListener('input', e => rechercherFaq(e.target.value));
-
-function faqOuvrirEdition(id){
-  const entree = id ? S.faqItems[id] : null;
-  document.getElementById('faq-edit-id').value = entree ? entree.id : '';
-  document.getElementById('faq-edit-question').value = entree ? entree.question : '';
-  document.getElementById('faq-edit-reponse').value = entree ? entree.reponse : '';
-  document.getElementById('faq-modal').style.display='flex';
-}
-async function faqEnregistrer(){
-  const id=document.getElementById('faq-edit-id').value;
-  const question=document.getElementById('faq-edit-question').value.trim();
-  const reponse=document.getElementById('faq-edit-reponse').value.trim();
-  if(!question||!reponse){ toast('Question et réponse obligatoires'); return; }
-  try{
-    const r=await fetch('/api/recherche/faq/save', {method:'POST', credentials:'include',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:'id='+encodeURIComponent(id)+'&question='+encodeURIComponent(question)+'&reponse='+encodeURIComponent(reponse)});
-    const d=await r.json();
-    toast(d.success?d.message:d.error);
-    if(d.success){ document.getElementById('faq-modal').style.display='none'; rechercherFaq(document.getElementById('faq-q').value); }
-  }catch(e){ toast('Erreur réseau'); }
-}
-async function faqSupprimer(id){
-  if(!await confirmerDialogueLocal('Supprimer cette entrée FAQ ?')) return;
-  try{
-    const r=await fetch('/api/recherche/faq/delete', {method:'POST', credentials:'include',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'id='+encodeURIComponent(id)});
-    const d=await r.json();
-    toast(d.success?d.message:d.error);
-    if(d.success) rechercherFaq(document.getElementById('faq-q').value);
-  }catch(e){ toast('Erreur réseau'); }
-}
-
-/* ── Petit dialogue de confirmation local (recherche.html n'a pas la
-   modale complete de admin.html) -- utilise le confirm() natif. ── */
-function confirmerDialogueLocal(message){ return Promise.resolve(window.confirm(message)); }
-
 document.addEventListener('DOMContentLoaded', () => {
   chargerAbonnement();
-  rechercherExtensions('');
+  lancerRecherche('');
 });
 </script>
   <script src="/static/pwa-register.js" defer></script>

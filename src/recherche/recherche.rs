@@ -1,15 +1,17 @@
 // ══════════════════════════════════════════════════════════════════
 // recherche.rs — App "Recherche" VEX (étape 2 feuille de route)
 //
-// Point d'entree unique (page /recherche) qui regroupe plusieurs
-// mini-apps de recherche, chacune UNIQUEMENT accessible depuis cette
-// page (jamais dans la sidebar principale ni ailleurs sur VEX) :
-//   - Extensions   catalogue GitHub des extensions Vex (existant)
+// Point d'entree unique (page /recherche) : UNE seule barre de
+// recherche (style moteur de recherche), dont les resultats melangent
+// directement plusieurs sources -- pas d'onglets separes -- chacune
+// UNIQUEMENT accessible depuis cette page (jamais dans la sidebar
+// principale ni ailleurs sur VEX) :
 //   - Wiki         encyclopedie collaborative interne (tout compte
 //                  connecte peut ecrire, comme un vrai wiki)
-//   - FAQ          questions/reponses curatees (ecriture reservee aux
-//                  comptes de confiance, privilege <= 6)
+//   - Extensions   catalogue GitHub des extensions Vex
 //
+//   - GET  /api/recherche/global?q=...  Recherche unifiee (Wiki +
+//     Extensions), renvoie une liste triee/melangee prete a afficher.
 //   - GET  /api/recherche/extensions?q=...  Recherche dans le catalogue
 //     d'extensions Vex (réutilise le catalogue GitHub deja utilise par
 //     l'admin, mais version publique : aucune info operationnelle
@@ -21,7 +23,11 @@
 //     les extensions/mini-apps trouvees ici puissent debloquer des
 //     fonctionnalites premium sans dupliquer la logique de plan.
 //   - /api/recherche/wiki/*  CRUD + recherche des articles wiki.
-//   - /api/recherche/faq/*   CRUD + recherche des entrees FAQ.
+//   - /api/recherche/faq/*   DESACTIVE (demande utilisateur, 22/09) --
+//     renvoie desormais une erreur "fonctionnalite desactivee" sans
+//     toucher a la table wiki_faq (donnees existantes conservees si un
+//     jour on la reactive). Retirer entierement le code serait plus
+//     propre mais la demande etait "desactive", pas "supprime".
 // ══════════════════════════════════════════════════════════════════
 
 use crate::appeldb::{selectionner, DbPool};
@@ -116,6 +122,14 @@ pub fn handle(pool: &DbPool, config: &VexConfig, req: &mut Request) -> Response<
         return html_response(serve_html(&nav, &langue, uid, privilege));
     }
 
+    if path == "/api/recherche/global" {
+        if verifier_session(pool, req).is_none() {
+            return json_response(401, json!({"success":false,"error":"Non connecté"}));
+        }
+        let q = crate::utils::parse_query(&url).get("q").cloned().unwrap_or_default();
+        return api_global(pool, config, &q);
+    }
+
     if path == "/api/recherche/extensions" {
         let user = match verifier_session(pool, req) {
             Some(u) => u,
@@ -168,37 +182,13 @@ pub fn handle(pool: &DbPool, config: &VexConfig, req: &mut Request) -> Response<
         return wiki_delete(pool, &user, id);
     }
 
-    // ── FAQ (lecture/recherche : tout compte connecte, ecriture :
-    // comptes de confiance uniquement, privilege <= 6) ──────────────
-    if path == "/api/recherche/faq" {
-        if verifier_session(pool, req).is_none() {
-            return json_response(401, json!({"success":false,"error":"Non connecté"}));
-        }
-        let q = crate::utils::parse_query(&url).get("q").cloned().unwrap_or_default();
-        return faq_liste(pool, &q);
-    }
-    if path == "/api/recherche/faq/save" && req.method() == &tiny_http::Method::Post {
-        let user = match verifier_session(pool, req) {
-            Some(u) => u,
-            None => return json_response(401, json!({"success":false,"error":"Non connecté"})),
-        };
-        if user.get("privilege").and_then(|v| v.as_i64()).unwrap_or(99) > 6 {
-            return json_response(403, json!({"success":false,"error":"Réservé aux comptes de confiance"}));
-        }
-        let body = lire_body_formulaire(req);
-        return faq_save(pool, &user, &body);
-    }
-    if path == "/api/recherche/faq/delete" && req.method() == &tiny_http::Method::Post {
-        let user = match verifier_session(pool, req) {
-            Some(u) => u,
-            None => return json_response(401, json!({"success":false,"error":"Non connecté"})),
-        };
-        if user.get("privilege").and_then(|v| v.as_i64()).unwrap_or(99) > 6 {
-            return json_response(403, json!({"success":false,"error":"Réservé aux comptes de confiance"}));
-        }
-        let body = lire_body_formulaire(req);
-        let id = body.get("id").and_then(|v| v.parse::<i64>().ok()).unwrap_or(0);
-        return faq_delete(pool, id);
+    // ── FAQ : DESACTIVEE (demande utilisateur, 22/09 -- l'app FAQ est
+    // retiree de Recherche). Repond avant meme de verifier la session,
+    // simple garde-fou statique. La table wiki_faq et les fonctions
+    // faq_* restent dans le code (donnees existantes conservees) mais
+    // ne sont plus jamais appelees.
+    if path.starts_with("/api/recherche/faq") {
+        return json_response(410, json!({"success":false,"error":"FAQ désactivée"}));
     }
 
     json_response(404, json!({"error":"Route inconnue"}))
@@ -221,19 +211,16 @@ fn lire_body_formulaire(req: &mut Request) -> HashMap<String, String> {
         .collect()
 }
 
-/// Recherche dans le catalogue d'extensions Vex (source GitHub configurée
-/// en admin). Version PUBLIQUE (tout utilisateur connecté) du catalogue
-/// admin -- ne renvoie que ce qui est pertinent pour un utilisateur final
-/// (nom, taille, lien, popularité), jamais l'état d'installation/
-/// compilation du serveur local (réservé à /api/admin/marketplace).
-fn api_extensions(config: &VexConfig, q: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+/// Coeur de la recherche extensions, partagé entre /api/recherche/extensions
+/// (reponse detaillee, format historique) et /api/recherche/global (format
+/// unifie). Renvoie (items au format detaille, erreur eventuelle).
+fn extensions_rechercher(q: &str) -> (Vec<Value>, Option<String>) {
     let cfg = crate::admin::admin::read_config("config.json");
     let recherche = q.trim().to_lowercase();
-    let _ = config;
 
     let rel = match crate::admin::admin::market_release(&cfg, false, "fr") {
         Ok(r) => r,
-        Err(e) => return json_response(200, json!({"success":true,"data":{"items":[],"erreur":e}})),
+        Err(e) => return (vec![], Some(e)),
     };
 
     let mut items = Vec::new();
@@ -263,14 +250,77 @@ fn api_extensions(config: &VexConfig, q: &str) -> Response<std::io::Cursor<Vec<u
             }));
         }
     }
+    (items, None)
+}
 
+/// Recherche dans le catalogue d'extensions Vex (source GitHub configurée
+/// en admin). Version PUBLIQUE (tout utilisateur connecté) du catalogue
+/// admin -- ne renvoie que ce qui est pertinent pour un utilisateur final
+/// (nom, taille, lien, popularité), jamais l'état d'installation/
+/// compilation du serveur local (réservé à /api/admin/marketplace).
+fn api_extensions(config: &VexConfig, q: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+    let _ = config;
+    let cfg = crate::admin::admin::read_config("config.json");
+    let (items, erreur) = extensions_rechercher(q);
     json_response(200, json!({
         "success": true,
         "data": {
             "items": items,
+            "erreur": erreur,
             "source": cfg["extensions"]["marketplace_url"].as_str().unwrap_or(""),
         }
     }))
+}
+
+/// Recherche unifiee (Wiki + Extensions) -- resultats melanges dans une
+/// seule liste prete a afficher, chaque item porte un `type` pour que le
+/// front sache quoi faire au clic (ouvrir l'article / telecharger).
+/// Wiki d'abord (contenu propre a VEX, plus pertinent qu'un catalogue
+/// externe), puis Extensions.
+fn api_global(pool: &DbPool, config: &VexConfig, q: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+    let _ = config;
+    let mut items: Vec<Value> = Vec::new();
+
+    for w in wiki_rechercher(pool, q) {
+        items.push(json!({
+            "type": "wiki",
+            "id": w["id"],
+            "titre": w["titre"],
+            "extrait": w["extrait"],
+            "meta": format!("Wiki · {} · maj {}", w["auteur_nom"].as_str().unwrap_or("?"), w["maj"].as_str().unwrap_or("")),
+        }));
+    }
+
+    let (extensions, erreur) = extensions_rechercher(q);
+    for e in &extensions {
+        items.push(json!({
+            "type": "extension",
+            "id": e["id"],
+            "titre": e["nom"],
+            "extrait": format!("{} · {} téléchargement(s)", formater_taille(e["taille"].as_u64().unwrap_or(0)), e["telechargements"].as_u64().unwrap_or(0)),
+            "meta": "Extension VEX",
+            "url": e["url"],
+        }));
+    }
+
+    json_response(200, json!({"success":true,"data":{"items":items,"erreur_extensions":erreur}}))
+}
+
+fn formater_taille(o: u64) -> String {
+    if o < 1024 {
+        return format!("{} o", o);
+    }
+    let unites = ["Ko", "Mo", "Go"];
+    let mut n = o as f64;
+    let mut i = -1i32;
+    loop {
+        n /= 1024.0;
+        i += 1;
+        if !(n >= 1024.0 && (i as usize) < unites.len() - 1) {
+            break;
+        }
+    }
+    format!("{:.1} {}", n, unites[i.max(0) as usize])
 }
 
 /// Statut d'abonnement de l'utilisateur COURANT uniquement (jamais d'un
@@ -331,10 +381,13 @@ fn extrait(s: &str, n: usize) -> String {
     }
 }
 
-fn wiki_liste(pool: &DbPool, q: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+/// Coeur de la recherche wiki, partagé entre /api/recherche/wiki et
+/// /api/recherche/global. Recherche texte simple (LIKE) sur titre+contenu,
+/// requete parametree (pas d'injection SQL possible via `q`).
+fn wiki_rechercher(pool: &DbPool, q: &str) -> Vec<Value> {
     let mut conn = match pool.get_conn() {
         Ok(c) => c,
-        Err(_) => return json_response(200, json!({"success":true,"data":{"items":[]}})),
+        Err(_) => return vec![],
     };
     let motif = format!("%{}%", q.trim());
     let rows: Vec<(i64, String, String, String, String, i64)> = mysql::prelude::Queryable::exec_map(
@@ -348,8 +401,7 @@ fn wiki_liste(pool: &DbPool, q: &str) -> Response<std::io::Cursor<Vec<u8>>> {
     )
     .unwrap_or_default();
 
-    let items: Vec<Value> = rows
-        .into_iter()
+    rows.into_iter()
         .map(|(id, titre, contenu, auteur_nom, maj, vues)| {
             json!({
                 "id": id,
@@ -360,8 +412,11 @@ fn wiki_liste(pool: &DbPool, q: &str) -> Response<std::io::Cursor<Vec<u8>>> {
                 "vues": vues,
             })
         })
-        .collect();
+        .collect()
+}
 
+fn wiki_liste(pool: &DbPool, q: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+    let items = wiki_rechercher(pool, q);
     json_response(200, json!({"success":true,"data":{"items":items}}))
 }
 
@@ -468,11 +523,12 @@ fn wiki_delete(
 }
 
 // ══════════════════════════════════════════════════════════════════
-// FAQ (app interne, visible UNIQUEMENT dans /recherche) -- lecture
-// ouverte, ecriture reservee aux comptes de confiance (privilege <= 6,
-// verifie dans handle() avant d'appeler faq_save/faq_delete).
+// FAQ -- DESACTIVEE (voir garde-fou "/api/recherche/faq" dans handle()
+// qui court-circuite tout appel a ces fonctions). Code garde pour une
+// eventuelle reactivation future plutot que supprime.
 // ══════════════════════════════════════════════════════════════════
 
+#[allow(dead_code)]
 fn faq_liste(pool: &DbPool, q: &str) -> Response<std::io::Cursor<Vec<u8>>> {
     let mut conn = match pool.get_conn() {
         Ok(c) => c,
@@ -496,6 +552,7 @@ fn faq_liste(pool: &DbPool, q: &str) -> Response<std::io::Cursor<Vec<u8>>> {
     json_response(200, json!({"success":true,"data":{"items":items}}))
 }
 
+#[allow(dead_code)]
 fn faq_save(
     pool: &DbPool,
     user: &HashMap<String, Value>,
@@ -538,6 +595,7 @@ fn faq_save(
     json_response(200, json!({"success":true,"message":"Entrée créée","data":{"id":nouvel_id}}))
 }
 
+#[allow(dead_code)]
 fn faq_delete(pool: &DbPool, id: i64) -> Response<std::io::Cursor<Vec<u8>>> {
     crate::appeldb::supprimer_ligne(pool, "wiki_faq", "id", mysql::Value::from(id));
     json_response(200, json!({"success":true,"message":"Entrée supprimée"}))
