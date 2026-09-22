@@ -454,10 +454,24 @@ fn api_global(pool: &DbPool, config: &VexConfig, q: &str) -> Response<std::io::C
 /// et tu la restylise", une vraie page Wikipedia a une image, pas
 /// seulement du texte.
 fn wikipedia_rechercher(q: &str) -> Result<Vec<Value>, String> {
+    // FIX (demande utilisateur : "je veux que la recherche soit faite en
+    // fonction du titre") -- "intitle:" est un operateur natif de la
+    // recherche Wikipedia qui restreint aux articles dont le TITRE
+    // correspond (pas juste le contenu). Repli sur une recherche normale
+    // seulement si ca ne renvoie rien, meme logique que les deux fonctions
+    // de recherche locale juste au-dessus.
+    let items = wikipedia_rechercher_brut(&format!("intitle:{}", q))?;
+    if !items.is_empty() {
+        return Ok(items);
+    }
+    wikipedia_rechercher_brut(q)
+}
+
+fn wikipedia_rechercher_brut(recherche: &str) -> Result<Vec<Value>, String> {
     let url = format!(
         "https://fr.wikipedia.org/w/api.php?action=query&format=json&generator=search&gsrlimit=10&gsrsearch={}\
          &prop=extracts|pageimages&exintro=1&explaintext=1&piprop=thumbnail&pithumbsize=200",
-        urlencoding_simple(q)
+        urlencoding_simple(recherche)
     );
     let rep = ureq::get(&url)
         .set("User-Agent", "VEX/1.0 (https://vex.hopto.org)")
@@ -506,24 +520,38 @@ fn wikipedia_rechercher(q: &str) -> Result<Vec<Value>, String> {
 /// l'usage : "un vrai moteur de recherche" qui s'ameliore avec le temps
 /// plutot qu'un simple cache passe-plat.
 fn wikipedia_cache_rechercher(pool: &DbPool, q: &str) -> Vec<Value> {
-    let Some(requete) = requete_fulltext(q) else { return vec![] };
     let mut conn = match pool.get_conn() {
         Ok(c) => c,
         Err(_) => return vec![],
     };
-    // Meme priorite titre-avant-contenu que wiki_rechercher (voir son
-    // commentaire) + limite remontee a 20 (au lieu de 10) -- demande
-    // utilisateur : "je veux voir plus" dans chaque source.
+    // FIX (demande utilisateur : "je veux que la recherche soit faite en
+    // fonction du titre") -- meme logique stricte que wiki_rechercher :
+    // si au moins un TITRE correspond, ce sont les seuls resultats
+    // renvoyes ; le contenu ne sert de repli que si aucun titre ne
+    // correspond. Limite remontee a 20 -- demande "je veux voir plus".
     let motif_titre = format!("%{}%", q.trim());
-    let rows: Vec<(String, String, Option<String>)> = mysql::prelude::Queryable::exec_map(
+    let rows_titre: Vec<(String, String, Option<String>)> = mysql::prelude::Queryable::exec_map(
         &mut conn,
-        "SELECT titre, extrait, image_url FROM wikipedia_cache \
-         WHERE MATCH(titre, extrait) AGAINST(? IN BOOLEAN MODE) \
-         ORDER BY (titre LIKE ?) DESC, MATCH(titre, extrait) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 20",
-        (&requete, &motif_titre, &requete),
+        "SELECT titre, extrait, image_url FROM wikipedia_cache WHERE titre LIKE ? LIMIT 20",
+        (&motif_titre,),
         |(titre, extrait, image_url): (String, String, Option<String>)| (titre, extrait, image_url),
     )
     .unwrap_or_default();
+    let rows = if !rows_titre.is_empty() {
+        rows_titre
+    } else if let Some(requete) = requete_fulltext(q) {
+        mysql::prelude::Queryable::exec_map(
+            &mut conn,
+            "SELECT titre, extrait, image_url FROM wikipedia_cache \
+             WHERE MATCH(titre, extrait) AGAINST(? IN BOOLEAN MODE) \
+             ORDER BY MATCH(titre, extrait) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 20",
+            (&requete, &requete),
+            |(titre, extrait, image_url): (String, String, Option<String>)| (titre, extrait, image_url),
+        )
+        .unwrap_or_default()
+    } else {
+        vec![]
+    };
 
     rows.into_iter()
         .map(|(titre, extrait_complet, image_url)| {
@@ -790,19 +818,35 @@ fn wiki_rechercher(pool: &DbPool, q: &str) -> Vec<Value> {
         Err(_) => return vec![],
     };
 
+    // FIX (demande utilisateur : "je veux que la recherche soit faite en
+    // fonction du titre") -- recherche STRICTEMENT par titre d'abord : si
+    // au moins un titre correspond, ce sont les SEULS resultats renvoyes
+    // (un article qui ne matche que par son contenu, souvent plus long
+    // donc plus susceptible de contenir n'importe quel mot au hasard,
+    // n'est plus mélangé et ne noie plus les vrais résultats pertinents).
+    // Le contenu ne sert de repli que si AUCUN titre ne correspond.
+    let motif_titre = format!("%{}%", q.trim());
+    let rows_titre: Vec<(i64, String, String, String, String, i64)> = mysql::prelude::Queryable::exec_map(
+        &mut conn,
+        "SELECT id, titre, contenu, auteur_nom, DATE_FORMAT(maj, '%Y-%m-%d %H:%i'), vues \
+         FROM wiki_pages WHERE titre LIKE ? ORDER BY maj DESC LIMIT 100",
+        (&motif_titre,),
+        |(id, titre, contenu, auteur_nom, maj, vues): (i64, String, String, String, String, i64)| {
+            (id, titre, contenu, auteur_nom, maj, vues)
+        },
+    )
+    .unwrap_or_default();
+    if !rows_titre.is_empty() {
+        return rows_titre.into_iter().map(vers_item_wiki).collect();
+    }
+
     if let Some(requete) = requete_fulltext(q) {
-        // FIX (demande utilisateur : classer "en fonction du titre et pas
-        // du contenu") -- un article dont le TITRE contient la requete
-        // passe desormais toujours avant un article qui ne la contient que
-        // dans son contenu, meme si ce dernier a un meilleur score
-        // FULLTEXT brut (article plus long = plus d'occurrences).
-        let motif_titre = format!("%{}%", q.trim());
         let rows: Vec<(i64, String, String, String, String, i64)> = mysql::prelude::Queryable::exec_map(
             &mut conn,
             "SELECT id, titre, contenu, auteur_nom, DATE_FORMAT(maj, '%Y-%m-%d %H:%i'), vues \
              FROM wiki_pages WHERE MATCH(titre, contenu) AGAINST(? IN BOOLEAN MODE) \
-             ORDER BY (titre LIKE ?) DESC, MATCH(titre, contenu) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 100",
-            (&requete, &motif_titre, &requete),
+             ORDER BY MATCH(titre, contenu) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 100",
+            (&requete, &requete),
             |(id, titre, contenu, auteur_nom, maj, vues): (i64, String, String, String, String, i64)| {
                 (id, titre, contenu, auteur_nom, maj, vues)
             },

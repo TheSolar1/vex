@@ -289,11 +289,25 @@ function lancerRecherche(q){
       const parType = {};
       items.forEach((it,i) => { (parType[it.type] = parType[it.type] || []).push(carte(it,i)); });
       const types = [...ORDRE_CATEGORIES, ...Object.keys(parType).filter(t=>!ORDRE_CATEGORIES.includes(t))];
+      // FIX (demande utilisateur : "un article et un bouton afficher plus")
+      // -- une seule carte visible par categorie au depart, le reste
+      // derriere un bouton "Afficher plus (N)" plutot que tout balancer
+      // d'un coup (24 resultats Wikipedia d'un coup, par exemple).
+      const REPLI_PAR_DEFAUT = 1;
       zone.innerHTML = types.filter(t=>parType[t]?.length).map(t => {
         const label = (TYPES[t]||{label:t}).label;
+        const cartes = parType[t];
+        const visibles = cartes.slice(0, REPLI_PAR_DEFAUT).join('');
+        const reste = cartes.slice(REPLI_PAR_DEFAUT);
+        const idExtra = 'res-extra-'+t;
+        const extra = reste.length ? `
+          <div class="res-categorie-items" id="${idExtra}" style="display:none">${reste.join('')}</div>
+          <button class="btn-secondaire" style="margin-top:10px" onclick="document.getElementById('${idExtra}').style.display='flex';this.remove()">Afficher ${reste.length} résultat${reste.length>1?'s':''} de plus</button>
+        ` : '';
         return `<div class="res-categorie">
-          <div class="res-categorie-titre">${escHtml(label)} <span class="res-categorie-n">${parType[t].length}</span></div>
-          <div class="res-categorie-items">${parType[t].join('')}</div>
+          <div class="res-categorie-titre">${escHtml(label)} <span class="res-categorie-n">${cartes.length}</span></div>
+          <div class="res-categorie-items">${visibles}</div>
+          ${extra}
         </div>`;
       }).join('');
     }catch(e){
