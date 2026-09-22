@@ -337,39 +337,29 @@ fn actualites_rechercher(pool: &DbPool, q: &str) -> Vec<Value> {
         Ok(c) => c,
         Err(_) => return vec![],
     };
-    // FIX (demande utilisateur, 22/09 soir : "pas des noms uniquement, pas
-    // des contenus") -- titre+contenu combines, titre prioritaire dans le
-    // classement sans exclure le reste.
     let motif_titre = format!("%{}%", q.trim());
-    let rows = if let Some(requete) = requete_fulltext(q) {
-        let r: Vec<(i64, String, String, String)> = mysql::prelude::Queryable::exec_map(
+    let rows_titre: Vec<(i64, String, String, String)> = mysql::prelude::Queryable::exec_map(
+        &mut conn,
+        "SELECT id, titre, contenu, DATE_FORMAT(date, '%Y-%m-%d') FROM actualites \
+         WHERE titre LIKE ? ORDER BY date DESC LIMIT 20",
+        (&motif_titre,),
+        |(id, titre, contenu, date): (i64, String, String, String)| (id, titre, contenu, date),
+    )
+    .unwrap_or_default();
+    let rows = if !rows_titre.is_empty() {
+        rows_titre
+    } else if let Some(requete) = requete_fulltext(q) {
+        mysql::prelude::Queryable::exec_map(
             &mut conn,
             "SELECT id, titre, contenu, DATE_FORMAT(date, '%Y-%m-%d') FROM actualites \
              WHERE MATCH(titre, contenu) AGAINST(? IN BOOLEAN MODE) \
-             ORDER BY (titre LIKE ?) DESC, MATCH(titre, contenu) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 20",
-            (&requete, &motif_titre, &requete),
-            |(id, titre, contenu, date): (i64, String, String, String)| (id, titre, contenu, date),
-        )
-        .unwrap_or_default();
-        if !r.is_empty() {
-            r
-        } else {
-            mysql::prelude::Queryable::exec_map(
-                &mut conn,
-                "SELECT id, titre, contenu, DATE_FORMAT(date, '%Y-%m-%d') FROM actualites WHERE titre LIKE ? LIMIT 20",
-                (&motif_titre,),
-                |(id, titre, contenu, date): (i64, String, String, String)| (id, titre, contenu, date),
-            )
-            .unwrap_or_default()
-        }
-    } else {
-        mysql::prelude::Queryable::exec_map(
-            &mut conn,
-            "SELECT id, titre, contenu, DATE_FORMAT(date, '%Y-%m-%d') FROM actualites WHERE titre LIKE ? LIMIT 20",
-            (&motif_titre,),
+             ORDER BY MATCH(titre, contenu) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 20",
+            (&requete, &requete),
             |(id, titre, contenu, date): (i64, String, String, String)| (id, titre, contenu, date),
         )
         .unwrap_or_default()
+    } else {
+        vec![]
     };
     rows.into_iter()
         .map(|(id, titre, contenu, date)| {
@@ -631,25 +621,17 @@ fn api_global(pool: &DbPool, config: &VexConfig, q: &str) -> Response<std::io::C
 /// et tu la restylise", une vraie page Wikipedia a une image, pas
 /// seulement du texte.
 fn wikipedia_rechercher(q: &str) -> Result<Vec<Value>, String> {
-    // FIX (demande utilisateur, 22/09 soir : "pas des noms uniquement, pas
-    // des contenus") -- combine les resultats "intitle:" (titre) ET une
-    // recherche normale (titre+contenu, moteur Wikipedia natif), titre
-    // d'abord puis le reste sans doublon, au lieu de n'utiliser QUE
-    // "intitle:" qui excluait tout article ne correspondant que par son
-    // contenu.
-    let items_titre = wikipedia_rechercher_brut(&format!("intitle:{}", q)).unwrap_or_default();
-    let titres_deja_vus: std::collections::HashSet<String> = items_titre
-        .iter()
-        .filter_map(|it| it["titre"].as_str().map(|s| s.to_lowercase()))
-        .collect();
-    let mut items = items_titre;
-    for it in wikipedia_rechercher_brut(q)? {
-        let deja = it["titre"].as_str().map(|t| titres_deja_vus.contains(&t.to_lowercase())).unwrap_or(false);
-        if !deja {
-            items.push(it);
-        }
+    // FIX (demande utilisateur : "je veux que la recherche soit faite en
+    // fonction du titre") -- "intitle:" est un operateur natif de la
+    // recherche Wikipedia qui restreint aux articles dont le TITRE
+    // correspond (pas juste le contenu). Repli sur une recherche normale
+    // seulement si ca ne renvoie rien, meme logique que les deux fonctions
+    // de recherche locale juste au-dessus.
+    let items = wikipedia_rechercher_brut(&format!("intitle:{}", q))?;
+    if !items.is_empty() {
+        return Ok(items);
     }
-    Ok(items)
+    wikipedia_rechercher_brut(q)
 }
 
 fn wikipedia_rechercher_brut(recherche: &str) -> Result<Vec<Value>, String> {
@@ -709,40 +691,33 @@ fn wikipedia_cache_rechercher(pool: &DbPool, q: &str) -> Vec<Value> {
         Ok(c) => c,
         Err(_) => return vec![],
     };
-    // FIX (demande utilisateur, 22/09 soir : "pas des noms uniquement, pas
-    // des contenus" -- retour a une recherche titre+contenu combinee, le
-    // titre reste prioritaire dans le classement mais n'exclut plus le
-    // reste. Limite a 20 -- demande "je veux voir plus".
+    // FIX (demande utilisateur : "je veux que la recherche soit faite en
+    // fonction du titre") -- meme logique stricte que wiki_rechercher :
+    // si au moins un TITRE correspond, ce sont les seuls resultats
+    // renvoyes ; le contenu ne sert de repli que si aucun titre ne
+    // correspond. Limite remontee a 20 -- demande "je veux voir plus".
     let motif_titre = format!("%{}%", q.trim());
-    let rows = if let Some(requete) = requete_fulltext(q) {
-        let r: Vec<(String, String, Option<String>)> = mysql::prelude::Queryable::exec_map(
+    let rows_titre: Vec<(String, String, Option<String>)> = mysql::prelude::Queryable::exec_map(
+        &mut conn,
+        "SELECT titre, extrait, image_url FROM wikipedia_cache WHERE titre LIKE ? LIMIT 20",
+        (&motif_titre,),
+        |(titre, extrait, image_url): (String, String, Option<String>)| (titre, extrait, image_url),
+    )
+    .unwrap_or_default();
+    let rows = if !rows_titre.is_empty() {
+        rows_titre
+    } else if let Some(requete) = requete_fulltext(q) {
+        mysql::prelude::Queryable::exec_map(
             &mut conn,
             "SELECT titre, extrait, image_url FROM wikipedia_cache \
              WHERE MATCH(titre, extrait) AGAINST(? IN BOOLEAN MODE) \
-             ORDER BY (titre LIKE ?) DESC, MATCH(titre, extrait) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 20",
-            (&requete, &motif_titre, &requete),
-            |(titre, extrait, image_url): (String, String, Option<String>)| (titre, extrait, image_url),
-        )
-        .unwrap_or_default();
-        if !r.is_empty() {
-            r
-        } else {
-            mysql::prelude::Queryable::exec_map(
-                &mut conn,
-                "SELECT titre, extrait, image_url FROM wikipedia_cache WHERE titre LIKE ? LIMIT 20",
-                (&motif_titre,),
-                |(titre, extrait, image_url): (String, String, Option<String>)| (titre, extrait, image_url),
-            )
-            .unwrap_or_default()
-        }
-    } else {
-        mysql::prelude::Queryable::exec_map(
-            &mut conn,
-            "SELECT titre, extrait, image_url FROM wikipedia_cache WHERE titre LIKE ? LIMIT 20",
-            (&motif_titre,),
+             ORDER BY MATCH(titre, extrait) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 20",
+            (&requete, &requete),
             |(titre, extrait, image_url): (String, String, Option<String>)| (titre, extrait, image_url),
         )
         .unwrap_or_default()
+    } else {
+        vec![]
     };
 
     rows.into_iter()
@@ -1010,21 +985,35 @@ fn wiki_rechercher(pool: &DbPool, q: &str) -> Vec<Value> {
         Err(_) => return vec![],
     };
 
-    // FIX (demande utilisateur, 22/09 soir : "je ne veux pas que les
-    // resultats soient faits en fonction des noms uniquement, pas des
-    // contenus") -- retour a une recherche qui couvre TOUJOURS titre ET
-    // contenu ensemble (le titre reste prioritaire dans le classement,
-    // voir "(titre LIKE ?) DESC" plus bas, mais un article qui ne
-    // correspond que par son contenu n'est plus exclu des resultats comme
-    // le faisait la version precedente).
+    // FIX (demande utilisateur : "je veux que la recherche soit faite en
+    // fonction du titre") -- recherche STRICTEMENT par titre d'abord : si
+    // au moins un titre correspond, ce sont les SEULS resultats renvoyes
+    // (un article qui ne matche que par son contenu, souvent plus long
+    // donc plus susceptible de contenir n'importe quel mot au hasard,
+    // n'est plus mélangé et ne noie plus les vrais résultats pertinents).
+    // Le contenu ne sert de repli que si AUCUN titre ne correspond.
     let motif_titre = format!("%{}%", q.trim());
+    let rows_titre: Vec<(i64, String, String, String, String, i64)> = mysql::prelude::Queryable::exec_map(
+        &mut conn,
+        "SELECT id, titre, contenu, auteur_nom, DATE_FORMAT(maj, '%Y-%m-%d %H:%i'), vues \
+         FROM wiki_pages WHERE titre LIKE ? ORDER BY maj DESC LIMIT 100",
+        (&motif_titre,),
+        |(id, titre, contenu, auteur_nom, maj, vues): (i64, String, String, String, String, i64)| {
+            (id, titre, contenu, auteur_nom, maj, vues)
+        },
+    )
+    .unwrap_or_default();
+    if !rows_titre.is_empty() {
+        return rows_titre.into_iter().map(vers_item_wiki).collect();
+    }
+
     if let Some(requete) = requete_fulltext(q) {
         let rows: Vec<(i64, String, String, String, String, i64)> = mysql::prelude::Queryable::exec_map(
             &mut conn,
             "SELECT id, titre, contenu, auteur_nom, DATE_FORMAT(maj, '%Y-%m-%d %H:%i'), vues \
              FROM wiki_pages WHERE MATCH(titre, contenu) AGAINST(? IN BOOLEAN MODE) \
-             ORDER BY (titre LIKE ?) DESC, MATCH(titre, contenu) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 100",
-            (&requete, &motif_titre, &requete),
+             ORDER BY MATCH(titre, contenu) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 100",
+            (&requete, &requete),
             |(id, titre, contenu, auteur_nom, maj, vues): (i64, String, String, String, String, i64)| {
                 (id, titre, contenu, auteur_nom, maj, vues)
             },
@@ -1039,9 +1028,8 @@ fn wiki_rechercher(pool: &DbPool, q: &str) -> Vec<Value> {
     let rows: Vec<(i64, String, String, String, String, i64)> = mysql::prelude::Queryable::exec_map(
         &mut conn,
         "SELECT id, titre, contenu, auteur_nom, DATE_FORMAT(maj, '%Y-%m-%d %H:%i'), vues \
-         FROM wiki_pages WHERE titre LIKE ? OR contenu LIKE ? \
-         ORDER BY (titre LIKE ?) DESC, maj DESC LIMIT 100",
-        (&motif, &motif, &motif_titre),
+         FROM wiki_pages WHERE titre LIKE ? OR contenu LIKE ? ORDER BY maj DESC LIMIT 100",
+        (&motif, &motif),
         |(id, titre, contenu, auteur_nom, maj, vues): (i64, String, String, String, String, i64)| {
             (id, titre, contenu, auteur_nom, maj, vues)
         },
