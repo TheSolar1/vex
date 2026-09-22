@@ -87,6 +87,8 @@ h1 { font-size:1.4rem; margin-bottom:18px; display:flex; align-items:center; gap
 }
 .modal-box2 textarea { resize:vertical; min-height:160px; line-height:1.5; }
 .article-full .contenu { white-space:pre-wrap; line-height:1.7; font-size:14.5px; margin:16px 0; }
+.lien-wiki { color:var(--accent); text-decoration:none; border-bottom:1px dashed var(--accent); }
+.lien-wiki:hover { border-bottom-style:solid; }
 .article-full .actions { display:flex; gap:8px; margin-top:16px; }
 .retour { background:none; border:none; color:var(--accent); font-weight:600; cursor:pointer; font-size:13.5px; margin-bottom:14px; display:inline-flex; align-items:center; gap:6px; }
 
@@ -266,6 +268,30 @@ function lancerRecherche(q){
 document.getElementById('q').addEventListener('input', e => lancerRecherche(e.target.value));
 
 /* ══════════════ Wiki (lecture/ecriture d'un article) ══════════════ */
+// Un article peut reference un autre article avec [[Titre exact]] --
+// converti en lien cliquable qui rouvre cet article DANS VEX (jamais un
+// href="javascript:" ni un titre interpole dans une chaine JS : le titre
+// vit dans un data-attribut, lu via un listener delegue plus bas, pour
+// eviter qu'un titre avec guillemet ne casse quoi que ce soit).
+function formaterWiki(texte){
+  return escHtml(texte).replace(/\[\[([^\]]+)\]\]/g, (_, titre) => `<a href="#" class="lien-wiki" data-titre="${titre}">${titre}</a>`);
+}
+async function wikiOuvrirParTitre(titre){
+  try{
+    const r=await fetch('/api/recherche/wiki?q='+encodeURIComponent(titre), {credentials:'include'});
+    const d=await r.json();
+    const trouve = d.success && (d.data.items||[]).find(it=>it.titre.toLowerCase()===titre.toLowerCase());
+    if(!trouve){ toast('Article "'+titre+'" introuvable'); return; }
+    wikiOuvrirArticle(trouve.id);
+  }catch(e){ toast('Erreur réseau'); }
+}
+document.getElementById('wiki-article-contenu').addEventListener('click', e=>{
+  const lien = e.target.closest('.lien-wiki');
+  if(!lien) return;
+  e.preventDefault();
+  wikiOuvrirParTitre(lien.dataset.titre);
+});
+
 async function wikiOuvrirArticle(id){
   try{
     const r=await fetch('/api/recherche/wiki/article?id='+id, {credentials:'include'});
@@ -277,7 +303,7 @@ async function wikiOuvrirArticle(id){
     document.getElementById('wiki-article-contenu').innerHTML=`
       <h2 style="font-size:1.25rem">${escHtml(a.titre)}</h2>
       <div class="res-meta" style="margin-top:6px">Par ${escHtml(a.auteur_nom||'?')} · maj ${escHtml(a.maj)} · ${a.vues||0} vue(s)</div>
-      <div class="contenu">${escHtml(a.contenu)}</div>
+      <div class="contenu">${formaterWiki(a.contenu)}</div>
       ${peutModifier?`<div class="actions">
         <button class="btn-secondaire" onclick="wikiOuvrirEdition(${a.id})"><img class="ico ico-sm" src="/static/img/solid/pen.svg" alt=""> Modifier</button>
         <button class="btn-secondaire" onclick="wikiSupprimer(${a.id})"><img class="ico ico-sm" src="/static/img/solid/trash.svg" alt=""> Supprimer</button>
