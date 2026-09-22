@@ -89,6 +89,23 @@ h1 { font-size:1.4rem; margin-bottom:18px; display:flex; align-items:center; gap
 .article-full .contenu { white-space:pre-wrap; line-height:1.7; font-size:14.5px; margin:16px 0; }
 .article-full .actions { display:flex; gap:8px; margin-top:16px; }
 .retour { background:none; border:none; color:var(--accent); font-weight:600; cursor:pointer; font-size:13.5px; margin-bottom:14px; display:inline-flex; align-items:center; gap:6px; }
+
+/* ── Lecteur "encyclopedie" (Wikipedia) -- reprend les codes visuels
+   d'un article Wikipedia (titre souligne, sections avec filet, sommaire)
+   mais avec les couleurs/typo du theme VEX, pas celles de Wikipedia. ── */
+.wp-titre { font-size:1.7rem; font-weight:700; padding-bottom:10px; border-bottom:1px solid var(--border); margin-bottom:14px; }
+.wp-sommaire {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:14px 18px; margin:16px 0 20px; display:inline-block; max-width:100%;
+}
+.wp-sommaire .wp-sommaire-titre { font-weight:700; font-size:13px; margin-bottom:8px; }
+.wp-sommaire ol { margin:0; padding-left:20px; font-size:13px; line-height:1.9; }
+.wp-sommaire a { color:var(--accent); text-decoration:none; }
+.wp-sommaire a:hover { text-decoration:underline; }
+.wp-contenu h2 { font-size:1.2rem; font-weight:700; margin:26px 0 12px; padding-bottom:6px; border-bottom:1px solid var(--border); scroll-margin-top:16px; }
+.wp-contenu h3 { font-size:1.05rem; font-weight:700; margin:20px 0 10px; scroll-margin-top:16px; }
+.wp-contenu h4 { font-size:.95rem; font-weight:700; margin:16px 0 8px; opacity:.9; scroll-margin-top:16px; }
+.wp-contenu p { line-height:1.75; font-size:14.5px; margin:0 0 14px; }
   </style>
 </head>
 <body>
@@ -278,22 +295,30 @@ function wikiFermerArticle(){
 // les sections gardent leur marquage wiki litteral ("== Titre ==",
 // "=== Sous-titre ===") -- affiche tel quel avec escHtml + pre-wrap, ca
 // ressemble a un dump de fichier, pas a une page d'encyclopedie. Convertit
-// ici ce marquage en vrais titres HTML et le reste en paragraphes.
-function formaterTexteWikipedia(texte){
+// ici ce marquage en vrais titres HTML (avec ancre) + un sommaire cliquable
+// genere a partir des titres de section, comme sur une vraie page
+// Wikipedia -- mais stylise avec les couleurs du theme VEX (voir .wp-*
+// dans le <style>), pas celles de Wikipedia.
+function formaterArticleWikipedia(texte){
   const lignes = String(texte||'').split('\n');
   let html = '';
+  const sommaire = []; // {niveau, ancre, titre}
+  let compteur = 0;
   let paragrapheCourant = [];
   const viderParagraphe = () => {
-    const texte = paragrapheCourant.join(' ').trim();
-    if(texte) html += `<p style="margin:0 0 14px">${escHtml(texte)}</p>`;
+    const t = paragrapheCourant.join(' ').trim();
+    if(t) html += `<p>${escHtml(t)}</p>`;
     paragrapheCourant = [];
   };
   for(const ligne of lignes){
-    const titre = ligne.match(/^(={2,6})\s*(.+?)\s*\1$/);
-    if(titre){
+    const m = ligne.match(/^(={2,6})\s*(.+?)\s*\1$/);
+    if(m){
       viderParagraphe();
-      const niveau = Math.min(titre[1].length, 4); // == -> h2 (le titre principal est deja en h1 au-dessus)
-      html += `<h${niveau} style="margin:22px 0 10px;font-size:${1.3-niveau*0.12}rem">${escHtml(titre[2])}</h${niveau}>`;
+      const niveau = Math.min(m[1].length, 4); // == -> h2 (le titre principal est deja affiche a part, en .wp-titre)
+      const titreSection = m[2].trim();
+      const ancre = 'wp-sec-'+(++compteur);
+      html += `<h${niveau} id="${ancre}">${escHtml(titreSection)}</h${niveau}>`;
+      sommaire.push({niveau, ancre, titre: titreSection});
     }else if(ligne.trim()===''){
       viderParagraphe();
     }else{
@@ -301,7 +326,13 @@ function formaterTexteWikipedia(texte){
     }
   }
   viderParagraphe();
-  return html || `<p>${escHtml(texte)}</p>`;
+  return { html: html || `<p>${escHtml(texte)}</p>`, sommaire };
+}
+
+function rendreSommaire(sommaire){
+  if(sommaire.length < 2) return ''; // pas utile pour un article a une seule section
+  const items = sommaire.map(s=>`<li style="margin-left:${(s.niveau-2)*16}px"><a href="#${s.ancre}">${escHtml(s.titre)}</a></li>`).join('');
+  return `<div class="wp-sommaire"><div class="wp-sommaire-titre">Sommaire</div><ol>${items}</ol></div>`;
 }
 
 async function wikipediaOuvrirArticle(index){
@@ -312,10 +343,12 @@ async function wikipediaOuvrirArticle(index){
     const d=await r.json();
     if(!d.success){ toast(d.error||'Erreur'); return; }
     const a=d.data;
+    const { html, sommaire } = formaterArticleWikipedia(a.contenu);
     document.getElementById('wiki-article-contenu').innerHTML=`
-      <h2 style="font-size:1.25rem">${escHtml(a.titre)}</h2>
-      <div class="res-meta" style="margin-top:6px">Wikipédia ${a.source_locale?'· servi depuis le cache local VEX':'· mis en cache localement'}</div>
-      <div class="contenu" style="white-space:normal">${formaterTexteWikipedia(a.contenu)}</div>
+      <div class="wp-titre">${escHtml(a.titre)}</div>
+      <div class="res-meta">Wikipédia ${a.source_locale?'· servi depuis le cache local VEX':'· mis en cache localement'}</div>
+      ${rendreSommaire(sommaire)}
+      <div class="wp-contenu">${html}</div>
     `;
     document.getElementById('vue-resultats').style.display='none';
     document.getElementById('wiki-article-vue').style.display='block';
