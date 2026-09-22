@@ -153,6 +153,11 @@ __NAV_HTML__
 </div>
 
 <div id="toast-area" style="position:fixed;bottom:24px;right:24px;z-index:5000;display:flex;flex-direction:column;gap:10px;pointer-events:none;"></div>
+<!-- Repere de version -- si ce texte n'apparait pas en bas de la page,
+     c'est que le navigateur affiche une version en cache et PAS celle
+     du serveur (a retirer une fois le probleme de "rien n'a change"
+     diagnostique). -->
+<div style="position:fixed;bottom:4px;left:8px;font-size:10px;opacity:.35;z-index:1;pointer-events:none">recherche-build-2026-09-22-1847</div>
 
 <script>
 {{I18N_JS}}
