@@ -23,6 +23,11 @@
 //     les extensions/mini-apps trouvees ici puissent debloquer des
 //     fonctionnalites premium sans dupliquer la logique de plan.
 //   - /api/recherche/wiki/*  CRUD + recherche des articles wiki.
+//   - GET  /api/recherche/wikipedia/article?titre=...  Article Wikipedia
+//     complet, ouvert DANS VEX (meme lecteur que le wiki interne, pas de
+//     redirection vers wikipedia.org) et mis en cache localement
+//     (wikipedia_cache) des la premiere lecture -- les lectures suivantes
+//     du meme article ne font plus aucun appel reseau.
 //   - /api/recherche/faq/*   DESACTIVE (demande utilisateur, 22/09) --
 //     renvoie desormais une erreur "fonctionnalite desactivee" sans
 //     toucher a la table wiki_faq (donnees existantes conservees si un
@@ -182,6 +187,19 @@ pub fn handle(pool: &DbPool, config: &VexConfig, req: &mut Request) -> Response<
         return wiki_delete(pool, &user, id);
     }
 
+    // ── Wikipedia : article complet, servi depuis le miroir LOCAL
+    // (wikipedia_cache) des qu'il a deja ete consulte une fois -- demande
+    // utilisateur : "je veux que tout soit en local", pas juste un lien
+    // qui renvoie vers wikipedia.org. Ouvert dans le meme lecteur que les
+    // articles du wiki interne (interface unifiee, pas un nouvel onglet).
+    if path == "/api/recherche/wikipedia/article" {
+        if verifier_session(pool, req).is_none() {
+            return json_response(401, json!({"success":false,"error":"Non connecté"}));
+        }
+        let titre = crate::utils::parse_query(&url).get("titre").cloned().unwrap_or_default();
+        return wikipedia_article(pool, &titre);
+    }
+
     // ── FAQ : DESACTIVEE (demande utilisateur, 22/09 -- l'app FAQ est
     // retiree de Recherche). Repond avant meme de verifier la session,
     // simple garde-fou statique. La table wiki_faq et les fonctions
@@ -320,20 +338,11 @@ fn api_global(pool: &DbPool, config: &VexConfig, q: &str) -> Response<std::io::C
         }));
     }
 
-    // Raccourci Google -- PAS de scraping/API (fragile, contraire aux CGU
-    // de Google, et une vraie API de recherche Google coute cher et demande
-    // une cle) : juste un lien direct vers la recherche Google pour cette
-    // requete, en dernier dans la liste (les sources internes/Wikipedia
-    // passent avant).
-    if !q.trim().is_empty() {
-        items.push(json!({
-            "type": "google",
-            "titre": format!("Rechercher « {} » sur Google", q.trim()),
-            "extrait": "Ouvre les résultats Google dans un nouvel onglet.",
-            "meta": "Google",
-            "url": format!("https://www.google.com/search?q={}", urlencoding_simple(q.trim())),
-        }));
-    }
+    // PAS de raccourci Google (retire, demande utilisateur 22/09) : un
+    // simple lien de redirection n'est ni "une vraie interface unifiee" ni
+    // "en local" -- Google n'a pas d'API de recherche gratuite/locale
+    // possible (scraper serait fragile et contraire a ses CGU), donc pas
+    // d'equivalent honnete a proposer ici.
 
     json_response(200, json!({
         "success": true,
@@ -372,20 +381,95 @@ fn wikipedia_rechercher(q: &str) -> Result<Vec<Value>, String> {
                 continue;
             }
             let extrait = retirer_balises_html(r["snippet"].as_str().unwrap_or(""));
-            let url_page = format!(
-                "https://fr.wikipedia.org/wiki/{}",
-                titre.replace(' ', "_")
-            );
+            // Pas de champ "url" externe : l'article s'ouvre DANS VEX (voir
+            // wikipedia_article()), pas dans un nouvel onglet vers
+            // wikipedia.org -- demande utilisateur, interface unifiee.
             items.push(json!({
                 "type": "wikipedia",
                 "titre": titre,
                 "extrait": extrait,
                 "meta": "Wikipédia",
-                "url": url_page,
             }));
         }
     }
     Ok(items)
+}
+
+/// Article Wikipedia complet, servi depuis le miroir LOCAL (wikipedia_cache)
+/// s'il a deja ete consulte, sinon recupere une seule fois puis mis en
+/// cache pour toutes les lectures suivantes -- c'est ca, concretement,
+/// "tout en local" pour du contenu qui vient d'une source externe : apres
+/// le premier appel, plus aucune requete reseau n'est necessaire pour relire
+/// le meme article.
+fn wikipedia_article(pool: &DbPool, titre: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+    let titre = titre.trim();
+    if titre.is_empty() {
+        return json_response(404, json!({"success":false,"error":"Article introuvable"}));
+    }
+
+    let cache = selectionner(
+        pool,
+        "wikipedia_cache",
+        &[("titre", mysql::Value::from(titre))],
+        &["extrait", "recupere_le"],
+        None,
+        Some(1),
+    );
+    if let Some(row) = cache.into_iter().next() {
+        return json_response(200, json!({
+            "success": true,
+            "data": {
+                "titre": titre,
+                "contenu": row.get("extrait").cloned().unwrap_or(json!("")),
+                "source_locale": true,
+                "recupere_le": row.get("recupere_le").cloned().unwrap_or(json!("")),
+            }
+        }));
+    }
+
+    let url = format!(
+        "https://fr.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&explaintext=1&titles={}",
+        urlencoding_simple(titre)
+    );
+    let rep = match ureq::get(&url)
+        .set("User-Agent", "VEX/1.0 (https://vex.hopto.org)")
+        .timeout(std::time::Duration::from_secs(8))
+        .call()
+    {
+        Ok(r) => r,
+        Err(e) => return json_response(200, json!({"success":false,"error":format!("Wikipédia injoignable : {}", e)})),
+    };
+    let v: Value = match rep.into_json() {
+        Ok(v) => v,
+        Err(e) => return json_response(200, json!({"success":false,"error":format!("Réponse Wikipédia illisible : {}", e)})),
+    };
+
+    let pages = &v["query"]["pages"];
+    let extrait = pages
+        .as_object()
+        .and_then(|obj| obj.values().next())
+        .and_then(|p| p["extract"].as_str())
+        .unwrap_or("")
+        .to_string();
+    if extrait.is_empty() {
+        return json_response(200, json!({"success":false,"error":"Article introuvable sur Wikipédia"}));
+    }
+
+    crate::appeldb::inserer_ou_modifier(
+        pool,
+        "wikipedia_cache",
+        &[("titre", mysql::Value::from(titre)), ("extrait", mysql::Value::from(extrait.clone()))],
+        &[],
+    );
+
+    json_response(200, json!({
+        "success": true,
+        "data": {
+            "titre": titre,
+            "contenu": extrait,
+            "source_locale": false,
+        }
+    }))
 }
 
 /// Encodage URL minimal (espace -> %20, etc.) pour le parametre `srsearch` --

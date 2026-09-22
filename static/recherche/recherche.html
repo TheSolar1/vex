@@ -56,7 +56,6 @@ h1 { font-size:1.4rem; margin-bottom:18px; display:flex; align-items:center; gap
 .res-item.t-wiki      { border-left-color:#8b5cf6; }
 .res-item.t-wikipedia { border-left-color:#3b82f6; }
 .res-item.t-extension { border-left-color:var(--accent); }
-.res-item.t-google    { border-left-color:#f59e0b; }
 .res-item .res-type {
   font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
   opacity:.65; margin-bottom:5px; display:flex; align-items:center; gap:5px;
@@ -199,12 +198,15 @@ function lancerRecherche(q){
       // chaque branche et rend l'ajout d'une future source (ex: Recherche >
       // Fichiers partages) triviale.
       const TYPES = {
-        wiki:      { icone:'book',                  label:'Wiki VEX' },
-        wikipedia: { icone:'globe',                  label:'Wikipédia' },
-        extension: { icone:'puzzle-piece',           label:'Extension' },
-        google:    { icone:'up-right-from-square',   label:'Google' },
+        wiki:      { icone:'book',        label:'Wiki VEX' },
+        wikipedia: { icone:'globe',       label:'Wikipédia' },
+        extension: { icone:'puzzle-piece',label:'Extension' },
       };
-      zone.innerHTML=items.map(it=>{
+      // Items gardes en memoire (indexes par position) plutot que le titre
+      // serialise dans l'attribut onclick -- un titre Wikipedia avec une
+      // apostrophe, ex. "Cote d'Ivoire", casserait une chaine JS inline.
+      S.derniersItems = items;
+      zone.innerHTML=items.map((it,i)=>{
         const t = TYPES[it.type] || { icone:'circle-question', label:it.type };
         const enTete = `<div class="res-type"><img class="ico ico-sm" src="/static/img/solid/${t.icone}.svg" alt=""> ${escHtml(t.label)}</div>
           <div class="res-titre">${escHtml(it.titre)}</div>
@@ -215,15 +217,13 @@ function lancerRecherche(q){
             <div class="res-meta">${escHtml(it.meta)}</div>
           </div>`;
         }
-        // Wikipedia/Google : carte entiere = lien <a href> (jamais
-        // onclick="window.open(url)" avec l'URL interpolee dans une chaine
-        // JS -- un titre contenant une apostrophe, ex. "Cote d'Ivoire",
-        // casserait la chaine et permettrait une injection ; un href est
-        // sans danger, le navigateur gere l'echappement lui-meme).
-        if(it.type==='wikipedia' || it.type==='google'){
-          return `<a class="res-item t-${it.type}" href="${escHtml(it.url)}" target="_blank" rel="noopener">${enTete}
+        // Wikipedia : ouvre l'article DANS VEX (meme lecteur que le wiki
+        // interne), jamais un nouvel onglet vers wikipedia.org -- demande
+        // utilisateur : une vraie interface unifiee, pas juste un lien.
+        if(it.type==='wikipedia'){
+          return `<div class="res-item t-wikipedia" onclick="wikipediaOuvrirArticle(${i})">${enTete}
             <div class="res-meta">${escHtml(it.meta)}</div>
-          </a>`;
+          </div>`;
         }
         return `<div class="res-item t-extension">${enTete}
           <div class="res-meta">${it.url?`<a class="res-dl" href="${escHtml(it.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Télécharger</a>`:''}</div>
@@ -267,6 +267,29 @@ function wikiFermerArticle(){
   document.getElementById('wiki-article-vue').style.display='none';
   document.getElementById('vue-resultats').style.display='block';
   lancerRecherche(document.getElementById('q').value);
+}
+
+/* ══════════════ Wikipedia (lecture seule, ouverte DANS VEX) ══════════════
+   Meme lecteur que le wiki interne (#wiki-article-vue) -- une seule
+   interface unifiee, pas de redirection vers wikipedia.org. Le contenu est
+   mis en cache localement des la premiere ouverture (wikipedia_cache cote
+   serveur) : relire le meme article ne refait plus d'appel reseau. */
+async function wikipediaOuvrirArticle(index){
+  const it = S.derniersItems && S.derniersItems[index];
+  if(!it){ toast('Article introuvable'); return; }
+  try{
+    const r=await fetch('/api/recherche/wikipedia/article?titre='+encodeURIComponent(it.titre), {credentials:'include'});
+    const d=await r.json();
+    if(!d.success){ toast(d.error||'Erreur'); return; }
+    const a=d.data;
+    document.getElementById('wiki-article-contenu').innerHTML=`
+      <h2 style="font-size:1.25rem">${escHtml(a.titre)}</h2>
+      <div class="res-meta" style="margin-top:6px">Wikipédia ${a.source_locale?'· servi depuis le cache local VEX':'· mis en cache localement'}</div>
+      <div class="contenu">${escHtml(a.contenu)}</div>
+    `;
+    document.getElementById('vue-resultats').style.display='none';
+    document.getElementById('wiki-article-vue').style.display='block';
+  }catch(e){ toast('Erreur réseau'); }
 }
 function wikiOuvrirEdition(id){
   const article = id ? S.articleActuel : null;

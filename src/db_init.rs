@@ -433,6 +433,22 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     )?;
 
+    // ── wikipedia_cache (app Recherche) : miroir LOCAL des articles
+    // Wikipedia deja consultes -- la recherche elle-meme reste un appel
+    // reseau (impossible d'indexer localement toute Wikipedia), mais des
+    // qu'un article est ouvert une fois, son contenu complet est stocke ici
+    // et les lectures suivantes sont servies depuis cette base, sans
+    // ressortir vers internet. Demande explicite : "je veux que tout soit
+    // en local" -- ceci est le compromis realiste (miroir a la demande).
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `wikipedia_cache` (
+            `titre`       VARCHAR(255) NOT NULL,
+            `extrait`     LONGTEXT     NOT NULL,
+            `recupere_le` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`titre`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    )?;
+
     eprintln!("[db_init] Base '{}' initialisée avec succès.", cfg.dbname);
     Ok(())
 }
