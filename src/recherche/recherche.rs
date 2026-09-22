@@ -320,6 +320,21 @@ fn api_global(pool: &DbPool, config: &VexConfig, q: &str) -> Response<std::io::C
         }));
     }
 
+    // Raccourci Google -- PAS de scraping/API (fragile, contraire aux CGU
+    // de Google, et une vraie API de recherche Google coute cher et demande
+    // une cle) : juste un lien direct vers la recherche Google pour cette
+    // requete, en dernier dans la liste (les sources internes/Wikipedia
+    // passent avant).
+    if !q.trim().is_empty() {
+        items.push(json!({
+            "type": "google",
+            "titre": format!("Rechercher « {} » sur Google", q.trim()),
+            "extrait": "Ouvre les résultats Google dans un nouvel onglet.",
+            "meta": "Google",
+            "url": format!("https://www.google.com/search?q={}", urlencoding_simple(q.trim())),
+        }));
+    }
+
     json_response(200, json!({
         "success": true,
         "data": {

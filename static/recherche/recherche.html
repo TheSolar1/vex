@@ -40,19 +40,30 @@ h1 { font-size:1.4rem; margin-bottom:18px; display:flex; align-items:center; gap
   background:var(--accent); color:#fff;
 }
 .abonnement-card .badge.inactif { background:var(--border); color:var(--text-m,var(--text)); }
-.resultats { display:flex; flex-direction:column; gap:2px; margin-top:14px; }
+.resultats { display:flex; flex-direction:column; gap:10px; margin-top:14px; }
 .vide { text-align:center; padding:40px 20px; opacity:.6; font-size:13.5px; }
 
-/* ── Resultats style moteur de recherche : type + titre + extrait ── */
-.res-item { padding:14px 8px; border-bottom:1px solid var(--border); cursor:pointer; }
-.res-item:hover .res-titre { text-decoration:underline; }
+/* ── Resultats : cartes VEX (meme idiome que les cartes ext-card/wiki-card
+   utilisees ailleurs sur le site), pas des lignes plates "moteur de
+   recherche generique" -- une bordure gauche coloree par source, comme les
+   badges de statut admin, identifie l'origine du resultat d'un coup d'oeil. ── */
+.res-item {
+  display:block; text-decoration:none; color:inherit; cursor:pointer;
+  background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--border);
+  border-radius:10px; padding:14px 16px; transition:border-color .15s;
+}
+.res-item:hover { border-color:var(--accent); }
+.res-item.t-wiki      { border-left-color:#8b5cf6; }
+.res-item.t-wikipedia { border-left-color:#3b82f6; }
+.res-item.t-extension { border-left-color:var(--accent); }
+.res-item.t-google    { border-left-color:#f59e0b; }
 .res-item .res-type {
   font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
-  color:var(--accent); margin-bottom:3px; display:flex; align-items:center; gap:5px;
+  opacity:.65; margin-bottom:5px; display:flex; align-items:center; gap:5px;
 }
-.res-item .res-titre { font-size:15.5px; font-weight:600; color:var(--text); margin-bottom:3px; }
+.res-item .res-titre { font-size:15px; font-weight:700; color:var(--text); margin-bottom:4px; }
 .res-item .res-extrait { font-size:13px; opacity:.75; line-height:1.5; }
-.res-item .res-meta { font-size:11.5px; opacity:.55; margin-top:4px; }
+.res-item .res-meta { font-size:11.5px; opacity:.55; margin-top:6px; }
 .res-item a.res-dl { color:var(--accent); text-decoration:none; font-weight:600; font-size:12.5px; }
 
 .btn-primaire {
@@ -184,31 +195,37 @@ function lancerRecherche(q){
           : `<div class="vide">Tapez pour rechercher dans le wiki VEX, Wikipédia et les extensions.</div>`;
         return;
       }
+      // Un seul type par icone/libelle -- evite de repeter la logique dans
+      // chaque branche et rend l'ajout d'une future source (ex: Recherche >
+      // Fichiers partages) triviale.
+      const TYPES = {
+        wiki:      { icone:'book',                  label:'Wiki VEX' },
+        wikipedia: { icone:'globe',                  label:'Wikipédia' },
+        extension: { icone:'puzzle-piece',           label:'Extension' },
+        google:    { icone:'up-right-from-square',   label:'Google' },
+      };
       zone.innerHTML=items.map(it=>{
+        const t = TYPES[it.type] || { icone:'circle-question', label:it.type };
+        const enTete = `<div class="res-type"><img class="ico ico-sm" src="/static/img/solid/${t.icone}.svg" alt=""> ${escHtml(t.label)}</div>
+          <div class="res-titre">${escHtml(it.titre)}</div>
+          <div class="res-extrait">${escHtml(it.extrait)}</div>`;
+
         if(it.type==='wiki'){
-          return `<div class="res-item" onclick="wikiOuvrirArticle(${it.id})">
-            <div class="res-type"><img class="ico ico-sm" src="/static/img/solid/book.svg" alt=""> Wiki VEX</div>
-            <div class="res-titre">${escHtml(it.titre)}</div>
-            <div class="res-extrait">${escHtml(it.extrait)}</div>
+          return `<div class="res-item t-wiki" onclick="wikiOuvrirArticle(${it.id})">${enTete}
             <div class="res-meta">${escHtml(it.meta)}</div>
           </div>`;
         }
-        if(it.type==='wikipedia'){
-          // Carte entiere = lien <a> (pas de onclick="window.open(...)" avec
-          // l'URL interpolee dans une chaine JS -- un titre Wikipedia avec
-          // une apostrophe, ex. "Cote d'Ivoire", casserait la chaine et
-          // permettrait une injection ; un href est sans danger.
-          return `<a class="res-item" style="display:block;text-decoration:none;color:inherit" href="${escHtml(it.url)}" target="_blank" rel="noopener">
-            <div class="res-type"><img class="ico ico-sm" src="/static/img/solid/globe.svg" alt=""> Wikipédia</div>
-            <div class="res-titre">${escHtml(it.titre)}</div>
-            <div class="res-extrait">${escHtml(it.extrait)}</div>
-            <div class="res-meta">Voir sur Wikipédia</div>
+        // Wikipedia/Google : carte entiere = lien <a href> (jamais
+        // onclick="window.open(url)" avec l'URL interpolee dans une chaine
+        // JS -- un titre contenant une apostrophe, ex. "Cote d'Ivoire",
+        // casserait la chaine et permettrait une injection ; un href est
+        // sans danger, le navigateur gere l'echappement lui-meme).
+        if(it.type==='wikipedia' || it.type==='google'){
+          return `<a class="res-item t-${it.type}" href="${escHtml(it.url)}" target="_blank" rel="noopener">${enTete}
+            <div class="res-meta">${escHtml(it.meta)}</div>
           </a>`;
         }
-        return `<div class="res-item">
-          <div class="res-type"><img class="ico ico-sm" src="/static/img/solid/puzzle-piece.svg" alt=""> Extension</div>
-          <div class="res-titre">${escHtml(it.titre)}</div>
-          <div class="res-extrait">${escHtml(it.extrait)}</div>
+        return `<div class="res-item t-extension">${enTete}
           <div class="res-meta">${it.url?`<a class="res-dl" href="${escHtml(it.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Télécharger</a>`:''}</div>
         </div>`;
       }).join('');
