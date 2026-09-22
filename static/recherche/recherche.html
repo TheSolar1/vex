@@ -40,7 +40,16 @@ h1 { font-size:1.4rem; margin-bottom:18px; display:flex; align-items:center; gap
   background:var(--accent); color:#fff;
 }
 .abonnement-card .badge.inactif { background:var(--border); color:var(--text-m,var(--text)); }
-.resultats { display:flex; flex-direction:column; gap:10px; margin-top:14px; }
+.resultats { display:flex; flex-direction:column; gap:22px; margin-top:14px; }
+.res-categorie-titre {
+  font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  opacity:.6; margin-bottom:10px; display:flex; align-items:center; gap:8px;
+}
+.res-categorie-n {
+  background:var(--surface); border:1px solid var(--border); border-radius:999px;
+  padding:1px 8px; font-size:11px; font-weight:700; opacity:.8;
+}
+.res-categorie-items { display:flex; flex-direction:column; gap:10px; }
 .vide { text-align:center; padding:40px 20px; opacity:.6; font-size:13.5px; }
 
 /* ── Resultats : cartes VEX (meme idiome que les cartes ext-card/wiki-card
@@ -153,11 +162,12 @@ __NAV_HTML__
 </div>
 
 <div id="toast-area" style="position:fixed;bottom:24px;right:24px;z-index:5000;display:flex;flex-direction:column;gap:10px;pointer-events:none;"></div>
-<!-- Repere de version -- si ce texte n'apparait pas en bas de la page,
-     c'est que le navigateur affiche une version en cache et PAS celle
-     du serveur (a retirer une fois le probleme de "rien n'a change"
-     diagnostique). -->
-<div style="position:fixed;bottom:4px;left:8px;font-size:10px;opacity:.35;z-index:1;pointer-events:none">recherche-build-2026-09-22-1847</div>
+<!-- Repere de version -- garde en permanence (pas juste pour un debug
+     ponctuel) : a servi a resoudre un "rien n'a change" qui etait en
+     fait un cache navigateur cote utilisateur, pas un probleme de
+     deploiement -- utile a chaque fois que ce doute revient. Mettre a
+     jour la date/heure a chaque changement notable de cette page. -->
+<div style="position:fixed;bottom:4px;left:8px;font-size:10px;opacity:.35;z-index:1;pointer-events:none">recherche-build-2026-09-22-1902</div>
 
 <script>
 {{I18N_JS}}
@@ -239,7 +249,7 @@ function lancerRecherche(q){
       // serialise dans l'attribut onclick -- un titre Wikipedia avec une
       // apostrophe, ex. "Cote d'Ivoire", casserait une chaine JS inline.
       S.derniersItems = items;
-      zone.innerHTML=items.map((it,i)=>{
+      const carte = (it,i) => {
         const t = TYPES[it.type] || { icone:'circle-question', label:it.type };
         const enTete = `<div class="res-type"><img class="ico ico-sm" src="/static/img/solid/${t.icone}.svg" alt=""> ${escHtml(t.label)}</div>
           <div class="res-titre">${surligner(it.titre, q)}</div>
@@ -267,6 +277,23 @@ function lancerRecherche(q){
         }
         return `<div class="res-item t-extension">${enTete}
           <div class="res-meta">${it.url?`<a class="res-dl" href="${escHtml(it.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Télécharger</a>`:''}</div>
+        </div>`;
+      };
+      // FIX (demande utilisateur : "je veux des categories si ca vient de
+      // la meme app") -- regroupe les resultats par source sous un titre de
+      // section, au lieu d'une liste plate ou seule une petite etiquette
+      // par carte distinguait l'origine. Ordre fixe (wiki VEX d'abord, le
+      // plus pertinent car propre a VEX), une section n'apparait que si
+      // elle a au moins un resultat.
+      const ORDRE_CATEGORIES = ['wiki', 'wikipedia', 'extension'];
+      const parType = {};
+      items.forEach((it,i) => { (parType[it.type] = parType[it.type] || []).push(carte(it,i)); });
+      const types = [...ORDRE_CATEGORIES, ...Object.keys(parType).filter(t=>!ORDRE_CATEGORIES.includes(t))];
+      zone.innerHTML = types.filter(t=>parType[t]?.length).map(t => {
+        const label = (TYPES[t]||{label:t}).label;
+        return `<div class="res-categorie">
+          <div class="res-categorie-titre">${escHtml(label)} <span class="res-categorie-n">${parType[t].length}</span></div>
+          <div class="res-categorie-items">${parType[t].join('')}</div>
         </div>`;
       }).join('');
     }catch(e){
