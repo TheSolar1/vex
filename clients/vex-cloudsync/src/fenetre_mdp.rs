@@ -1797,19 +1797,91 @@ unsafe fn dpapi_deproteger(donnees: &[u8]) -> Option<Vec<u8>> {
 /// dechiffrement DPAPI echoue (ex. fichier copie sur une autre machine ou
 /// sous un autre compte Windows -- redemande alors normalement le mot de
 /// passe plutot que de planter).
+///
+/// FIX (retour utilisateur : "a chaque redemarrage du PC on doit
+/// reconfigurer l'app") -- avant ce correctif, les 3 causes possibles d'un
+/// retour a None ici (fichier absent, lecture disque impossible, echec
+/// DPAPI) etaient indiscernables : aucune trace n'etait gardee entre deux
+/// lancements (le journal en memoire de main.rs est perdu a la fermeture
+/// du process), donc impossible de savoir POURQUOI la fenetre de
+/// reconfiguration reapparaissait sans etre physiquement devant la machine
+/// au moment ou ca se produit. Journalise desormais chaque cas dans un
+/// fichier persistant (diag()) pour rendre la prochaine occurrence
+/// diagnosticable.
 pub fn charger_mdp_sauvegarde() -> Option<String> {
-    let chiffre = std::fs::read(chemin_fichier_mdp()).ok()?;
-    let clair = unsafe { dpapi_deproteger(&chiffre) }?;
-    String::from_utf8(clair).ok().filter(|s| !s.is_empty())
+    let chemin = chemin_fichier_mdp();
+    let chiffre = match std::fs::read(&chemin) {
+        Ok(c) => c,
+        Err(e) => {
+            diag(&format!("mdp.bin absent ou illisible ({e}) -- fenetre de mot de passe requise"));
+            return None;
+        }
+    };
+    let clair = match unsafe { dpapi_deproteger(&chiffre) } {
+        Some(c) => c,
+        None => {
+            diag("mdp.bin present mais dechiffrement DPAPI echoue (CryptUnprotectData) -- fenetre de mot de passe requise");
+            return None;
+        }
+    };
+    match String::from_utf8(clair).ok().filter(|s| !s.is_empty()) {
+        Some(mdp) => {
+            diag("mot de passe recupere depuis le cache DPAPI local, reconnexion silencieuse");
+            Some(mdp)
+        }
+        None => {
+            diag("mdp.bin dechiffre mais contenu vide/invalide -- fenetre de mot de passe requise");
+            None
+        }
+    }
 }
 
 pub fn sauvegarder_mdp(mdp: &str) {
-    let Some(chiffre) = (unsafe { dpapi_proteger(mdp.as_bytes()) }) else { return };
+    let Some(chiffre) = (unsafe { dpapi_proteger(mdp.as_bytes()) }) else {
+        diag("echec du chiffrement DPAPI (CryptProtectData) -- mot de passe NON mis en cache, sera redemande au prochain lancement");
+        return;
+    };
     let chemin = chemin_fichier_mdp();
     if let Some(parent) = chemin.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
-    let _ = std::fs::write(chemin, chiffre);
+    match std::fs::write(&chemin, chiffre) {
+        Ok(_) => diag("mot de passe mis en cache (DPAPI) avec succes"),
+        Err(e) => diag(&format!("echec d'ecriture de mdp.bin ({e}) -- mot de passe NON mis en cache")),
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Journal de diagnostic PERSISTANT (survit a la fermeture du process,
+// contrairement au journal en memoire de main.rs::EtatUi) -- seul moyen de
+// comprendre after-coup pourquoi une reconnexion silencieuse a echoue si
+// personne n'etait devant l'ecran au moment ou ca s'est produit (typiquement
+// juste apres un redemarrage Windows). Fichier texte simple, borne en
+// taille (tronque au-dela de ~500 Ko pour ne jamais grossir indefiniment).
+// ══════════════════════════════════════════════════════════════════
+fn chemin_fichier_diag() -> std::path::PathBuf {
+    let base = std::env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".to_string());
+    std::path::PathBuf::from(base).join("VexCloudSync").join("diagnostic.log")
+}
+
+pub fn diag(msg: &str) {
+    let chemin = chemin_fichier_diag();
+    if let Some(parent) = chemin.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Ok(meta) = std::fs::metadata(&chemin) {
+        if meta.len() > 500_000 {
+            let _ = std::fs::remove_file(&chemin);
+        }
+    }
+    let horodatage = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    use std::io::Write;
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&chemin) {
+        let _ = writeln!(f, "[{horodatage}] {msg}");
+    }
 }
 
 /// Efface le mot de passe sauvegarde -- utilise quand la synchro echoue au

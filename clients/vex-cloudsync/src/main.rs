@@ -89,6 +89,17 @@ fn exiger_https(url: &str) -> Option<&str> {
 /// en dur ci-dessous, utile pour qui heberge sa propre instance VEX en
 /// https), enfin les candidats par defaut. Un endpoint sans auth et
 /// toujours 200 (meme pour un code inconnu) sert de "ping".
+/// FIX (retour utilisateur : "a chaque redemarrage du PC on doit
+/// reconfigurer l'app") -- assurer_demarrage_auto() relance l'app des la
+/// session Windows ouverte, souvent AVANT que le reseau (Wi-Fi, VPN,
+/// obtention d'une adresse IP) ne soit pleinement pret -- la tentative de
+/// connexion echouait alors systematiquement au tout premier essai apres
+/// un redemarrage, meme si le serveur est parfaitement joignable une
+/// poignee de secondes plus tard. Reessaie desormais plusieurs fois avec
+/// une pause avant d'abandonner, au lieu d'un seul essai sec.
+const TENTATIVES_DETECTION_URL: u32 = 5;
+const PAUSE_ENTRE_TENTATIVES: std::time::Duration = std::time::Duration::from_secs(3);
+
 fn detecter_base_url(url_utilisateur: &str) -> Option<String> {
     if let Ok(v) = env::var("VEX_BASE_URL") {
         return Some(v);
@@ -99,13 +110,27 @@ fn detecter_base_url(url_utilisateur: &str) -> Option<String> {
         candidats.push(u);
     }
     candidats.extend(BASE_URL_CANDIDATS.iter().copied());
-    for candidat in candidats {
-        println!("Test de connexion a {candidat}...");
-        if agent.get(&format!("{candidat}/api/appareil/statut?code=ping")).call().is_ok() {
-            println!("-> {candidat} repond, utilise pour cette session.");
-            return Some(candidat.to_string());
+
+    for tentative in 1..=TENTATIVES_DETECTION_URL {
+        for &candidat in &candidats {
+            println!("Test de connexion a {candidat}... (tentative {tentative}/{TENTATIVES_DETECTION_URL})");
+            if agent.get(&format!("{candidat}/api/appareil/statut?code=ping")).call().is_ok() {
+                println!("-> {candidat} repond, utilise pour cette session.");
+                if tentative > 1 {
+                    fenetre_mdp::diag(&format!(
+                        "connexion reseau reussie a la tentative {tentative}/{TENTATIVES_DETECTION_URL} (reseau probablement pas encore pret juste apres le demarrage)"
+                    ));
+                }
+                return Some(candidat.to_string());
+            }
+        }
+        if tentative < TENTATIVES_DETECTION_URL {
+            std::thread::sleep(PAUSE_ENTRE_TENTATIVES);
         }
     }
+    fenetre_mdp::diag(&format!(
+        "aucun serveur joignable apres {TENTATIVES_DETECTION_URL} tentatives ({candidats:?})"
+    ));
     None
 }
 /// Windows 10 version 1709 (Fall Creators Update) -- premiere version a
@@ -992,7 +1017,20 @@ fn main() {
     // cas (equivalent a fermer sur "Continuer"). Sans mot de passe en
     // cache (premiere fois avec cette version, ou apres un "Reinstaller"),
     // le dialogue reste affiche comme avant.
-    if deja_installe() && fenetre_mdp::charger_mdp_sauvegarde().is_none() {
+    //
+    // FIX (retour utilisateur : "a chaque redemarrage on doit reconfigurer")
+    // -- charger_mdp_sauvegarde() n'est plus appelee deux fois separement
+    // ici et plus bas (chaque appel journalise desormais un diagnostic
+    // persistant, l'appeler deux fois aurait duplique la ligne de log pour
+    // rien) : le resultat de CE premier appel est reutilise plus bas, sauf
+    // si "Reinstaller" vient de l'effacer entre-temps.
+    let deja_install = deja_installe();
+    let mdp_en_cache = if deja_install { fenetre_mdp::charger_mdp_sauvegarde() } else { None };
+    fenetre_mdp::diag(&format!(
+        "demarrage : deja_installe={deja_install}, mdp_en_cache={}",
+        mdp_en_cache.is_some()
+    ));
+    if deja_install && mdp_en_cache.is_none() {
         match fenetre_mdp::demander_action_installation(&icone_dossier_locale, &get_client_path()) {
             fenetre_mdp::ActionInstallation::Desinstaller => {
                 desinstaller();
@@ -1043,9 +1081,9 @@ fn main() {
     // lisible uniquement par ce compte Windows sur cette machine, pas en
     // clair sur le disque. Si le cache est absent/invalide (premiere
     // installation, ou "Reinstaller"), la fenetre s'affiche normalement.
-    let (mdp, url_serveur) = match (deja_installe(), fenetre_mdp::charger_mdp_sauvegarde()) {
-        (true, Some(mdp)) => (mdp, fenetre_mdp::charger_url_preferee()),
-        _ => {
+    let (mdp, url_serveur) = match mdp_en_cache {
+        Some(mdp) => (mdp, fenetre_mdp::charger_url_preferee()),
+        None => {
             let Some((mdp, url_serveur)) = demander_mot_de_passe(&icone_dossier_locale) else {
                 return;
             };
