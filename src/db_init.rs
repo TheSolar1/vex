@@ -465,6 +465,14 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
     let _ = conn.query_drop(
         "ALTER TABLE `wikipedia_cache` ADD FULLTEXT INDEX `ft_wikipedia_cache` (`titre`, `extrait`)",
     );
+    // Migration : miniature de l'article (demande utilisateur : "tu prends
+    // la page et tu la restylise" -- une vraie page Wikipedia a une image,
+    // pas seulement du texte). NULL pour les articles deja en cache avant
+    // cette migration -- ils resteront sans image tant qu'ils ne sont pas
+    // rouverts (wikipedia_article la recupere alors et complete la ligne).
+    let _ = conn.query_drop(
+        "ALTER TABLE `wikipedia_cache` ADD COLUMN `image_url` VARCHAR(600) DEFAULT NULL",
+    );
 
     eprintln!("[db_init] Base '{}' initialisée avec succès.", cfg.dbname);
     Ok(())

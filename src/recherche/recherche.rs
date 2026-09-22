@@ -446,9 +446,17 @@ fn api_global(pool: &DbPool, config: &VexConfig, q: &str) -> Response<std::io::C
 /// pertinents, contrairement au wiki interne VEX qui demarre vide. Timeout
 /// court (5s) : ne doit jamais bloquer longtemps une requete sur ce serveur
 /// mono-thread.
+///
+/// generator=search (au lieu de list=search) permet de recuperer en UN SEUL
+/// appel le resultat de recherche ET un vrai extrait d'introduction (plus
+/// propre que le snippet tronque avec des balises <span> a nettoyer) ET une
+/// miniature (piprop=thumbnail) -- demande utilisateur : "tu prends la page
+/// et tu la restylise", une vraie page Wikipedia a une image, pas
+/// seulement du texte.
 fn wikipedia_rechercher(q: &str) -> Result<Vec<Value>, String> {
     let url = format!(
-        "https://fr.wikipedia.org/w/api.php?action=query&list=search&format=json&srlimit=5&srsearch={}",
+        "https://fr.wikipedia.org/w/api.php?action=query&format=json&generator=search&gsrlimit=5&gsrsearch={}\
+         &prop=extracts|pageimages&exintro=1&explaintext=1&piprop=thumbnail&pithumbsize=200",
         urlencoding_simple(q)
     );
     let rep = ureq::get(&url)
@@ -461,21 +469,29 @@ fn wikipedia_rechercher(q: &str) -> Result<Vec<Value>, String> {
         .map_err(|e| format!("Réponse Wikipédia illisible : {}", e))?;
 
     let mut items = Vec::new();
-    if let Some(resultats) = v["query"]["search"].as_array() {
-        for r in resultats {
+    if let Some(pages) = v["query"]["pages"].as_object() {
+        // generator=search ne garantit pas l'ordre de pertinence dans l'objet
+        // (les cles JSON sont des pageid) -- trie par "index" (rang de
+        // pertinence donne par l'API elle-meme) pour ne pas perdre le
+        // classement.
+        let mut pages: Vec<&Value> = pages.values().collect();
+        pages.sort_by_key(|p| p["index"].as_i64().unwrap_or(i64::MAX));
+        for r in pages {
             let titre = r["title"].as_str().unwrap_or("").to_string();
-            if titre.is_empty() {
+            let ext = r["extract"].as_str().unwrap_or("");
+            if titre.is_empty() || ext.is_empty() {
                 continue;
             }
-            let extrait = retirer_balises_html(r["snippet"].as_str().unwrap_or(""));
+            let image = r["thumbnail"]["source"].as_str();
             // Pas de champ "url" externe : l'article s'ouvre DANS VEX (voir
             // wikipedia_article()), pas dans un nouvel onglet vers
             // wikipedia.org -- demande utilisateur, interface unifiee.
             items.push(json!({
                 "type": "wikipedia",
                 "titre": titre,
-                "extrait": extrait,
+                "extrait": extrait(ext, EXTRAIT_LEN),
                 "meta": "Wikipédia",
+                "image": image,
             }));
         }
     }
@@ -495,26 +511,52 @@ fn wikipedia_cache_rechercher(pool: &DbPool, q: &str) -> Vec<Value> {
         Ok(c) => c,
         Err(_) => return vec![],
     };
-    let rows: Vec<(String, String)> = mysql::prelude::Queryable::exec_map(
+    let rows: Vec<(String, String, Option<String>)> = mysql::prelude::Queryable::exec_map(
         &mut conn,
-        "SELECT titre, extrait FROM wikipedia_cache \
+        "SELECT titre, extrait, image_url FROM wikipedia_cache \
          WHERE MATCH(titre, extrait) AGAINST(? IN BOOLEAN MODE) \
          ORDER BY MATCH(titre, extrait) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 10",
         (&requete, &requete),
-        |(titre, extrait): (String, String)| (titre, extrait),
+        |(titre, extrait, image_url): (String, String, Option<String>)| (titre, extrait, image_url),
     )
     .unwrap_or_default();
 
     rows.into_iter()
-        .map(|(titre, extrait_complet)| {
+        .map(|(titre, extrait_complet, image_url)| {
             json!({
                 "type": "wikipedia",
                 "titre": titre,
                 "extrait": extrait(&extrait_complet, EXTRAIT_LEN),
                 "meta": "Wikipédia · miroir local",
+                "image": image_url,
             })
         })
         .collect()
+}
+
+/// Recupere UNIQUEMENT la miniature d'un article (pas le texte) -- utilise
+/// pour completer une ligne de cache mise en place avant l'ajout de la
+/// colonne image_url, sans re-telecharger tout l'article. Best effort :
+/// None en cas d'echec, jamais une erreur bloquante (l'image est un plus,
+/// pas le contenu principal).
+fn recuperer_image_seule(titre: &str) -> Option<String> {
+    let url = format!(
+        "https://fr.wikipedia.org/w/api.php?action=query&format=json&prop=pageimages\
+         &piprop=thumbnail&pithumbsize=500&titles={}",
+        urlencoding_simple(titre)
+    );
+    let rep = ureq::get(&url)
+        .set("User-Agent", "VEX/1.0 (https://vex.hopto.org)")
+        .timeout(std::time::Duration::from_secs(4))
+        .call()
+        .ok()?;
+    let v: Value = rep.into_json().ok()?;
+    v["query"]["pages"]
+        .as_object()?
+        .values()
+        .next()?["thumbnail"]["source"]
+        .as_str()
+        .map(|s| s.to_string())
 }
 
 /// Article Wikipedia complet, servi depuis le miroir LOCAL (wikipedia_cache)
@@ -533,7 +575,7 @@ fn wikipedia_article(pool: &DbPool, titre: &str) -> Response<std::io::Cursor<Vec
         pool,
         "wikipedia_cache",
         &[("titre", mysql::Value::from(titre))],
-        &["extrait", "recupere_le"],
+        &["extrait", "recupere_le", "image_url"],
         None,
         Some(1),
     );
@@ -548,7 +590,13 @@ fn wikipedia_article(pool: &DbPool, titre: &str) -> Response<std::io::Cursor<Vec
     const SEUIL_CACHE_COMPLET: usize = 400;
     if let Some(row) = cache.into_iter().next() {
         let extrait_cache = row.get("extrait").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let image_cache = row.get("image_url").and_then(|v| v.as_str()).map(|s| s.to_string());
         if extrait_cache.chars().count() >= SEUIL_CACHE_COMPLET {
+            // Migration : une ligne mise en cache avant l'ajout de la
+            // colonne image_url n'en a pas -- un seul petit appel (juste
+            // l'image, pas le texte) suffit a la completer sans tout
+            // re-telecharger.
+            let image_cache = image_cache.or_else(|| recuperer_image_seule(titre));
             return json_response(200, json!({
                 "success": true,
                 "data": {
@@ -556,13 +604,15 @@ fn wikipedia_article(pool: &DbPool, titre: &str) -> Response<std::io::Cursor<Vec
                     "contenu": extrait_cache,
                     "source_locale": true,
                     "recupere_le": row.get("recupere_le").cloned().unwrap_or(json!("")),
+                    "image": image_cache,
                 }
             }));
         }
     }
 
     let url = format!(
-        "https://fr.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&explaintext=1&titles={}",
+        "https://fr.wikipedia.org/w/api.php?action=query&format=json&prop=extracts|pageimages\
+         &explaintext=1&piprop=thumbnail&pithumbsize=500&titles={}",
         urlencoding_simple(titre)
     );
     let rep = match ureq::get(&url)
@@ -579,15 +629,12 @@ fn wikipedia_article(pool: &DbPool, titre: &str) -> Response<std::io::Cursor<Vec
     };
 
     let pages = &v["query"]["pages"];
-    let extrait = pages
-        .as_object()
-        .and_then(|obj| obj.values().next())
-        .and_then(|p| p["extract"].as_str())
-        .unwrap_or("")
-        .to_string();
+    let page = pages.as_object().and_then(|obj| obj.values().next());
+    let extrait = page.and_then(|p| p["extract"].as_str()).unwrap_or("").to_string();
     if extrait.is_empty() {
         return json_response(200, json!({"success":false,"error":"Article introuvable sur Wikipédia"}));
     }
+    let image = page.and_then(|p| p["thumbnail"]["source"].as_str()).map(|s| s.to_string());
 
     // UPSERT (pas inserer_ou_modifier, qui ne fait qu'INSERT ou qu'UPDATE
     // selon where_c fourni a l'avance) : `titre` est la cle primaire, et un
@@ -596,9 +643,9 @@ fn wikipedia_article(pool: &DbPool, titre: &str) -> Response<std::io::Cursor<Vec
     if let Ok(mut conn) = pool.get_conn() {
         let _ = mysql::prelude::Queryable::exec_drop(
             &mut conn,
-            "INSERT INTO wikipedia_cache (titre, extrait) VALUES (?, ?) \
-             ON DUPLICATE KEY UPDATE extrait = VALUES(extrait), recupere_le = CURRENT_TIMESTAMP",
-            (titre, &extrait),
+            "INSERT INTO wikipedia_cache (titre, extrait, image_url) VALUES (?, ?, ?) \
+             ON DUPLICATE KEY UPDATE extrait = VALUES(extrait), image_url = VALUES(image_url), recupere_le = CURRENT_TIMESTAMP",
+            (titre, &extrait, &image),
         );
     }
 
@@ -608,6 +655,7 @@ fn wikipedia_article(pool: &DbPool, titre: &str) -> Response<std::io::Cursor<Vec
             "titre": titre,
             "contenu": extrait,
             "source_locale": false,
+            "image": image,
         }
     }))
 }
@@ -624,22 +672,6 @@ fn urlencoding_simple(s: &str) -> String {
             _ => format!("%{:02X}", b),
         })
         .collect()
-}
-
-/// Retire les balises HTML (ex: <span class="searchmatch">...</span> dans
-/// les extraits Wikipedia) sans dependance regex -- ne garde que le texte.
-fn retirer_balises_html(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut dans_balise = false;
-    for c in s.chars() {
-        match c {
-            '<' => dans_balise = true,
-            '>' => dans_balise = false,
-            _ if !dans_balise => out.push(c),
-            _ => {}
-        }
-    }
-    out
 }
 
 fn formater_taille(o: u64) -> String {

@@ -56,6 +56,8 @@ h1 { font-size:1.4rem; margin-bottom:18px; display:flex; align-items:center; gap
 .res-item.t-wiki      { border-left-color:#8b5cf6; }
 .res-item.t-wikipedia { border-left-color:#3b82f6; }
 .res-item.t-extension { border-left-color:var(--accent); }
+.res-vignette { width:72px; height:72px; object-fit:cover; border-radius:8px; flex-shrink:0; background:var(--bg); }
+.article-vignette { max-width:280px; width:100%; border-radius:10px; margin:14px 0; display:block; }
 .res-item .res-type {
   font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
   opacity:.65; margin-bottom:5px; display:flex; align-items:center; gap:5px;
@@ -246,9 +248,16 @@ function lancerRecherche(q){
         // Wikipedia : ouvre l'article DANS VEX (meme lecteur que le wiki
         // interne), jamais un nouvel onglet vers wikipedia.org -- demande
         // utilisateur : une vraie interface unifiee, pas juste un lien.
+        // Miniature affichee quand l'API en fournit une ("tu prends la
+        // page et tu la restylise" -- une vraie page Wikipedia a une
+        // image, pas seulement du texte).
         if(it.type==='wikipedia'){
-          return `<div class="res-item t-wikipedia" onclick="wikipediaOuvrirArticle(${i})">${enTete}
-            <div class="res-meta">${escHtml(it.meta)}</div>
+          const vignette = it.image ? `<img class="res-vignette" src="${escHtml(it.image)}" alt="" loading="lazy">` : '';
+          return `<div class="res-item t-wikipedia" onclick="wikipediaOuvrirArticle(${i})" style="display:flex;gap:14px;align-items:flex-start">
+            <div style="flex:1;min-width:0">${enTete}
+              <div class="res-meta">${escHtml(it.meta)}</div>
+            </div>
+            ${vignette}
           </div>`;
         }
         return `<div class="res-item t-extension">${enTete}
@@ -379,9 +388,11 @@ async function wikipediaOuvrirArticle(index){
     if(!d.success){ toast(d.error||'Erreur'); return; }
     const a=d.data;
     const { html, sommaire } = formaterArticleWikipedia(a.contenu);
+    const vignette = a.image ? `<img class="article-vignette" src="${escHtml(a.image)}" alt="">` : '';
     document.getElementById('wiki-article-contenu').innerHTML=`
       <div class="wp-titre">${escHtml(a.titre)}</div>
       <div class="res-meta">Wikipédia ${a.source_locale?'· servi depuis le cache local VEX':'· mis en cache localement'}</div>
+      ${vignette}
       ${rendreSommaire(sommaire)}
       <div class="wp-contenu">${html}</div>
     `;
