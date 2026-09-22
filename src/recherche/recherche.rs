@@ -381,25 +381,25 @@ fn api_global(pool: &DbPool, config: &VexConfig, q: &str) -> Response<std::io::C
         }));
     }
 
-    // Wikipedia : source externe qui garantit des VRAIS resultats meme
-    // quand le wiki interne VEX est encore vide -- seulement a partir de 2
-    // caracteres (pas d'appel reseau pour une recherche vide ou une seule
-    // lettre : "e" faisait remonter l'article Wikipedia sur la lettre E,
-    // techniquement correct mais perçu comme du bruit/un bug par les
-    // utilisateurs qui tapent encore leur requete).
+    // Miroir Wikipedia LOCAL d'abord (FULLTEXT, instantane, zero appel
+    // reseau -- ~3000 articles pre-charges, voir la migration wikipedia_cache) :
+    // pas de raison de le limiter a 2 caracteres puisqu'il ne coute rien,
+    // contrairement a l'appel reseau live juste en dessous. FIX (retour
+    // utilisateur : "je ne vois pas les articles de wikipedia") -- la limite
+    // de 2 caracteres bloquait AUSSI ce miroir local, qui contient
+    // maintenant largement assez de contenu pour repondre a 1 seule lettre.
+    let locaux = if !q.trim().is_empty() { wikipedia_cache_rechercher(pool, q) } else { vec![] };
+    let titres_locaux: std::collections::HashSet<String> =
+        locaux.iter().filter_map(|it| it["titre"].as_str().map(|s| s.to_lowercase())).collect();
+    for it in locaux {
+        items.push(it);
+    }
+
+    // Wikipedia LIVE : reste limite a partir de 2 caracteres -- ca, c'est un
+    // vrai appel reseau a chaque frappe, "e" seul faisait remonter l'article
+    // sur la lettre E a chaque caractere tape, perçu comme du bruit.
     let mut erreur_wikipedia = None;
     if q.trim().chars().count() >= 2 {
-        // Miroir local d'abord (FULLTEXT, instantane, zero appel reseau) --
-        // le miroir grandit a chaque article deja consulte (voir
-        // wikipedia_article). Puis la recherche live complete la liste avec
-        // les articles pas encore mis en cache, sans dupliquer un titre deja
-        // trouve localement.
-        let locaux = wikipedia_cache_rechercher(pool, q);
-        let titres_locaux: std::collections::HashSet<String> =
-            locaux.iter().filter_map(|it| it["titre"].as_str().map(|s| s.to_lowercase())).collect();
-        for it in locaux {
-            items.push(it);
-        }
         match wikipedia_rechercher(q) {
             Ok(resultats) => {
                 for it in resultats {
@@ -455,7 +455,7 @@ fn api_global(pool: &DbPool, config: &VexConfig, q: &str) -> Response<std::io::C
 /// seulement du texte.
 fn wikipedia_rechercher(q: &str) -> Result<Vec<Value>, String> {
     let url = format!(
-        "https://fr.wikipedia.org/w/api.php?action=query&format=json&generator=search&gsrlimit=5&gsrsearch={}\
+        "https://fr.wikipedia.org/w/api.php?action=query&format=json&generator=search&gsrlimit=10&gsrsearch={}\
          &prop=extracts|pageimages&exintro=1&explaintext=1&piprop=thumbnail&pithumbsize=200",
         urlencoding_simple(q)
     );
@@ -511,12 +511,16 @@ fn wikipedia_cache_rechercher(pool: &DbPool, q: &str) -> Vec<Value> {
         Ok(c) => c,
         Err(_) => return vec![],
     };
+    // Meme priorite titre-avant-contenu que wiki_rechercher (voir son
+    // commentaire) + limite remontee a 20 (au lieu de 10) -- demande
+    // utilisateur : "je veux voir plus" dans chaque source.
+    let motif_titre = format!("%{}%", q.trim());
     let rows: Vec<(String, String, Option<String>)> = mysql::prelude::Queryable::exec_map(
         &mut conn,
         "SELECT titre, extrait, image_url FROM wikipedia_cache \
          WHERE MATCH(titre, extrait) AGAINST(? IN BOOLEAN MODE) \
-         ORDER BY MATCH(titre, extrait) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 10",
-        (&requete, &requete),
+         ORDER BY (titre LIKE ?) DESC, MATCH(titre, extrait) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 20",
+        (&requete, &motif_titre, &requete),
         |(titre, extrait, image_url): (String, String, Option<String>)| (titre, extrait, image_url),
     )
     .unwrap_or_default();
@@ -787,12 +791,18 @@ fn wiki_rechercher(pool: &DbPool, q: &str) -> Vec<Value> {
     };
 
     if let Some(requete) = requete_fulltext(q) {
+        // FIX (demande utilisateur : classer "en fonction du titre et pas
+        // du contenu") -- un article dont le TITRE contient la requete
+        // passe desormais toujours avant un article qui ne la contient que
+        // dans son contenu, meme si ce dernier a un meilleur score
+        // FULLTEXT brut (article plus long = plus d'occurrences).
+        let motif_titre = format!("%{}%", q.trim());
         let rows: Vec<(i64, String, String, String, String, i64)> = mysql::prelude::Queryable::exec_map(
             &mut conn,
             "SELECT id, titre, contenu, auteur_nom, DATE_FORMAT(maj, '%Y-%m-%d %H:%i'), vues \
              FROM wiki_pages WHERE MATCH(titre, contenu) AGAINST(? IN BOOLEAN MODE) \
-             ORDER BY MATCH(titre, contenu) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 100",
-            (&requete, &requete),
+             ORDER BY (titre LIKE ?) DESC, MATCH(titre, contenu) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 100",
+            (&requete, &motif_titre, &requete),
             |(id, titre, contenu, auteur_nom, maj, vues): (i64, String, String, String, String, i64)| {
                 (id, titre, contenu, auteur_nom, maj, vues)
             },
