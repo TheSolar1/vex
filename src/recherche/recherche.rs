@@ -537,16 +537,28 @@ fn wikipedia_article(pool: &DbPool, titre: &str) -> Response<std::io::Cursor<Vec
         None,
         Some(1),
     );
+    // Seuil de longueur : le pre-chargement en masse (voir commentaire sur
+    // la table) ne stocke que l'INTRODUCTION de chaque article (seul mode
+    // qui permet a l'API Wikipedia de repondre par lots de plusieurs
+    // titres -- un extrait COMPLET est limite a 1 titre par requete cote
+    // API elle-meme). Un article reellement complet fait quasi toujours
+    // plus de 400 caracteres ; en dessous, on considere le cache "partiel"
+    // et on va chercher le texte complet a l'ouverture reelle par
+    // l'utilisateur, plutot que de le laisser coince sur une simple intro.
+    const SEUIL_CACHE_COMPLET: usize = 400;
     if let Some(row) = cache.into_iter().next() {
-        return json_response(200, json!({
-            "success": true,
-            "data": {
-                "titre": titre,
-                "contenu": row.get("extrait").cloned().unwrap_or(json!("")),
-                "source_locale": true,
-                "recupere_le": row.get("recupere_le").cloned().unwrap_or(json!("")),
-            }
-        }));
+        let extrait_cache = row.get("extrait").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        if extrait_cache.chars().count() >= SEUIL_CACHE_COMPLET {
+            return json_response(200, json!({
+                "success": true,
+                "data": {
+                    "titre": titre,
+                    "contenu": extrait_cache,
+                    "source_locale": true,
+                    "recupere_le": row.get("recupere_le").cloned().unwrap_or(json!("")),
+                }
+            }));
+        }
     }
 
     let url = format!(
@@ -577,12 +589,18 @@ fn wikipedia_article(pool: &DbPool, titre: &str) -> Response<std::io::Cursor<Vec
         return json_response(200, json!({"success":false,"error":"Article introuvable sur Wikipédia"}));
     }
 
-    crate::appeldb::inserer_ou_modifier(
-        pool,
-        "wikipedia_cache",
-        &[("titre", mysql::Value::from(titre)), ("extrait", mysql::Value::from(extrait.clone()))],
-        &[],
-    );
+    // UPSERT (pas inserer_ou_modifier, qui ne fait qu'INSERT ou qu'UPDATE
+    // selon where_c fourni a l'avance) : `titre` est la cle primaire, et un
+    // article deja pre-charge en masse (intro courte) existe potentiellement
+    // deja -- on remplace alors son extrait court par le texte complet.
+    if let Ok(mut conn) = pool.get_conn() {
+        let _ = mysql::prelude::Queryable::exec_drop(
+            &mut conn,
+            "INSERT INTO wikipedia_cache (titre, extrait) VALUES (?, ?) \
+             ON DUPLICATE KEY UPDATE extrait = VALUES(extrait), recupere_le = CURRENT_TIMESTAMP",
+            (titre, &extrait),
+        );
+    }
 
     json_response(200, json!({
         "success": true,
