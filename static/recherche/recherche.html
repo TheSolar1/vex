@@ -130,7 +130,7 @@ __NAV_HTML__
 <script>
 {{I18N_JS}}
 function escHtml(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-const S={itemsWiki:{}};
+const S={};
 
 function toast(msg, type='info'){
   const area=document.getElementById('toast-area');
@@ -178,22 +178,32 @@ function lancerRecherche(q){
       const d=await r.json();
       if(!d.success){ zone.innerHTML=`<div class="vide">${escHtml(d.error||'Erreur')}</div>`; return; }
       const items=d.data.items||[];
-      S.itemsWiki={};
-      items.filter(it=>it.type==='wiki').forEach(it=>{ S.itemsWiki[it.id]=it; });
       if(!items.length){
         zone.innerHTML = q.trim()
           ? `<div class="vide">{{T_AUCUN_RESULTAT}}</div>`
-          : `<div class="vide">Tapez pour rechercher dans le wiki et les extensions VEX.</div>`;
+          : `<div class="vide">Tapez pour rechercher dans le wiki VEX, Wikipédia et les extensions.</div>`;
         return;
       }
       zone.innerHTML=items.map(it=>{
         if(it.type==='wiki'){
           return `<div class="res-item" onclick="wikiOuvrirArticle(${it.id})">
-            <div class="res-type"><img class="ico ico-sm" src="/static/img/solid/book.svg" alt=""> Wiki</div>
+            <div class="res-type"><img class="ico ico-sm" src="/static/img/solid/book.svg" alt=""> Wiki VEX</div>
             <div class="res-titre">${escHtml(it.titre)}</div>
             <div class="res-extrait">${escHtml(it.extrait)}</div>
             <div class="res-meta">${escHtml(it.meta)}</div>
           </div>`;
+        }
+        if(it.type==='wikipedia'){
+          // Carte entiere = lien <a> (pas de onclick="window.open(...)" avec
+          // l'URL interpolee dans une chaine JS -- un titre Wikipedia avec
+          // une apostrophe, ex. "Cote d'Ivoire", casserait la chaine et
+          // permettrait une injection ; un href est sans danger.
+          return `<a class="res-item" style="display:block;text-decoration:none;color:inherit" href="${escHtml(it.url)}" target="_blank" rel="noopener">
+            <div class="res-type"><img class="ico ico-sm" src="/static/img/solid/globe.svg" alt=""> Wikipédia</div>
+            <div class="res-titre">${escHtml(it.titre)}</div>
+            <div class="res-extrait">${escHtml(it.extrait)}</div>
+            <div class="res-meta">Voir sur Wikipédia</div>
+          </a>`;
         }
         return `<div class="res-item">
           <div class="res-type"><img class="ico ico-sm" src="/static/img/solid/puzzle-piece.svg" alt=""> Extension</div>

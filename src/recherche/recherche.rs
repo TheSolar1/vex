@@ -287,11 +287,28 @@ fn api_global(pool: &DbPool, config: &VexConfig, q: &str) -> Response<std::io::C
             "id": w["id"],
             "titre": w["titre"],
             "extrait": w["extrait"],
-            "meta": format!("Wiki · {} · maj {}", w["auteur_nom"].as_str().unwrap_or("?"), w["maj"].as_str().unwrap_or("")),
+            "meta": format!("Wiki VEX · {} · maj {}", w["auteur_nom"].as_str().unwrap_or("?"), w["maj"].as_str().unwrap_or("")),
         }));
     }
 
-    let (extensions, erreur) = extensions_rechercher(q);
+    // Wikipedia : source externe qui garantit des VRAIS resultats meme
+    // quand le wiki interne VEX est encore vide -- seulement si l'utilisateur
+    // a effectivement tape quelque chose (pas d'appel a Wikipedia pour une
+    // recherche vide, ca n'aurait aucun sens et couterait un aller-retour
+    // reseau inutile a chaque chargement de page).
+    let mut erreur_wikipedia = None;
+    if !q.trim().is_empty() {
+        match wikipedia_rechercher(q) {
+            Ok(resultats) => {
+                for it in resultats {
+                    items.push(it);
+                }
+            }
+            Err(e) => erreur_wikipedia = Some(e),
+        }
+    }
+
+    let (extensions, erreur_extensions) = extensions_rechercher(q);
     for e in &extensions {
         items.push(json!({
             "type": "extension",
@@ -303,7 +320,87 @@ fn api_global(pool: &DbPool, config: &VexConfig, q: &str) -> Response<std::io::C
         }));
     }
 
-    json_response(200, json!({"success":true,"data":{"items":items,"erreur_extensions":erreur}}))
+    json_response(200, json!({
+        "success": true,
+        "data": {
+            "items": items,
+            "erreur_extensions": erreur_extensions,
+            "erreur_wikipedia": erreur_wikipedia,
+        }
+    }))
+}
+
+/// Recherche Wikipedia (fr.wikipedia.org, API publique officielle, pas de
+/// cle requise) -- source externe qui donne toujours de vrais resultats
+/// pertinents, contrairement au wiki interne VEX qui demarre vide. Timeout
+/// court (5s) : ne doit jamais bloquer longtemps une requete sur ce serveur
+/// mono-thread.
+fn wikipedia_rechercher(q: &str) -> Result<Vec<Value>, String> {
+    let url = format!(
+        "https://fr.wikipedia.org/w/api.php?action=query&list=search&format=json&srlimit=5&srsearch={}",
+        urlencoding_simple(q)
+    );
+    let rep = ureq::get(&url)
+        .set("User-Agent", "VEX/1.0 (https://vex.hopto.org)")
+        .timeout(std::time::Duration::from_secs(5))
+        .call()
+        .map_err(|e| format!("Wikipédia injoignable : {}", e))?;
+    let v: Value = rep
+        .into_json()
+        .map_err(|e| format!("Réponse Wikipédia illisible : {}", e))?;
+
+    let mut items = Vec::new();
+    if let Some(resultats) = v["query"]["search"].as_array() {
+        for r in resultats {
+            let titre = r["title"].as_str().unwrap_or("").to_string();
+            if titre.is_empty() {
+                continue;
+            }
+            let extrait = retirer_balises_html(r["snippet"].as_str().unwrap_or(""));
+            let url_page = format!(
+                "https://fr.wikipedia.org/wiki/{}",
+                titre.replace(' ', "_")
+            );
+            items.push(json!({
+                "type": "wikipedia",
+                "titre": titre,
+                "extrait": extrait,
+                "meta": "Wikipédia",
+                "url": url_page,
+            }));
+        }
+    }
+    Ok(items)
+}
+
+/// Encodage URL minimal (espace -> %20, etc.) pour le parametre `srsearch` --
+/// pas besoin d'une dependance complete, la requete utilisateur ne contient
+/// jamais que du texte libre.
+fn urlencoding_simple(s: &str) -> String {
+    s.bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                (b as char).to_string()
+            }
+            _ => format!("%{:02X}", b),
+        })
+        .collect()
+}
+
+/// Retire les balises HTML (ex: <span class="searchmatch">...</span> dans
+/// les extraits Wikipedia) sans dependance regex -- ne garde que le texte.
+fn retirer_balises_html(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut dans_balise = false;
+    for c in s.chars() {
+        match c {
+            '<' => dans_balise = true,
+            '>' => dans_balise = false,
+            _ if !dans_balise => out.push(c),
+            _ => {}
+        }
+    }
+    out
 }
 
 fn formater_taille(o: u64) -> String {
