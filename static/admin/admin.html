@@ -701,12 +701,22 @@ function renderUsers(users){
         // changer quoi que ce soit.
         const vipLock=u.vip_paye&&!IS_FOUNDER;
         const vipPaidBadge=u.vip_paye?` <span class="b bx" title="Plan payé par le client">💳</span>`:'';
-        return`<tr data-s="${(u.nom+u.email).toLowerCase()}"><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${badge}</td><td><select class="isel" style="color:${pCol(u.privilege)};font-weight:600" onchange="setPriv(${u.id},this.value)">${po}</select></td><td><select class="vip-sel" onchange="setVip(${u.id},this.value)" ${vipLock?'disabled title="Plan payé — seul le fondateur peut le modifier"':''}>${vipOpts(u.vip)}</select>${vipPaidBadge}</td><td><button class="btn br2" data-del-uid="${u.id}" data-del-nom="${esc(u.nom)}"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SUPPRIMER}</button></td></tr>`;
+        return`<tr data-s="${(u.nom+u.email).toLowerCase()}"><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${badge}</td><td><select class="isel" style="color:${pCol(u.privilege)};font-weight:600" onchange="setPriv(${u.id},this.value)">${po}</select></td><td><select class="vip-sel" onchange="setVip(${u.id},this.value,${u.vip_paye?'true':'false'},'${esc(u.nom)}')" ${vipLock?'disabled title="Plan payé — seul le fondateur peut le modifier"':''}>${vipOpts(u.vip)}</select>${vipPaidBadge}</td><td><button class="btn br2" data-del-uid="${u.id}" data-del-nom="${esc(u.nom)}"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SUPPRIMER}</button></td></tr>`;
     }).join('')}</tbody></table>`;
 }
 function filterUsers(q){document.querySelectorAll('#utbl tbody tr').forEach(r=>{r.style.display=r.dataset.s.includes(q.toLowerCase())?'':'none';});}
 async function setPriv(uid,priv){const r=await post('/users/privilege',{uid,privilege:priv});flash(r.success?r.message:r.error,!r.success);}
-async function setVip(uid,vip){const r=await post('/users/vip',{uid,vip});flash(r.success?r.message:r.error,!r.success);}
+async function setVip(uid,vip,etaitPaye,nom){
+    // FIX (protection des roles payes, point 3) : le fondateur peut toujours
+    // changer un plan deja paye, mais doit voir un avertissement explicite
+    // AVANT de valider (le client a peut-etre paye pour l'ancien plan) --
+    // avant ce fix l'avertissement n'apparaissait qu'apres coup, dans le
+    // toast de confirmation.
+    if(etaitPaye&&!await confirmerDialogue(`${nom} a payé pour son plan actuel. Le changer maintenant ne le rembourse pas automatiquement — êtes-vous sûr de vouloir continuer ?`,{danger:true,titre:'Plan payé — confirmation'})){
+        loadUsers();return;
+    }
+    const r=await post('/users/vip',{uid,vip});flash(r.success?r.message:r.error,!r.success);
+}
 async function delUser(uid,nom){if(!await confirmerDialogue(I18N.CONFIRMER_SUPPRIMER_UTILISATEUR.replace('{nom}',nom),{danger:true,titre:I18N.TITRE_SUPPRIMER_UTILISATEUR}))return;const r=await post('/users/delete',{uid});if(r.success){flash(r.message);loadUsers();}else flash(r.error,true);}
 
 /* ── Blocages ── */
