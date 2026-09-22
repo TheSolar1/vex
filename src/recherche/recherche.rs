@@ -169,6 +169,24 @@ pub fn handle(pool: &DbPool, config: &VexConfig, req: &mut Request) -> Response<
         let id = crate::utils::parse_query(&url).get("id").and_then(|v| v.parse::<i64>().ok()).unwrap_or(0);
         return wiki_article(pool, id);
     }
+    if path == "/api/recherche/actualite/article" {
+        if verifier_session(pool, req).is_none() {
+            return json_response(401, json!({"success":false,"error":"Non connecté"}));
+        }
+        let id = crate::utils::parse_query(&url).get("id").and_then(|v| v.parse::<i64>().ok()).unwrap_or(0);
+        let rows = selectionner(
+            pool,
+            "actualites",
+            &[("id", mysql::Value::from(id))],
+            &["id", "titre", "contenu", "date"],
+            None,
+            Some(1),
+        );
+        return match rows.into_iter().next() {
+            Some(row) => json_response(200, json!({"success":true,"data":row})),
+            None => json_response(404, json!({"success":false,"error":"Actualité introuvable"})),
+        };
+    }
     if path == "/api/recherche/wiki/save" && req.method() == &tiny_http::Method::Post {
         let user = match verifier_session(pool, req) {
             Some(u) => u,
@@ -225,6 +243,90 @@ fn lire_body_formulaire(req: &mut Request) -> HashMap<String, String> {
                 crate::utils::url_decode(k),
                 crate::utils::url_decode(v),
             ))
+        })
+        .collect()
+}
+
+/// Apps VEX de base -- memes entrees/URLs que default_apps() dans
+/// function.rs (sidebar principale), dupliquees ici en dur plutot que
+/// partagees : ce module n'a pas acces au type NavApp sans creer une
+/// dependance croisee, et cette liste change rarement.
+const APPS_VEX: &[(&str, &str, &str)] = &[
+    // (titre, url, description courte)
+    ("Accueil", "/login/dashboard", "Tableau de bord VEX"),
+    ("Mail", "/mess/", "Messagerie VEX"),
+    ("Fichiers", "/fchier/", "Stockage et partage de fichiers"),
+    ("Vidéos", "/viso/", "Visioconférence"),
+    ("Sitec", "/sitec/", "Éditeur de sites web"),
+    ("Compte", "/login/account", "Paramètres du compte et abonnement"),
+];
+
+/// Recherche par TITRE uniquement (une app n'a pas de "contenu") parmi les
+/// apps VEX de base -- demande utilisateur : une categorie "Apps" dans les
+/// resultats de Recherche.
+fn apps_rechercher(q: &str) -> Vec<Value> {
+    let motif = q.trim().to_lowercase();
+    if motif.is_empty() {
+        return vec![];
+    }
+    APPS_VEX
+        .iter()
+        .filter(|(titre, _, _)| titre.to_lowercase().contains(&motif))
+        .map(|(titre, url, description)| {
+            json!({
+                "type": "app",
+                "titre": titre,
+                "extrait": description,
+                "meta": "App VEX",
+                "url": url,
+            })
+        })
+        .collect()
+}
+
+/// Coeur de la recherche actualites -- meme logique titre-avant-contenu que
+/// le wiki, ecriture reservee aux comptes de confiance (verifiee dans
+/// handle() avant actualite_save/actualite_delete).
+fn actualites_rechercher(pool: &DbPool, q: &str) -> Vec<Value> {
+    if q.trim().is_empty() {
+        return vec![];
+    }
+    let mut conn = match pool.get_conn() {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
+    let motif_titre = format!("%{}%", q.trim());
+    let rows_titre: Vec<(i64, String, String, String)> = mysql::prelude::Queryable::exec_map(
+        &mut conn,
+        "SELECT id, titre, contenu, DATE_FORMAT(date, '%Y-%m-%d') FROM actualites \
+         WHERE titre LIKE ? ORDER BY date DESC LIMIT 20",
+        (&motif_titre,),
+        |(id, titre, contenu, date): (i64, String, String, String)| (id, titre, contenu, date),
+    )
+    .unwrap_or_default();
+    let rows = if !rows_titre.is_empty() {
+        rows_titre
+    } else if let Some(requete) = requete_fulltext(q) {
+        mysql::prelude::Queryable::exec_map(
+            &mut conn,
+            "SELECT id, titre, contenu, DATE_FORMAT(date, '%Y-%m-%d') FROM actualites \
+             WHERE MATCH(titre, contenu) AGAINST(? IN BOOLEAN MODE) \
+             ORDER BY MATCH(titre, contenu) AGAINST(? IN BOOLEAN MODE) DESC LIMIT 20",
+            (&requete, &requete),
+            |(id, titre, contenu, date): (i64, String, String, String)| (id, titre, contenu, date),
+        )
+        .unwrap_or_default()
+    } else {
+        vec![]
+    };
+    rows.into_iter()
+        .map(|(id, titre, contenu, date)| {
+            json!({
+                "id": id,
+                "titre": titre,
+                "extrait": extrait(&contenu, EXTRAIT_LEN),
+                "date": date,
+            })
         })
         .collect()
 }
@@ -370,6 +472,25 @@ fn api_extensions(config: &VexConfig, q: &str) -> Response<std::io::Cursor<Vec<u
 fn api_global(pool: &DbPool, config: &VexConfig, q: &str) -> Response<std::io::Cursor<Vec<u8>>> {
     let _ = config;
     let mut items: Vec<Value> = Vec::new();
+
+    // Apps VEX (liste statique, memes apps/URLs que la sidebar principale
+    // -- voir default_apps dans function.rs) : taper "mail" ou "fichiers"
+    // doit amener directement vers l'app, comme le ferait un vrai moteur
+    // de recherche pour une application installee. Recherche par titre
+    // uniquement (une app n'a pas de "contenu").
+    for app in apps_rechercher(q) {
+        items.push(app);
+    }
+
+    for a in actualites_rechercher(pool, q) {
+        items.push(json!({
+            "type": "actualite",
+            "id": a["id"],
+            "titre": a["titre"],
+            "extrait": a["extrait"],
+            "meta": format!("Actualités VEX · {}", a["date"].as_str().unwrap_or("")),
+        }));
+    }
 
     for w in wiki_rechercher(pool, q) {
         items.push(json!({

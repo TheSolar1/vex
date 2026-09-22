@@ -62,9 +62,11 @@ h1 { font-size:1.4rem; margin-bottom:18px; display:flex; align-items:center; gap
   border-radius:10px; padding:14px 16px; transition:border-color .15s;
 }
 .res-item:hover { border-color:var(--accent); }
-.res-item.t-wiki      { border-left-color:#8b5cf6; }
-.res-item.t-wikipedia { border-left-color:#3b82f6; }
-.res-item.t-extension { border-left-color:var(--accent); }
+.res-item.t-app        { border-left-color:#10b981; }
+.res-item.t-actualite  { border-left-color:#f59e0b; }
+.res-item.t-wiki       { border-left-color:#8b5cf6; }
+.res-item.t-wikipedia  { border-left-color:#3b82f6; }
+.res-item.t-extension  { border-left-color:var(--accent); }
 .res-vignette { width:72px; height:72px; object-fit:cover; border-radius:8px; flex-shrink:0; background:var(--bg); }
 .article-vignette { max-width:280px; width:100%; border-radius:10px; margin:14px 0; display:block; }
 .res-item .res-type {
@@ -241,9 +243,11 @@ function lancerRecherche(q){
       // chaque branche et rend l'ajout d'une future source (ex: Recherche >
       // Fichiers partages) triviale.
       const TYPES = {
-        wiki:      { icone:'book',        label:'Wiki VEX' },
-        wikipedia: { icone:'globe',       label:'Wikipédia' },
-        extension: { icone:'puzzle-piece',label:'Extension' },
+        app:       { icone:'grip',          label:'Apps' },
+        actualite: { icone:'bullhorn',      label:'Actualités' },
+        wiki:      { icone:'book',          label:'Wiki VEX' },
+        wikipedia: { icone:'globe',         label:'Wikipédia' },
+        extension: { icone:'puzzle-piece',  label:'Extension' },
       };
       // Items gardes en memoire (indexes par position) plutot que le titre
       // serialise dans l'attribut onclick -- un titre Wikipedia avec une
@@ -255,6 +259,21 @@ function lancerRecherche(q){
           <div class="res-titre">${surligner(it.titre, q)}</div>
           <div class="res-extrait">${surligner(it.extrait, q)}</div>`;
 
+        // App VEX : navigue directement vers l'app (page entiere, pas un
+        // contenu a lire dans le lecteur inline) -- href reel (pas
+        // onclick+JS) pour que ctrl+clic/ouvrir-dans-un-nouvel-onglet
+        // marchent comme un lien normal.
+        if(it.type==='app'){
+          return `<a class="res-item t-app" href="${escHtml(it.url)}">${enTete}
+            <div class="res-meta">${escHtml(it.meta)}</div>
+          </a>`;
+        }
+        // Actualite VEX : ouverte DANS VEX comme le wiki (lecture seule).
+        if(it.type==='actualite'){
+          return `<div class="res-item t-actualite" onclick="actualiteOuvrir(${it.id})">${enTete}
+            <div class="res-meta">${escHtml(it.meta)}</div>
+          </div>`;
+        }
         if(it.type==='wiki'){
           return `<div class="res-item t-wiki" onclick="wikiOuvrirArticle(${it.id})">${enTete}
             <div class="res-meta">${escHtml(it.meta)}</div>
@@ -285,7 +304,7 @@ function lancerRecherche(q){
       // par carte distinguait l'origine. Ordre fixe (wiki VEX d'abord, le
       // plus pertinent car propre a VEX), une section n'apparait que si
       // elle a au moins un resultat.
-      const ORDRE_CATEGORIES = ['wiki', 'wikipedia', 'extension'];
+      const ORDRE_CATEGORIES = ['app', 'actualite', 'wiki', 'wikipedia', 'extension'];
       const parType = {};
       items.forEach((it,i) => { (parType[it.type] = parType[it.type] || []).push(carte(it,i)); });
       const types = [...ORDRE_CATEGORIES, ...Object.keys(parType).filter(t=>!ORDRE_CATEGORIES.includes(t))];
@@ -372,6 +391,23 @@ function wikiFermerArticle(){
   document.getElementById('wiki-article-vue').style.display='none';
   document.getElementById('vue-resultats').style.display='block';
   lancerRecherche(document.getElementById('q').value);
+}
+
+/* ══════════════ Actualités VEX (lecture seule, meme lecteur) ══════════════ */
+async function actualiteOuvrir(id){
+  try{
+    const r=await fetch('/api/recherche/actualite/article?id='+id, {credentials:'include'});
+    const d=await r.json();
+    if(!d.success){ toast(d.error||'Erreur'); return; }
+    const a=d.data;
+    document.getElementById('wiki-article-contenu').innerHTML=`
+      <h2 style="font-size:1.25rem">${escHtml(a.titre)}</h2>
+      <div class="res-meta" style="margin-top:6px">Actualités VEX · ${escHtml(a.date)}</div>
+      <div class="contenu">${escHtml(a.contenu)}</div>
+    `;
+    document.getElementById('vue-resultats').style.display='none';
+    document.getElementById('wiki-article-vue').style.display='block';
+  }catch(e){ toast('Erreur réseau'); }
 }
 
 /* ══════════════ Wikipedia (lecture seule, ouverte DANS VEX) ══════════════

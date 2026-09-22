@@ -474,6 +474,24 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         "ALTER TABLE `wikipedia_cache` ADD COLUMN `image_url` VARCHAR(600) DEFAULT NULL",
     );
 
+    // ── actualites (app "Actualités", sous-app de Recherche) : notes de
+    // mise a jour VEX (quoi de neuf), curatees -- ecriture reservee aux
+    // comptes de confiance (privilege <= 6, meme regle que la FAQ
+    // desactivee), lecture/recherche ouverte a tous. Rien a voir avec un
+    // flux externe (RSS...) : contenu 100% local, ecrit par l'equipe VEX.
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `actualites` (
+            `id`      INT      NOT NULL AUTO_INCREMENT,
+            `titre`   VARCHAR(255) NOT NULL,
+            `contenu` TEXT     NOT NULL,
+            `date`    DATE     NOT NULL DEFAULT (CURRENT_DATE),
+            PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    )?;
+    let _ = conn.query_drop(
+        "ALTER TABLE `actualites` ADD FULLTEXT INDEX `ft_actualites` (`titre`, `contenu`)",
+    );
+
     eprintln!("[db_init] Base '{}' initialisée avec succès.", cfg.dbname);
     Ok(())
 }
