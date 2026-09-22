@@ -247,6 +247,48 @@ fn lire_body_formulaire(req: &mut Request) -> HashMap<String, String> {
         .collect()
 }
 
+/// Recherche parmi les fichiers PUBLICS de TOUT le reseau VEX (pas
+/// seulement les siens) -- demande utilisateur. `visble = '0'` est LA
+/// valeur canonique pour "public" (voir static/fchier/fchier.html, le
+/// select Visibilite : value="0" -> Public, value="1" -> Prive) --
+/// verifiee ici a la source plutot que devinee, et c'est la MEME
+/// condition deja utilisee par api_download() (src/fchier/fchier.rs) pour
+/// autoriser N'IMPORTE QUEL compte connecte a telecharger un fichier
+/// public d'un autre utilisateur. Recherche par nom uniquement (pas de
+/// contenu de fichier a indexer), jamais le champ `fichier` (le contenu
+/// base64) ni les fichiers prives d'autrui.
+fn fichiers_rechercher(pool: &DbPool, q: &str) -> Vec<Value> {
+    if q.trim().is_empty() {
+        return vec![];
+    }
+    let mut conn = match pool.get_conn() {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
+    let motif = format!("%{}%", q.trim());
+    let rows: Vec<(i64, String, i64, String)> = mysql::prelude::Queryable::exec_map(
+        &mut conn,
+        "SELECT id, nom, taille, type_fichier FROM fichiers \
+         WHERE visble = '0' AND nom LIKE ? ORDER BY id DESC LIMIT 20",
+        (&motif,),
+        |(id, nom, taille, type_fichier): (i64, String, i64, String)| (id, nom, taille, type_fichier),
+    )
+    .unwrap_or_default();
+
+    rows.into_iter()
+        .map(|(id, nom, taille, type_fichier)| {
+            json!({
+                "type": "fichier",
+                "id": id,
+                "titre": nom,
+                "extrait": format!("{} · {}", formater_taille(taille as u64), type_fichier),
+                "meta": "Fichier public VEX",
+                "url": format!("/api/fchier/download?id={}", id),
+            })
+        })
+        .collect()
+}
+
 /// Apps VEX de base -- memes entrees/URLs que default_apps() dans
 /// function.rs (sidebar principale), dupliquees ici en dur plutot que
 /// partagees : ce module n'a pas acces au type NavApp sans creer une
@@ -490,6 +532,10 @@ fn api_global(pool: &DbPool, config: &VexConfig, q: &str) -> Response<std::io::C
             "extrait": a["extrait"],
             "meta": format!("Actualités VEX · {}", a["date"].as_str().unwrap_or("")),
         }));
+    }
+
+    for f in fichiers_rechercher(pool, q) {
+        items.push(f);
     }
 
     for w in wiki_rechercher(pool, q) {

@@ -65,6 +65,7 @@ h1 { font-size:1.4rem; margin-bottom:18px; display:flex; align-items:center; gap
 .res-item.t-app        { border-left-color:#10b981; }
 .res-item.t-actualite  { border-left-color:#f59e0b; }
 .res-item.t-wiki       { border-left-color:#8b5cf6; }
+.res-item.t-fichier    { border-left-color:#ec4899; }
 .res-item.t-wikipedia  { border-left-color:#3b82f6; }
 .res-item.t-extension  { border-left-color:var(--accent); }
 .res-vignette { width:72px; height:72px; object-fit:cover; border-radius:8px; flex-shrink:0; background:var(--bg); }
@@ -245,6 +246,7 @@ function lancerRecherche(q){
       const TYPES = {
         app:       { icone:'grip',          label:'Apps' },
         actualite: { icone:'bullhorn',      label:'Actualités' },
+        fichier:   { icone:'file',          label:'Fichiers publics' },
         wiki:      { icone:'book',          label:'Wiki VEX' },
         wikipedia: { icone:'globe',         label:'Wikipédia' },
         extension: { icone:'puzzle-piece',  label:'Extension' },
@@ -294,7 +296,10 @@ function lancerRecherche(q){
             ${vignette}
           </div>`;
         }
-        return `<div class="res-item t-extension">${enTete}
+        // Repli generique (extension, fichier public...) : carte + lien de
+        // telechargement si l'API en fournit un. classe t-${type} pour que
+        // chaque source garde sa propre couleur de bordure (voir CSS).
+        return `<div class="res-item t-${escHtml(it.type)}">${enTete}
           <div class="res-meta">${it.url?`<a class="res-dl" href="${escHtml(it.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Télécharger</a>`:''}</div>
         </div>`;
       };
@@ -304,7 +309,7 @@ function lancerRecherche(q){
       // par carte distinguait l'origine. Ordre fixe (wiki VEX d'abord, le
       // plus pertinent car propre a VEX), une section n'apparait que si
       // elle a au moins un resultat.
-      const ORDRE_CATEGORIES = ['app', 'actualite', 'wiki', 'wikipedia', 'extension'];
+      const ORDRE_CATEGORIES = ['app', 'actualite', 'wiki', 'fichier', 'wikipedia', 'extension'];
       const parType = {};
       items.forEach((it,i) => { (parType[it.type] = parType[it.type] || []).push(carte(it,i)); });
       const types = [...ORDRE_CATEGORIES, ...Object.keys(parType).filter(t=>!ORDRE_CATEGORIES.includes(t))];
