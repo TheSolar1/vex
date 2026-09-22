@@ -324,9 +324,14 @@ function lancerRecherche(q){
         const visibles = cartes.slice(0, REPLI_PAR_DEFAUT).join('');
         const reste = cartes.slice(REPLI_PAR_DEFAUT);
         const idExtra = 'res-extra-'+t;
+        const idBtn = 'res-btn-'+t;
+        const libellePlus = `Afficher ${reste.length} résultat${reste.length>1?'s':''} de plus`;
+        // FIX (demande utilisateur : "ajoute un bouton afficher moins") --
+        // le bouton bascule desormais entre les deux etats au lieu de
+        // disparaitre une fois deplie (togglerCategorie() dans <script>).
         const extra = reste.length ? `
           <div class="res-categorie-items" id="${idExtra}" style="display:none">${reste.join('')}</div>
-          <button class="btn-secondaire" style="margin-top:10px" onclick="document.getElementById('${idExtra}').style.display='flex';this.remove()">Afficher ${reste.length} résultat${reste.length>1?'s':''} de plus</button>
+          <button class="btn-secondaire" id="${idBtn}" style="margin-top:10px" data-libelle-plus="${escHtml(libellePlus)}" onclick="togglerCategorie('${idExtra}','${idBtn}')">${libellePlus}</button>
         ` : '';
         return `<div class="res-categorie">
           <div class="res-categorie-titre">${escHtml(label)} <span class="res-categorie-n">${cartes.length}</span></div>
@@ -345,6 +350,15 @@ function lancerRecherche(q){
   }, 300);
 }
 document.getElementById('q').addEventListener('input', e => lancerRecherche(e.target.value));
+
+// Bascule Afficher plus / Afficher moins pour une categorie de resultats.
+function togglerCategorie(idExtra, idBtn){
+  const extra=document.getElementById(idExtra), btn=document.getElementById(idBtn);
+  if(!extra||!btn) return;
+  const ouvert = extra.style.display==='flex';
+  extra.style.display = ouvert ? 'none' : 'flex';
+  btn.textContent = ouvert ? btn.dataset.libellePlus : 'Afficher moins';
+}
 
 /* ══════════════ Wiki (lecture/ecriture d'un article) ══════════════ */
 // Un article peut reference un autre article avec [[Titre exact]] --
