@@ -239,14 +239,27 @@ async function chargerAbonnement(){
    Une seule barre : chaque app de Recherche (Wiki, Extensions...) pousse
    directement ses resultats dans la meme liste, pas d'onglets separes. */
 let rechercheMinuteur=null;
+// FIX (course entre requetes) : la recherche Wikipedia live + extensions
+// peut prendre plusieurs secondes (voir recherche.rs, appels reseau
+// paralleles). Sans protection, taper "a" puis "ab" quelques centaines de
+// ms plus tard declenche DEUX requetes /api/recherche/global -- si celle
+// pour "a" (plus ancienne) repond APRES celle pour "ab" (plus recente,
+// mais plus rapide), elle ecrasait l'affichage avec des resultats perimes
+// pour une requete que l'utilisateur ne tape plus. Un compteur de
+// sequence : seule la reponse de la DERNIERE requete lancee est
+// autorisee a modifier l'affichage, toute reponse plus ancienne arrivant
+// en retard est silencieusement ignoree.
+let rechercheSequence=0;
 function lancerRecherche(q){
   clearTimeout(rechercheMinuteur);
+  const monId=++rechercheSequence;
   rechercheMinuteur=setTimeout(async ()=>{
     const zone=document.getElementById('resultats');
     zone.innerHTML=`<div class="vide">${escHtml(I18N.enCours)}</div>`;
     try{
       const r=await fetch('/api/recherche/global?q='+encodeURIComponent(q), {credentials:'include'});
       const d=await r.json();
+      if(monId!==rechercheSequence) return; // une recherche plus recente a deja pris le relais
       if(!d.success){ zone.innerHTML=`<div class="vide">${escHtml(d.error||'Erreur')}</div>`; return; }
       const items=d.data.items||[];
       if(!items.length){
@@ -355,6 +368,7 @@ function lancerRecherche(q){
         </div>`;
       }).join('');
     }catch(e){
+      if(monId!==rechercheSequence) return; // idem : une recherche plus recente a deja pris le relais
       // FIX (debug) : affiche le vrai message d'erreur au lieu d'un
       // "Erreur réseau" generique qui masquait tout probleme de rendu
       // (ex: exception JS pendant la construction du HTML) -- si ca
