@@ -194,6 +194,47 @@ impl VexClient {
         Ok((dossiers, fichiers))
     }
 
+    /// Compteur "y'a-t-il du nouveau ?" (voir /api/fchier/version cote
+    /// serveur) : un simple SELECT par cle primaire, PAS un listage
+    /// recursif -- fait pour etre poll a haute frequence sans surcharger
+    /// le serveur. Incremente a chaque mutation reussie des fichiers/
+    /// dossiers de ce compte (upload, suppression, renommage, deplacement,
+    /// edition). Comparer la valeur a celle du dernier appel : un poll qui
+    /// renvoie la meme valeur ne necessite AUCUN travail supplementaire
+    /// (pas de reconciliation complete a chaque fois).
+    pub fn version(&self) -> Result<i64, String> {
+        let resp = self
+            .appliquer_auth(self.agent.get(&format!("{}/api/fchier/version", self.base_url)))
+            .call()
+            .map_err(|e| format!("Lecture de version impossible : {e}"))?;
+        let body: Value = resp.into_json().map_err(|e| format!("Reponse illisible : {e}"))?;
+        body.get("data").and_then(|d| d.get("version")).and_then(|v| v.as_i64())
+            .ok_or_else(|| "Reponse de version invalide".to_string())
+    }
+
+    /// Long-poll : bloque cote SERVEUR (jusqu'a ~25s, voir
+    /// /api/fchier/attendre) jusqu'a ce qu'une modification survienne sur
+    /// les fichiers/dossiers de ce compte depuis `depuis`, ou jusqu'au
+    /// timeout. Retourne la version courante dans les deux cas -- comparer
+    /// au `depuis` passe pour savoir si quelque chose a reellement change.
+    /// A appeler en boucle (le retour, changement ou timeout, sert de
+    /// signal pour relancer immediatement un nouvel appel) : c'est ce qui
+    /// permet au client de synchro de ne faire AUCUNE requete tant qu'il
+    /// ne se passe rien, au lieu de re-interroger a intervalle regulier.
+    /// Timeout cote client (40s) volontairement plus long que l'attente
+    /// cote serveur (25s) -- marge pour le trajet reseau + la reponse,
+    /// evite une course entre les deux timeouts.
+    pub fn attendre(&self, depuis: i64) -> Result<i64, String> {
+        let resp = self
+            .appliquer_auth(self.agent.get(&format!("{}/api/fchier/attendre?depuis={}", self.base_url, depuis)))
+            .timeout(Duration::from_secs(40))
+            .call()
+            .map_err(|e| format!("Attente impossible : {e}"))?;
+        let body: Value = resp.into_json().map_err(|e| format!("Reponse illisible : {e}"))?;
+        body.get("data").and_then(|d| d.get("version")).and_then(|v| v.as_i64())
+            .ok_or_else(|| "Reponse d'attente invalide".to_string())
+    }
+
     /// Cree un sous-dossier distant (parent_id=0 pour un dossier a la racine).
     pub fn creer_dossier(&self, nom: &str, parent_id: i64) -> Result<i64, String> {
         let resp = self

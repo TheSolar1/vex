@@ -721,6 +721,26 @@ fn main() {
                 access_control::servir_extension(&pool, &config, request, &path);
             }
 
+            // FIX (retour utilisateur : "je veux pas de requete quand il
+            // se passe rien") -- /attendre est un LONG-POLL : elle bloque
+            // jusqu'a 25s cote serveur (voir fchier::attendre_bloquant).
+            // Ce serveur traite les requetes UNE PAR UNE sur ce thread
+            // principal (`for request in server.incoming_requests()`) --
+            // la traiter ici comme les autres routes fchier gelerait TOUT
+            // LE SERVEUR pour tout le monde pendant l'attente. `Request`
+            // implemente Send (voir tiny_http) : on la deplace donc sur un
+            // thread dedie, jetable, et la boucle principale continue
+            // immediatement sans attendre -- seule cette route est
+            // concernee, toutes les autres restent traitees en ligne,
+            // inchangees.
+            "/api/fchier/attendre" => {
+                let pool2 = pool.clone();
+                std::thread::spawn(move || {
+                    let resp = fchier::fchier::attendre_bloquant(&pool2, &request);
+                    let _ = request.respond(resp);
+                });
+            }
+
             p if p.starts_with("/fchier") || p.starts_with("/api/fchier") => {
                 let resp = fchier::fchier::handle(&pool, &mut request);
                 let _ = request.respond(resp);

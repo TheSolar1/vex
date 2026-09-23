@@ -89,6 +89,23 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
     )?;
 
+    // ── fchier_version ────────────────────────────────────────────
+    // Compteur "y'a-t-il du nouveau ?" par utilisateur, incremente a
+    // chaque mutation de ses fichiers/dossiers (upload, suppression,
+    // renommage, deplacement, edition de contenu). Permet aux clients de
+    // synchro (vex-cloudsync) de detecter un changement avec un poll TRES
+    // frequent et TRES bon marche (un SELECT indexe par cle primaire, pas
+    // un parcours recursif de l'arborescence) au lieu de faire tout le
+    // travail de reconciliation a chaque fois -- voir bump_version_fichiers
+    // dans appeldb.rs.
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `fchier_version` (
+            `id_utilisateur` INT    NOT NULL,
+            `version`        BIGINT NOT NULL DEFAULT 0,
+            PRIMARY KEY (`id_utilisateur`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+    )?;
+
     // ── login ─────────────────────────────────────────────────────
     conn.query_drop(
         "CREATE TABLE IF NOT EXISTS `login` (

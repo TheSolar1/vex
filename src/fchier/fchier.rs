@@ -443,9 +443,19 @@ pub fn handle(pool: &DbPool, req: &mut Request) -> Response<std::io::Cursor<Vec<
         let uid = user.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
         let path = url.split('?').next().unwrap_or("");
         let action = path.trim_start_matches("/api/fchier/");
-        return match action {
+        // Actions qui changent l'arborescence/contenu d'un utilisateur --
+        // apres un appel reussi (200), on incremente son compteur de
+        // version (voir bump_version_fichiers) pour que les clients de
+        // synchro (vex-cloudsync) detectent le changement au prochain poll
+        // sans avoir a re-parcourir toute l'arborescence a chaque fois.
+        let mutante = matches!(
+            action,
+            "upload" | "create_folder" | "rename" | "delete" | "move" | "edit_content" | "onlyoffice/finish"
+        );
+        let reponse = match action {
             "data" => api_data(pool, req, uid),
-            "prefs" => api_prefs(pool, uid),     
+            "version" => api_version(pool, uid),
+            "prefs" => api_prefs(pool, uid),
             "upload" => api_upload(pool, req, uid),
             "create_folder" => api_create_folder(pool, req, uid),
             "create_page" => api_create_page(pool, req, uid),
@@ -464,9 +474,69 @@ pub fn handle(pool: &DbPool, req: &mut Request) -> Response<std::io::Cursor<Vec<
             "p2p_entrants_refuser" => api_p2p_entrants_decision(pool, req, uid, false),
             _ => json_response(404, json!({"error":"Endpoint inconnu"})),
         };
+        if mutante && reponse.status_code().0 == 200 {
+            crate::appeldb::bump_version_fichiers(pool, uid);
+        }
+        return reponse;
     }
 
     json_response(404, json!({"error":"Route inconnue"}))
+}
+
+// GET /api/fchier/version -- compteur "y'a-t-il du nouveau ?" bon marche
+// (un SELECT par cle primaire) pour les clients de synchro : leur permet
+// de poller tres frequemment SANS refaire un listage recursif complet a
+// chaque fois, seulement quand ce compteur a change depuis leur dernier
+// poll. Voir bump_version_fichiers (appele apres chaque mutation reussie
+// ci-dessus) et fchier_version dans db_init.rs.
+fn api_version(pool: &DbPool, uid: i64) -> Response<std::io::Cursor<Vec<u8>>> {
+    json_response(200, json!({"success": true, "data": {"version": crate::appeldb::version_fichiers(pool, uid)}}))
+}
+
+/// Duree max d'une attente bloquante avant de repondre "rien de nouveau"
+/// et de laisser le client relancer un appel -- sert aussi de keepalive
+/// (detecte une connexion coupee cote client sans attendre indefiniment
+/// un thread serveur pour rien).
+const ATTENTE_MAX: std::time::Duration = std::time::Duration::from_secs(25);
+
+/// GET /api/fchier/attendre?depuis=<version> -- long-poll : repond DES
+/// QU'UNE modification survient sur les fichiers/dossiers de cet
+/// utilisateur (voir appeldb::bump_version_fichiers/enregistrer_attente_
+/// fichiers), ou au bout de ATTENTE_MAX si rien ne change. C'est ce qui
+/// permet au client de synchro de ne faire AUCUNE requete tant qu'il ne se
+/// passe rien : il tient une seule connexion ouverte, reveillee
+/// instantanement, au lieu de re-interroger a intervalle regulier.
+///
+/// ATTENTION APPELANT : cette fonction BLOQUE jusqu'a ATTENTE_MAX. Ne
+/// JAMAIS l'appeler depuis la boucle d'acceptation principale du serveur
+/// (mono-thread, traite les requetes une par une) -- voir main.rs, qui
+/// dispatche cette route sur un thread dedie pour cette raison precise.
+pub fn attendre_bloquant(pool: &DbPool, req: &Request) -> Response<std::io::Cursor<Vec<u8>>> {
+    let user = match verifier_session(pool, req) {
+        Some(u) => u,
+        None => return json_response(401, json!({"error":"Non connecté"})),
+    };
+    let uid = user.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+
+    let params = parse_query(req.url());
+    let depuis = params.get("depuis").and_then(|v| v.parse::<i64>().ok()).unwrap_or(-1);
+
+    let version_actuelle = crate::appeldb::version_fichiers(pool, uid);
+    if version_actuelle != depuis {
+        // Deja perime des l'arrivee (un changement a eu lieu entre le
+        // dernier appel du client et celui-ci) : pas la peine d'attendre,
+        // on repond tout de suite avec la version a jour.
+        return json_response(200, json!({"success": true, "data": {"version": version_actuelle}}));
+    }
+
+    let rx = crate::appeldb::enregistrer_attente_fichiers(uid);
+    let _ = rx.recv_timeout(ATTENTE_MAX);
+    // Reveille par un changement OU timeout expire : dans les deux cas, on
+    // relit la version reelle (jamais suppose) et on repond -- le client
+    // compare a son "depuis" pour savoir s'il doit reconcilier ou juste
+    // relancer une attente.
+    let version_finale = crate::appeldb::version_fichiers(pool, uid);
+    json_response(200, json!({"success": true, "data": {"version": version_finale}}))
 }
 
 // ══════════════════════════════════════════════════════════════════

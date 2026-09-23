@@ -9,6 +9,7 @@ use mysql::prelude::*;
 use mysql::*;
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 pub use crate::config_loader::DbConfig;
 
@@ -1117,6 +1118,97 @@ pub fn p2p_get_peer(pool: &DbPool, node_id: &str) -> Option<HashMap<String, Valu
     )
     .into_iter()
     .next()
+}
+
+/// FIX (retour utilisateur : "je veux pas de requete quand il se passe
+/// rien, une requete seulement quand il se passe quelque chose") -- le
+/// poll (meme adaptatif, meme sur un endpoint tres bon marche) fait encore
+/// une requete a intervalle regulier, meme a l'arret complet. Registre en
+/// memoire des "reveils" en attente par utilisateur : un thread de
+/// requete peut s'enregistrer ici (enregistrer_attente_fichiers) puis
+/// bloquer sur le Receiver retourne (recv_timeout) -- reveille
+/// INSTANTANEMENT des qu'une mutation de CET utilisateur appelle
+/// bump_version_fichiers, zero requete supplementaire tant que rien ne
+/// change. Utilise par /api/fchier/attendre (voir fchier.rs et surtout
+/// main.rs qui traite cette route sur un thread DEDIE, jamais sur la
+/// boucle d'acceptation principale -- un attente bloquante sur CE
+/// thread-la gelerait tout le serveur pour tout le monde).
+static ATTENTES_FICHIERS: std::sync::OnceLock<Mutex<HashMap<i64, Vec<std::sync::mpsc::Sender<()>>>>> =
+    std::sync::OnceLock::new();
+
+fn registre_attentes_fichiers() -> &'static Mutex<HashMap<i64, Vec<std::sync::mpsc::Sender<()>>>> {
+    ATTENTES_FICHIERS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// A appeler juste avant un `recv_timeout` bloquant : enregistre un
+/// reveil pour cet utilisateur et retourne le Receiver correspondant.
+pub fn enregistrer_attente_fichiers(id_utilisateur: i64) -> std::sync::mpsc::Receiver<()> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    registre_attentes_fichiers()
+        .lock()
+        .unwrap()
+        .entry(id_utilisateur)
+        .or_default()
+        .push(tx);
+    rx
+}
+
+/// Reveille tous les threads actuellement en attente pour cet
+/// utilisateur. Un `send` qui echoue signifie que le Receiver a deja ete
+/// abandonne (timeout expire, thread de long-poll deja termine) --
+/// `retain` les purge naturellement au passage, pas besoin de nettoyage
+/// separe ni de TTL.
+fn reveiller_attentes_fichiers(id_utilisateur: i64) {
+    let mut reg = registre_attentes_fichiers().lock().unwrap();
+    if let Some(attentes) = reg.get_mut(&id_utilisateur) {
+        attentes.retain(|tx| tx.send(()).is_ok());
+        if attentes.is_empty() {
+            reg.remove(&id_utilisateur);
+        }
+    }
+}
+
+/// Incremente le compteur de version des fichiers/dossiers d'un
+/// utilisateur (table fchier_version) -- a appeler apres CHAQUE mutation
+/// reussie de ses fichiers/dossiers (upload, suppression, renommage,
+/// deplacement, edition de contenu). Permet aux clients de synchro de
+/// detecter un changement avec un simple SELECT par cle primaire, sans
+/// parcourir toute l'arborescence a chaque poll -- voir version_fichiers.
+/// Reveille aussi immediatement tout long-poll en attente (voir
+/// reveiller_attentes_fichiers).
+pub fn bump_version_fichiers(pool: &DbPool, id_utilisateur: i64) -> bool {
+    let mut conn = match pool.get_conn() {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    let ok = conn
+        .exec_drop(
+            "INSERT INTO `fchier_version` (id_utilisateur, version) VALUES (?, 1)
+             ON DUPLICATE KEY UPDATE version = version + 1",
+            (id_utilisateur,),
+        )
+        .is_ok();
+    if ok {
+        reveiller_attentes_fichiers(id_utilisateur);
+    }
+    ok
+}
+
+/// Lit le compteur de version courant d'un utilisateur (0 si jamais
+/// modifie depuis l'ajout de cette table).
+pub fn version_fichiers(pool: &DbPool, id_utilisateur: i64) -> i64 {
+    selectionner(
+        pool,
+        "fchier_version",
+        &[("id_utilisateur", mysql::Value::from(id_utilisateur))],
+        &["version"],
+        None,
+        Some(1),
+    )
+    .into_iter()
+    .next()
+    .and_then(|row| row.get("version").and_then(|v| v.as_i64()))
+    .unwrap_or(0)
 }
 
 /// Enregistre ou met à jour un utilisateur P2P dans p2p_users.
