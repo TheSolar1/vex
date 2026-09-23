@@ -1910,13 +1910,14 @@ async function loadMachineStorage(){
         : `<div style="color:var(--text-m);font-size:.82rem;padding:6px 0">Aucun disque utilisé pour l'instant — clique un disque ci-dessus (bouton dans son popup) ou ajoute un dossier personnalisé ci-dessous. Pas de limite au nombre de disques.</div>`;
     box.innerHTML=`<div id="disk-tiles"></div>
     <div class="card" style="margin-top:16px">
-        <div class="ch"><span><img src="/static/img/solid/folder-open.svg" class="ico ico-accent" alt=""> Fichiers déjà en base</span></div>
+        <div class="ch"><span><img src="/static/img/solid/folder-open.svg" class="ico ico-accent" alt=""> Espace utilisé</span></div>
         <div class="cb">
             <div class="cgr">
-                <div><label class="cl">Taille des fichiers déjà en base (MySQL)</label><div style="font-size:.95rem;padding:6px 0;font-family:var(--mono)">${esc(String(r.data.vex_data_mb))} MB</div></div>
+                <div><label class="cl">Fichiers déjà en base (MySQL)</label><div style="font-size:.95rem;padding:6px 0;font-family:var(--mono)">${esc(String(r.data.vex_data_mb))} MB</div></div>
+                <div><label class="cl">Installation VEX (binaire, build, logs)</label><div style="font-size:.95rem;padding:6px 0;font-family:var(--mono)">${r.data.serveur_install_mb>0?esc(String(r.data.serveur_install_mb))+' MB':'—'}</div></div>
             </div>
             <div style="margin-top:10px;font-size:.78rem;color:var(--text-m)">
-                Ces fichiers vivent en base64 dans la table <code>fichiers</code> de MySQL — ils ne sont <strong>pas</strong> déplacés automatiquement vers les disques ci-dessous, même une fois activés.
+                Les fichiers utilisateur vivent en base64 dans la table <code>fichiers</code> de MySQL — ils ne sont <strong>pas</strong> déplacés automatiquement vers les disques ci-dessous, même une fois activés. L'installation VEX (dossier <code>target/</code> des anciens builds compris) est mesurée séparément — souvent la plus grosse part de l'espace pris sur le disque système.
             </div>
         </div>
     </div>

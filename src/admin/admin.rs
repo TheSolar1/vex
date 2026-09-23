@@ -2804,8 +2804,30 @@ fn machine_status(pool: &DbPool) -> Value {
         "pid":            std::process::id(),
         "disks":          disks_avec_repartition(pool),
         "vex_data_mb":    vex_data_mb,
+        "serveur_install_mb": taille_installation_serveur_mb(),
         "disk_storage":   disk_storage_cfg_stats(),
     }})
+}
+
+/// FIX (demande utilisateur, PLAN 15/09 : "afficher clairement l'espace
+/// pris par le serveur + les fichiers") -- vex_data_mb ci-dessus ne
+/// mesure QUE les fichiers utilisateur en base ; rien n'exposait la place
+/// que prend l'INSTALLATION de VEX elle-meme (binaire compile, dossier
+/// target/ des build precedents, logs, .git) sur le disque du Raspberry
+/// Pi -- souvent plusieurs centaines de Mo a plusieurs Go a cause de
+/// target/, largement suffisant pour surprendre quelqu'un qui regarde
+/// l'espace disque restant sans comprendre d'ou ca vient. `du -sm .`
+/// mesure le repertoire de travail courant du process (la racine
+/// d'installation, vu que le serveur est toujours lance depuis ce
+/// dossier -- config.json/db.json sont deja lus en chemin relatif).
+/// Windows (dev local) : `du` n'existe pas nativement, echoue proprement
+/// et retombe sur 0.0 plutot que de planter.
+fn taille_installation_serveur_mb() -> f64 {
+    let (ok, out) = run_shell_command("du -sm . 2>/dev/null | cut -f1");
+    if !ok {
+        return 0.0;
+    }
+    out.trim().parse::<f64>().unwrap_or(0.0)
 }
 
 fn taille_dossier_mb(dir: &str) -> f64 {
