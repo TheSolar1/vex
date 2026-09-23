@@ -581,6 +581,28 @@ fn api_global(pool: &DbPool, config: &VexConfig, q: &str) -> Response<std::io::C
     let _ = config;
     let mut items: Vec<Value> = Vec::new();
 
+    // PERF : les deux seules sources qui font un appel HTTP sortant
+    // (Wikipedia live, jusqu'a 5s ; catalogue d'extensions GitHub, jusqu'a
+    // 8s sur cache froid) sont lancees en threads des le debut de la
+    // requete, EN PARALLELE des lectures locales (DB) qui suivent juste en
+    // dessous -- le serveur traite les requetes HTTP ENTRANTES une par une
+    // sur un seul thread (voir main.rs), donc cette requete-ci bloque de
+    // toute facon ce thread jusqu'a sa reponse complete ; mais rien
+    // n'empeche SES DEUX appels sortants d'attendre en parallele plutot
+    // qu'en serie, ce qui fait passer le pire cas de (5s+8s=13s) a
+    // max(5s,8s)=8s, et le cas courant (les deux caches chauds) reste
+    // quasi instantane. join() plus bas, une fois le travail local termine.
+    let handle_wikipedia = if q.trim().chars().count() >= 2 {
+        let q_owned = q.to_string();
+        Some(std::thread::spawn(move || wikipedia_rechercher(&q_owned)))
+    } else {
+        None
+    };
+    let handle_extensions = {
+        let q_owned = q.to_string();
+        std::thread::spawn(move || extensions_rechercher(&q_owned))
+    };
+
     // Apps VEX (liste statique, memes apps/URLs que la sidebar principale
     // -- voir default_apps dans function.rs) : taper "mail" ou "fichiers"
     // doit amener directement vers l'app, comme le ferait un vrai moteur
@@ -630,11 +652,14 @@ fn api_global(pool: &DbPool, config: &VexConfig, q: &str) -> Response<std::io::C
 
     // Wikipedia LIVE : reste limite a partir de 2 caracteres -- ca, c'est un
     // vrai appel reseau a chaque frappe, "e" seul faisait remonter l'article
-    // sur la lettre E a chaque caractere tape, perçu comme du bruit.
+    // sur la lettre E a chaque caractere tape, perçu comme du bruit. Lancee
+    // en parallele tout en haut de la fonction (voir handle_wikipedia) --
+    // on recupere juste le resultat ici, le temps d'attente reseau est deja
+    // ecoule pendant les lectures locales ci-dessus.
     let mut erreur_wikipedia = None;
-    if q.trim().chars().count() >= 2 {
-        match wikipedia_rechercher(q) {
-            Ok(resultats) => {
+    if let Some(handle) = handle_wikipedia {
+        match handle.join() {
+            Ok(Ok(resultats)) => {
                 for it in resultats {
                     let deja_local = it["titre"].as_str().map(|t| titres_locaux.contains(&t.to_lowercase())).unwrap_or(false);
                     if !deja_local {
@@ -642,11 +667,16 @@ fn api_global(pool: &DbPool, config: &VexConfig, q: &str) -> Response<std::io::C
                     }
                 }
             }
-            Err(e) => erreur_wikipedia = Some(e),
+            Ok(Err(e)) => erreur_wikipedia = Some(e),
+            Err(_) => erreur_wikipedia = Some("Erreur interne lors de la recherche Wikipédia".to_string()),
         }
     }
 
-    let (extensions, erreur_extensions) = extensions_rechercher(q);
+    // Catalogue d'extensions : lance en parallele tout en haut de la
+    // fonction (voir handle_extensions), meme logique que Wikipedia.
+    let (extensions, erreur_extensions) = handle_extensions
+        .join()
+        .unwrap_or_else(|_| (vec![], Some("Erreur interne lors de la recherche d'extensions".to_string())));
     for e in &extensions {
         items.push(json!({
             "type": "extension",
@@ -1309,22 +1339,36 @@ fn serve_html(nav_html: &str, langue: &str, uid: i64, privilege: i64) -> String 
         ("{{T_PLACEHOLDER}}", Cle::RechPlaceholder),
         ("{{T_AUCUN_RESULTAT}}", Cle::RechAucunResultat),
         ("{{T_TELECHARGEMENTS}}", Cle::RechTelechargements),
+        ("{{T_CAT_APPS}}", Cle::RechCatApps),
+        ("{{T_CAT_ACTUALITES}}", Cle::RechCatActualites),
+        ("{{T_CAT_WIKI}}", Cle::RechCatWiki),
+        ("{{T_CAT_FICHIERS}}", Cle::RechCatFichiers),
+        ("{{T_CAT_WIKIPEDIA}}", Cle::RechCatWikipedia),
+        ("{{T_CAT_EXTENSION}}", Cle::RechCatExtension),
     ]);
-    // FIX (bug, recherche silencieuse) : {{I18N_JS}} n'etait jamais
-    // remplace ici (contrairement a fchier.rs/mess.rs/...) -- il restait
-    // tel quel dans le <script>, ce qui cassait TOUT le JS de la page des
-    // la premiere ligne (ReferenceError) et empechait le moindre appel a
-    // /api/recherche/extensions. La page n'utilise aucune variable
-    // I18N.xxx cote JS (tout passe par les placeholders {{T_...}}
-    // ci-dessus, deja substitues cote serveur), donc un objet vide suffit.
+    // I18N.xxx cote JS : uniquement les libelles qui ont besoin d'etre
+    // recomposes dynamiquement (ex: "Afficher {n} resultat(s) de plus",
+    // qui depend du nombre de resultats calcule cote client) -- tout le
+    // reste passe par les placeholders {{T_...}} statiques ci-dessus,
+    // deja substitues cote serveur. json!() echappe correctement guillemets/
+    // apostrophes pour toutes les langues (ar/zh/ja compris).
     // MON_ID/MON_PRIVILEGE : utilisees cote JS uniquement pour l'affichage
     // (afficher les boutons modifier/supprimer sur un article dont on est
     // l'auteur, ou les boutons d'ecriture FAQ pour un compte de confiance)
     // -- jamais une source de verite, le serveur revalide tout dans
     // wiki_save/wiki_delete/faq_save/faq_delete.
+    let i18n_js = json!({
+        "enCours": i18n::t(langue, Cle::RechEnCours),
+        "invite": i18n::t(langue, Cle::RechInvite),
+        "afficherMoins": i18n::t(langue, Cle::RechAfficherMoins),
+        "afficherPlusSing": i18n::t(langue, Cle::RechAfficherPlusSing),
+        "afficherPlusPlur": i18n::t(langue, Cle::RechAfficherPlusPlur),
+        "telecharger": i18n::t(langue, Cle::RechTelecharger),
+        "erreurReseau": i18n::t(langue, Cle::RechErreurReseau),
+    });
     html.replacen(
         "{{I18N_JS}}",
-        &format!("const I18N = {{}}; const MON_ID = {}; const MON_PRIVILEGE = {};", uid, privilege),
+        &format!("const I18N = {}; const MON_ID = {}; const MON_PRIVILEGE = {};", i18n_js, uid, privilege),
         1,
     )
 }

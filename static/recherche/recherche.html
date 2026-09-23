@@ -243,7 +243,7 @@ function lancerRecherche(q){
   clearTimeout(rechercheMinuteur);
   rechercheMinuteur=setTimeout(async ()=>{
     const zone=document.getElementById('resultats');
-    zone.innerHTML=`<div class="vide">Recherche…</div>`;
+    zone.innerHTML=`<div class="vide">${escHtml(I18N.enCours)}</div>`;
     try{
       const r=await fetch('/api/recherche/global?q='+encodeURIComponent(q), {credentials:'include'});
       const d=await r.json();
@@ -252,19 +252,19 @@ function lancerRecherche(q){
       if(!items.length){
         zone.innerHTML = q.trim()
           ? `<div class="vide">{{T_AUCUN_RESULTAT}}</div>`
-          : `<div class="vide">Tapez pour rechercher dans le wiki VEX, Wikipédia et les extensions.</div>`;
+          : `<div class="vide">${escHtml(I18N.invite)}</div>`;
         return;
       }
       // Un seul type par icone/libelle -- evite de repeter la logique dans
       // chaque branche et rend l'ajout d'une future source (ex: Recherche >
       // Fichiers partages) triviale.
       const TYPES = {
-        app:       { icone:'grip',          label:'Apps' },
-        actualite: { icone:'bullhorn',      label:'Actualités' },
-        fichier:   { icone:'file',          label:'Fichiers publics' },
-        wiki:      { icone:'book',          label:'Wiki VEX' },
-        wikipedia: { icone:'globe',         label:'Wikipédia' },
-        extension: { icone:'puzzle-piece',  label:'Extension' },
+        app:       { icone:'grip',          label:'{{T_CAT_APPS}}' },
+        actualite: { icone:'bullhorn',      label:'{{T_CAT_ACTUALITES}}' },
+        fichier:   { icone:'file',          label:'{{T_CAT_FICHIERS}}' },
+        wiki:      { icone:'book',          label:'{{T_CAT_WIKI}}' },
+        wikipedia: { icone:'globe',         label:'{{T_CAT_WIKIPEDIA}}' },
+        extension: { icone:'puzzle-piece',  label:'{{T_CAT_EXTENSION}}' },
       };
       // Items gardes en memoire (indexes par position) plutot que le titre
       // serialise dans l'attribut onclick -- un titre Wikipedia avec une
@@ -315,7 +315,7 @@ function lancerRecherche(q){
         // telechargement si l'API en fournit un. classe t-${type} pour que
         // chaque source garde sa propre couleur de bordure (voir CSS).
         return `<div class="res-item t-${escHtml(it.type)}">${enTete}
-          <div class="res-meta">${it.url?`<a class="res-dl" href="${escHtml(it.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Télécharger</a>`:''}</div>
+          <div class="res-meta">${it.url?`<a class="res-dl" href="${escHtml(it.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escHtml(I18N.telecharger)}</a>`:''}</div>
         </div>`;
       };
       // FIX (demande utilisateur : "je veux des categories si ca vient de
@@ -340,7 +340,7 @@ function lancerRecherche(q){
         const reste = cartes.slice(REPLI_PAR_DEFAUT);
         const idExtra = 'res-extra-'+t;
         const idBtn = 'res-btn-'+t;
-        const libellePlus = `Afficher ${reste.length} résultat${reste.length>1?'s':''} de plus`;
+        const libellePlus = (reste.length>1 ? I18N.afficherPlusPlur : I18N.afficherPlusSing).replace('{n}', reste.length);
         // FIX (demande utilisateur : "ajoute un bouton afficher moins") --
         // le bouton bascule desormais entre les deux etats au lieu de
         // disparaitre une fois deplie (togglerCategorie() dans <script>).
@@ -372,7 +372,7 @@ function togglerCategorie(idExtra, idBtn){
   if(!extra||!btn) return;
   const ouvert = extra.style.display==='flex';
   extra.style.display = ouvert ? 'none' : 'flex';
-  btn.textContent = ouvert ? btn.dataset.libellePlus : 'Afficher moins';
+  btn.textContent = ouvert ? btn.dataset.libellePlus : I18N.afficherMoins;
 }
 
 /* ══════════════ Wiki (lecture/ecriture d'un article) ══════════════ */
@@ -391,7 +391,7 @@ async function wikiOuvrirParTitre(titre){
     const trouve = d.success && (d.data.items||[]).find(it=>it.titre.toLowerCase()===titre.toLowerCase());
     if(!trouve){ toast('Article "'+titre+'" introuvable'); return; }
     wikiOuvrirArticle(trouve.id);
-  }catch(e){ toast('Erreur réseau'); }
+  }catch(e){ toast(I18N.erreurReseau); }
 }
 document.getElementById('wiki-article-contenu').addEventListener('click', e=>{
   const lien = e.target.closest('.lien-wiki');
@@ -419,7 +419,7 @@ async function wikiOuvrirArticle(id){
     `;
     document.getElementById('vue-resultats').style.display='none';
     document.getElementById('wiki-article-vue').style.display='block';
-  }catch(e){ toast('Erreur réseau'); }
+  }catch(e){ toast(I18N.erreurReseau); }
 }
 function wikiFermerArticle(){
   document.getElementById('wiki-article-vue').style.display='none';
@@ -452,7 +452,7 @@ async function actualiteOuvrir(id){
     `;
     document.getElementById('vue-resultats').style.display='none';
     document.getElementById('wiki-article-vue').style.display='block';
-  }catch(e){ toast('Erreur réseau'); }
+  }catch(e){ toast(I18N.erreurReseau); }
 }
 function actualiteOuvrirEdition(id){
   const a = id ? S.actualiteActuelle : null;
@@ -476,7 +476,7 @@ async function actualiteEnregistrer(){
       document.getElementById('actualite-modal').style.display='none';
       if(id){ actualiteOuvrir(id); } else { document.getElementById('q').value=titre; lancerRecherche(titre); }
     }
-  }catch(e){ toast('Erreur réseau'); }
+  }catch(e){ toast(I18N.erreurReseau); }
 }
 async function actualiteSupprimer(id){
   if(!window.confirm('Supprimer cette actualité ?')) return;
@@ -486,7 +486,7 @@ async function actualiteSupprimer(id){
     const d=await r.json();
     toast(d.success?d.message:d.error);
     if(d.success) wikiFermerArticle();
-  }catch(e){ toast('Erreur réseau'); }
+  }catch(e){ toast(I18N.erreurReseau); }
 }
 
 /* ══════════════ Wikipedia (lecture seule, ouverte DANS VEX) ══════════════
@@ -559,7 +559,7 @@ async function wikipediaOuvrirArticle(index){
     `;
     document.getElementById('vue-resultats').style.display='none';
     document.getElementById('wiki-article-vue').style.display='block';
-  }catch(e){ toast('Erreur réseau'); }
+  }catch(e){ toast(I18N.erreurReseau); }
 }
 function wikiOuvrirEdition(id){
   const article = id ? S.articleActuel : null;
@@ -583,7 +583,7 @@ async function wikiEnregistrer(){
       document.getElementById('wiki-modal').style.display='none';
       if(id){ wikiOuvrirArticle(id); } else { document.getElementById('q').value=titre; lancerRecherche(titre); }
     }
-  }catch(e){ toast('Erreur réseau'); }
+  }catch(e){ toast(I18N.erreurReseau); }
 }
 async function wikiSupprimer(id){
   if(!window.confirm('Supprimer cet article du wiki ?')) return;
@@ -593,7 +593,7 @@ async function wikiSupprimer(id){
     const d=await r.json();
     toast(d.success?d.message:d.error);
     if(d.success) wikiFermerArticle();
-  }catch(e){ toast('Erreur réseau'); }
+  }catch(e){ toast(I18N.erreurReseau); }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
