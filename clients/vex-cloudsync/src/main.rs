@@ -540,18 +540,67 @@ fn reconcilier(local_dir: &Path, client: &VexClient) {
     creer_placeholders_manquants(local_dir, client, 0);
 }
 
-/// Reconciliation periodique en arriere-plan : retire les placeholders
-/// locales dont l'original a ete supprime cote serveur ET cree celles qui
-/// sont apparues cote serveur depuis la derniere synchro (voir
-/// reconcilier). Tourne toutes les 3 minutes tant que la session Cloud
-/// Filter est active.
+/// FIX (retour utilisateur : "je veux pas de requete quand il se passe
+/// rien, une requete seulement quand il se passe quelque chose") -- trois
+/// versions successives de cette boucle avant celle-ci :
+///   1. Reconciliation complete toutes les 3 minutes (poll lourd, rare).
+///   2. Reconciliation complete toutes les 20 secondes (poll lourd,
+///      frequent -- mieux ressenti, mais chaque tick fait un appel HTTP
+///      RECURSIF par dossier cote serveur, meme quand rien n'a change).
+///   3. Poll ADAPTATIF de /api/fchier/version (2s en cas d'activite
+///      recente, ralentit jusqu'a 30s en cas d'inactivite) -- bien
+///      moins lourd, mais fait encore une requete a intervalle regulier
+///      MEME a l'arret complet (retour utilisateur : "je veux pas de
+///      requete quand il se passe rien").
+/// Remplace par un vrai LONG-POLL : /api/fchier/attendre bloque cote
+/// SERVEUR (jusqu'a ~25s) jusqu'a ce qu'une modification survienne,
+/// PUIS repond -- ce client relance immediatement un nouvel appel. Zero
+/// requete supplementaire tant que rien ne change, reveil quasi
+/// instantane (le temps d'un aller-retour reseau) des qu'un changement a
+/// vraiment lieu. Le serveur ne bloque PAS son thread principal pour ca :
+/// cette route est traitee sur un thread dedie cote serveur (voir
+/// main.rs du serveur, /api/fchier/attendre), jamais sur la boucle
+/// d'acceptation qui traite toutes les autres requetes -- aucun autre
+/// utilisateur n'est retarde par cette attente.
 fn lancer_reconciliation_periodique(client_path: String, client: VexClient) -> mpsc::Sender<()> {
     let (tx_stop, rx_stop) = mpsc::channel::<()>();
-    std::thread::spawn(move || loop {
-        if rx_stop.recv_timeout(std::time::Duration::from_secs(180)).is_ok() {
-            break;
+    std::thread::spawn(move || {
+        // Version au moment de la connexion : la reconciliation initiale
+        // (lancee ailleurs, juste apres la connexion) est deja a jour avec
+        // cette version, donc la premiere attente ne doit PAS redeclencher
+        // un travail complet pour rien tant que rien n'a change depuis.
+        let mut derniere_version = client.version().unwrap_or(-1);
+        loop {
+            // Verifie le signal d'arret AVANT de repartir sur un appel
+            // bloquant (jusqu'a ~40s) -- pas d'attente ici, juste un
+            // sondage instantane.
+            if rx_stop.try_recv().is_ok() {
+                break;
+            }
+            match client.attendre(derniere_version) {
+                Ok(v) if v != derniere_version => {
+                    derniere_version = v;
+                    reconcilier(Path::new(&client_path), &client);
+                    // Relance tout de suite une nouvelle attente -- pas de
+                    // pause, le long-poll lui-meme fait deja office
+                    // d'attente passive cote serveur.
+                }
+                Ok(_) => {
+                    // Timeout cote serveur (~25s), rien de nouveau : on
+                    // relance simplement une nouvelle attente, sans aucun
+                    // travail supplementaire.
+                }
+                Err(_) => {
+                    // Reseau coupe/serveur injoignable : pas la peine de
+                    // marteler dans une boucle serree, courte pause avant
+                    // de reessayer (et sondable via rx_stop pour rester
+                    // reactif a "Quitter" meme en cas de panne reseau).
+                    if rx_stop.recv_timeout(std::time::Duration::from_secs(5)).is_ok() {
+                        break;
+                    }
+                }
+            }
         }
-        reconcilier(Path::new(&client_path), &client);
     });
     tx_stop
 }
@@ -939,16 +988,114 @@ fn deja_en_cours() -> Option<windows::Win32::Foundation::HANDLE> {
     }
 }
 
-/// FIX (demande utilisateur : "ça ne se relance pas au démarrage") --
-/// jamais implemente jusqu'ici (voir PLAN-INSTALLATION-1-CLIC.md, qui le
-/// listait comme etape a faire "une fois l'auth par jeton en place" --
-/// c'est deja le cas, voir device_auth.rs). Ajoute une entree dans
-/// HKCU\Software\Microsoft\Windows\CurrentVersion\Run pointant vers
-/// l'executable courant : mecanisme standard, ne necessite pas les droits
-/// admin (HKCU, pas HKLM), reecrit a chaque lancement pour rester a jour
-/// si l'exe a ete deplace/mis a jour (ex: reinstallation a un autre
-/// chemin).
+/// FIX (retour utilisateur : "l'app ne se relance pas toute seule") -- le
+/// Run key (mecanisme d'origine) ne redemarre l'app qu'A LA CONNEXION
+/// Windows : si le process crashe EN COURS DE SESSION (panique, tue par
+/// un antivirus, plantage silencieux de l'API Cloud Filter), plus rien ne
+/// le relance avant la prochaine connexion -- symptome constate : le
+/// dossier VEX Cloud affiche "le fournisseur de fichiers cloud s'est
+/// ferme de maniere inattendue" et le reste tant que personne ne relance
+/// l'app a la main. Tente d'abord une TACHE PLANIFIEE (Task Scheduler) :
+/// meme declenchement a la connexion (LogonTrigger), PLUS RestartOnFailure
+/// qui relance automatiquement le process s'il se termine avec un code de
+/// sortie non nul -- exactement ce que le Run key ne peut pas faire. Une
+/// sortie normale (bouton "Quitter", code 0) N'EST PAS un "echec" pour
+/// Task Scheduler, donc ne redeclenche rien : quitter volontairement reste
+/// respecte.
+///
+/// TESTE EN PRATIQUE (pas juste suppose) : sur au moins une machine non-
+/// admin reelle, `schtasks /Create` avec un declencheur "a la connexion"
+/// echoue avec "Acces refuse" -- meme avec /RL LIMITED ou /RU explicite --
+/// alors qu'un declencheur /SC ONCE reussit sans probleme sur le meme
+/// compte. Cause probable : privilege "Ouvrir une session en tant que
+/// tache par lots" (SeBatchLogonRight) restreint par une strategie locale/
+/// de groupe sur cette machine, ou politique similaire sur d'autres PC
+/// verrouilles. Comme schtasks echoue SILENCIEUSEMENT si on ignore son
+/// code de sortie (l'ancienne version de ce commit faisait exactement
+/// ça), un utilisateur sur une machine ainsi restreinte se serait retrouve
+/// SANS AUCUN demarrage automatique (pire qu'avant, le Run key ayant ete
+/// retire). On verifie donc le code de sortie : la tache planifiee n'est
+/// gardee QUE si sa creation reussit reellement, avec repli sur le Run key
+/// (mecanisme eprouve, fonctionne sans droits admin) dans le cas contraire.
 fn assurer_demarrage_auto() {
+    if tenter_tache_planifiee() {
+        // Tache planifiee active : retire une eventuelle vieille entree Run
+        // key d'une precedente execution -- sinon l'app se lancerait deux
+        // fois a chaque connexion (Run key + tache), et le verrou mono-
+        // instance (deja_en_cours) afficherait une popup inutile.
+        retirer_ancienne_entree_run();
+    } else {
+        ecrire_entree_run();
+    }
+}
+
+/// Tente de creer/mettre a jour la tache planifiee. Retourne true UNIQUEMENT
+/// si `schtasks` a reellement reussi (code de sortie 0) -- jamais suppose.
+fn tenter_tache_planifiee() -> bool {
+    let Ok(exe) = std::env::current_exe() else { return false };
+    let exe_xml = exe
+        .to_string_lossy()
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;");
+    let xml = format!(
+        r#"<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <Triggers>
+    <LogonTrigger>
+      <Enabled>true</Enabled>
+    </LogonTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <RestartOnFailure>
+      <Interval>PT1M</Interval>
+      <Count>999</Count>
+    </RestartOnFailure>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>"{exe_xml}"</Command>
+    </Exec>
+  </Actions>
+</Task>"#
+    );
+
+    let chemin_xml = env::temp_dir().join("vex-cloudsync-task.xml");
+    if ecrire_fichier_utf16(&chemin_xml, &xml).is_err() {
+        return false;
+    }
+
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    let resultat = std::process::Command::new("schtasks")
+        .args(["/Create", "/TN", "VEXCloudSync", "/XML"])
+        .arg(&chemin_xml)
+        .arg("/F")
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+    let _ = std::fs::remove_file(&chemin_xml);
+
+    matches!(resultat, Ok(sortie) if sortie.status.success())
+}
+
+/// Mecanisme de repli : entree dans HKCU\Software\Microsoft\Windows\
+/// CurrentVersion\Run pointant vers l'executable courant -- ne relance
+/// l'app qu'a la connexion (pas de recuperation apres crash en cours de
+/// session, voir la doc de assurer_demarrage_auto), mais fonctionne sans
+/// droits admin meme sur une machine qui refuse la creation de taches
+/// planifiees a declenchement "connexion" pour un compte standard.
+fn ecrire_entree_run() {
     use windows::Win32::System::Registry::{
         RegCreateKeyExW, RegSetValueExW, RegCloseKey, HKEY_CURRENT_USER,
         KEY_WRITE, REG_OPTION_NON_VOLATILE, REG_SZ,
@@ -983,6 +1130,37 @@ fn assurer_demarrage_auto() {
             let _ = RegCloseKey(hkey);
         }
     }
+}
+
+/// schtasks /Create /XML exige un fichier encode dans l'encodage annonce
+/// par son prologue (UTF-16 ci-dessus) -- un fichier UTF-8 est refuse a
+/// l'import. Ecrit donc en UTF-16LE avec BOM.
+fn ecrire_fichier_utf16(chemin: &Path, texte: &str) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut octets: Vec<u8> = vec![0xFF, 0xFE];
+    for unite in texte.encode_utf16() {
+        octets.extend_from_slice(&unite.to_le_bytes());
+    }
+    std::fs::File::create(chemin)?.write_all(&octets)
+}
+
+/// Supprime l'entree HKCU\...\Run laissee par une version anterieure de
+/// cette app (avant le passage a la tache planifiee ci-dessus). Best
+/// effort : `reg delete` renvoie une erreur si la valeur n'existe deja
+/// plus, ignoree silencieusement (cas normal apres la premiere migration).
+fn retirer_ancienne_entree_run() {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    let _ = std::process::Command::new("reg")
+        .args([
+            "delete",
+            r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+            "/v",
+            "VEXCloudSync",
+            "/f",
+        ])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
 }
 
 fn main() {
