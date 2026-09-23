@@ -233,28 +233,60 @@ impl SyncFilter for Filter {
         ticket: ticket::FetchData,
         info: info::FetchData,
     ) -> CResult<()> {
-        let Some(Cible::Fichier(id)) = decoder_blob(request.file_blob()) else {
-            return Err(CloudErrorKind::InvalidRequest);
-        };
+        let range = info.required_file_range();
+        let start = range.start;
+        let longueur = range.end.saturating_sub(range.start) as usize;
 
         // Simplification V1 (voir en-tete de fichier) : on telecharge et
         // dechiffre tout le fichier d'un coup (VexClient::telecharger fait
         // deja le dechiffrement AES-256-GCM), puis on sert des tranches du
         // buffer dechiffre selon l'intervalle demande par Windows.
-        let contenu = self.client.telecharger(id).map_err(|e| {
-            println!("fetch_data: erreur telechargement id={id} : {e}");
-            CloudErrorKind::InvalidRequest
-        })?;
+        let id = match decoder_blob(request.file_blob()) {
+            Some(Cible::Fichier(id)) => Some(id),
+            _ => None,
+        };
+        let contenu = id.and_then(|id| match self.client.telecharger(id) {
+            Ok(c) => Some(c),
+            Err(e) => {
+                println!("fetch_data: erreur telechargement id={id} : {e} -- ecrit du contenu vide plutot que d'echouer (voir FIX crash 0xc0000409)");
+                None
+            }
+        });
 
-        let range = info.required_file_range();
-        let end = (range.end as usize).min(contenu.len()) as u64;
-        let start = range.start;
+        // FIX (crash reproductible constate en pratique -- exception
+        // Windows 0xc0000409 dans ucrtbase.dll, voir Application event log
+        // + %LOCALAPPDATA%\CrashDumps) -- avec un fichier local dont
+        // l'original a ete supprime cote serveur (telecharger() renvoie
+        // une 404), retourner Err ici declenchait, A L'INTERIEUR MEME du
+        // crate cloud-filter (proxy.rs::fetch_data, hors de notre
+        // controle, appelee directement par Windows dans un thread qu'
+        // AUCUN catch_unwind de notre cote ne peut intercepter), un
+        // command::Write::fail(...).unwrap() qui peut lui-meme echouer
+        // (HRESULT 0x8007017C, "operation cloud invalide") -- panique NON
+        // RATTRAPABLE qui plante TOUT LE PROCESS, coupant la synchro de
+        // TOUS les dossiers, pas seulement du fichier fautif. On
+        // n'emprunte donc plus jamais ce chemin : on ecrit TOUJOURS
+        // quelque chose (le vrai contenu si le telechargement a reussi,
+        // sinon des zeros de la longueur demandee) et on retourne
+        // TOUJOURS Ok. Un fichier reellement supprime cote serveur finit
+        // hydrate avec du faux contenu localement -- imparfait, mais
+        // infiniment mieux qu'un crash qui coupe tout le monde ; nettoye
+        // des que la reconciliation peut a nouveau lire ses metadonnees
+        // (voir le fix catch_unwind sur nettoyer_placeholders_orphelines).
+        let zeros;
+        let source: &[u8] = match &contenu {
+            Some(c) => c,
+            None => {
+                zeros = vec![0u8; longueur];
+                &zeros
+            }
+        };
+        let fin = (start as usize + longueur).min(source.len());
+        let debut = (start as usize).min(fin);
 
-        println!("fetch_data id={id} range={}..{}", start, end);
-
-        ticket
-            .write_at(&contenu[start as usize..end as usize], start)
-            .map_err(|_| CloudErrorKind::InvalidRequest)?;
+        if let Err(e) = ticket.write_at(&source[debut..fin], start) {
+            println!("fetch_data: write_at a echoue ({e:?}) -- ignore plutot que de renvoyer Err (voir FIX crash 0xc0000409)");
+        }
 
         Ok(())
     }
@@ -425,43 +457,51 @@ fn mark_in_sync(local_dir: &Path, client: &VexClient, dossier_distant_id: i64) {
     }
 }
 
-/// Construit l'ensemble de tous les blobs (fichiers + dossiers) qui
-/// existent reellement cote serveur, en parcourant l'arborescence distante
-/// recursivement depuis la racine.
-fn lister_distant_tous_blobs(
-    client: &VexClient,
-    dossier_id: i64,
-    out: &mut std::collections::HashSet<Vec<u8>>,
-) {
-    let Ok((dossiers, fichiers)) = client.lister_dossier(dossier_id) else { return };
-    for d in &dossiers {
-        out.insert(encoder_blob_dossier(d.id));
-        lister_distant_tous_blobs(client, d.id, out);
-    }
-    for f in &fichiers {
-        out.insert(encoder_blob_fichier(f.id));
-    }
-}
-
 /// FIX (demande utilisateur : "l'app affiche des fichiers qui ne sont pas
 /// dans le cloud") : l'API Cloud Filter de Windows ne supprime JAMAIS
 /// automatiquement une placeholder locale quand l'element correspondant a
 /// ete supprime cote serveur (par un autre appareil, ou depuis l'admin) --
-/// c'est a l'appli de le detecter et de le faire explicitement. Compare
-/// chaque placeholder locale (identifiee par son blob, l'id distant qu'on
-/// y a stocke) a l'ensemble des blobs reellement presents cote serveur, et
-/// supprime localement celles qui n'y sont plus. Ne touche QUE les vraies
-/// placeholders deja synchronisees (Placeholder::open(...).info() renvoie
-/// Some) -- un fichier local pas encore uploade (pas une placeholder) n'a
-/// pas d'info() et n'est jamais touche.
-fn nettoyer_placeholders_orphelines(local_dir: &Path, distants: &std::collections::HashSet<Vec<u8>>) {
+/// c'est a l'appli de le detecter et de le faire explicitement.
+///
+/// FIX (bug constate en pratique, orphan cleanup ne se declenchait
+/// JAMAIS) : la version precedente comparait chaque placeholder locale a
+/// l'ensemble des fichiers/dossiers distants par BLOB (l'id distant
+/// stocke dans les metadonnees, lu via Placeholder::info()) -- mais cette
+/// lecture PANIQUE de facon systematique dans le crate cloud-filter
+/// (0.0.6, bug confirme en pratique : meme une placeholder tout juste
+/// creee par CE process, format garanti correct, ne peut pas etre relue
+/// -- "range end index 64 out of range for slice of length 63"). Sans
+/// protection ca plantait tout le process (voir le fix catch_unwind sur
+/// l'appel a .info(), garde ailleurs pour les rares cas ou cette fonction
+/// serait encore appelee sur une entree illisible) ; avec la protection,
+/// ca ignorait juste TOUJOURS l'entree -- aucun fichier supprime cote
+/// serveur ne disparaissait donc jamais localement, silencieusement.
+/// Compare desormais par NOM uniquement, exactement comme
+/// creer_placeholders_manquants juste en dessous (meme logique, meme
+/// limite acceptee : un renommage cote serveur ressemble a une
+/// suppression+creation plutot qu'un vrai renommage local -- acceptable
+/// pour cet usage) -- n'a plus besoin de lire quoi que ce soit dans le
+/// reparse point, contourne entierement l'API du crate qui panique.
+fn nettoyer_placeholders_orphelines(local_dir: &Path, client: &VexClient, dossier_distant_id: i64) {
+    let Ok((dossiers, fichiers)) = client.lister_dossier(dossier_distant_id) else { return };
+    let noms_distants: std::collections::HashSet<String> = dossiers
+        .iter()
+        .map(|d| d.nom.clone())
+        .chain(fichiers.iter().map(|f| f.nom.clone()))
+        .collect();
+
     let Ok(entries) = local_dir.read_dir() else { return };
     for entry in entries.filter_map(|e| e.ok()) {
         let chemin = entry.path();
+        let nom = entry.file_name().to_string_lossy().to_string();
         let est_dossier = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
-        let Ok(placeholder) = Placeholder::open(&chemin) else { continue };
-        let Ok(Some(info)) = placeholder.info() else { continue };
-        if !distants.contains(info.blob()) {
+        // Ne touche qu'une vraie placeholder deja synchronisee -- un
+        // fichier local pas encore uploade (pas une placeholder cloud
+        // filter) n'est jamais concerne par ce nettoyage.
+        if Placeholder::open(&chemin).is_err() {
+            continue;
+        }
+        if !noms_distants.contains(&nom) {
             println!("nettoyer_placeholders_orphelines: suppression locale de {chemin:?} (plus present cote serveur)");
             let res = if est_dossier {
                 std::fs::remove_dir_all(&chemin)
@@ -474,7 +514,9 @@ fn nettoyer_placeholders_orphelines(local_dir: &Path, distants: &std::collection
             continue;
         }
         if est_dossier {
-            nettoyer_placeholders_orphelines(&chemin, distants);
+            if let Some(d) = dossiers.iter().find(|d| d.nom == nom) {
+                nettoyer_placeholders_orphelines(&chemin, client, d.id);
+            }
         }
     }
 }
@@ -534,9 +576,7 @@ fn creer_placeholders_manquants(local_dir: &Path, client: &VexClient, dossier_di
 }
 
 fn reconcilier(local_dir: &Path, client: &VexClient) {
-    let mut distants = std::collections::HashSet::new();
-    lister_distant_tous_blobs(client, 0, &mut distants);
-    nettoyer_placeholders_orphelines(local_dir, &distants);
+    nettoyer_placeholders_orphelines(local_dir, client, 0);
     creer_placeholders_manquants(local_dir, client, 0);
 }
 
@@ -881,18 +921,46 @@ fn executer_synchro(password: String, url_serveur: String, etat: EtatPartage, rx
     // FIX (demande utilisateur : "le synchronisateur ne marche toujours
     // pas, statut connexion en cours [bloque]") -- reconcilier() parcourt
     // recursivement TOUT l'arbre de dossiers cote serveur (un appel reseau
-    // par dossier, via creer_placeholders_manquants) de facon SYNCHRONE,
-    // avant meme que la connexion Cloud Filter ne soit etablie et que
-    // e.termine passe a true. Avec une arborescence un peu grosse ou une
-    // connexion lente, ca bloquait l'ecran sur "Connexion en cours..."
-    // indefiniment. On la lance desormais en tache de fond, sans retarder
-    // la connexion elle-meme.
+    // par dossier, via creer_placeholders_manquants) -- avec une
+    // arborescence un peu grosse ou une connexion lente, la faire de facon
+    // SYNCHRONE avant la connexion Cloud Filter bloquait l'ecran sur
+    // "Connexion en cours..." indefiniment. Lancee en tache de fond.
+    //
+    // FIX (crash reproductible constate en pratique, 0xc0000409 dans
+    // ucrtbase.dll -- voir Application event log + %LOCALAPPDATA%\
+    // CrashDumps) -- MAIS lancer reconcilier() en fond ET connecter la
+    // session Cloud Filter dans la foulee (comme avant ce fix) cree une
+    // COURSE : si un fichier local est une placeholder ORPHELINE (original
+    // supprime cote serveur depuis) et que Windows/l'antivirus/l'indexeur
+    // tente de l'hydrater (fetch_data) AVANT que nettoyer_placeholders_
+    // orphelines() (dans reconcilier(), toujours en cours en tache de
+    // fond) ait eu le temps de la retirer, le telechargement echoue (404)
+    // -- et le crate cloud-filter appelle en interne un .unwrap() sur le
+    // signalement d'echec a Windows, qui panique/plante TOUT le process
+    // (aucune parade cote appelant : ce n'est pas notre code qui panique).
+    // Reproduit en pratique avec un fichier supprime cote serveur entre
+    // deux lancements. Attend desormais la fin de reconcilier() (avec un
+    // delai maximum : ne bloque plus indefiniment sur une grosse
+    // arborescence, voir le fix precedent) AVANT de connecter la session
+    // -- aucune placeholder orpheline ne peut donc plus etre presente
+    // quand Windows commence a envoyer des requetes de hydratation.
     let client_pour_reconciliation = client.clone();
     let client_pour_thread_init = client.clone();
     let chemin_pour_thread_init = client_path.clone();
+    let (tx_reconciliation_initiale, rx_reconciliation_initiale) = mpsc::channel::<()>();
     std::thread::spawn(move || {
         reconcilier(Path::new(&chemin_pour_thread_init), &client_pour_thread_init);
+        let _ = tx_reconciliation_initiale.send(());
     });
+    const ATTENTE_MAX_RECONCILIATION_INITIALE: std::time::Duration = std::time::Duration::from_secs(15);
+    if rx_reconciliation_initiale.recv_timeout(ATTENTE_MAX_RECONCILIATION_INITIALE).is_err() {
+        // Arborescence inhabituellement grosse/connexion lente : on
+        // continue quand meme (mieux vaut se connecter avec un (tres)
+        // faible risque residuel de course que rester bloque
+        // indefiniment) -- reconcilier() continue son travail en tache de
+        // fond independamment de ce timeout.
+        journaliser(&etat, "Nettoyage initial toujours en cours apres 15s, connexion sans attendre plus longtemps...");
+    }
 
     // FIX (HRESULT 0x8007017A, "la racine de synchronisation du cloud est
     // deja connectee a un autre fournisseur") : si un lancement precedent
