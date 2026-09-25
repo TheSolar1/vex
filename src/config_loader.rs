@@ -59,7 +59,7 @@ fn default_name() -> String {
     "VEX".into()
 }
 fn default_version() -> String {
-    "alpha-0.3".into()
+    "alpha-0.4".into()
 }
 fn default_lang() -> String {
     "fr".into()
