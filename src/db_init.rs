@@ -222,6 +222,23 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         "ALTER TABLE `loginc` MODIFY `id` INT NOT NULL AUTO_INCREMENT"
     );
 
+    // ── Index de performance ──────────────────────────────────────
+    // PERF : la session est relue a CHAQUE requete par `loginc.idcokier`
+    // puis `login.email` -- sans index, MySQL parcourait toute la table a
+    // chaque fois. Idem pour la liste/quota des fichiers d'un utilisateur.
+    // "ADD INDEX" echoue simplement si l'index existe deja (erreur
+    // ignoree), ce qui rend ces migrations idempotentes sur MySQL et
+    // MariaDB.
+    for sql in [
+        "ALTER TABLE `loginc` ADD INDEX `idx_loginc_cookie` (`idcokier`)",
+        "ALTER TABLE `loginc` ADD INDEX `idx_loginc_email` (`email`)",
+        "ALTER TABLE `login` ADD INDEX `idx_login_email` (`email`)",
+        "ALTER TABLE `fichiers` ADD INDEX `idx_fichiers_user` (`id_utilisateur`)",
+        "ALTER TABLE `sitecdos` ADD INDEX `idx_sitecdos_user` (`userid`)",
+    ] {
+        let _ = conn.query_drop(sql);
+    }
+
     // ── p2p_messages ──────────────────────────────────────────────
     conn.query_drop(
         "CREATE TABLE IF NOT EXISTS `p2p_messages` (

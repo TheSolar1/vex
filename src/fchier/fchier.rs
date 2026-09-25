@@ -749,7 +749,10 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
     }
 
     // ── Fichiers
-    let uid_val_fich = mysql::Value::from(uid);
+    // En chaine : `id_utilisateur` est un VARCHAR -- comparer a un entier
+    // force MySQL a convertir chaque ligne et empeche l'usage de l'index
+    // idx_fichiers_user (voir db_init).
+    let uid_val_fich = mysql::Value::from(uid.to_string());
     let tuple_fich = ("id_utilisateur", uid_val_fich);
     let filter_fich: &[(&str, mysql::Value)] = if shared == 0 {
         std::slice::from_ref(&tuple_fich)
@@ -884,7 +887,7 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
     let fichiers_uid = selectionner(
         pool,
         "fichiers",
-        &[("id_utilisateur", mysql::Value::from(uid))],
+        &[("id_utilisateur", mysql::Value::from(uid.to_string()))],
         &["taille"],
         None,
         None,
@@ -1028,7 +1031,7 @@ fn api_upload(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
     let (quota_max, fichiers_max) = quota_du_plan(&cfg, &plan_id);
     let fichiers_existants = selectionner(
         pool, "fichiers",
-        &[("id_utilisateur", mysql::Value::from(uid))],
+        &[("id_utilisateur", mysql::Value::from(uid.to_string()))],
         &["taille"], None, None,
     );
     let deja_utilise: i64 = fichiers_existants.iter().filter_map(|r| r.get("taille").and_then(|v| v.as_i64())).sum();
