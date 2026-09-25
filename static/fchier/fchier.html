@@ -910,6 +910,27 @@ function initDropZone() {
     const files = Array.from(e.dataTransfer.files);
     if (files.length) addFilesToUpload(files);
   });
+
+  // Depot de fichiers depuis l'ordinateur n'importe ou sur la page : import
+  // direct dans le dossier ouvert (avant, seule la zone de la fenetre
+  // "Importer" acceptait un depot). Les deplacements internes (carte vers
+  // dossier, state.dragging) restent geres par enableDropTarget.
+  const page = document.querySelector('main.content');
+  const depuisOrdi = e => !state.dragging && e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+  let profondeur = 0; // dragenter/dragleave se declenchent aussi sur les enfants
+  page.addEventListener('dragenter', e => { if (depuisOrdi(e)) { profondeur++; page.classList.add('drop-target'); } });
+  page.addEventListener('dragover', e => { if (depuisOrdi(e)) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
+  page.addEventListener('dragleave', e => { if (depuisOrdi(e) && --profondeur <= 0) { profondeur = 0; page.classList.remove('drop-target'); } });
+  page.addEventListener('drop', async e => {
+    if (!depuisOrdi(e)) return;
+    e.preventDefault();
+    profondeur = 0; page.classList.remove('drop-target');
+    const files = Array.from(e.dataTransfer.files);
+    if (!files.length) return;
+    openUploadModalFromDD();          // montre la progression, mode "fichiers"
+    addFilesToUpload(files);
+    await doUpload();
+  });
 }
 
 // ── Clic droit dans le vide (grille/liste) : menu "Nouveau" contextuel.
@@ -1293,9 +1314,12 @@ function renderGrid(dossiers, fichiers, pages) {
   const grid = document.getElementById('grid-view');
   grid.innerHTML = '';
   if (!dossiers.length && !fichiers.length && !pages.length) {
-    grid.innerHTML = `<div class="empty-state">
+    // Cliquable : ouvre l'import dans le dossier courant (voir aussi
+    // initDropZone : on peut deposer des fichiers n'importe ou sur la page).
+    grid.innerHTML = `<div class="empty-state" style="cursor:pointer" onclick="openUploadModalFromDD()">
       <img class="ico ico-64 ico-muted" src="${ICO}folder-open.svg" style="display:block;margin:0 auto;">
-      <h3>${I18N.AUCUN_FICHIER}</h3><p>${I18N.CREEZ_PREMIER_DOCUMENT}</p></div>`;
+      <h3>${I18N.AUCUN_FICHIER}</h3><p>${I18N.CREEZ_PREMIER_DOCUMENT}</p>
+      <p style="margin-top:6px;font-size:.85rem">Clique ici ou glisse des fichiers pour les importer</p></div>`;
     return;
   }
   dossiers.forEach(f => grid.appendChild(makeFolderCard(f)));
