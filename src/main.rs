@@ -10,6 +10,7 @@ mod function;
 mod i18n;
 mod utils;
 mod srp;
+mod sso;
 
 // Extensions uploadees depuis le panel admin (src/extensions/<id>/mod.rs).
 // Le registre extensions/mod.rs est regenere automatiquement a chaque upload.
@@ -894,6 +895,8 @@ fn traiter_requete(
             let resp = mess::mess::handle(&pool, &mut request);
             statut_req = Some(repondre(request, resp));
         }
+
+        "/p2p/sso" | "/p2p/sso/etat" => sso::traiter(request, &pool, &node_state),
 
         p if p.starts_with("/p2p/") || p.starts_with("/neut/") => {
             handle_request(request, &pool, &node_state, &config);
