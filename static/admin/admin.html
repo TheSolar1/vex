@@ -469,6 +469,19 @@ __NAV_HTML__
             </div>
             <div id="backup-banner" style="padding:0 17px 14px"></div>
         </div>
+        <div class="card" style="margin-bottom:16px">
+            <div class="ch"><span><img src="/static/img/solid/clock.svg" class="ico ico-accent" alt=""> Sauvegardes automatiques</span></div>
+            <div class="cb" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;font-size:.84rem">
+                <div><label class="cl" for="bk-auto-h">Fréquence</label>
+                    <select id="bk-auto-h" class="vex-input" style="padding:7px 9px;border-radius:8px">
+                        <option value="0">Désactivées</option><option value="6">Toutes les 6 h</option><option value="12">Toutes les 12 h</option><option value="24">Chaque jour</option><option value="168">Chaque semaine</option>
+                    </select></div>
+                <div><label class="cl" for="bk-auto-g">Nombre conservé</label>
+                    <input id="bk-auto-g" type="number" min="1" max="365" value="7" class="vex-input" style="padding:7px 9px;border-radius:8px;width:90px"></div>
+                <button class="btn ba" onclick="enregistrerBackupAuto()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> Enregistrer</button>
+                <div style="flex-basis:100%;color:var(--text-m);font-size:.78rem">Seules les sauvegardes automatiques (<code>vex-backup-auto-…</code>) sont supprimées par la rotation ; les sauvegardes manuelles sont conservées.</div>
+            </div>
+        </div>
         <div class="card">
             <div class="ch">
                 <span><img src="/static/img/solid/scroll.svg" class="ico ico-accent" alt=""> {{T_BACKUP_SAUVEGARDES_EXISTANTES}}</span>
@@ -1344,7 +1357,20 @@ function planifierStatutBuild(){
 }
 
 /* ── Sauvegardes ── */
+async function chargerBackupAuto(){
+    const r=await api('/backup/auto');
+    if(!r.success)return;
+    const sel=document.getElementById('bk-auto-h');
+    if(![...sel.options].some(o=>o.value===String(r.data.heures))){const o=document.createElement('option');o.value=r.data.heures;o.textContent='Toutes les '+r.data.heures+' h';sel.appendChild(o);}
+    sel.value=String(r.data.heures);
+    document.getElementById('bk-auto-g').value=r.data.garder;
+}
+async function enregistrerBackupAuto(){
+    const r=await post('/backup/auto',{heures:document.getElementById('bk-auto-h').value,garder:document.getElementById('bk-auto-g').value});
+    if(r.success)flash(r.message);else flash(r.error,true);
+}
 async function loadBackups(){
+    chargerBackupAuto();
     document.getElementById('backup-list').innerHTML='<div class="loading"><span class="spin"></span></div>';
     const [rs,rl]=await Promise.all([api('/backup/status'),api('/backup/list')]);
     BACKUP_STATUS=rs.success?rs.data:{};
@@ -1781,6 +1807,42 @@ async function loadUpdateCheck(containerId,ns){
     `;
     renderMachineBuildStatus(upd,ns);
     if(upd.running)startMachinePoll(ns);
+    chargerVersionsMachine(box);
+}
+
+// Version precedente conservee + retour arriere (manuel ou automatique)
+// + nettoyage des builds.
+async function chargerVersionsMachine(box){
+    const r=await api('/machine/versions');
+    if(!r.success)return;
+    const v=r.data, fmt=t=>t?esc(new Date(t*1000).toLocaleString()):'—';
+    const auto=v.retour_arriere_auto&&v.retour_arriere_auto.retour_arriere;
+    const carte=document.createElement('div');
+    carte.className='card';
+    carte.innerHTML=`
+        <div class="ch"><span><img src="/static/img/solid/clock-rotate-left.svg" class="ico ico-accent" alt=""> Versions et retour arrière</span></div>
+        <div class="cb" style="font-size:.84rem;line-height:1.7">
+            ${auto?`<div style="padding:10px 12px;margin-bottom:10px;border-radius:8px;background:color-mix(in srgb,var(--orange) 14%,transparent);border:1px solid var(--orange)">⚠️ Le ${esc(String(v.retour_arriere_auto.date||'').replace('T',' ').replace('Z',' UTC'))}, le nouveau binaire ne démarrait pas : VEX est revenu <b>automatiquement</b> à la version précédente (binaire en échec conservé dans <code>vex.echoue</code>).</div>`:''}
+            <div>Binaire en service : <b>${fmt(v.actuel)}</b></div>
+            <div>Version précédente conservée : <b>${v.precedent?fmt(v.precedent):'aucune'}</b></div>
+            <p style="color:var(--text-m);margin:8px 0 12px">Après chaque mise à jour, si le nouveau binaire ne répond pas dans les 20 secondes, l'ancien est relancé automatiquement.</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn bg2" ${v.precedent?'':'disabled'} onclick="machineRollback()"><img src="/static/img/solid/rotate-left.svg" class="ico ico-accent" alt=""> Revenir à la version précédente</button>
+                <button class="btn bg2" onclick="machineNettoyer(this)"><img src="/static/img/solid/broom.svg" class="ico ico-accent" alt=""> Nettoyer les builds (target/debug, caches)</button>
+            </div>
+        </div>`;
+    box.appendChild(carte);
+}
+async function machineRollback(){
+    if(!await confirmerDialogue('Revenir à la version précédente de VEX ? Le serveur va redémarrer (quelques secondes d\'indisponibilité).',{danger:true}))return;
+    const r=await post('/machine/rollback');
+    if(r.success){flash(r.message);setTimeout(()=>location.reload(),8000);}else flash(r.error,true);
+}
+async function machineNettoyer(btn){
+    btn.disabled=true;
+    const r=await post('/machine/nettoyer');
+    btn.disabled=false;
+    if(r.success)flash(r.message);else flash(r.error,true);
 }
 
 async function machineCheck(ns){

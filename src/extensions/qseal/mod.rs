@@ -55,7 +55,7 @@ pub fn handle(
             // Barre de navigation VEX + theme de l'utilisateur, comme
             // sur les pages integrees.
             let prefs = crate::function::get_user_preferences(pool, session.user_id);
-            let theme = if prefs.teme == 1 { "dark" } else { "light" };
+            let theme = crate::function::theme_depuis_teme(prefs.teme);
             let nav = crate::access_control::nav_extension(pool, session, req, "qseal");
             let html = html
                 .replace("__NAV_HTML__", &nav)
@@ -247,8 +247,7 @@ fn echapper(s: &str) -> String {
 }
 
 fn lire_corps(req: &mut Request) -> std::collections::HashMap<String, String> {
-    let mut brut = String::new();
-    let _ = std::io::Read::read_to_string(req.as_reader(), &mut brut);
+    let brut = crate::utils::lire_corps(req, crate::utils::CORPS_MAX_DEFAUT).unwrap_or_default();
     let mut m = std::collections::HashMap::new();
     for paire in brut.split('&') {
         let mut kv = paire.splitn(2, '=');

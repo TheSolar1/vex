@@ -285,9 +285,19 @@ body {
 }
 .folder-tree .tree-dir  { color:var(--accent); font-weight:600; }
 .folder-tree .tree-file { color:var(--text-dim); }
+.badge-favori { position:absolute; top:8px; left:10px; color:#f5b301; font-size:16px; line-height:1; text-shadow:0 1px 2px rgba(0,0,0,.2); }
 @media(max-width:768px) {
   .sidebar { width:70px; }
   .create-btn span, .nav-item span { display:none; }
+  /* Mobile : la barre (filtre / recherche / vue) passe sous le titre et
+     prend toute la largeur au lieu de sortir de l'ecran. */
+  .content-header { flex-wrap:wrap; gap:12px; }
+  .content-header > div:last-child { width:100%; flex-wrap:wrap; }
+  .content-header .search-box { flex:1 1 140px; min-width:0; }
+  .content-header .filter-select { flex:0 1 auto; max-width:48%; }
+  .content-title { font-size:1.4rem; }
+  /* La jauge de stockage ne tient pas dans la barre laterale reduite. */
+  #quota-widget { display:none; }
 }
   </style>
 </head>
@@ -329,6 +339,22 @@ __NAV_HTML__
       <button class="nav-item" id="nav-partage" onclick="switchTab(1)">
         <img class="ico ico-18 ico-muted" src="/static/img/solid/share-nodes.svg">
         <span>{{T_PARTAGE_AVEC_MOI}}</span>
+      </button>
+      <button class="nav-item" id="nav-recents" onclick="ouvrirVue('recents')">
+        <img class="ico ico-18 ico-muted" src="/static/img/solid/clock-rotate-left.svg">
+        <span>Récents</span>
+      </button>
+      <button class="nav-item" id="nav-favoris" onclick="ouvrirVue('favoris')">
+        <img class="ico ico-18 ico-muted" src="/static/img/solid/star.svg">
+        <span>Favoris</span>
+      </button>
+      <button class="nav-item" id="nav-export" onclick="exporterZip(0, 'Mes fichiers')" title="Télécharger tous vos fichiers, déchiffrés, dans une archive ZIP">
+        <img class="ico ico-18 ico-muted" src="/static/img/solid/file-zipper.svg">
+        <span>Tout exporter (ZIP)</span>
+      </button>
+      <button class="nav-item" id="nav-corbeille" onclick="openCorbeille()">
+        <img class="ico ico-18 ico-muted" src="/static/img/solid/trash-can.svg">
+        <span>Corbeille</span>
       </button>
     </nav>
 
@@ -388,6 +414,9 @@ __NAV_HTML__
   <div class="context-menu-item" id="ctx-open" onclick="handleAction('open')">
     <img class="ico ico-18 ico-muted" id="ctx-open-icon" src="/static/img/solid/folder-open.svg"> <span id="ctx-open-label">{{T_OUVRIR}}</span>
   </div>
+  <div class="context-menu-item" id="ctx-apercu" onclick="handleAction('apercu')">
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/eye.svg"> Aperçu
+  </div>
   <div class="context-menu-item" id="ctx-download" onclick="handleAction('download')">
     <img class="ico ico-18 ico-muted" src="/static/img/solid/download.svg"> {{T_TELECHARGER}}
   </div>
@@ -403,11 +432,20 @@ __NAV_HTML__
   <div class="context-menu-item" id="ctx-visibility" onclick="handleAction('visibility')">
     <img class="ico ico-18 ico-muted" src="/static/img/solid/eye.svg"> {{T_VISIBILITE}}
   </div>
+  <div class="context-menu-item" id="ctx-favori" onclick="handleAction('favori')">
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/star.svg"> <span id="ctx-favori-label">Ajouter aux favoris</span>
+  </div>
+  <div class="context-menu-item" id="ctx-zip" onclick="handleAction('zip')">
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/file-zipper.svg"> Télécharger en ZIP
+  </div>
   <div class="context-menu-item" id="ctx-move" onclick="handleAction('move')">
     <img class="ico ico-18 ico-muted" src="/static/img/solid/arrows-up-down-left-right.svg"> {{T_DEPLACER}}
   </div>
   <div class="context-menu-item" id="ctx-share" onclick="handleAction('share')">
     <img class="ico ico-18 ico-muted" src="/static/img/solid/share-nodes.svg"> {{T_PARTAGER}}
+  </div>
+  <div class="context-menu-item" id="ctx-lien" onclick="handleAction('lien')">
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/link.svg"> Lien de partage
   </div>
   <div class="context-menu-item" id="ctx-sendp2p" onclick="handleAction('send_p2p')">
     <img class="ico ico-18 ico-muted" src="/static/img/solid/paper-plane.svg"> {{T_ENVOYER_P2P}}
@@ -619,6 +657,79 @@ __NAV_HTML__
   </div>
 </div>
 
+<!-- Aperçu -->
+<div class="modal" id="apercuModal" role="dialog" aria-modal="true" aria-labelledby="apercu-nom" onclick="if(event.target===this)fermerApercu()">
+  <div class="modal-content wide" style="max-width:min(1100px,96vw)">
+    <div class="modal-header" style="display:flex;align-items:center;gap:8px">
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/eye.svg" alt="">
+      <span id="apercu-nom" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+      <button class="btn btn-secondary" id="apercu-prec" onclick="apercuDecaler(-1)" title="Précédent (←)" aria-label="Fichier précédent">‹</button>
+      <button class="btn btn-secondary" id="apercu-suiv" onclick="apercuDecaler(1)" title="Suivant (→)" aria-label="Fichier suivant">›</button>
+    </div>
+    <div class="modal-body" id="apercu-zone" style="min-height:200px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="if(apercuItem)downloadFile(apercuItem)">
+        <img class="ico ico-sm" src="/static/img/solid/download.svg" alt=""> {{T_TELECHARGER}}
+      </button>
+      <button class="btn btn-secondary" onclick="fermerApercu()">{{T_FERMER}}</button>
+    </div>
+  </div>
+</div>
+
+<!-- Lien de partage public -->
+<div class="modal" id="lienModal" role="dialog" aria-modal="true" aria-labelledby="lien-titre">
+  <div class="modal-content wide">
+    <div class="modal-header" id="lien-titre">
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/link.svg"> Lien de partage — <span id="lien-nom" style="margin-left:4px;font-weight:600"></span>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:.82rem;color:var(--text-m);margin-bottom:12px">Toute personne qui a le lien peut télécharger ce fichier, sans compte VEX. Le fichier reste chiffré : la clé est dans le lien, le serveur ne peut pas le lire.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">
+        <div class="form-group" style="margin:0"><label for="lien-mdp">Mot de passe (optionnel)</label><input type="password" id="lien-mdp" maxlength="200" autocomplete="new-password"></div>
+        <div class="form-group" style="margin:0"><label for="lien-expire">Expiration</label>
+          <select id="lien-expire" class="vex-input" style="width:100%;padding:9px;border-radius:8px">
+            <option value="1">1 jour</option><option value="7" selected>7 jours</option><option value="30">30 jours</option><option value="365">1 an</option><option value="0">Jamais</option>
+          </select></div>
+        <div class="form-group" style="margin:0"><label for="lien-max">Téléchargements max</label><input type="number" id="lien-max" min="0" max="100000" placeholder="Illimité"></div>
+      </div>
+      <button class="btn btn-primary" id="lien-creer" style="margin-top:12px" onclick="creerLien()">
+        <img class="ico ico-sm ico-white" src="/static/img/solid/link.svg"> Créer le lien
+      </button>
+      <div id="lien-resultat" hidden style="margin-top:14px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface2)">
+        <label for="lien-url" style="font-size:.8rem;font-weight:700">Lien créé — copiez-le maintenant (la clé n'est pas conservée par le serveur) :</label>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <input id="lien-url" readonly style="flex:1;font-family:monospace;font-size:.78rem" onclick="this.select()">
+          <button class="btn btn-secondary" onclick="copierLien()">Copier</button>
+        </div>
+      </div>
+      <h4 style="margin:18px 0 6px;font-size:.9rem">Liens existants pour ce fichier</h4>
+      <div id="lien-liste" style="max-height:30vh;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('lienModal')">{{T_FERMER}}</button>
+    </div>
+  </div>
+</div>
+
+<!-- Corbeille -->
+<div class="modal" id="corbeilleModal" role="dialog" aria-modal="true" aria-labelledby="corbeille-titre">
+  <div class="modal-content wide">
+    <div class="modal-header" id="corbeille-titre">
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/trash-can.svg"> Corbeille
+    </div>
+    <div class="modal-body">
+      <p id="corbeille-info" style="font-size:.82rem;color:var(--text-m);margin-bottom:10px"></p>
+      <div id="corbeille-liste" style="max-height:55vh;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" style="color:var(--danger)" id="corbeille-vider" onclick="viderCorbeille()">
+        <img class="ico ico-sm" src="/static/img/solid/trash.svg"> Vider la corbeille
+      </button>
+      <button class="btn btn-secondary" onclick="closeModal('corbeilleModal')">{{T_FERMER}}</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="deleteModal">
   <div class="modal-content">
     <div class="modal-header">
@@ -680,7 +791,7 @@ __NAV_HTML__
 {{I18N_JS}}
 'use strict';
 const ICO = '/static/img/solid/';
-const THEMES = ['light','dark','solarized','rose']; // index = colonne `teme` en DB — identique à mess.html
+const THEMES = ['light','dark','solarized','rose','auto']; // index = colonne `teme` en DB — identique à mess.html
 
 const state = {
   dossier:     0,
@@ -694,6 +805,7 @@ const state = {
   dragging:    null,
   dragEndedAt: 0,
   treeExpanded: new Set(),
+  vue:         '',   // '' | 'recents' | 'favoris'
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -1229,7 +1341,7 @@ async function loadData() {
   if (!requireCryptoSession()) return;
   showLoading();
   try {
-    const r = await vexFetch(`/api/fchier/data?dossier=${state.dossier}&shared=${state.shared}`, { credentials:'include' });
+    const r = await vexFetch(`/api/fchier/data?dossier=${state.dossier}&shared=${state.shared}&vue=${state.vue}`, { credentials:'include' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     state.data = await r.json();
     renderAll();
@@ -1255,7 +1367,8 @@ function renderAll() {
   renderQuota(d.quota);
   const chemin = d.chemin || [];
   const last   = chemin[chemin.length - 1];
-  document.getElementById('content-title').textContent = last ? last.nom : I18N.MES_FICHIERS;
+  document.getElementById('content-title').textContent =
+    state.vue === 'recents' ? 'Récents' : state.vue === 'favoris' ? 'Favoris' : (last ? last.nom : I18N.MES_FICHIERS);
 }
 
 // FIX (demande utilisateur : "je veux un avertissement pour voir où on en
@@ -1306,13 +1419,14 @@ function makeFolderCard(f) {
   div.className = 'folder-card'; div.dataset.type = 'folder'; div.dataset.name = f.nom || '';
   div.innerHTML = `
     ${(f.partage && f.partage.trim()) ? `<div class="badge-share"><img class="ico ico-sm ico-white" src="${ICO}share-nodes.svg"></div>` : ''}
+    ${f.favori ? `<div class="badge-favori" title="Favori" aria-label="Favori">★</div>` : ''}
     <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'folder',${f.id},${JSON.stringify(f).replace(/"/g,'&quot;')})">
       <img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg">
     </div>
     <div class="folder-icon"><img class="ico ico-lg ico-orange" src="${ICO}folder.svg"></div>
     <div class="folder-name">${escHtml(f.nom || '')}</div>
     <div class="file-date">${I18N.DOSSIER_LABEL}</div>`;
-  div.addEventListener('click', () => { if (justDragged()) return; state.dossier = f.id; loadData(); });
+  div.addEventListener('click', () => { if (justDragged()) return; navTo(f.id); });
   div.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'folder', f.id, f); });
   enableDrag(div, f.id, 'folder');
   enableDropTarget(div, f.id);
@@ -1348,13 +1462,14 @@ function makeFileCard(f) {
   const src = fileIconSrc(f.nom || '', f.type_fichier || '');
   div.innerHTML = `
     ${(f.partage && f.partage.trim()) ? `<div class="badge-share"><img class="ico ico-sm ico-white" src="${ICO}share-nodes.svg"></div>` : ''}
+    ${f.favori ? `<div class="badge-favori" title="Favori" aria-label="Favori">★</div>` : ''}
     <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'file',${f.id},${JSON.stringify(f).replace(/"/g,'&quot;')})">
       <img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg">
     </div>
     <div class="file-icon"><img class="ico ico-lg ico-muted" src="${src}"></div>
     <div class="file-name">${escHtml(f.nom || '')}</div>
     <div class="file-date">${formatDate(f.date || '')}</div>`;
-  div.addEventListener('click', () => { if (justDragged()) return; downloadFile(f); });
+  div.addEventListener('click', () => { if (justDragged()) return; ouvrirFichier(f); });
   div.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'file', f.id, f); });
   enableDrag(div, f.id, 'file');
   return div;
@@ -1447,7 +1562,7 @@ function renderList(dossiers, fichiers, pages) {
     row.innerHTML = `<div class="list-item-name"><img class="ico ico-18 ico-muted" src="${src}"><span>${escHtml(f.nom||'')}</span></div>
       <div>${(f.nom||'').split('.').pop().toUpperCase()}</div><div>${formatDate(f.date||'')}</div>
       <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'file',${f.id},${JSON.stringify(f).replace(/"/g,'&quot;')})"><img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg"></div>`;
-    row.addEventListener('click', () => { if (justDragged()) return; downloadFile(f); });
+    row.addEventListener('click', () => { if (justDragged()) return; ouvrirFichier(f); });
     row.addEventListener('contextmenu', e => { e.preventDefault(); openCtx(e, 'file', f.id, f); });
     enableDrag(row, f.id, 'file');
     body.appendChild(row);
@@ -1483,7 +1598,7 @@ function renderBreadcrumb(chemin) {
   });
 }
 
-function navTo(id) { state.dossier = id; loadData(); }
+function navTo(id) { state.dossier = id; if (state.vue) { state.vue = ''; majNavActive(); } loadData(); }
 
 // ══════════════════════════════════════════════════════════════════
 // ARBORESCENCE LATÉRALE — panneau "Dossiers" façon explorateur classique
@@ -1551,10 +1666,21 @@ function renderFolderTreeSidebar() {
 }
 
 function switchTab(idx) {
-  state.shared = idx; state.dossier = 0;
-  document.getElementById('nav-mes').classList.toggle('active', idx === 0);
-  document.getElementById('nav-partage').classList.toggle('active', idx === 1);
+  state.shared = idx; state.dossier = 0; state.vue = '';
+  majNavActive();
   loadData();
+}
+// Vues transversales : fichiers récents, favoris.
+function ouvrirVue(vue) {
+  state.shared = 0; state.dossier = 0; state.vue = vue;
+  majNavActive();
+  loadData();
+}
+function majNavActive() {
+  document.getElementById('nav-mes').classList.toggle('active', state.shared === 0 && !state.vue);
+  document.getElementById('nav-partage').classList.toggle('active', state.shared === 1);
+  document.getElementById('nav-recents').classList.toggle('active', state.vue === 'recents');
+  document.getElementById('nav-favoris').classList.toggle('active', state.vue === 'favoris');
 }
 
 function setView(v, reload = true) {
@@ -1593,28 +1719,119 @@ function populateMoveSelect(folders) {
 // ══════════════════════════════════════════════════════════════════
 // DOWNLOAD
 // ══════════════════════════════════════════════════════════════════
+// Récupère un fichier et le déchiffre localement -> { blob, nom, mime }.
+async function recupererFichierClair(item) {
+  const r = await vexFetch(`/api/fchier/download?id=${item.id}`, { credentials:'include' });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const data = await r.json();
+  if (!data.success) throw new Error(data.error || I18N.ERREUR);
+  const mime = (data.mime && data.mime !== 'application/octet-stream') ? data.mime : mimeDepuisNom(data.nom || item.nom || '');
+  const bytes = VEX.fromBase64(data.contenu);
+  if (!VEX.isConnected()) throw new Error(I18N.SESSION_EXPIREE_TELECHARGER);
+  let blob;
+  try {
+    blob = await VEX.dechiffrerFichier(new Blob([bytes]), mime);
+  } catch (e) {
+    if (!e.message || !e.message.includes('non chiffré')) throw e;
+    blob = new Blob([bytes], { type: mime || 'application/octet-stream' });
+  }
+  return { blob, nom: data.nom || item.nom || 'fichier', mime };
+}
+
+const MIMES_APERCU = {
+  png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp', svg:'image/svg+xml', bmp:'image/bmp', avif:'image/avif',
+  pdf:'application/pdf',
+  mp4:'video/mp4', webm:'video/webm', ogv:'video/ogg', mov:'video/mp4',
+  mp3:'audio/mpeg', wav:'audio/wav', ogg:'audio/ogg', m4a:'audio/mp4', flac:'audio/flac', opus:'audio/ogg',
+};
+function mimeDepuisNom(nom) {
+  const ext = (nom.split('.').pop() || '').toLowerCase();
+  return MIMES_APERCU[ext] || 'application/octet-stream';
+}
+function typeApercu(nom) {
+  const m = mimeDepuisNom(nom);
+  if (m.startsWith('image/')) return 'image';
+  if (m === 'application/pdf') return 'pdf';
+  if (m.startsWith('video/')) return 'video';
+  if (m.startsWith('audio/')) return 'audio';
+  if (estFichierTexte(nom)) return 'texte';
+  return null;
+}
+
+// Clic sur un fichier : aperçu si possible, sinon téléchargement.
+function ouvrirFichier(item) {
+  if (typeApercu(item.nom || '')) apercu(item);
+  else downloadFile(item);
+}
+
+// ── Aperçu (déchiffré dans le navigateur, jamais en clair sur le serveur)
+let apercuUrl = null, apercuItem = null;
+function fichiersApercables() {
+  return ((state.data && state.data.fichiers) || []).filter(f => typeApercu(f.nom || ''));
+}
+async function apercu(item) {
+  if (!requireCryptoSession()) return;
+  apercuItem = item;
+  const zone = document.getElementById('apercu-zone');
+  document.getElementById('apercu-nom').textContent = item.nom || '';
+  zone.innerHTML = '<div class="spinner" style="margin:40px auto;"></div>';
+  openModal('apercuModal');
+  const liste = fichiersApercables();
+  const i = liste.findIndex(f => f.id === item.id);
+  document.getElementById('apercu-prec').disabled = i <= 0;
+  document.getElementById('apercu-suiv').disabled = i < 0 || i >= liste.length - 1;
+  try {
+    const { blob, nom } = await recupererFichierClair(item);
+    if (apercuItem !== item) return; // un autre aperçu a été demandé entre-temps
+    if (apercuUrl) URL.revokeObjectURL(apercuUrl);
+    apercuUrl = URL.createObjectURL(blob);
+    const t = typeApercu(nom);
+    if (t === 'image') {
+      // SVG affiché via <img> : aucun script du fichier ne peut s'exécuter.
+      zone.innerHTML = `<img src="${apercuUrl}" alt="${escHtml(nom)}" style="max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:8px">`;
+    } else if (t === 'pdf') {
+      zone.innerHTML = `<iframe src="${apercuUrl}" title="${escHtml(nom)}" style="width:100%;height:70vh;border:0;border-radius:8px;background:#fff"></iframe>`;
+    } else if (t === 'video') {
+      zone.innerHTML = `<video src="${apercuUrl}" controls autoplay style="max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:8px"></video>`;
+    } else if (t === 'audio') {
+      zone.innerHTML = `<div style="padding:30px 10px;text-align:center"><img class="ico ico-lg ico-muted" src="${ICO}music.svg" alt=""><audio src="${apercuUrl}" controls autoplay style="width:100%;margin-top:16px"></audio></div>`;
+    } else {
+      const texte = await blob.slice(0, 2 * 1024 * 1024).text();
+      zone.innerHTML = '';
+      const pre = document.createElement('pre');
+      pre.style.cssText = 'max-height:70vh;overflow:auto;white-space:pre-wrap;word-break:break-word;font-size:.82rem;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin:0';
+      pre.textContent = texte;
+      zone.appendChild(pre);
+    }
+  } catch(e) {
+    zone.innerHTML = `<p style="color:var(--danger);padding:20px">${I18N.ERREUR_PREFIX}${escHtml(e.message)}</p>`;
+  }
+}
+function apercuDecaler(sens) {
+  const liste = fichiersApercables();
+  const i = liste.findIndex(f => apercuItem && f.id === apercuItem.id);
+  const suivant = liste[i + sens];
+  if (suivant) apercu(suivant);
+}
+function fermerApercu() {
+  closeModal('apercuModal');
+  apercuItem = null;
+  document.getElementById('apercu-zone').innerHTML = '';
+  if (apercuUrl) { URL.revokeObjectURL(apercuUrl); apercuUrl = null; }
+}
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('apercuModal').classList.contains('active')) return;
+  if (e.key === 'Escape') fermerApercu();
+  else if (e.key === 'ArrowLeft') apercuDecaler(-1);
+  else if (e.key === 'ArrowRight') apercuDecaler(1);
+});
+
 async function downloadFile(item) {
   if (!requireCryptoSession()) return;
   toast(I18N.TELECHARGEMENT_DE.replace('{nom}', item.nom), 'info');
   try {
-    const r = await vexFetch(`/api/fchier/download?id=${item.id}`, { credentials:'include' });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data = await r.json();
-    if (!data.success) throw new Error(data.error || I18N.ERREUR);
-
-    let blob;
-    const bytes = VEX.fromBase64(data.contenu);
-    if (VEX.isConnected()) {
-      try {
-        const blobChiffre = new Blob([bytes]);
-        blob = await VEX.dechiffrerFichier(blobChiffre, data.mime);
-      } catch (e) {
-        if (!e.message || !e.message.includes('non chiffré')) throw e;
-        blob = new Blob([bytes], { type: data.mime || 'application/octet-stream' });
-      }
-    } else {
-      throw new Error(I18N.SESSION_EXPIREE_TELECHARGER);
-    }
+    const data = await recupererFichierClair(item);
+    const blob = data.blob;
 
     const url = URL.createObjectURL(blob);
     const a   = document.createElement('a');
@@ -2103,7 +2320,240 @@ async function doDelete() {
   try {
     const r = await apiFetch('/api/fchier/delete', { item_id: state.ctx.id, item_type: state.ctx.type });
     if (!r.success) throw new Error(r.error);
-    closeModal('deleteModal'); toast(I18N.SUPPRIME, 'ok'); loadData();
+    closeModal('deleteModal');
+    toast(r.corbeille ? 'Déplacé dans la corbeille (restaurable 30 jours)' : I18N.SUPPRIME, 'ok');
+    loadData();
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
+}
+
+// ── Lien de partage public (chiffré de bout en bout, clé dans le #)
+let lienFichier = null;
+function b64url(u8) {
+  let s = ''; for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function ouvrirLien(item) {
+  lienFichier = item;
+  document.getElementById('lien-nom').textContent = item.nom || '';
+  document.getElementById('lien-mdp').value = '';
+  document.getElementById('lien-max').value = '';
+  document.getElementById('lien-resultat').hidden = true;
+  openModal('lienModal');
+  chargerLiens();
+}
+async function chargerLiens() {
+  const box = document.getElementById('lien-liste');
+  box.innerHTML = '<div class="spinner" style="margin:8px auto;"></div>';
+  try {
+    const r = await vexFetch('/api/fchier/liens?id_fichier=' + encodeURIComponent(lienFichier.id));
+    const d = await r.json();
+    const liens = d.liens || [];
+    if (!liens.length) { box.innerHTML = '<p style="font-size:.8rem;color:var(--text-m)">Aucun lien.</p>'; return; }
+    box.innerHTML = liens.map(l => `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--border);font-size:.8rem">
+        <div style="flex:1;min-width:0">
+          <span style="font-family:monospace">…${escHtml(String(l.jeton).slice(-8))}</span>
+          ${l.mot_de_passe ? ' · 🔒' : ''}
+          · ${Number(l.telechargements)}${l.max_telechargements ? '/' + Number(l.max_telechargements) : ''} téléch.
+          · ${l.expire ? '<span style="color:var(--danger)">expiré</span>' : (l.expire_le ? 'expire le ' + escHtml(String(l.expire_le).slice(0,16)) : 'sans expiration')}
+        </div>
+        <button class="btn btn-secondary" style="color:var(--danger)" onclick="supprimerLien('${escHtml(String(l.jeton))}')">Révoquer</button>
+      </div>`).join('');
+  } catch(e) { box.innerHTML = `<p style="color:var(--danger)">${escHtml(e.message)}</p>`; }
+}
+async function creerLien() {
+  if (!requireCryptoSession() || !lienFichier) return;
+  const btn = document.getElementById('lien-creer');
+  btn.disabled = true;
+  try {
+    // 1. Récupère et déchiffre le fichier avec la clé personnelle.
+    const r = await vexFetch(`/api/fchier/download?id=${lienFichier.id}`, { credentials:'include' });
+    const data = await r.json();
+    if (!data.success) throw new Error(data.error || I18N.ERREUR);
+    const bytes = VEX.fromBase64(data.contenu);
+    let clair;
+    try { clair = new Uint8Array(await (await VEX.dechiffrerFichier(new Blob([bytes]), data.mime)).arrayBuffer()); }
+    catch (e) { if (!e.message || !e.message.includes('non chiffré')) throw e; clair = bytes; }
+    // 2. Rechiffre avec une clé aléatoire qui ne quittera pas le navigateur.
+    const cleBrute = crypto.getRandomValues(new Uint8Array(32));
+    const cle = await crypto.subtle.importKey('raw', cleBrute, 'AES-GCM', false, ['encrypt']);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const chiffre = new Uint8Array(await crypto.subtle.encrypt({ name:'AES-GCM', iv }, cle, clair));
+    const paquet = new Uint8Array(12 + chiffre.length); paquet.set(iv, 0); paquet.set(chiffre, 12);
+    // 3. Envoie la copie chiffrée ; la clé reste dans le fragment du lien.
+    const res = await apiFetch('/api/fchier/lien_creer', {
+      id_fichier: Number(lienFichier.id),
+      contenu: VEX.toBase64 ? VEX.toBase64(paquet) : btoa(String.fromCharCode.apply(null, paquet)),
+      mot_de_passe: document.getElementById('lien-mdp').value,
+      expire_jours: Number(document.getElementById('lien-expire').value) || 0,
+      max_telechargements: Number(document.getElementById('lien-max').value) || 0,
+    });
+    if (!res.success) throw new Error(res.error);
+    document.getElementById('lien-url').value = location.origin + res.url + '#' + b64url(cleBrute);
+    document.getElementById('lien-resultat').hidden = false;
+    document.getElementById('lien-url').select();
+    toast('Lien créé', 'ok');
+    chargerLiens();
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
+  finally { btn.disabled = false; }
+}
+async function copierLien() {
+  const v = document.getElementById('lien-url').value;
+  try { await navigator.clipboard.writeText(v); toast('Lien copié', 'ok'); }
+  catch (_) { document.getElementById('lien-url').select(); document.execCommand('copy'); toast('Lien copié', 'ok'); }
+}
+async function supprimerLien(jeton) {
+  if (!confirm('Révoquer ce lien ? Il ne fonctionnera plus.')) return;
+  try {
+    const r = await apiFetch('/api/fchier/lien_supprimer', { jeton });
+    if (!r.success) throw new Error(r.error);
+    toast('Lien révoqué', 'ok'); chargerLiens();
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
+}
+
+// ── Favoris
+async function basculerFavori(type, id, favori) {
+  try {
+    const r = await apiFetch('/api/fchier/favori', { item_type: type, item_id: Number(id), favori });
+    if (!r.success) throw new Error(r.error);
+    toast(favori ? 'Ajouté aux favoris' : 'Retiré des favoris', 'ok');
+    loadData();
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
+}
+
+// ── Export ZIP (déchiffré dans le navigateur : le serveur ne voit jamais
+// le contenu en clair). Archive "stockée" (sans compression : la plupart
+// des fichiers — photos, vidéos, PDF — sont déjà compressés).
+const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function creerZip(entrees) {
+  // entrees : [{ nom: 'dossier/fichier.txt', donnees: Uint8Array, date: Date }]
+  const enc = new TextEncoder(), parts = [], central = [];
+  let offset = 0;
+  for (const e of entrees) {
+    const nom = enc.encode(e.nom), d = e.donnees, crc = crc32(d);
+    const dt = e.date instanceof Date && !isNaN(e.date) ? e.date : new Date();
+    const heure = (dt.getHours() << 11) | (dt.getMinutes() << 5) | (dt.getSeconds() >> 1);
+    const jour = ((Math.max(1980, dt.getFullYear()) - 1980) << 9) | ((dt.getMonth() + 1) << 5) | dt.getDate();
+    const loc = new DataView(new ArrayBuffer(30));
+    loc.setUint32(0, 0x04034b50, true); loc.setUint16(4, 20, true); loc.setUint16(6, 0x0800, true); // UTF-8
+    loc.setUint16(8, 0, true); loc.setUint16(10, heure, true); loc.setUint16(12, jour, true);
+    loc.setUint32(14, crc, true); loc.setUint32(18, d.length, true); loc.setUint32(22, d.length, true);
+    loc.setUint16(26, nom.length, true); loc.setUint16(28, 0, true);
+    parts.push(new Uint8Array(loc.buffer), nom, d);
+    const cen = new DataView(new ArrayBuffer(46));
+    cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true); cen.setUint16(8, 0x0800, true);
+    cen.setUint16(10, 0, true); cen.setUint16(12, heure, true); cen.setUint16(14, jour, true);
+    cen.setUint32(16, crc, true); cen.setUint32(20, d.length, true); cen.setUint32(24, d.length, true);
+    cen.setUint16(28, nom.length, true); cen.setUint32(42, offset, true);
+    central.push(new Uint8Array(cen.buffer), nom);
+    offset += 30 + nom.length + d.length;
+  }
+  const tailleCentral = central.reduce((n, p) => n + p.length, 0);
+  const fin = new DataView(new ArrayBuffer(22));
+  fin.setUint32(0, 0x06054b50, true); fin.setUint16(8, entrees.length, true); fin.setUint16(10, entrees.length, true);
+  fin.setUint32(12, tailleCentral, true); fin.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, new Uint8Array(fin.buffer)], { type: 'application/zip' });
+}
+function nomZipSur(n) { return String(n || 'sans-nom').replace(/[\\/:*?"<>|]/g, '_').replace(/^\.+$/, '_'); }
+async function exporterZip(dossierId, nomDossier) {
+  if (!requireCryptoSession()) return;
+  toast('Préparation de l\'archive…', 'info');
+  try {
+    // Parcours de l'arborescence : un appel /data par dossier.
+    const aFaire = [{ id: dossierId, chemin: '' }], fichiers = [];
+    const vus = new Set();
+    while (aFaire.length) {
+      const { id, chemin } = aFaire.shift();
+      if (vus.has(id)) continue; vus.add(id);
+      const r = await vexFetch(`/api/fchier/data?dossier=${id}&shared=0`, { credentials:'include' });
+      const d = await r.json();
+      for (const f of (d.fichiers || [])) fichiers.push({ item: f, chemin: chemin + nomZipSur(f.nom) });
+      for (const sd of (d.dossiers || [])) aFaire.push({ id: sd.id, chemin: chemin + nomZipSur(sd.nom) + '/' });
+    }
+    if (!fichiers.length) { toast('Aucun fichier à exporter.', 'info'); return; }
+    const total = fichiers.reduce((n, f) => n + (Number(f.item.taille) || 0), 0);
+    if (total > 1024 * 1024 * 1024 && !confirm(`L'archive fera environ ${formatSize(total)} et sera construite en mémoire. Continuer ?`)) return;
+    const entrees = [], dejaPris = new Set();
+    let i = 0;
+    for (const f of fichiers) {
+      i++;
+      toast(`Déchiffrement ${i}/${fichiers.length} : ${f.item.nom}`, 'info', 1500);
+      let nom = f.chemin, k = 1;
+      while (dejaPris.has(nom)) { const p = f.chemin.lastIndexOf('.'); nom = p > f.chemin.lastIndexOf('/') ? `${f.chemin.slice(0, p)} (${k})${f.chemin.slice(p)}` : `${f.chemin} (${k})`; k++; }
+      dejaPris.add(nom);
+      const { blob } = await recupererFichierClair(f.item);
+      entrees.push({ nom, donnees: new Uint8Array(await blob.arrayBuffer()), date: new Date(String(f.item.date || '').replace(' ', 'T')) });
+    }
+    const zip = creerZip(entrees);
+    const url = URL.createObjectURL(zip);
+    const a = document.createElement('a');
+    a.href = url; a.download = nomZipSur(nomDossier) + '.zip';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 2000);
+    toast(`Archive prête : ${fichiers.length} fichier(s)`, 'ok');
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
+}
+
+// ── Corbeille (fichiers/dossiers supprimés, restaurables 30 jours)
+async function openCorbeille() {
+  openModal('corbeilleModal');
+  await chargerCorbeille();
+}
+async function chargerCorbeille() {
+  const box = document.getElementById('corbeille-liste');
+  box.innerHTML = '<div class="empty-state"><div class="spinner" style="margin:0 auto;"></div></div>';
+  try {
+    const r = await vexFetch('/api/fchier/corbeille_liste');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    const items = d.items || [];
+    document.getElementById('corbeille-info').textContent =
+      `Les éléments sont supprimés définitivement après ${d.jours || 30} jours. Un dossier restauré revient avec tout son contenu.`;
+    document.getElementById('corbeille-vider').disabled = !items.length;
+    if (!items.length) {
+      box.innerHTML = '<div class="empty-state"><p>La corbeille est vide.</p></div>';
+      return;
+    }
+    box.innerHTML = items.map(it => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px solid var(--border)">
+        <img class="ico ico-18 ico-muted" src="/static/img/solid/${it.type === 'folder' ? 'folder' : 'file'}.svg" alt="">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(it.nom || '—')}</div>
+          <div style="font-size:.75rem;color:var(--text-m)">${it.taille ? formatSize(it.taille) + ' · ' : ''}supprimé le ${escHtml(String(it.supprime_le || '').slice(0, 16))} · encore ${Number(it.jours_restants)} j</div>
+        </div>
+        <button class="btn btn-secondary" onclick="restaurerCorbeille(${Number(it.id)})" title="Restaurer">
+          <img class="ico ico-sm" src="/static/img/solid/trash-arrow-up.svg" alt=""> Restaurer
+        </button>
+        <button class="btn btn-secondary" style="color:var(--danger)" onclick="purgerCorbeille(${Number(it.id)})" title="Supprimer définitivement" aria-label="Supprimer définitivement">
+          <img class="ico ico-sm" src="/static/img/solid/trash.svg" alt="">
+        </button>
+      </div>`).join('');
+  } catch(e) {
+    box.innerHTML = `<div class="empty-state"><p style="color:var(--danger);">${I18N.ERREUR_PREFIX}${escHtml(e.message)}</p></div>`;
+  }
+}
+async function restaurerCorbeille(id) {
+  try {
+    const r = await apiFetch('/api/fchier/corbeille_restaurer', { id });
+    if (!r.success) throw new Error(r.error);
+    toast('Élément restauré', 'ok'); chargerCorbeille(); loadData();
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
+}
+async function purgerCorbeille(id) {
+  if (!confirm('Supprimer définitivement cet élément ? Cette action est irréversible.')) return;
+  try {
+    const r = await apiFetch('/api/fchier/corbeille_supprimer', { id });
+    if (!r.success) throw new Error(r.error);
+    toast('Supprimé définitivement', 'ok'); chargerCorbeille();
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
+}
+async function viderCorbeille() {
+  if (!confirm('Vider la corbeille ? Tous les éléments seront supprimés définitivement.')) return;
+  try {
+    const r = await apiFetch('/api/fchier/corbeille_vider', {});
+    if (!r.success) throw new Error(r.error);
+    toast('Corbeille vidée', 'ok'); chargerCorbeille();
   } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
 }
 
@@ -2128,12 +2578,23 @@ function openCtx(e, type, id, item) {
   document.getElementById('ctx-visibility').style.display = (type === 'page' || type === 'file') ? 'flex' : 'none';
   document.getElementById('ctx-move').style.display       = (type === 'folder' || type === 'page' || type === 'file') ? 'flex' : 'none';
   document.getElementById('ctx-share').style.display      = type === 'file' || type === 'folder' ? 'flex' : 'none';
+  document.getElementById('ctx-lien').style.display       = type === 'file' ? 'flex' : 'none';
+  document.getElementById('ctx-favori').style.display     = (type === 'file' || type === 'folder') && item.is_owner !== false ? 'flex' : 'none';
+  document.getElementById('ctx-favori-label').textContent = item.favori ? 'Retirer des favoris' : 'Ajouter aux favoris';
+  document.getElementById('ctx-zip').style.display        = type === 'folder' ? 'flex' : 'none';
+  document.getElementById('ctx-apercu').style.display     = (type === 'file' && typeApercu(item.nom || '')) ? 'flex' : 'none';
   document.getElementById('ctx-sendp2p').style.display    = type === 'file'   ? 'flex' : 'none';
   const menu = document.getElementById('contextMenu');
   menu.classList.add('show');
+  // Position selon la taille REELLE du menu (elle varie selon le type
+  // d'element) : il reste toujours entierement visible, avec defilement
+  // si l'ecran est trop petit.
+  menu.style.maxHeight = (window.innerHeight - 16) + 'px';
+  menu.style.overflowY = 'auto';
+  const w = menu.offsetWidth || 210, h = menu.offsetHeight || 280;
   let x = e.clientX, y = e.clientY;
-  if (x + 210 > window.innerWidth)  x = window.innerWidth  - 220;
-  if (y + 280 > window.innerHeight) y = window.innerHeight - 290;
+  if (x + w + 8 > window.innerWidth)  x = Math.max(8, window.innerWidth  - w - 8);
+  if (y + h + 8 > window.innerHeight) y = Math.max(8, window.innerHeight - h - 8);
   menu.style.left = x + 'px'; menu.style.top = y + 'px';
 }
 // Alias pour compatibilité inline HTML
@@ -2153,6 +2614,10 @@ function handleAction(action) {
   else if (action === 'edit_office' && type === 'file')   { ouvrirOnlyOffice(item); }
   else if (action === 'rename')     { document.getElementById('rename-input').value = name; openModal('renameModal'); }
   else if (action === 'share')      { document.getElementById('share-ids').value = item.partage || ''; openModal('shareModal'); }
+  else if (action === 'lien'        && type === 'file')   { ouvrirLien(item); }
+  else if (action === 'apercu'      && type === 'file')   { apercu(item); }
+  else if (action === 'favori')     { basculerFavori(type, id, !item.favori); }
+  else if (action === 'zip'         && type === 'folder') { exporterZip(id, item.nom || 'dossier'); }
   else if (action === 'send_p2p')   { document.getElementById('p2p-to-user').value=''; openModal('p2pModal'); }
   else if (action === 'visibility') { document.getElementById('visibility-value').value = item.visble || item.prob || '1'; openModal('visibilityModal'); }
   else if (action === 'move')       { openModal('moveModal'); }

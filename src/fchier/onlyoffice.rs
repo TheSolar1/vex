@@ -76,8 +76,7 @@ fn json_response(code: u16, v: Value) -> Response<std::io::Cursor<Vec<u8>>> {
 }
 
 fn lire_body(req: &mut Request) -> Option<Value> {
-    let mut s = String::new();
-    std::io::Read::read_to_string(req.as_reader(), &mut s).ok()?;
+    let s = crate::utils::lire_corps(req, crate::utils::CORPS_MAX_UPLOAD)?;
     serde_json::from_str(&s).ok()
 }
 

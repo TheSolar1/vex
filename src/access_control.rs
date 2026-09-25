@@ -88,7 +88,7 @@ pub fn respond_403(request: tiny_http::Request, message: &str) {
 </div></body></html>"#,
         message
     );
-    let _ = request.respond(
+    let _ = crate::utils::envoyer(request, 
         tiny_http::Response::from_string(html)
             .with_status_code(403)
             .with_header(
@@ -235,18 +235,18 @@ pub fn servir_extension(
     let id = extension_id_depuis_path(path);
 
     if !config.extensions.enabled {
-        let _ = request.respond(ext_refus(path, 503, "Les extensions sont désactivées."));
+        let _ = crate::utils::envoyer(request, ext_refus(path, 503, "Les extensions sont désactivées."));
         return;
     }
     if id.is_empty() {
-        let _ = request.respond(ext_refus(path, 404, "Extension non spécifiée."));
+        let _ = crate::utils::envoyer(request, ext_refus(path, 404, "Extension non spécifiée."));
         return;
     }
 
     let entree = match config.extensions.extension_params.get(&id) {
         Some(e) => e.clone(),
         None => {
-            let _ = request.respond(ext_refus(
+            let _ = crate::utils::envoyer(request, ext_refus(
                 path,
                 404,
                 &format!("Extension « {} » inconnue.", id),
@@ -260,7 +260,7 @@ pub fn servir_extension(
         .and_then(|v| v.as_bool())
         .unwrap_or(false)
     {
-        let _ = request.respond(ext_refus(
+        let _ = crate::utils::envoyer(request, ext_refus(
             path,
             503,
             &format!("Extension « {} » désactivée.", id),
@@ -273,7 +273,7 @@ pub fn servir_extension(
         Some(s) => s,
         None => {
             if path.starts_with("/api/") {
-                let _ = request.respond(ext_refus(path, 401, "Non connecté."));
+                let _ = crate::utils::envoyer(request, ext_refus(path, 401, "Non connecté."));
             } else {
                 redirect_to_login(request);
             }
@@ -287,7 +287,7 @@ pub fn servir_extension(
         .and_then(|v| v.as_i64())
         .unwrap_or(10);
     if session.user_privilege > privilege_min {
-        let _ = request.respond(ext_refus(
+        let _ = crate::utils::envoyer(request, ext_refus(
             path,
             403,
             "Privilège insuffisant pour cette extension.",
@@ -306,7 +306,7 @@ pub fn servir_extension(
         })
         .unwrap_or_default();
     if config.plans.enforce_plan_restrictions && !plan_autorise(&plans, session.user_vip) {
-        let _ = request.respond(ext_refus(
+        let _ = crate::utils::envoyer(request, ext_refus(
             path,
             403,
             "Votre plan ne donne pas accès à cette extension.",
@@ -316,13 +316,13 @@ pub fn servir_extension(
 
     // ── Blocage bloqpage ──────────────────────────────────────────
     if verifier_blocage(pool, session.user_id, session.user_privilege, path) {
-        let _ = request.respond(ext_refus(path, 403, "Accès refusé pour ce compte."));
+        let _ = crate::utils::envoyer(request, ext_refus(path, 403, "Accès refusé pour ce compte."));
         return;
     }
 
     // ── Dispatch vers le code compilé ─────────────────────────────
     if let Some(resp) = crate::extensions::dispatch(&id, pool, &session, &mut request) {
-        let _ = request.respond(resp);
+        let _ = crate::utils::envoyer(request, resp);
         return;
     }
 
@@ -331,11 +331,11 @@ pub fn servir_extension(
     // static/extensions/<id>/ pour qu'elle soit utilisable tout de
     // suite, sans attendre une recompilation.
     if let Some(resp) = servir_statique_extension_habillee(pool, &session, &request, &id, path) {
-        let _ = request.respond(resp);
+        let _ = crate::utils::envoyer(request, resp);
         return;
     }
 
-    let _ = request.respond(ext_refus(
+    let _ = crate::utils::envoyer(request, ext_refus(
         path,
         501,
         &format!(
@@ -417,7 +417,7 @@ fn servir_statique_extension_habillee(
     }
     let brut = String::from_utf8_lossy(&donnees).to_string();
     let prefs = crate::function::get_user_preferences(pool, session.user_id);
-    let theme = if prefs.teme == 1 { "dark" } else { "light" };
+    let theme = crate::function::theme_depuis_teme(prefs.teme);
     let nav = nav_extension(pool, session, request, id);
     let html = habiller_page(&brut, &nav, theme, &prefs.langue);
     Some(

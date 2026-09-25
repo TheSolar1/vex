@@ -29,7 +29,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, _
         let langue = crate::function::get_user_language(pool, None, None, Some(&accept_lang));
         let body = read_body(&mut request);
         let resp = handle_post(pool, &body, &langue);
-        let _ = request.respond(
+        let _ = crate::utils::envoyer(request, 
             Response::from_string(resp).with_header(
                 tiny_http::Header::from_bytes("Content-Type", "application/json; charset=utf-8")
                     .unwrap(),
@@ -49,7 +49,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, _
             format!("<h1>Erreur</h1><p>Fichier introuvable : {}</p>", HTML_PATH)
         }
     };
-    let _ = request.respond(Response::from_string(html).with_header(
+    let _ = crate::utils::envoyer(request, Response::from_string(html).with_header(
         tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap(),
     ));
 }
@@ -171,8 +171,7 @@ fn jerr(msg: &str) -> String {
 }
 
 fn read_body(req: &mut Request) -> HashMap<String, String> {
-    let mut s = String::new();
-    let _ = std::io::Read::read_to_string(req.as_reader(), &mut s);
+    let s = crate::utils::lire_corps(req, crate::utils::CORPS_MAX_DEFAUT).unwrap_or_default();
     let mut m = HashMap::new();
     for pair in s.split('&') {
         let mut kv = pair.splitn(2, '=');

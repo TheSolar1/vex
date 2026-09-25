@@ -463,7 +463,7 @@ fn handle_srp_step2(
     }))
     .unwrap_or_default();
 
-    let _ = request.respond(
+    let _ = crate::utils::envoyer(request, 
         Response::from_string(body_json)
             .with_header(
                 tiny_http::Header::from_bytes("Content-Type", "application/json; charset=utf-8").unwrap(),
@@ -894,7 +894,8 @@ fn serve_login_html(request: Request, pool: &DbPool, accept_lang: &str) {
             // Pas de session avant connexion → thème par défaut "light".
             // (Si tu veux respecter un thème mémorisé pré-connexion, il
             // faudrait un cookie non-HttpOnly dédié — hors scope ici.)
-            let html = html.replace("{{THEME}}", "light");
+            // Pas de session : le theme suit le reglage de l'appareil.
+            let html = html.replace("{{THEME}}", "auto");
 
             let html = appliquer_traductions(
                 &html,
@@ -940,12 +941,12 @@ fn serve_login_html(request: Request, pool: &DbPool, accept_lang: &str) {
             );
             let html = html.replace("{{I18N_JS}}", &i18n_js);
 
-            let _ = request.respond(Response::from_string(html).with_header(
+            let _ = crate::utils::envoyer(request, Response::from_string(html).with_header(
                 tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap(),
             ));
         }
         Err(_) => {
-            let _ = request.respond(
+            let _ = crate::utils::envoyer(request, 
                 Response::from_string(format!("Fichier introuvable : {}", path)).with_status_code(500),
             );
         }
@@ -953,7 +954,7 @@ fn serve_login_html(request: Request, pool: &DbPool, accept_lang: &str) {
 }
 
 fn respond_json(request: Request, body: serde_json::Value, status: u16) {
-    let _ = request.respond(
+    let _ = crate::utils::envoyer(request, 
         Response::from_string(body.to_string())
             .with_status_code(status)
             .with_header(
@@ -984,8 +985,7 @@ fn html_escape(s: &str) -> String {
 }
 
 fn read_body(request: &mut Request) -> HashMap<String, String> {
-    let mut body = String::new();
-    let _ = std::io::Read::read_to_string(request.as_reader(), &mut body);
+    let body = crate::utils::lire_corps(request, crate::utils::CORPS_MAX_DEFAUT).unwrap_or_default();
     let mut map = HashMap::new();
     for pair in body.split('&') {
         let mut kv = pair.splitn(2, '=');

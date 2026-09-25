@@ -801,7 +801,7 @@ pub fn handle_request(request: Request, pool: &DbPool, _config: &VexConfig, remo
         .to_string();
 
     let prefs = get_user_preferences(pool, user_id);
-    let theme = if prefs.teme == 1 { "dark" } else { "light" };
+    let theme = crate::function::theme_depuis_teme(prefs.teme);
     let langue = crate::function::get_user_language(pool, Some(user_id), None, None);
 
     // ── Tuiles publiees par les extensions ────────────────────────
@@ -831,7 +831,7 @@ pub fn handle_request(request: Request, pool: &DbPool, _config: &VexConfig, remo
         } else {
             serde_json::json!({"success": false, "error": "Non autorise"})
         };
-        let _ = request.respond(
+        let _ = crate::utils::envoyer(request, 
             Response::from_string(corps.to_string()).with_header(
                 tiny_http::Header::from_bytes("Content-Type", "application/json; charset=utf-8")
                     .unwrap(),
@@ -859,7 +859,7 @@ pub fn handle_request(request: Request, pool: &DbPool, _config: &VexConfig, remo
         Ok(t) => t,
         Err(e) => {
             eprintln!("[dashboard] template introuvable: {}", e);
-            let _ = request.respond(
+            let _ = crate::utils::envoyer(request, 
                 Response::from_string("Erreur interne : dashboard.html introuvable")
                     .with_status_code(500),
             );
@@ -913,7 +913,7 @@ pub fn handle_request(request: Request, pool: &DbPool, _config: &VexConfig, remo
         .replace("{{SITEC_STATS}}", &build_sitec_stats(pool, user_id, &langue))
         .replace("{{SITEC_SITES}}", &build_sitec_sites(pool, user_id, &langue));
 
-    let _ = request.respond(
+    let _ = crate::utils::envoyer(request, 
         Response::from_string(html)
             .with_status_code(200)
             .with_header(

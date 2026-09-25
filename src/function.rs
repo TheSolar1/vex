@@ -203,9 +203,21 @@ pub fn toggle_user_theme(pool: &DbPool, user_id: i64) -> Option<i64> {
     if ok { Some(new_theme) } else { None }
 }
 
+/// Valeur `teme` du theme "Automatique" (suit le reglage clair/sombre de
+/// l'appareil). 2 et 3 sont deja pris cote client (solarized, rose).
+pub const TEME_AUTO: i64 = 4;
+
 pub fn get_theme_attr(pool: &DbPool, user_id: i64) -> &'static str {
-    let prefs = get_user_preferences(pool, user_id);
-    if prefs.teme == 1 { "dark" } else { "light" }
+    theme_depuis_teme(get_user_preferences(pool, user_id).teme)
+}
+
+/// "light" | "dark" | "auto" depuis la valeur `teme` des preferences.
+pub fn theme_depuis_teme(teme: i64) -> &'static str {
+    match teme {
+        1 => "dark",
+        TEME_AUTO => "auto",
+        _ => "light",
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -954,6 +966,7 @@ pub fn build_nav_html(ctx: &NavContext) -> String {
         </div>\
         {profile_menu_html}\
         {sidebar_html}\
+        <script src=\"/static/js/vex-ui.js\"></script>\
         {js}",
     )
 }
@@ -963,7 +976,7 @@ pub fn get_nav_data(ctx: &NavContext) -> Value {
     let resolved_uid = user_data.as_ref().and_then(|u| u.get("id").and_then(|v| v.as_i64()));
     let is_admin = user_data.as_ref().and_then(|u| u.get("privilege").and_then(|v| v.as_i64())).map(|p| p <= 6).unwrap_or(false);
     let theme = if let Some(uid) = resolved_uid {
-        if get_user_preferences(ctx.pool, uid).teme == 1 { "dark" } else { "light" }
+        theme_depuis_teme(get_user_preferences(ctx.pool, uid).teme)
     } else { "light" };
     let prefs = resolved_uid.map(|uid| get_user_preferences(ctx.pool, uid));
     let show_sidebar_btn = prefs.as_ref().map(|p| p.nav_button_style.get(ctx.page_key).and_then(|v| v.as_i64()).unwrap_or(0) != 0).unwrap_or(false);

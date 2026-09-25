@@ -106,6 +106,59 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
     )?;
 
+    // ── fchier_corbeille ──────────────────────────────────────────
+    // Fichiers/dossiers supprimes depuis ExoDrive : la ligne d'origine
+    // (fichiers ou sitecdos) est copiee ici en JSON puis retiree de sa
+    // table, et peut etre restauree telle quelle (meme id) pendant
+    // JOURS_CORBEILLE jours -- voir fchier/corbeille.rs.
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `fchier_corbeille` (
+            `id`             INT          NOT NULL AUTO_INCREMENT,
+            `id_utilisateur` INT          NOT NULL,
+            `item_type`      VARCHAR(10)  NOT NULL,
+            `item_id`        BIGINT       NOT NULL,
+            `nom`            VARCHAR(255) NOT NULL,
+            `taille`         BIGINT       NOT NULL DEFAULT 0,
+            `donnees`        LONGTEXT     NOT NULL,
+            `supprime_le`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `idx_corbeille_user` (`id_utilisateur`, `supprime_le`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+    )?;
+
+    // ── fchier_liens ──────────────────────────────────────────────
+    // Liens de partage publics (voir fchier/liens.rs). `contenu` est une
+    // copie RECHIFFREE du fichier avec une cle qui n'est que dans le lien
+    // (fragment #...), jamais envoyee au serveur.
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `fchier_liens` (
+            `jeton`               CHAR(48)     NOT NULL,
+            `id_utilisateur`      INT          NOT NULL,
+            `id_fichier`          INT          NOT NULL,
+            `nom`                 VARCHAR(255) NOT NULL,
+            `mime`                VARCHAR(255) NOT NULL DEFAULT '',
+            `taille`              BIGINT       NOT NULL DEFAULT 0,
+            `contenu`             LONGTEXT     NOT NULL,
+            `mdp_hash`            VARCHAR(100) DEFAULT NULL,
+            `expire_le`           DATETIME     DEFAULT NULL,
+            `telechargements`     INT          NOT NULL DEFAULT 0,
+            `max_telechargements` INT          DEFAULT NULL,
+            `cree_le`             DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`jeton`),
+            KEY `idx_liens_user` (`id_utilisateur`, `id_fichier`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+    )?;
+
+    // ── fchier_favoris ────────────────────────────────────────────
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `fchier_favoris` (
+            `id_utilisateur` INT         NOT NULL,
+            `item_type`      VARCHAR(10) NOT NULL,
+            `item_id`        BIGINT      NOT NULL,
+            PRIMARY KEY (`id_utilisateur`, `item_type`, `item_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+    )?;
+
     // ── login ─────────────────────────────────────────────────────
     conn.query_drop(
         "CREATE TABLE IF NOT EXISTS `login` (
@@ -201,6 +254,23 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
     let _ = conn.query_drop(
         "ALTER TABLE `loginc` MODIFY `id` INT NOT NULL AUTO_INCREMENT"
     );
+
+    // ── Index de performance ──────────────────────────────────────
+    // PERF : la session est relue a CHAQUE requete par `loginc.idcokier`
+    // puis `login.email` -- sans index, MySQL parcourait toute la table a
+    // chaque fois. Idem pour la liste/quota des fichiers d'un utilisateur.
+    // "ADD INDEX" echoue simplement si l'index existe deja (erreur
+    // ignoree), ce qui rend ces migrations idempotentes sur MySQL et
+    // MariaDB.
+    for sql in [
+        "ALTER TABLE `loginc` ADD INDEX `idx_loginc_cookie` (`idcokier`)",
+        "ALTER TABLE `loginc` ADD INDEX `idx_loginc_email` (`email`)",
+        "ALTER TABLE `login` ADD INDEX `idx_login_email` (`email`)",
+        "ALTER TABLE `fichiers` ADD INDEX `idx_fichiers_user` (`id_utilisateur`)",
+        "ALTER TABLE `sitecdos` ADD INDEX `idx_sitecdos_user` (`userid`)",
+    ] {
+        let _ = conn.query_drop(sql);
+    }
 
     // ── p2p_messages ──────────────────────────────────────────────
     conn.query_drop(

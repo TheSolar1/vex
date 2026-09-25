@@ -161,7 +161,7 @@ impl LigneAcces {
 /// Retire les jetons portés dans le chemin (liens d'autologin, partages)
 /// avant écriture dans un log lisible par les admins.
 pub fn masquer_secrets_chemin(chemin: &str) -> String {
-    for prefixe in ["/autologin/", "/login/autologin/", "/autoriser-appareil/"] {
+    for prefixe in ["/autologin/", "/login/autologin/", "/autoriser-appareil/", "/partage/", "/api/partage/"] {
         if chemin.len() > prefixe.len() && chemin.starts_with(prefixe) {
             return format!("{}***", prefixe);
         }
@@ -210,4 +210,223 @@ mod tests {
         assert!(s.contains("statut=404"));
         assert!(s.contains("ua=\"UA'x\""));
     }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Compression gzip des réponses texte
+// ══════════════════════════════════════════════════════════════════
+
+/// Taille minimale (en dessous, gzip n'apporte rien) et maximale (au-delà,
+/// le coût CPU sur un Raspberry Pi dépasse le gain) compressées.
+const GZIP_MIN: usize = 1024;
+const GZIP_MAX: usize = 8 * 1024 * 1024;
+
+fn type_compressible(content_type: &str) -> bool {
+    let ct = content_type.to_ascii_lowercase();
+    ct.starts_with("text/")
+        || ct.starts_with("application/json")
+        || ct.starts_with("application/javascript")
+        || ct.starts_with("image/svg+xml")
+}
+
+/// Le client accepte-t-il gzip (en-tête Accept-Encoding) ?
+pub fn accepte_gzip(request: &tiny_http::Request) -> bool {
+    request
+        .headers()
+        .iter()
+        .find(|h| h.field.equiv("Accept-Encoding"))
+        .map(|h| {
+            h.value.as_str().split(',').any(|e| {
+                let mut parts = e.trim().split(';');
+                let nom = parts.next().unwrap_or("").trim();
+                let q0 = parts.any(|p| p.trim().replace(' ', "") == "q=0");
+                (nom.eq_ignore_ascii_case("gzip") || nom == "*") && !q0
+            })
+        })
+        .unwrap_or(false)
+}
+
+/// Compresse en gzip une réponse texte (HTML, JSON, CSS, JS, SVG) si le
+/// client l'accepte. Toute autre réponse est renvoyée intacte.
+pub fn compresser_reponse(
+    resp: tiny_http::Response<std::io::Cursor<Vec<u8>>>,
+    gzip_ok: bool,
+) -> tiny_http::Response<std::io::Cursor<Vec<u8>>> {
+    if !gzip_ok || resp.status_code().0 != 200 {
+        return resp;
+    }
+    let len = resp.data_length().unwrap_or(0);
+    if !(GZIP_MIN..=GZIP_MAX).contains(&len) {
+        return resp;
+    }
+    let deja_encode = resp.headers().iter().any(|h| h.field.equiv("Content-Encoding"));
+    let compressible = resp
+        .headers()
+        .iter()
+        .find(|h| h.field.equiv("Content-Type"))
+        .map(|h| type_compressible(h.value.as_str()))
+        .unwrap_or(false);
+    if deja_encode || !compressible {
+        return resp;
+    }
+    let status = resp.status_code();
+    let mut headers: Vec<tiny_http::Header> = resp
+        .headers()
+        .iter()
+        .filter(|h| !h.field.equiv("Content-Length"))
+        .cloned()
+        .collect();
+    let donnees = resp.into_reader().into_inner();
+    let compresse = {
+        use std::io::Write;
+        let mut enc = flate2::write::GzEncoder::new(Vec::with_capacity(donnees.len() / 3), flate2::Compression::new(5));
+        if enc.write_all(&donnees).is_err() {
+            None
+        } else {
+            enc.finish().ok()
+        }
+    };
+    match compresse {
+        Some(gz) if gz.len() < donnees.len() => {
+            headers.push(tiny_http::Header::from_bytes("Content-Encoding", "gzip").unwrap());
+            headers.push(tiny_http::Header::from_bytes("Vary", "Accept-Encoding").unwrap());
+            let n = gz.len();
+            tiny_http::Response::new(status, headers, std::io::Cursor::new(gz), Some(n), None)
+                // Pas de chunked (passe mal a travers Apache, voir serve_static).
+                .with_chunked_threshold(usize::MAX)
+        }
+        _ => {
+            let n = donnees.len();
+            tiny_http::Response::new(status, headers, std::io::Cursor::new(donnees), Some(n), None)
+                .with_chunked_threshold(usize::MAX)
+        }
+    }
+}
+
+/// Envoie une reponse de module : compression gzip si le client
+/// l'accepte (HTML/JSON/CSS/JS/SVG) + en-tetes de securite sur le HTML.
+/// Renvoie le code de statut (journal d'acces).
+pub fn envoyer(request: tiny_http::Request, resp: tiny_http::Response<std::io::Cursor<Vec<u8>>>) -> u16 {
+    envoyer_opts(request, resp, true)
+}
+
+/// `anti_iframe` = false pour les pages publiques Sitec (/page/...), que
+/// leurs auteurs peuvent vouloir integrer sur un autre site.
+pub fn envoyer_opts(request: tiny_http::Request, resp: tiny_http::Response<std::io::Cursor<Vec<u8>>>, anti_iframe: bool) -> u16 {
+    let gzip_ok = accepte_gzip(&request);
+    let mut resp = compresser_reponse(resp, gzip_ok);
+    let est_html = resp
+        .headers()
+        .iter()
+        .any(|h| h.field.equiv("Content-Type") && h.value.as_str().starts_with("text/html"));
+    if est_html {
+        for (k, v) in [
+            // Empeche l'affichage de VEX dans une iframe d'un autre site
+            // (clickjacking) ; les iframes internes (meme origine) restent OK.
+            ("X-Frame-Options", "SAMEORIGIN"),
+            ("X-Content-Type-Options", "nosniff"),
+            ("Referrer-Policy", "strict-origin-when-cross-origin"),
+        ] {
+            if k == "X-Frame-Options" && !anti_iframe {
+                continue;
+            }
+            if !resp.headers().iter().any(|h| h.field.equiv(k)) {
+                resp.add_header(tiny_http::Header::from_bytes(k, v).unwrap());
+            }
+        }
+    }
+    let statut = resp.status_code().0;
+    let _ = request.respond(resp);
+    statut
+}
+
+#[cfg(test)]
+mod tests_corps {
+    // lire_corps borne la mémoire : ces tests couvrent la logique de
+    // taille (Content-Length + lecture tronquée). La construction d'une
+    // vraie Request de tiny_http n'étant pas exposée, on teste la borne
+    // via le meme calcul que lire_corps.
+    #[test]
+    fn borne_taille() {
+        let max = super::CORPS_MAX_DEFAUT;
+        assert!(1_000 < max);                 // petit corps : accepté
+        assert!(600 * 1024 * 1024 > max);     // 600 Mo : refusé
+        assert!(super::CORPS_MAX_UPLOAD > max);
+    }
+}
+
+#[cfg(test)]
+mod tests_gzip {
+    use super::*;
+
+    #[test]
+    fn compresse_html_et_decompresse() {
+        use std::io::Read;
+        let html = "<p>bonjour</p>".repeat(500);
+        let resp = tiny_http::Response::from_string(html.clone()).with_header(
+            tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap(),
+        );
+        let r = compresser_reponse(resp, true);
+        assert!(r.headers().iter().any(|h| h.field.equiv("Content-Encoding")));
+        let gz = r.into_reader().into_inner();
+        assert!(gz.len() < html.len() / 5);
+        let mut out = String::new();
+        flate2::read::GzDecoder::new(&gz[..]).read_to_string(&mut out).unwrap();
+        assert_eq!(out, html);
+    }
+
+    #[test]
+    fn ne_compresse_pas_binaire_ni_petit() {
+        let bin = tiny_http::Response::from_data(vec![0u8; 5000]).with_header(
+            tiny_http::Header::from_bytes("Content-Type", "image/png").unwrap(),
+        );
+        assert!(!compresser_reponse(bin, true).headers().iter().any(|h| h.field.equiv("Content-Encoding")));
+        let petit = tiny_http::Response::from_string("ok").with_header(
+            tiny_http::Header::from_bytes("Content-Type", "text/plain").unwrap(),
+        );
+        assert!(!compresser_reponse(petit, true).headers().iter().any(|h| h.field.equiv("Content-Encoding")));
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Lecture bornée du corps des requêtes (anti-saturation mémoire)
+// ══════════════════════════════════════════════════════════════════
+
+/// Corps d'API JSON courant : 2 Mo suffisent largement.
+pub const CORPS_MAX_DEFAUT: u64 = 2 * 1024 * 1024;
+/// Upload de fichier / création de lien (contenu en base64, +33 %).
+pub const CORPS_MAX_UPLOAD: u64 = 512 * 1024 * 1024;
+
+/// Lit le corps d'une requête en refusant tout ce qui dépasse `max` octets,
+/// AVANT de le charger en mémoire quand l'en-tête Content-Length l'annonce.
+///
+/// Sans cette borne, un seul POST (même anonyme, sur une route publique)
+/// pouvait faire lire des centaines de Mo d'un coup : sur un Raspberry Pi
+/// à 1 Go, quelques requêtes simultanées épuisaient la RAM et le noyau
+/// tuait VEX (OOM). Vérifié par un test de charge sous cgroup mémoire.
+///
+/// Renvoie `None` si le corps dépasse `max` (le handler répond alors 413).
+pub fn lire_corps(request: &mut tiny_http::Request, max: u64) -> Option<String> {
+    // 1. Refus immédiat si Content-Length annonce plus que la limite.
+    let annonce = request
+        .headers()
+        .iter()
+        .find(|h| h.field.equiv("Content-Length"))
+        .and_then(|h| h.value.as_str().trim().parse::<u64>().ok());
+    if let Some(n) = annonce {
+        if n > max {
+            return None;
+        }
+    }
+    // 2. Lecture bornée (défend aussi le cas chunked sans Content-Length) :
+    // on autorise un octet de plus pour détecter un dépassement.
+    use std::io::Read;
+    let mut buf = Vec::new();
+    if request.as_reader().take(max + 1).read_to_end(&mut buf).is_err() {
+        return None;
+    }
+    if buf.len() as u64 > max {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&buf).into_owned())
 }

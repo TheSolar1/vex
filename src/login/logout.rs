@@ -67,7 +67,7 @@ pub fn handle_request(request: Request, pool: &DbPool, remote_full: &str) {
     if method == "POST" {
         // Appel API (ex: bouton logout JS) → JSON + cookie expiré
         let body = r#"{"success":true,"redirect":"/login/login"}"#;
-        let _ = request.respond(
+        let _ = crate::utils::envoyer(request, 
             Response::from_string(body)
                 .with_status_code(200)
                 .with_header(
@@ -83,7 +83,7 @@ pub fn handle_request(request: Request, pool: &DbPool, remote_full: &str) {
         // GET → sert la page HTML statique (affiche "déconnexion…" puis redirige)
         match std::fs::read_to_string("static/login/logout.html") {
             Ok(html) => {
-                let _ = request.respond(
+                let _ = crate::utils::envoyer(request, 
                     Response::from_string(html)
                         .with_status_code(200)
                         .with_header(
@@ -125,7 +125,7 @@ fn redirect(request: Request, location: &str) {
 
 fn respond_json_redirect(request: Request, location: &str) {
     let body = format!(r#"{{"success":false,"redirect":"{}"}}"#, location);
-    let _ = request.respond(
+    let _ = crate::utils::envoyer(request, 
         Response::from_string(body)
             .with_status_code(200)
             .with_header(

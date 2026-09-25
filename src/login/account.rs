@@ -861,12 +861,12 @@ fn serve_html_with_nav(request: Request, path: &str, nav_html: &str, theme: &str
                 ("UTILISATEUR_DEFAUT", Cle::AdmLogsUtilisateur),
             ]);
             let html = html.replacen("{{I18N_JS}}", &i18n_js, 1);
-            let _ = request.respond(Response::from_string(html).with_header(
+            let _ = crate::utils::envoyer(request, Response::from_string(html).with_header(
                 tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap(),
             ));
         }
         Err(_) => {
-            let _ = request.respond(
+            let _ = crate::utils::envoyer(request, 
                 Response::from_string(format!("Fichier introuvable : {}", path))
                     .with_status_code(500),
             );
@@ -875,7 +875,7 @@ fn serve_html_with_nav(request: Request, path: &str, nav_html: &str, theme: &str
 }
 
 fn respond_json(request: Request, body: Value, status: u16) {
-    let _ = request.respond(
+    let _ = crate::utils::envoyer(request, 
         Response::from_string(body.to_string())
             .with_status_code(status)
             .with_header(
@@ -945,8 +945,7 @@ fn hash_autologin_token(token: &str, server_secret: &str) -> String {
 }
 
 fn read_body(request: &mut Request) -> HashMap<String, String> {
-    let mut body = String::new();
-    let _ = std::io::Read::read_to_string(request.as_reader(), &mut body);
+    let body = crate::utils::lire_corps(request, crate::utils::CORPS_MAX_DEFAUT).unwrap_or_default();
     let mut map = HashMap::new();
     for pair in body.split('&') {
         let mut kv = pair.splitn(2, '=');

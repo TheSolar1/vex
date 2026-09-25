@@ -85,7 +85,7 @@ const PREFIXE_DISQUE: &str = "DISK:";
 /// Choisit, parmi tous les dossiers de stockage configures (un ou
 /// plusieurs disques, pas de limite), celui avec le plus d'espace libre
 /// -- repartit naturellement la charge sans configuration supplementaire.
-fn stockage_disque_config() -> Option<std::path::PathBuf> {
+pub(super) fn stockage_disque_config() -> Option<std::path::PathBuf> {
     let cfg = load_config("config.json");
     let dirs: Vec<&String> = cfg.storage.disk_dirs.iter().filter(|d| !d.trim().is_empty()).collect();
     if dirs.is_empty() {
@@ -112,7 +112,7 @@ fn espace_libre_bytes(dir: &str) -> u64 {
     0
 }
 
-fn ecrire_sur_disque(dossier: &std::path::Path, contenu: &[u8]) -> Option<String> {
+pub(super) fn ecrire_sur_disque(dossier: &std::path::Path, contenu: &[u8]) -> Option<String> {
     if std::fs::create_dir_all(dossier).is_err() {
         return None;
     }
@@ -121,7 +121,7 @@ fn ecrire_sur_disque(dossier: &std::path::Path, contenu: &[u8]) -> Option<String
     Some(format!("{}{}", PREFIXE_DISQUE, chemin.to_string_lossy()))
 }
 
-fn lire_contenu_b64(valeur: &str) -> Result<String, String> {
+pub(super) fn lire_contenu_b64(valeur: &str) -> Result<String, String> {
     match valeur.strip_prefix(PREFIXE_DISQUE) {
         Some(chemin) => std::fs::read(chemin)
             .map(|bytes| B64.encode(bytes))
@@ -130,13 +130,13 @@ fn lire_contenu_b64(valeur: &str) -> Result<String, String> {
     }
 }
 
-fn json_response(status: u16, body: Value) -> Response<std::io::Cursor<Vec<u8>>> {
+pub(super) fn json_response(status: u16, body: Value) -> Response<std::io::Cursor<Vec<u8>>> {
     Response::from_data(body.to_string().into_bytes())
         .with_status_code(status)
         .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
 }
 
-fn html_response(html: String) -> Response<std::io::Cursor<Vec<u8>>> {
+pub(super) fn html_response(html: String) -> Response<std::io::Cursor<Vec<u8>>> {
     Response::from_data(html.into_bytes())
         .with_status_code(200)
         .with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap())
@@ -179,13 +179,22 @@ fn urlencoding_decode(s: &str) -> String {
 }
 
 fn read_body(req: &mut Request) -> String {
-    let mut body = String::new();
-    let _ = std::io::Read::read_to_string(req.as_reader(), &mut body);
-    body
+    crate::utils::lire_corps(req, crate::utils::CORPS_MAX_DEFAUT).unwrap_or_default()
 }
 
-fn parse_json_body(req: &mut Request) -> Option<Value> {
+/// Corps volumineux autorisé (upload de fichier, création de lien de
+/// partage : contenu en base64). Renvoie None si la limite est dépassée.
+pub(super) fn read_body_upload(req: &mut Request) -> Option<String> {
+    crate::utils::lire_corps(req, crate::utils::CORPS_MAX_UPLOAD)
+}
+
+pub(super) fn parse_json_body(req: &mut Request) -> Option<Value> {
     serde_json::from_str(&read_body(req)).ok()
+}
+
+/// parse_json_body pour les corps volumineux (upload, lien de partage).
+pub(super) fn parse_json_body_upload(req: &mut Request) -> Option<Value> {
+    read_body_upload(req).and_then(|b| serde_json::from_str(&b).ok())
 }
 
 fn urlenc_simple(s: &str) -> String {
@@ -359,6 +368,14 @@ fn send_file_via_p2p(pool: &DbPool, file_path: &str, file_name: &str, to_user: i
 }
 /// Renvoie true si uid est dans la liste de partage ET que la liste n'est pas vide.
 /// Format : "id:permission,id2:permission2" ou "id,id2"
+/// Identifiant stocke en VARCHAR (sitecdos.userid, fichiers.id_utilisateur) :
+/// la base le renvoie en chaine, `as_i64()` seul echouait -> -1, et
+/// `is_owner` etait faux pour TOUS les dossiers/fichiers.
+fn id_json(v: Option<&Value>) -> i64 {
+    v.and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.trim().parse::<i64>().ok())))
+        .unwrap_or(-1)
+}
+
 fn is_shared_with(partage: &str, uid: i64) -> bool {
     let p = partage.trim();
     if p.is_empty() {
@@ -451,6 +468,7 @@ pub fn handle(pool: &DbPool, req: &mut Request) -> Response<std::io::Cursor<Vec<
         let mutante = matches!(
             action,
             "upload" | "create_folder" | "rename" | "delete" | "move" | "edit_content" | "onlyoffice/finish"
+                | "corbeille_restaurer"
         );
         let reponse = match action {
             "data" => api_data(pool, req, uid),
@@ -463,6 +481,13 @@ pub fn handle(pool: &DbPool, req: &mut Request) -> Response<std::io::Cursor<Vec<
             "change_visibility" => api_change_visibility(pool, req, uid),
             "rename" => api_rename(pool, req, uid),
             "delete" => api_delete(pool, req, uid),
+            "favori" => api_favori(pool, req, uid),
+            "lien_creer" => super::liens::api_creer(pool, req, uid),
+            "liens" => super::liens::api_lister(pool, req, uid),
+            "lien_supprimer" => super::liens::api_supprimer(pool, req, uid),
+            "corbeille_liste" | "corbeille_restaurer" | "corbeille_supprimer" | "corbeille_vider" => {
+                api_corbeille(pool, req, uid, action)
+            }
             "move" => api_move(pool, req, uid),
             "download" => api_download(pool, req, uid),
             "edit_content" => api_edit_content(pool, req, uid),
@@ -612,6 +637,12 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
         .get("shared")
         .and_then(|v| v.parse::<i64>().ok())
         .unwrap_or(0);
+    // Vues transversales (ignorent le dossier courant) : "recents" (fichiers
+    // de l'utilisateur, du plus recent au plus ancien) et "favoris".
+    let vue = params.get("vue").map(|v| v.as_str()).unwrap_or("");
+    let vue = if shared == 0 && (vue == "recents" || vue == "favoris") { vue } else { "" };
+    let favoris = favoris_utilisateur(pool, uid);
+    let est_favori = |t: &str, id: i64| favoris.contains(&(t.to_string(), id));
 
     // ── Dossiers
     let uid_val_dos = mysql::Value::from(uid);
@@ -632,7 +663,7 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
     let mes_dossiers: Vec<Value> = all_dos
         .into_iter()
         .filter_map(|row| {
-            let owner = row.get("userid").and_then(|v| v.as_i64()).unwrap_or(-1);
+            let owner = id_json(row.get("userid"));
             let addpage = row
                 .get("addpageuserid")
                 .and_then(|v| v.as_str())
@@ -652,8 +683,16 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
                     return None;
                 }
             }
+            let folder_id_vue = row.get("iddosier").and_then(|v| v.as_i64()).unwrap_or(0);
+            if vue == "recents" {
+                return None;
+            }
+            if vue == "favoris" {
+                if !est_favori("folder", folder_id_vue) {
+                    return None;
+                }
             // Filtrage par niveau
-            if dossier == 0 {
+            } else if dossier == 0 {
                 if idpage.contains("dos:") {
                     return None;
                 }
@@ -687,6 +726,7 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
                 "partage":   partage_affiche,
                 "owner_id":  owner,
                 "is_owner":  owner == uid,
+                "favori":    est_favori("folder", folder_id_vue),
             }))
         })
         .collect();
@@ -710,7 +750,7 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
     let mut file_parent: HashMap<i64, i64> = HashMap::new();
     let mut page_parent: HashMap<String, i64> = HashMap::new();
     for row in &all_folders_raw {
-        let owner = row.get("userid").and_then(|v| v.as_i64()).unwrap_or(-1);
+        let owner = id_json(row.get("userid"));
         let addpage = row
             .get("addpageuserid")
             .and_then(|v| v.as_str())
@@ -745,7 +785,10 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
     }
 
     // ── Fichiers
-    let uid_val_fich = mysql::Value::from(uid);
+    // En chaine : `id_utilisateur` est un VARCHAR -- comparer a un entier
+    // force MySQL a convertir chaque ligne et empeche l'usage de l'index
+    // idx_fichiers_user (voir db_init).
+    let uid_val_fich = mysql::Value::from(uid.to_string());
     let tuple_fich = ("id_utilisateur", uid_val_fich);
     let filter_fich: &[(&str, mysql::Value)] = if shared == 0 {
         std::slice::from_ref(&tuple_fich)
@@ -767,15 +810,16 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
             "id_utilisateur",
         ],
         Some("date DESC"),
-        Some(100),
+        // BUG corrige : il y avait Some(100) ici -- seuls les 100 fichiers
+        // les plus recents de TOUT le compte etaient lus, puis filtres par
+        // dossier : au-dela de 100 fichiers, un dossier ne contenant que
+        // des fichiers plus anciens apparaissait vide.
+        None,
     );
     let mes_fichiers: Vec<Value> = all_fich
         .into_iter()
         .filter_map(|row| {
-            let owner = row
-                .get("id_utilisateur")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(-1);
+            let owner = id_json(row.get("id_utilisateur"));
             let file_id = row.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
             let partage_raw = row
                 .get("partage")
@@ -794,8 +838,18 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
             // sous-dossiers juste au-dessus : un fichier sans entrée dans
             // file_parent est "à la racine").
             let file_folder = file_parent.get(&file_id).copied().unwrap_or(0);
-            if file_folder != dossier {
-                return None;
+            match vue {
+                "recents" => {}
+                "favoris" => {
+                    if !est_favori("file", file_id) {
+                        return None;
+                    }
+                }
+                _ => {
+                    if file_folder != dossier {
+                        return None;
+                    }
+                }
             }
 
             // N'affiche le badge partage que si des ids différents du propriétaire existent
@@ -826,9 +880,17 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
                 "partage":      partage_affiche,
                 "owner_id":     owner,
                 "is_owner":     owner == uid,
+                "favori":       est_favori("file", file_id),
+                "dossier_id":   file_folder,
             }))
         })
         .collect();
+    // Recents : les 50 derniers seulement (la liste est deja triee par date).
+    let mes_fichiers: Vec<Value> = if vue == "recents" {
+        mes_fichiers.into_iter().take(50).collect()
+    } else {
+        mes_fichiers
+    };
 
     // ── Pages (table sitec_pages — c'est celle que l'éditeur Sitec,
     // src/sitec/sitec.rs, lit et écrit réellement. La table "sitec" est
@@ -846,7 +908,7 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
         .filter_map(|row| {
             let page_id = row.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
             let page_folder = page_parent.get(&page_id).copied().unwrap_or(0);
-            if page_folder != dossier {
+            if !vue.is_empty() || page_folder != dossier {
                 return None;
             }
             let partage = row
@@ -880,7 +942,7 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
     let fichiers_uid = selectionner(
         pool,
         "fichiers",
-        &[("id_utilisateur", mysql::Value::from(uid))],
+        &[("id_utilisateur", mysql::Value::from(uid.to_string()))],
         &["taille"],
         None,
         None,
@@ -899,6 +961,7 @@ fn api_data(pool: &DbPool, req: &Request, uid: i64) -> Response<std::io::Cursor<
             "pages":       pages_web,
             "chemin":      chemin,
             "dossier_courant": dossier,
+            "vue":         vue,
             "shared":      shared,
             "all_folders": all_folders,
             "quota":       {
@@ -957,9 +1020,9 @@ fn api_upload(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
     // Support multipart/form-data ET application/json
     let (nom, file_b64, mime_type, taille, visble, current_folder) =
         if content_type.contains("application/json") {
-            let body = match parse_json_body(req) {
+            let body = match parse_json_body_upload(req) {
                 Some(b) => b,
-                None => return json_response(400, json!({"error":"Corps JSON invalide"})),
+                None => return json_response(413, json!({"error":"Fichier trop volumineux ou corps JSON invalide"})),
             };
             (
                 body.get("file_name").and_then(|v| v.as_str()).unwrap_or("fichier").to_string(),
@@ -970,8 +1033,11 @@ fn api_upload(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
                 body.get("current_folder").and_then(|v| v.as_i64()).unwrap_or(0),
             )
         } else {
-            // multipart: lit le body brut et parse manuellement
-            let raw = read_body(req);
+            // multipart: lit le body brut (borné) et parse manuellement
+            let raw = match read_body_upload(req) {
+                Some(r) => r,
+                None => return json_response(413, json!({"error":"Fichier trop volumineux"})),
+            };
             let get_field = |name: &str| -> String {
                 // cherche name=...valeur... dans le body urlencoded ou multipart simplifié
                 raw.split('&').find_map(|part| {
@@ -1024,7 +1090,7 @@ fn api_upload(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
     let (quota_max, fichiers_max) = quota_du_plan(&cfg, &plan_id);
     let fichiers_existants = selectionner(
         pool, "fichiers",
-        &[("id_utilisateur", mysql::Value::from(uid))],
+        &[("id_utilisateur", mysql::Value::from(uid.to_string()))],
         &["taille"], None, None,
     );
     let deja_utilise: i64 = fichiers_existants.iter().filter_map(|r| r.get("taille").and_then(|v| v.as_i64())).sum();
@@ -1719,43 +1785,96 @@ fn api_delete(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
     if item_id == 0 {
         return json_response(400, json!({"error":"item_id manquant"}));
     }
-    match item_type.as_str() {
-        "folder" => {
-            let rows = selectionner(
-                pool,
-                "sitecdos",
-                &[
-                    ("iddosier", mysql::Value::from(item_id)),
-                    ("userid", mysql::Value::from(uid)),
-                ],
-                &["iddosier"],
-                None,
-                Some(1),
-            );
-            if rows.is_empty() {
-                return json_response(403, json!({"error":"Non autorisé"}));
-            }
-            supprimer_ligne(pool, "sitecdos", "iddosier", mysql::Value::from(item_id));
-        }
+    // Fichiers et dossiers : corbeille (restaurables JOURS_CORBEILLE
+    // jours), voir fchier/corbeille.rs.
+    match super::corbeille::mettre_en_corbeille(pool, uid, &item_type, item_id) {
+        Ok(()) => json_response(200, json!({"success":true,"corbeille":true})),
+        Err((code, msg)) => json_response(code, json!({"success":false,"error":msg})),
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Favoris : POST /api/fchier/favori { item_type: file|folder, item_id, favori: bool }
+// ══════════════════════════════════════════════════════════════════
+fn favoris_utilisateur(pool: &DbPool, uid: i64) -> std::collections::HashSet<(String, i64)> {
+    selectionner(
+        pool,
+        "fchier_favoris",
+        &[("id_utilisateur", mysql::Value::from(uid))],
+        &["item_type", "item_id"],
+        None,
+        None,
+    )
+    .iter()
+    .filter_map(|r| {
+        Some((
+            r.get("item_type")?.as_str()?.to_string(),
+            r.get("item_id")?.as_i64()?,
+        ))
+    })
+    .collect()
+}
+
+fn api_favori(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::Cursor<Vec<u8>>> {
+    let body = match parse_json_body(req) {
+        Some(b) => b,
+        None => return json_response(400, json!({"success":false,"error":"Corps invalide"})),
+    };
+    let item_type = body.get("item_type").and_then(|v| v.as_str()).unwrap_or("");
+    let item_id = body.get("item_id").and_then(|v| v.as_i64()).unwrap_or(0);
+    let favori = body.get("favori").and_then(|v| v.as_bool()).unwrap_or(true);
+    if !(item_type == "file" || item_type == "folder") || item_id <= 0 {
+        return json_response(400, json!({"success":false,"error":"Paramètres invalides"}));
+    }
+    // L'element doit etre visible par l'utilisateur (proprietaire).
+    let existe = if item_type == "file" {
+        !selectionner(pool, "fichiers", &[("id", mysql::Value::from(item_id)), ("id_utilisateur", mysql::Value::from(uid))], &["id"], None, Some(1)).is_empty()
+    } else {
+        !selectionner(pool, "sitecdos", &[("iddosier", mysql::Value::from(item_id)), ("userid", mysql::Value::from(uid))], &["iddosier"], None, Some(1)).is_empty()
+    };
+    if !existe {
+        return json_response(403, json!({"success":false,"error":"Non autorisé"}));
+    }
+    crate::appeldb::definir_favori(pool, uid, item_type, item_id, favori);
+    json_response(200, json!({"success":true,"favori":favori}))
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Corbeille : /api/fchier/corbeille_liste (GET)
+//             /api/fchier/corbeille_restaurer|corbeille_supprimer {id}
+//             /api/fchier/corbeille_vider
+// ══════════════════════════════════════════════════════════════════
+fn api_corbeille(pool: &DbPool, req: &mut Request, uid: i64, action: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+    use super::corbeille;
+    if action == "corbeille_liste" {
+        return json_response(200, corbeille::lister(pool, uid));
+    }
+    if req.method().as_str() != "POST" {
+        return json_response(405, json!({"success":false,"error":"POST requis"}));
+    }
+    if action == "corbeille_vider" {
+        let n = corbeille::vider(pool, uid);
+        return json_response(200, json!({"success":true,"supprimes":n}));
+    }
+    let id = parse_json_body(req)
+        .and_then(|b| b.get("id").and_then(|v| v.as_i64()))
+        .unwrap_or(0);
+    if id <= 0 {
+        return json_response(400, json!({"success":false,"error":"id manquant"}));
+    }
+    match action {
+        "corbeille_restaurer" => match corbeille::restaurer(pool, uid, id) {
+            Ok(()) => json_response(200, json!({"success":true})),
+            Err((code, msg)) => json_response(code, json!({"success":false,"error":msg})),
+        },
         _ => {
-            let rows = selectionner(
-                pool,
-                "fichiers",
-                &[
-                    ("id", mysql::Value::from(item_id)),
-                    ("id_utilisateur", mysql::Value::from(uid)),
-                ],
-                &["id"],
-                None,
-                Some(1),
-            );
-            if rows.is_empty() {
-                return json_response(403, json!({"error":"Non autorisé"}));
+            if corbeille::purger(pool, uid, id) {
+                json_response(200, json!({"success":true}))
+            } else {
+                json_response(404, json!({"success":false,"error":"Élément introuvable"}))
             }
-            supprimer_ligne(pool, "fichiers", "id", mysql::Value::from(item_id));
         }
     }
-    json_response(200, json!({"success":true}))
 }
 
 // ══════════════════════════════════════════════════════════════════
