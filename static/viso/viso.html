@@ -249,7 +249,15 @@ const HKDF_INFO = "VEX-VISIO-signal-v1";
 const HKDF_SALT = "VEX-VISIO-signal-v1";
 const HEARTBEAT_MS = 25_000;
 const POLL_MS = 1_200;
-const ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
+// Serveurs STUN/TURN : fournis par le serveur (config.json -> "visio"),
+// avec identifiants TURN temporaires. Valeur de repli si l'appel echoue.
+let ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
+async function chargerIceServers() {
+  try {
+    const r = await apiCall("ice_servers", {});
+    if (r.success && Array.isArray(r.data.ice_servers) && r.data.ice_servers.length) ICE_SERVERS = r.data.ice_servers;
+  } catch (e) { /* repli sur la valeur par defaut */ }
+}
 
 let myKeyPair = null, myPubB64 = "", mySessionId = "", myNom = I18N.VOUS_DEFAULT;
 let roomId = null, localStream = null, micOn = true, camOn = true;
@@ -321,7 +329,28 @@ function getOrCreatePeer(sessionId, pubKeyRaw, nom) {
 
   pc.onicecandidate = async (e) => { if (!e.candidate) return; await sendSignal(sessionId, "ice", { candidate: e.candidate }); };
   pc.ontrack = (e) => { addRemoteTile(sessionId, entry.nom, e.streams[0]); };
-  pc.onconnectionstatechange = () => { if (["failed", "closed", "disconnected"].includes(pc.connectionState)) removeRemoteTile(sessionId); };
+  // Coupure reseau : "disconnected" est souvent passager (changement de
+  // Wi-Fi, 4G) -- on laisse 8 s pour se retablir ; "failed" tente d'abord
+  // un redemarrage ICE (nouveau chemin reseau) avant de retirer la tuile.
+  let timerDeconnexion = null;
+  pc.onconnectionstatechange = () => {
+    const st = pc.connectionState;
+    if (st === "connected") { clearTimeout(timerDeconnexion); timerDeconnexion = null; entry.iceRedemarre = false; return; }
+    if (st === "closed") { removeRemoteTile(sessionId); return; }
+    if (st === "failed") {
+      if (!entry.iceRedemarre && typeof pc.restartIce === "function") { entry.iceRedemarre = true; pc.restartIce(); return; }
+      removeRemoteTile(sessionId); return;
+    }
+    if (st === "disconnected" && !timerDeconnexion) {
+      timerDeconnexion = setTimeout(() => {
+        timerDeconnexion = null;
+        if (pc.connectionState === "disconnected") {
+          if (!entry.iceRedemarre && typeof pc.restartIce === "function") { entry.iceRedemarre = true; pc.restartIce(); }
+          else removeRemoteTile(sessionId);
+        }
+      }, 8000);
+    }
+  };
 
   let negotiating = false;
   pc.onnegotiationneeded = async () => {
@@ -570,6 +599,7 @@ async function entrerDansAppel(rId, code, title, password) { await rejoindreEtEn
 
 async function rejoindreEtEntrer(code, password, knownRoomId, knownTitle) {
   try {
+    await chargerIceServers();
     myKeyPair = await genKeyPair();
     myPubB64 = await exportPub(myKeyPair);
     mySessionId = genSessionId();

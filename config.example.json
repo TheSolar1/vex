@@ -397,5 +397,19 @@
     "max_users": 100,
     "registration_mode": "open",
     "session_expiration_minutes": 60
+  },
+  "visio": {
+    "_comment": "Serveurs WebRTC. Sans TURN, les appels echouent souvent derriere un NAT strict (4G, entreprise). 'secret' = static-auth-secret de coturn (identifiants temporaires). Supprimer la section = STUN Google par defaut.",
+    "stun": [
+      "stun:stun.l.google.com:19302"
+    ],
+    "turn": {
+      "urls": [],
+      "secret": "",
+      "ttl_heures": 12
+    }
+  },
+  "server": {
+    "threads": 8
   }
 }

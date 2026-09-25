@@ -843,6 +843,16 @@ pub fn handle_viso_action(
     langue: &str,
 ) -> Value {
     match action {
+        // Serveurs STUN/TURN pour WebRTC (config.json -> "visio"), avec
+        // identifiants TURN temporaires si un secret coturn est configure.
+        "ice_servers" => match auth_viso(pool, cookie_val) {
+            Some((uid, _, _)) => {
+                let cfg = crate::config_loader::load_config("config.json");
+                json!({"success": true, "data": {"ice_servers": ice_servers(cfg.extra.get("visio"), uid)}})
+            }
+            None => erreur("Non connecté."),
+        },
+
         "creer_salle" => creer_salle(
             pool,
             cookie_val,
@@ -984,5 +994,111 @@ pub fn handle_viso_action(
         }
 
         _ => erreur("Action inconnue."),
+    }
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// Serveurs ICE (STUN/TURN)
+// ══════════════════════════════════════════════════════════════════
+// Section optionnelle de config.json :
+//   "visio": {
+//     "stun": ["stun:vex.hopto.org:3478"],
+//     "turn": {
+//       "urls": ["turn:vex.hopto.org:3478", "turns:vex.hopto.org:5349"],
+//       "secret": "<static-auth-secret de coturn>",   // identifiants temporaires
+//       "ttl_heures": 12
+//       // OU identifiants fixes : "username": "...", "credential": "..."
+//     }
+//   }
+// Sans section "visio" : STUN public de Google (comportement historique).
+// Sans TURN, un appel echoue souvent quand les deux participants sont
+// derriere un NAT strict (4G, reseaux d'entreprise).
+const STUN_DEFAUT: &str = "stun:stun.l.google.com:19302";
+
+fn liste_urls(v: Option<&Value>) -> Vec<String> {
+    match v {
+        Some(Value::String(s)) if !s.trim().is_empty() => vec![s.trim().to_string()],
+        Some(Value::Array(a)) => a
+            .iter()
+            .filter_map(|x| x.as_str())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect(),
+        _ => vec![],
+    }
+}
+
+/// Identifiants TURN temporaires (API REST de coturn, option
+/// `use-auth-secret`) : username = "<expiration>:<uid>",
+/// credential = base64(HMAC-SHA1(secret, username)).
+fn identifiants_turn(secret: &str, uid: i64, ttl_secs: u64, maintenant: u64) -> (String, String) {
+    use base64::Engine as _;
+    use hmac::{Hmac, Mac};
+    let username = format!("{}:{}", maintenant + ttl_secs, uid);
+    let mut mac = <Hmac<sha1::Sha1> as Mac>::new_from_slice(secret.as_bytes()).expect("HMAC accepte toute cle");
+    mac.update(username.as_bytes());
+    let credential = base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes());
+    (username, credential)
+}
+
+pub fn ice_servers(visio: Option<&Value>, uid: i64) -> Value {
+    let mut serveurs = Vec::new();
+    let stun = liste_urls(visio.and_then(|v| v.get("stun")));
+    if visio.is_none() || (stun.is_empty() && visio.and_then(|v| v.get("stun")).is_none()) {
+        serveurs.push(json!({"urls": [STUN_DEFAUT]}));
+    } else if !stun.is_empty() {
+        serveurs.push(json!({"urls": stun}));
+    }
+    if let Some(turn) = visio.and_then(|v| v.get("turn")) {
+        let urls = liste_urls(turn.get("urls"));
+        if !urls.is_empty() {
+            let secret = turn.get("secret").and_then(|v| v.as_str()).unwrap_or("");
+            if !secret.is_empty() {
+                let ttl = turn.get("ttl_heures").and_then(|v| v.as_u64()).unwrap_or(12).clamp(1, 72) * 3600;
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
+                let (u, c) = identifiants_turn(secret, uid, ttl, now);
+                serveurs.push(json!({"urls": urls, "username": u, "credential": c}));
+            } else if let (Some(u), Some(c)) = (
+                turn.get("username").and_then(|v| v.as_str()),
+                turn.get("credential").and_then(|v| v.as_str()),
+            ) {
+                serveurs.push(json!({"urls": urls, "username": u, "credential": c}));
+            }
+        }
+    }
+    Value::Array(serveurs)
+}
+
+#[cfg(test)]
+mod tests_ice {
+    use super::*;
+
+    #[test]
+    fn defaut_google() {
+        assert_eq!(ice_servers(None, 1), json!([{"urls": [STUN_DEFAUT]}]));
+    }
+
+    #[test]
+    fn turn_temporaire_format_coturn() {
+        // Vecteur calcule avec : echo -n "1700043200:7" | openssl dgst -sha1 -hmac secret -binary | base64
+        let (u, c) = identifiants_turn("secret", 7, 43200, 1_700_000_000);
+        assert_eq!(u, "1700043200:7");
+        assert_eq!(c, "6oW04yMau0vr+oG4S2e6VPTiRDQ=");
+    }
+
+    #[test]
+    fn config_complete() {
+        let cfg = json!({"stun": ["stun:a:3478"], "turn": {"urls": "turn:a:3478", "username": "u", "credential": "p"}});
+        let v = ice_servers(Some(&cfg), 3);
+        assert_eq!(v[0]["urls"][0], "stun:a:3478");
+        assert_eq!(v[1]["username"], "u");
+        let sans_stun = json!({"stun": [], "turn": {"urls": ["turn:a"], "secret": "s"}});
+        let v = ice_servers(Some(&sans_stun), 3);
+        assert_eq!(v.as_array().unwrap().len(), 1, "stun vide = pas de STUN public");
+        assert!(v[0]["username"].as_str().unwrap().ends_with(":3"));
     }
 }
