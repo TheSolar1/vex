@@ -106,6 +106,26 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
     )?;
 
+    // ── fchier_corbeille ──────────────────────────────────────────
+    // Fichiers/dossiers supprimes depuis ExoDrive : la ligne d'origine
+    // (fichiers ou sitecdos) est copiee ici en JSON puis retiree de sa
+    // table, et peut etre restauree telle quelle (meme id) pendant
+    // JOURS_CORBEILLE jours -- voir fchier/corbeille.rs.
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `fchier_corbeille` (
+            `id`             INT          NOT NULL AUTO_INCREMENT,
+            `id_utilisateur` INT          NOT NULL,
+            `item_type`      VARCHAR(10)  NOT NULL,
+            `item_id`        BIGINT       NOT NULL,
+            `nom`            VARCHAR(255) NOT NULL,
+            `taille`         BIGINT       NOT NULL DEFAULT 0,
+            `donnees`        LONGTEXT     NOT NULL,
+            `supprime_le`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `idx_corbeille_user` (`id_utilisateur`, `supprime_le`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+    )?;
+
     // ── login ─────────────────────────────────────────────────────
     conn.query_drop(
         "CREATE TABLE IF NOT EXISTS `login` (

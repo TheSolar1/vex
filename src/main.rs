@@ -33,6 +33,7 @@ mod login {
     pub mod notice_cloudsync;
 }
 mod fchier {
+    pub mod corbeille;
     pub mod fchier;
     pub mod onlyoffice;
 }

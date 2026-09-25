@@ -1194,6 +1194,21 @@ pub fn bump_version_fichiers(pool: &DbPool, id_utilisateur: i64) -> bool {
     ok
 }
 
+/// Ids des elements de corbeille d'un utilisateur supprimes depuis plus
+/// de `jours` jours (purge automatique, voir fchier/corbeille.rs).
+pub fn corbeille_ids_expires(pool: &DbPool, id_utilisateur: i64, jours: u32) -> Vec<i64> {
+    let mut conn = match pool.get_conn() {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
+    conn.exec(
+        "SELECT id FROM `fchier_corbeille`
+         WHERE id_utilisateur = ? AND supprime_le < NOW() - INTERVAL ? DAY",
+        (id_utilisateur, jours),
+    )
+    .unwrap_or_default()
+}
+
 /// Lit le compteur de version courant d'un utilisateur (0 si jamais
 /// modifie depuis l'ajout de cette table).
 pub fn version_fichiers(pool: &DbPool, id_utilisateur: i64) -> i64 {

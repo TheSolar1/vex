@@ -330,6 +330,10 @@ __NAV_HTML__
         <img class="ico ico-18 ico-muted" src="/static/img/solid/share-nodes.svg">
         <span>{{T_PARTAGE_AVEC_MOI}}</span>
       </button>
+      <button class="nav-item" id="nav-corbeille" onclick="openCorbeille()">
+        <img class="ico ico-18 ico-muted" src="/static/img/solid/trash-can.svg">
+        <span>Corbeille</span>
+      </button>
     </nav>
 
     <div id="quota-widget" style="margin-top:20px;padding:14px 16px;border-top:1px solid var(--border);font-size:.76rem"></div>
@@ -616,6 +620,25 @@ __NAV_HTML__
   </div>
   <div id="oo-placeholder">
     <div id="oo-etat"><div class="oo-spin"></div><div>{{T_CHARGEMENT_DOCUMENT}}</div></div>
+  </div>
+</div>
+
+<!-- Corbeille -->
+<div class="modal" id="corbeilleModal" role="dialog" aria-modal="true" aria-labelledby="corbeille-titre">
+  <div class="modal-content wide">
+    <div class="modal-header" id="corbeille-titre">
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/trash-can.svg"> Corbeille
+    </div>
+    <div class="modal-body">
+      <p id="corbeille-info" style="font-size:.82rem;color:var(--text-m);margin-bottom:10px"></p>
+      <div id="corbeille-liste" style="max-height:55vh;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" style="color:var(--danger)" id="corbeille-vider" onclick="viderCorbeille()">
+        <img class="ico ico-sm" src="/static/img/solid/trash.svg"> Vider la corbeille
+      </button>
+      <button class="btn btn-secondary" onclick="closeModal('corbeilleModal')">{{T_FERMER}}</button>
+    </div>
   </div>
 </div>
 
@@ -2103,7 +2126,71 @@ async function doDelete() {
   try {
     const r = await apiFetch('/api/fchier/delete', { item_id: state.ctx.id, item_type: state.ctx.type });
     if (!r.success) throw new Error(r.error);
-    closeModal('deleteModal'); toast(I18N.SUPPRIME, 'ok'); loadData();
+    closeModal('deleteModal');
+    toast(r.corbeille ? 'Déplacé dans la corbeille (restaurable 30 jours)' : I18N.SUPPRIME, 'ok');
+    loadData();
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
+}
+
+// ── Corbeille (fichiers/dossiers supprimés, restaurables 30 jours)
+async function openCorbeille() {
+  openModal('corbeilleModal');
+  await chargerCorbeille();
+}
+async function chargerCorbeille() {
+  const box = document.getElementById('corbeille-liste');
+  box.innerHTML = '<div class="empty-state"><div class="spinner" style="margin:0 auto;"></div></div>';
+  try {
+    const r = await vexFetch('/api/fchier/corbeille_liste');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    const items = d.items || [];
+    document.getElementById('corbeille-info').textContent =
+      `Les éléments sont supprimés définitivement après ${d.jours || 30} jours. Un dossier restauré revient avec tout son contenu.`;
+    document.getElementById('corbeille-vider').disabled = !items.length;
+    if (!items.length) {
+      box.innerHTML = '<div class="empty-state"><p>La corbeille est vide.</p></div>';
+      return;
+    }
+    box.innerHTML = items.map(it => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px solid var(--border)">
+        <img class="ico ico-18 ico-muted" src="/static/img/solid/${it.type === 'folder' ? 'folder' : 'file'}.svg" alt="">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(it.nom || '—')}</div>
+          <div style="font-size:.75rem;color:var(--text-m)">${it.taille ? formatSize(it.taille) + ' · ' : ''}supprimé le ${escHtml(String(it.supprime_le || '').slice(0, 16))} · encore ${Number(it.jours_restants)} j</div>
+        </div>
+        <button class="btn btn-secondary" onclick="restaurerCorbeille(${Number(it.id)})" title="Restaurer">
+          <img class="ico ico-sm" src="/static/img/solid/trash-arrow-up.svg" alt=""> Restaurer
+        </button>
+        <button class="btn btn-secondary" style="color:var(--danger)" onclick="purgerCorbeille(${Number(it.id)})" title="Supprimer définitivement" aria-label="Supprimer définitivement">
+          <img class="ico ico-sm" src="/static/img/solid/trash.svg" alt="">
+        </button>
+      </div>`).join('');
+  } catch(e) {
+    box.innerHTML = `<div class="empty-state"><p style="color:var(--danger);">${I18N.ERREUR_PREFIX}${escHtml(e.message)}</p></div>`;
+  }
+}
+async function restaurerCorbeille(id) {
+  try {
+    const r = await apiFetch('/api/fchier/corbeille_restaurer', { id });
+    if (!r.success) throw new Error(r.error);
+    toast('Élément restauré', 'ok'); chargerCorbeille(); loadData();
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
+}
+async function purgerCorbeille(id) {
+  if (!confirm('Supprimer définitivement cet élément ? Cette action est irréversible.')) return;
+  try {
+    const r = await apiFetch('/api/fchier/corbeille_supprimer', { id });
+    if (!r.success) throw new Error(r.error);
+    toast('Supprimé définitivement', 'ok'); chargerCorbeille();
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
+}
+async function viderCorbeille() {
+  if (!confirm('Vider la corbeille ? Tous les éléments seront supprimés définitivement.')) return;
+  try {
+    const r = await apiFetch('/api/fchier/corbeille_vider', {});
+    if (!r.success) throw new Error(r.error);
+    toast('Corbeille vidée', 'ok'); chargerCorbeille();
   } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
 }
 

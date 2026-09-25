@@ -451,6 +451,7 @@ pub fn handle(pool: &DbPool, req: &mut Request) -> Response<std::io::Cursor<Vec<
         let mutante = matches!(
             action,
             "upload" | "create_folder" | "rename" | "delete" | "move" | "edit_content" | "onlyoffice/finish"
+                | "corbeille_restaurer"
         );
         let reponse = match action {
             "data" => api_data(pool, req, uid),
@@ -463,6 +464,9 @@ pub fn handle(pool: &DbPool, req: &mut Request) -> Response<std::io::Cursor<Vec<
             "change_visibility" => api_change_visibility(pool, req, uid),
             "rename" => api_rename(pool, req, uid),
             "delete" => api_delete(pool, req, uid),
+            "corbeille_liste" | "corbeille_restaurer" | "corbeille_supprimer" | "corbeille_vider" => {
+                api_corbeille(pool, req, uid, action)
+            }
             "move" => api_move(pool, req, uid),
             "download" => api_download(pool, req, uid),
             "edit_content" => api_edit_content(pool, req, uid),
@@ -1719,43 +1723,50 @@ fn api_delete(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
     if item_id == 0 {
         return json_response(400, json!({"error":"item_id manquant"}));
     }
-    match item_type.as_str() {
-        "folder" => {
-            let rows = selectionner(
-                pool,
-                "sitecdos",
-                &[
-                    ("iddosier", mysql::Value::from(item_id)),
-                    ("userid", mysql::Value::from(uid)),
-                ],
-                &["iddosier"],
-                None,
-                Some(1),
-            );
-            if rows.is_empty() {
-                return json_response(403, json!({"error":"Non autorisé"}));
-            }
-            supprimer_ligne(pool, "sitecdos", "iddosier", mysql::Value::from(item_id));
-        }
+    // Fichiers et dossiers : corbeille (restaurables JOURS_CORBEILLE
+    // jours), voir fchier/corbeille.rs.
+    match super::corbeille::mettre_en_corbeille(pool, uid, &item_type, item_id) {
+        Ok(()) => json_response(200, json!({"success":true,"corbeille":true})),
+        Err((code, msg)) => json_response(code, json!({"success":false,"error":msg})),
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Corbeille : /api/fchier/corbeille_liste (GET)
+//             /api/fchier/corbeille_restaurer|corbeille_supprimer {id}
+//             /api/fchier/corbeille_vider
+// ══════════════════════════════════════════════════════════════════
+fn api_corbeille(pool: &DbPool, req: &mut Request, uid: i64, action: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+    use super::corbeille;
+    if action == "corbeille_liste" {
+        return json_response(200, corbeille::lister(pool, uid));
+    }
+    if req.method().as_str() != "POST" {
+        return json_response(405, json!({"success":false,"error":"POST requis"}));
+    }
+    if action == "corbeille_vider" {
+        let n = corbeille::vider(pool, uid);
+        return json_response(200, json!({"success":true,"supprimes":n}));
+    }
+    let id = parse_json_body(req)
+        .and_then(|b| b.get("id").and_then(|v| v.as_i64()))
+        .unwrap_or(0);
+    if id <= 0 {
+        return json_response(400, json!({"success":false,"error":"id manquant"}));
+    }
+    match action {
+        "corbeille_restaurer" => match corbeille::restaurer(pool, uid, id) {
+            Ok(()) => json_response(200, json!({"success":true})),
+            Err((code, msg)) => json_response(code, json!({"success":false,"error":msg})),
+        },
         _ => {
-            let rows = selectionner(
-                pool,
-                "fichiers",
-                &[
-                    ("id", mysql::Value::from(item_id)),
-                    ("id_utilisateur", mysql::Value::from(uid)),
-                ],
-                &["id"],
-                None,
-                Some(1),
-            );
-            if rows.is_empty() {
-                return json_response(403, json!({"error":"Non autorisé"}));
+            if corbeille::purger(pool, uid, id) {
+                json_response(200, json!({"success":true}))
+            } else {
+                json_response(404, json!({"success":false,"error":"Élément introuvable"}))
             }
-            supprimer_ligne(pool, "fichiers", "id", mysql::Value::from(item_id));
         }
     }
-    json_response(200, json!({"success":true}))
 }
 
 // ══════════════════════════════════════════════════════════════════
