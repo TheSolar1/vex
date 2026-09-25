@@ -257,9 +257,7 @@ __NAV_HTML__
     <div class="sb-a" data-sec="apps"><img src="/static/img/solid/cube.svg" alt=""> <span>{{T_SB_APPLICATIONS}}</span></div>
     <div class="sb-a" data-sec="extensions"><img src="/static/img/solid/puzzle-piece.svg" alt=""> <span>{{T_SB_EXTENSIONS_PLUGIN}}</span></div>
     <div class="sb-a" data-sec="roles"><img src="/static/img/solid/id-badge.svg" alt=""> <span>{{T_SB_ROLES_PLANS}}</span></div>
-    <div class="sb-a" data-sec="revenus"><img src="/static/img/solid/euro-sign.svg" alt=""> <span>Revenus</span></div>
-    <div class="sb-a" data-sec="appareils"><img src="/static/img/solid/fingerprint.svg" alt=""> <span>Appareils</span></div>
-    <div class="sb-a" data-sec="logs"><img src="/static/img/solid/scroll.svg" alt=""> <span>{{T_SB_LOGS}}</span></div>
+    <div class="sb-a" data-sec="revenus"><img src="/static/img/solid/euro-sign.svg" alt=""> <span>Revenus</span></div>    <div class="sb-a" data-sec="logs"><img src="/static/img/solid/scroll.svg" alt=""> <span>{{T_SB_LOGS}}</span></div>
     <div class="sb-a sb-machine-item" data-sec="machine-update" style="display:none"><img src="/static/img/solid/code-commit.svg" alt=""> <span>{{T_MACHINE_ONGLET_MAJ}}</span></div>
     <div class="sb-a" data-sec="onlyoffice"><img src="/static/img/solid/file-lines.svg" alt=""> <span>{{T_SB_EDITEUR_EN_LIGNE}}</span><span class="sb-pill w" id="pill-oo" style="display:none">!</span></div>
     <div class="sb-a" id="sb-p2p" data-sec="p2p" style="display:none"><img src="/static/img/solid/network-wired.svg" alt=""> <span>{{T_SB_P2P_ANONNET}}</span><span class="sb-pill" id="pill-p2p">0</span></div>
@@ -455,22 +453,6 @@ __NAV_HTML__
         </div>
     </div>
 
-    <!-- Appareils (empreintes, voir src/empreinte.rs) -->
-    <div class="sec" id="sec-appareils">
-        <div class="pt"><img src="/static/img/solid/fingerprint.svg" class="ico-accent" alt=""> Appareils <small>empreintes · 20 éléments</small></div>
-        <div class="card">
-            <div class="ch">
-                <span><img src="/static/img/solid/desktop.svg" class="ico ico-accent" alt=""> Appareils vus</span>
-                <button class="btn bg2" onclick="loadAppareils()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Rafraîchir</button>
-            </div>
-            <div style="overflow-x:auto" id="appareils-liste"><div class="loading"><span class="spin"></span></div></div>
-        </div>
-        <div class="card" style="margin-top:16px">
-            <div class="ch"><span><img src="/static/img/solid/users.svg" class="ico ico-accent" alt=""> Comptes et machines</span></div>
-            <div style="overflow-x:auto" id="appareils-comptes"></div>
-        </div>
-    </div>
-
     <!-- Machine (mise a jour VEX / stockage / etat) -- 4 entrees separees de sidebar, ce conteneur est partage -->
     <div class="sec" id="sec-machine">
         <div class="pt"><img src="/static/img/solid/microchip.svg" class="ico-accent" alt="" id="machine-pt-icon"> <span id="machine-pt-label">{{T_SB_MACHINE}}</span></div>
@@ -527,6 +509,11 @@ __NAV_HTML__
                 <button class="btn bg2" onclick="loadEmpreintesLogs()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Rafraîchir</button>
             </div>
             <div style="overflow-x:auto" id="logs-empreintes"><div class="loading"><span class="spin"></span></div></div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+            <div class="ch"><span><img src="/static/img/solid/desktop.svg" class="ico ico-accent" alt=""> Appareils vus <small>empreintes · 20 éléments</small></span></div>
+            <div style="overflow-x:auto" id="appareils-liste"></div>
         </div>
     </div>
 
@@ -602,7 +589,7 @@ function nav(sec){
         return;
     }
     document.getElementById('sec-'+sec).classList.add('on');
-    ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,logs:()=>{loadLogs();loadEmpreintesLogs();},appareils:loadAppareils,onlyoffice:loadEditor,p2p:loadP2p,apps:loadApps,extensions:loadExt,roles:loadRoles,revenus:()=>{loadRevenus();loadRevenusAppareils();},backup:loadBackups}[sec]||Function)();
+    ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,logs:()=>{loadLogs();loadEmpreintesLogs();},onlyoffice:loadEditor,p2p:loadP2p,apps:loadApps,extensions:loadExt,roles:loadRoles,revenus:()=>{loadRevenus();loadRevenusAppareils();},backup:loadBackups}[sec]||Function)();
     history.replaceState(null,'','?section='+sec);
 }
 // FIX (demande utilisateur) : les messages doivent apparaitre en bas a
@@ -708,7 +695,10 @@ async function loadDash(){
 /* ── Utilisateurs ── */
 async function loadUsers(){
     document.getElementById('users-table').innerHTML='<div class="loading"><span class="spin"></span></div>';
-    const r=await api('/users');if(!r.success){flash(r.error,true);return;}
+    // /empreintes est reserve aux superadmins : en cas de refus, la colonne
+    // "Appareils" n'est simplement pas affichee (S.fpComptes = null).
+    const [r,rf]=await Promise.all([api('/users'),api('/empreintes')]);if(!r.success){flash(r.error,true);return;}
+    S.fpComptes=rf.success?Object.fromEntries((rf.data.comptes||[]).map(c=>[c.compte,c])):null;
     S.users=r.data;
     document.getElementById('users-count').textContent=I18N.USERS_N_COMPTES.replace('{n}',S.users.length);
     document.getElementById('pill-users').textContent=S.users.length;
@@ -718,7 +708,7 @@ async function loadUsers(){
 }
 function vipOpts(v){return[`<option value="0" ${!v?'selected':''}>${I18N.VIP_FREE_OPTION}</option>`,...S.vipTypes.map(t=>`<option value="${esc(String(t.id))}" ${v==t.id?'selected':''}>${esc(t.label)}</option>`)].join('');}
 function renderUsers(users){
-    document.getElementById('users-table').innerHTML=`<table class="t" id="utbl"><thead><tr><th>#</th><th>${I18N.NOM}</th><th>${I18N.EMAIL}</th><th>${I18N.USERS_ROLE_ACTUEL}</th><th>${I18N.USERS_CHANGER_ROLE}</th><th>VIP</th><th>${I18N.ACTIONS}</th></tr></thead><tbody>${users.map(u=>{
+    document.getElementById('users-table').innerHTML=`<table class="t" id="utbl"><thead><tr><th>#</th><th>${I18N.NOM}</th><th>${I18N.EMAIL}</th><th>${I18N.USERS_ROLE_ACTUEL}</th><th>${I18N.USERS_CHANGER_ROLE}</th><th>VIP</th>${S.fpComptes?'<th title="Empreintes d\'appareil : machines distinctes et ressemblance entre elles">Appareils</th>':''}<th>${I18N.ACTIONS}</th></tr></thead><tbody>${users.map(u=>{
         const options=u.privilege===1?[1,...[2,3,4,5,6,7,8,9,10,11,12]]:[2,3,4,5,6,7,8,9,10,11,12];
         const po=options.map(p=>`<option value="${p}" ${u.privilege==p?'selected':''} ${p===1?'disabled':''}>${p} — ${pNom(p)}</option>`).join('');
         const badge=`<span class="b bx" style="color:${pCol(u.privilege)};border:1px solid ${pCol(u.privilege)}44">${u.privilege} — ${esc(pNom(u.privilege))}</span>`;
@@ -730,7 +720,9 @@ function renderUsers(users){
         // changer quoi que ce soit.
         const vipLock=u.vip_paye&&!IS_FOUNDER;
         const vipPaidBadge=u.vip_paye?` <span class="b bx" title="Plan payé par le client">💳</span>`:'';
-        return`<tr data-s="${(u.nom+u.email).toLowerCase()}"><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${badge}</td><td><select class="isel" style="color:${pCol(u.privilege)};font-weight:600" onchange="setPriv(${u.id},this.value)">${po}</select></td><td><select class="vip-sel" onchange="setVip(${u.id},this.value,${u.vip_paye?'true':'false'},'${esc(u.nom)}')" ${vipLock?'disabled title="Plan payé — seul le fondateur peut le modifier"':''}>${vipOpts(u.vip)}</select>${vipPaidBadge}</td><td><button class="btn br2" data-del-uid="${u.id}" data-del-nom="${esc(u.nom)}"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SUPPRIMER}</button></td></tr>`;
+        const fp=S.fpComptes?S.fpComptes[u.nom]:null;
+        const fpCell=!S.fpComptes?'':`<td>${fp?`<span class="b bx">${fp.machines} machine${fp.machines>1?'s':''}</span> ${pctBadge(fp.ressemblance)}${fp.partage_suspect?' <span class="b br">partage suspect</span>':''}`:'<span class="b bx">—</span>'}</td>`;
+        return`<tr data-s="${(u.nom+u.email).toLowerCase()}"><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${badge}</td><td><select class="isel" style="color:${pCol(u.privilege)};font-weight:600" onchange="setPriv(${u.id},this.value)">${po}</select></td><td><select class="vip-sel" onchange="setVip(${u.id},this.value,${u.vip_paye?'true':'false'},'${esc(u.nom)}')" ${vipLock?'disabled title="Plan payé — seul le fondateur peut le modifier"':''}>${vipOpts(u.vip)}</select>${vipPaidBadge}</td>${fpCell}<td><button class="btn br2" data-del-uid="${u.id}" data-del-nom="${esc(u.nom)}"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SUPPRIMER}</button></td></tr>`;
     }).join('')}</tbody></table>`;
 }
 function filterUsers(q){document.querySelectorAll('#utbl tbody tr').forEach(r=>{r.style.display=r.dataset.s.includes(q.toLowerCase())?'':'none';});}
@@ -2086,17 +2078,10 @@ async function empreintesData(){const r=await api('/empreintes');return r.succes
 function pctBadge(p){if(p===null||p===undefined||p==='')return '<span class="b bx">—</span>';const c=p>=90?'bg':p>=70?'bb':p>=50?'bo':'br';return `<span class="b ${c}">${p} %</span>`;}
 function hCourt(h){return `<span style="font-family:var(--mono);font-size:.75rem" title="${esc(h||'')}">${esc((h||'').slice(0,12))}…</span>`;}
 function videFp(t){return `<div style="padding:18px;text-align:center;color:var(--text-m);font-size:.84rem">${t}</div>`;}
-function tableComptesFp(comptes){
-    return `<table class="t"><thead><tr><th>Compte</th><th>Empreintes</th><th>Machines distinctes</th><th>Ressemblance</th><th>Statut</th></tr></thead><tbody>${comptes.map(c=>`<tr>
-        <td>${esc(c.compte)}</td><td class="m">${c.empreintes}</td><td class="m">${c.machines}</td><td>${pctBadge(c.ressemblance)}</td>
-        <td>${c.partage_suspect?'<span class="b br">partage suspect</span>':'<span class="b bg">OK</span>'}</td></tr>`).join('')}</tbody></table>
-        <div style="font-size:.74rem;color:var(--text-m);padding:8px 13px">Même machine = 70 % ou plus de ressemblance. PC + téléphone = 2 machines (normal) ; 3 ou plus = compte possiblement partagé.</div>`;
-}
-async function loadAppareils(){
-    const boxA=document.getElementById('appareils-liste'),boxC=document.getElementById('appareils-comptes');
-    boxA.innerHTML='<div class="loading"><span class="spin"></span></div>';
-    const d=await empreintesData();
-    if(d.erreur){boxA.innerHTML=videFp(esc(d.erreur));boxC.innerHTML='';return;}
+// Liste des appareils (section Logs, sous "Empreintes recentes")
+function renderAppareilsFp(d){
+    const boxA=document.getElementById('appareils-liste');if(!boxA)return;
+    if(d.erreur){boxA.innerHTML='';return;}
     boxA.innerHTML=d.appareils.length?`<table class="t"><thead><tr><th>Appareil</th><th>Comptes</th><th>IP</th><th>Visites</th><th>Dernière visite</th><th>Appareil le plus proche</th></tr></thead><tbody>${d.appareils.map(a=>`<tr>
         <td>${hCourt(a.hash)}<div style="font-size:.74rem;color:var(--text-m);margin-top:3px">${esc(a.detail)}</div></td>
         <td>${a.comptes.length?a.comptes.map(c=>`<span class="b bb">${esc(c)}</span>`).join(' '):'<span class="b bx">non connecté</span>'}</td>
@@ -2105,12 +2090,12 @@ async function loadAppareils(){
         <td class="m">${esc(a.derniere)}</td>
         <td>${a.proche_hash?`${pctBadge(a.proche_pct)} ${hCourt(a.proche_hash)}${a.proche_compte?` <small>(${esc(a.proche_compte)})</small>`:''}${a.proche_diff.length&&a.proche_diff.length<20?`<div style="font-size:.7rem;color:var(--text-m);margin-top:3px">diffère : ${a.proche_diff.map(esc).join(', ')}</div>`:''}`:'<span class="b bx">seul appareil</span>'}</td>
     </tr>`).join('')}</tbody></table>`:videFp('Aucun appareil enregistré pour le moment.');
-    boxC.innerHTML=d.comptes.length?tableComptesFp(d.comptes):videFp('Aucun compte connecté vu pour le moment.');
 }
 async function loadEmpreintesLogs(){
     const box=document.getElementById('logs-empreintes');if(!box)return;
     box.innerHTML='<div class="loading"><span class="spin"></span></div>';
     const d=await empreintesData();
+    renderAppareilsFp(d);
     if(d.erreur){box.innerHTML=videFp(esc(d.erreur));return;}
     box.innerHTML=d.recents.length?`<table class="t"><thead><tr><th>Date</th><th>Compte</th><th>IP</th><th>Page</th><th>Appareil</th><th>% compte</th><th>% plus proche</th></tr></thead><tbody>${d.recents.map(r=>`<tr>
         <td class="m">${esc(r.date)}</td>
