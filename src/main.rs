@@ -10,6 +10,7 @@ mod function;
 mod i18n;
 mod utils;
 mod srp;
+mod empreinte;
 
 // Extensions uploadees depuis le panel admin (src/extensions/<id>/mod.rs).
 // Le registre extensions/mod.rs est regenere automatiquement a chaque upload.
@@ -805,7 +806,7 @@ fn main() {
             // recevoir_empreinte) -- sert a reperer quel appareil se
             // connecte meme quand l'IP change (4G).
             "/api/empreinte" => {
-                recevoir_empreinte(request, &ip_log, &logger);
+                recevoir_empreinte(request, &pool, &config, &remote, &ip_log, &logger);
             }
 
             // Politique de confidentialite : lien "J'accepte la Politique de
@@ -1021,12 +1022,23 @@ fn guess_mime(path: &str) -> &'static str {
     else                             { "application/octet-stream" }
 }
 
-/// Recoit une empreinte d'appareil ({h, page, d} en JSON, cf. static/fp.js)
-/// et l'ajoute a log/empreintes.tsv avec l'IP reelle et le User-Agent.
-/// Lu par ~/vex-securite/check_vex.sh (alerte "nouvel appareil").
-/// Corps limite a 4 Ko et hash valide (64 hex) : un appel forge ne peut
-/// pas remplir le disque ni injecter de tabulation/retour ligne dans le TSV.
-fn recevoir_empreinte(mut request: tiny_http::Request, ip: &str, logger: &VexLogger) {
+/// Recoit une empreinte d'appareil ({v, h, c, page, d} en JSON, cf.
+/// static/fp.js) et l'ajoute a log/empreintes.tsv avec l'IP reelle, le
+/// User-Agent, le compte connecte et les pourcentages de correspondance
+/// (voir empreinte.rs). Lu par le panel admin et ~/vex-securite/check_vex.sh.
+/// Corps limite a 4 Ko, hash valide (64 hex), composants valides (20 x 8
+/// hex) sinon ignores : un appel forge ne peut ni remplir le disque ni
+/// injecter de tabulation/retour ligne dans le TSV.
+/// `remote` = IP brute (127.0.0.1 derriere Apache) : c'est celle que les
+/// sessions comparent (voir la NOTE de fchier.rs::remote_ip).
+fn recevoir_empreinte(
+    mut request: tiny_http::Request,
+    pool: &appeldb::DbPool,
+    config: &config_loader::VexConfig,
+    remote: &str,
+    ip: &str,
+    logger: &VexLogger,
+) {
     use std::io::Read;
     let mut body = String::new();
     let _ = request.as_reader().take(4096).read_to_string(&mut body);
@@ -1051,24 +1063,81 @@ fn recevoir_empreinte(mut request: tiny_http::Request, ip: &str, logger: &VexLog
             .unwrap_or_default(),
         300,
     );
+    let h = h.to_ascii_lowercase();
+
+    // 20 composants de 8 hex (fp.js v2) -- sinon on les ignore (v1 ou forge)
+    let comps: Vec<String> = v
+        .get("c")
+        .and_then(|x| x.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str())
+                .filter(|s| s.len() == 8 && s.chars().all(|c| c.is_ascii_hexdigit()))
+                .map(|s| s.to_ascii_lowercase())
+                .collect()
+        })
+        .unwrap_or_default();
+    let comps = if comps.len() == empreinte::COMPOSANTS.len() { comps } else { Vec::new() };
+
+    // Compte connecte (cookie de session envoye par sendBeacon)
+    let cookie_val = access_control::get_cookie(&request, "connexion_cookie");
+    let compte = appeldb::verifier_connexion_avec_expiration(
+        pool,
+        &cookie_val,
+        remote,
+        &ua,
+        config.users.session_expiration_minutes as u32,
+    )
+    .and_then(|u| u.get("nom").and_then(|n| n.as_str()).map(|s| propre(s, 60)))
+    .unwrap_or_default();
+
+    // Pourcentages, calcules AVANT d'ajouter la ligne
+    let historique = empreinte::lire();
+    let pct_compte = empreinte::correspondance_compte(&historique, &compte, &h, &comps);
+    let proche = empreinte::meilleure_correspondance(&historique, &h, &comps);
 
     let ligne = format!(
-        "{}\t{}\t{}\t{}\t{}\t{}\n",
+        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
         chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
-        h.to_ascii_lowercase(),
+        h,
         ip,
         page,
         ua,
-        detail
+        detail,
+        compte,
+        comps.join(","),
+        pct_compte.map(|p| p.to_string()).unwrap_or_default(),
+        proche.as_ref().map(|p| p.pct.to_string()).unwrap_or_default(),
+        proche.as_ref().map(|p| p.hash.clone()).unwrap_or_default(),
     );
-    if let Ok(mut f) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(format!("{}/empreintes.tsv", LOG_DIR))
-    {
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(empreinte::FICHIER) {
         let _ = f.write_all(ligne.as_bytes());
     }
-    logger.info(&format!("[EMPREINTE] {} depuis {} — {}", &h[..16], ip, page));
+
+    // Ligne de log lisible dans l'admin
+    let deja_vu = historique.iter().any(|l| l.hash == h);
+    let mut msg = format!("[EMPREINTE] {} depuis {} — {}", &h[..16], ip, page);
+    if !compte.is_empty() {
+        match pct_compte {
+            Some(100) => msg += &format!(" — compte {} : appareil habituel (100 %)", compte),
+            Some(p) => msg += &format!(" — compte {} : NOUVEL appareil pour ce compte ({} %)", compte, p),
+            None => msg += &format!(" — compte {} : premier appareil enregistré", compte),
+        }
+    }
+    if !deja_vu {
+        if let Some(p) = proche.as_ref().filter(|p| p.pct > 0) {
+            let qui = if p.compte.is_empty() { String::new() } else { format!(" (compte {})", p.compte) };
+            msg += &format!(" — ressemble à {} % à {}…{}", p.pct, &p.hash[..16.min(p.hash.len())], qui);
+        }
+    }
+    if detail.contains("anti-empreinte") {
+        msg += " — ⚠ protection anti-empreinte détectée";
+    }
+    if pct_compte.map_or(false, |p| p < 50) {
+        logger.sec(&msg);
+    } else {
+        logger.info(&msg);
+    }
     let _ = request.respond(Response::from_string("").with_status_code(204));
 }
 
