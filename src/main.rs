@@ -629,13 +629,34 @@ fn main() {
             .unwrap_or_else(|| "unknown".into());
         let remote = utils::strip_port(&remote_full);
 
+        // IP reelle du client, UNIQUEMENT pour les logs (retour utilisateur :
+        // "sur les logs admin on ne voit jamais l'IP reelle"). Derriere
+        // Apache, remote_addr() vaut toujours 127.0.0.1 ; mod_proxy ajoute
+        // l'IP du client A LA FIN de X-Forwarded-For. On ne lit cet en-tete
+        // que si la requete vient de localhost (sinon n'importe qui pourrait
+        // le forger), et on prend la DERNIERE valeur (celle ajoutee par
+        // Apache, les precedentes peuvent venir du client).
+        // `remote` reste inchange : les sessions comparent l'IP brute
+        // (voir la NOTE dans fchier.rs::remote_ip), y toucher les casserait.
+        let ip_log = if remote == "127.0.0.1" || remote == "::1" {
+            request
+                .headers()
+                .iter()
+                .find(|h| h.field.as_str().as_str().eq_ignore_ascii_case("X-Forwarded-For"))
+                .and_then(|h| h.value.as_str().rsplit(',').next().map(|s| s.trim().to_string()))
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| remote.clone())
+        } else {
+            remote.clone()
+        };
+
         let path = url.split('?').next().unwrap_or(&url).to_string();
 
         req_count += 1;
 
         if config.app.debug_mode {
-            logger.info(&format!("[REQ #{}] {} {} {}", req_count, remote, method, path));
-            eprintln!("[{}] {} {}", remote, method, path);
+            logger.info(&format!("[REQ #{}] {} {} {}", req_count, ip_log, method, path));
+            eprintln!("[{}] {} {}", ip_log, method, path);
         } else if req_count % 500 == 0 {
             logger.info(&format!("[STAT] {} requêtes traitées.", req_count));
         }
@@ -651,17 +672,17 @@ fn main() {
         // contient "privilege" OU "admin", uniquement pour les requêtes qui
         // modifient quelque chose (POST).
         if (path.contains("privilege") || path.contains("admin")) && method == "POST" {
-            logger.sec(&format!("[ACCES SENSIBLE] {} {} {} (ip={})", method, path, req_count, remote));
+            logger.sec(&format!("[ACCES SENSIBLE] {} {} {} (ip={})", method, path, req_count, ip_log));
         }
 
         match path.as_str() {
             "/" | "/login" | "/login/" | "/login/login" | "/login/login.php" => {
-                logger.info(&format!("Login request depuis {}", remote));
+                logger.info(&format!("Login request depuis {}", ip_log));
                 login::login::handle_request(request, &pool, &config, &remote);
             }
 
             "/login/first_setup" => {
-                logger.info(&format!("First setup depuis {}", remote));
+                logger.info(&format!("First setup depuis {}", ip_log));
                 login::first_setup::handle_request(request, &pool, &config, &remote);
             }
 
@@ -678,7 +699,7 @@ fn main() {
             }
 
             "/logout" | "/logout/" | "/login/logout" | "/login/logout/" => {
-                logger.info(&format!("Logout depuis {}", remote));
+                logger.info(&format!("Logout depuis {}", ip_log));
                 login::logout::handle_request(request, &pool, &remote);
             }
 
@@ -688,7 +709,7 @@ fn main() {
                 || p == "/login/autologin"
                 || p == "/login/autologin/" =>
             {
-                logger.info(&format!("Autologin depuis {}", remote));
+                logger.info(&format!("Autologin depuis {}", ip_log));
                 login::autologin::handle_request(request, &pool, &config, &remote);
             }
 
@@ -709,7 +730,7 @@ fn main() {
             }
 
             p if p.starts_with("/admin") || p.starts_with("/api/admin") => {
-                logger.info(&format!("Admin panel depuis {} — {}", remote, path));
+                logger.info(&format!("Admin panel depuis {} — {}", ip_log, path));
                 admin::admin::handle_request(request, &pool, &config, CONFIG_PATH, &remote_full);
             }
 
@@ -717,7 +738,7 @@ fn main() {
             // Privilege + plan verifies dans access_control::servir_extension.
             p if p.starts_with("/ext/") || p.starts_with("/api/ext/") => {
                 let ext_id = access_control::extension_id_depuis_path(p);
-                logger.info(&format!("Extension '{}' depuis {} — {}", ext_id, remote, path));
+                logger.info(&format!("Extension '{}' depuis {} — {}", ext_id, ip_log, path));
                 access_control::servir_extension(&pool, &config, request, &path);
             }
 
@@ -780,6 +801,13 @@ fn main() {
                 respond_json(request, resp);
             }
 
+            // Politique de confidentialite : lien "J'accepte la Politique de
+            // Confidentialite" de l'inscription (href="/constiontu.html"),
+            // qui tombait en 404 -- le fichier vit dans static/.
+            "/constiontu.html" => {
+                serve_static(request, "/static/constiontu.html");
+            }
+
             p if is_static(p) => {
                 serve_static(request, p);
             }
@@ -789,7 +817,7 @@ fn main() {
             }
 
             _ => {
-                logger.warn(&format!("404 — {} {} (ip={})", method, path, remote));
+                logger.warn(&format!("404 — {} {} (ip={})", method, path, ip_log));
                 let _ = request.respond(Response::from_string("404 Not Found").with_status_code(404));
             }
         }
