@@ -98,7 +98,13 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
     }
 
     // ── Déjà connecté → redirige ─────────────────────────────────
-    if method == "GET" && !cookie_val.is_empty() {
+    // Sauf si ?reauth=1 : fchier/sitec renvoient ici quand l'onglet n'a
+    // plus sa session crypto (sessionStorage, creee uniquement en tapant le
+    // mot de passe) alors que le cookie serveur est encore valide. Sans
+    // cette exception, le 302 vers le dashboard empechait de retaper le
+    // mot de passe : boucle fchier -> login -> dashboard, fchier inaccessible.
+    let reauth = url.split('?').nth(1).map_or(false, |q| q.split('&').any(|p| p == "reauth=1"));
+    if method == "GET" && !cookie_val.is_empty() && !reauth {
         if crate::c::verifier_session(pool, &cookie_val, &remote_ip, &user_agent).connecte {
             redirect(request, "/login/dashboard");
             return;

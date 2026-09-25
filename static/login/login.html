@@ -713,7 +713,7 @@ document.getElementById('login-form').addEventListener('submit', async function 
         VEX.setMasterKey(masterKeyBytes);
         sessionStorage.setItem('vex_master_key', VEX.toBase64(masterKeyBytes));
 
-        window.location.href = d2.redirect || '/login/dashboard';
+        window.location.href = cibleApresConnexion() || d2.redirect || '/login/dashboard';
     } catch (err) {
         showMsg('msg-login', erreurAvecDetail(I18N.ERREUR_RESEAU, err), 'error');
         console.error(err);
@@ -787,6 +787,20 @@ async function submitSignup() {
 }
 
 // ── Init ─────────────────────────────────────────────────────────
+// ── Re-connexion (?reauth=1&next=/fchier/) ──────────────────────────
+// fchier/sitec renvoient ici quand l'onglet a perdu sa session crypto
+// (sessionStorage) alors que la session serveur est valide : on retape
+// le mot de passe puis on revient sur la page d'origine. `next` n'est
+// accepte que s'il s'agit d'un chemin local (pas de //, \ ou schema),
+// pour ne jamais rediriger vers un autre site.
+function cibleApresConnexion() {
+    const next = new URLSearchParams(location.search).get('next') || '';
+    return /^\/(?![\/\\])[^\\]*$/.test(next) ? next : '';
+}
+if (new URLSearchParams(location.search).get('reauth') === '1') {
+    showMsg('msg-login', 'Retape ton mot de passe pour déverrouiller tes fichiers chiffrés.', 'success');
+}
+
 (async function init() {
     const cfg = await loadConfig();
     const regMode = cfg.registration_mode || 'open';

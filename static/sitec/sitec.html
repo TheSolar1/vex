@@ -582,7 +582,9 @@ let pages = [];
 let current = null; // page en cours d'édition (objet complet)
 let dirty = false;
 
-function redirectLogin() { window.location.href = '/login/login'; }
+// reauth=1 : formulaire meme si la session serveur est valide (sinon boucle
+// login -> dashboard) ; next = revenir ici apres le mot de passe.
+function redirectLogin() { window.location.href = '/login/login?reauth=1&next=' + encodeURIComponent(location.pathname + location.search); }
 
 async function apiFetch(url, options = {}) {
   const r = await fetch(url, { ...options, credentials:'include' });

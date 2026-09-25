@@ -806,7 +806,9 @@ async function applyTheme() {
 }
 
 function redirectLogin() {
-  window.location.href = '/login/login';
+  // reauth=1 : affiche le formulaire meme si la session serveur est encore
+  // valide (sinon login -> dashboard en boucle) ; next = revenir ici ensuite.
+  window.location.href = '/login/login?reauth=1&next=' + encodeURIComponent(location.pathname + location.search);
 }
 
 function initCryptoSession() {
