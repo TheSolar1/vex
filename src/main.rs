@@ -35,6 +35,7 @@ mod login {
 mod fchier {
     pub mod corbeille;
     pub mod fchier;
+    pub mod liens;
     pub mod onlyoffice;
 }
 mod mess {
@@ -845,6 +846,12 @@ fn traiter_requete(
                 let resp = fchier::fchier::attendre_bloquant(&pool2, &request);
                 let _ = request.respond(resp);
             });
+        }
+
+        // Liens de partage publics (sans session) -- voir fchier/liens.rs.
+        p if p.starts_with("/partage/") || p.starts_with("/api/partage/") => {
+            let resp = fchier::liens::handle_public(&pool, &mut request);
+            statut_req = Some(repondre(request, resp));
         }
 
         p if p.starts_with("/fchier") || p.starts_with("/api/fchier") => {

@@ -126,6 +126,29 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
     )?;
 
+    // ── fchier_liens ──────────────────────────────────────────────
+    // Liens de partage publics (voir fchier/liens.rs). `contenu` est une
+    // copie RECHIFFREE du fichier avec une cle qui n'est que dans le lien
+    // (fragment #...), jamais envoyee au serveur.
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `fchier_liens` (
+            `jeton`               CHAR(48)     NOT NULL,
+            `id_utilisateur`      INT          NOT NULL,
+            `id_fichier`          INT          NOT NULL,
+            `nom`                 VARCHAR(255) NOT NULL,
+            `mime`                VARCHAR(255) NOT NULL DEFAULT '',
+            `taille`              BIGINT       NOT NULL DEFAULT 0,
+            `contenu`             LONGTEXT     NOT NULL,
+            `mdp_hash`            VARCHAR(100) DEFAULT NULL,
+            `expire_le`           DATETIME     DEFAULT NULL,
+            `telechargements`     INT          NOT NULL DEFAULT 0,
+            `max_telechargements` INT          DEFAULT NULL,
+            `cree_le`             DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`jeton`),
+            KEY `idx_liens_user` (`id_utilisateur`, `id_fichier`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+    )?;
+
     // ── login ─────────────────────────────────────────────────────
     conn.query_drop(
         "CREATE TABLE IF NOT EXISTS `login` (

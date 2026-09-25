@@ -285,6 +285,11 @@ pub fn purger(pool: &DbPool, uid: i64, id: i64) -> bool {
     let d = donnees_de(&entree);
     if let Some(fichiers) = d.get("fichiers").and_then(|v| v.as_array()) {
         for f in fichiers {
+            // Un fichier purge ne doit plus etre accessible par ses liens
+            // de partage publics.
+            if let Some(fid) = f.get("id").and_then(|v| v.as_i64()) {
+                super::liens::supprimer_liens_fichier(pool, uid, fid);
+            }
             if let Some(chemin) = f
                 .get("fichier")
                 .and_then(|v| v.as_str())

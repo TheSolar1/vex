@@ -85,7 +85,7 @@ const PREFIXE_DISQUE: &str = "DISK:";
 /// Choisit, parmi tous les dossiers de stockage configures (un ou
 /// plusieurs disques, pas de limite), celui avec le plus d'espace libre
 /// -- repartit naturellement la charge sans configuration supplementaire.
-fn stockage_disque_config() -> Option<std::path::PathBuf> {
+pub(super) fn stockage_disque_config() -> Option<std::path::PathBuf> {
     let cfg = load_config("config.json");
     let dirs: Vec<&String> = cfg.storage.disk_dirs.iter().filter(|d| !d.trim().is_empty()).collect();
     if dirs.is_empty() {
@@ -112,7 +112,7 @@ fn espace_libre_bytes(dir: &str) -> u64 {
     0
 }
 
-fn ecrire_sur_disque(dossier: &std::path::Path, contenu: &[u8]) -> Option<String> {
+pub(super) fn ecrire_sur_disque(dossier: &std::path::Path, contenu: &[u8]) -> Option<String> {
     if std::fs::create_dir_all(dossier).is_err() {
         return None;
     }
@@ -121,7 +121,7 @@ fn ecrire_sur_disque(dossier: &std::path::Path, contenu: &[u8]) -> Option<String
     Some(format!("{}{}", PREFIXE_DISQUE, chemin.to_string_lossy()))
 }
 
-fn lire_contenu_b64(valeur: &str) -> Result<String, String> {
+pub(super) fn lire_contenu_b64(valeur: &str) -> Result<String, String> {
     match valeur.strip_prefix(PREFIXE_DISQUE) {
         Some(chemin) => std::fs::read(chemin)
             .map(|bytes| B64.encode(bytes))
@@ -130,13 +130,13 @@ fn lire_contenu_b64(valeur: &str) -> Result<String, String> {
     }
 }
 
-fn json_response(status: u16, body: Value) -> Response<std::io::Cursor<Vec<u8>>> {
+pub(super) fn json_response(status: u16, body: Value) -> Response<std::io::Cursor<Vec<u8>>> {
     Response::from_data(body.to_string().into_bytes())
         .with_status_code(status)
         .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
 }
 
-fn html_response(html: String) -> Response<std::io::Cursor<Vec<u8>>> {
+pub(super) fn html_response(html: String) -> Response<std::io::Cursor<Vec<u8>>> {
     Response::from_data(html.into_bytes())
         .with_status_code(200)
         .with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap())
@@ -184,7 +184,7 @@ fn read_body(req: &mut Request) -> String {
     body
 }
 
-fn parse_json_body(req: &mut Request) -> Option<Value> {
+pub(super) fn parse_json_body(req: &mut Request) -> Option<Value> {
     serde_json::from_str(&read_body(req)).ok()
 }
 
@@ -464,6 +464,9 @@ pub fn handle(pool: &DbPool, req: &mut Request) -> Response<std::io::Cursor<Vec<
             "change_visibility" => api_change_visibility(pool, req, uid),
             "rename" => api_rename(pool, req, uid),
             "delete" => api_delete(pool, req, uid),
+            "lien_creer" => super::liens::api_creer(pool, req, uid),
+            "liens" => super::liens::api_lister(pool, req, uid),
+            "lien_supprimer" => super::liens::api_supprimer(pool, req, uid),
             "corbeille_liste" | "corbeille_restaurer" | "corbeille_supprimer" | "corbeille_vider" => {
                 api_corbeille(pool, req, uid, action)
             }

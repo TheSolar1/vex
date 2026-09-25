@@ -161,7 +161,7 @@ impl LigneAcces {
 /// Retire les jetons portés dans le chemin (liens d'autologin, partages)
 /// avant écriture dans un log lisible par les admins.
 pub fn masquer_secrets_chemin(chemin: &str) -> String {
-    for prefixe in ["/autologin/", "/login/autologin/", "/autoriser-appareil/"] {
+    for prefixe in ["/autologin/", "/login/autologin/", "/autoriser-appareil/", "/partage/", "/api/partage/"] {
         if chemin.len() > prefixe.len() && chemin.starts_with(prefixe) {
             return format!("{}***", prefixe);
         }

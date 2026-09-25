@@ -413,6 +413,9 @@ __NAV_HTML__
   <div class="context-menu-item" id="ctx-share" onclick="handleAction('share')">
     <img class="ico ico-18 ico-muted" src="/static/img/solid/share-nodes.svg"> {{T_PARTAGER}}
   </div>
+  <div class="context-menu-item" id="ctx-lien" onclick="handleAction('lien')">
+    <img class="ico ico-18 ico-muted" src="/static/img/solid/link.svg"> Lien de partage
+  </div>
   <div class="context-menu-item" id="ctx-sendp2p" onclick="handleAction('send_p2p')">
     <img class="ico ico-18 ico-muted" src="/static/img/solid/paper-plane.svg"> {{T_ENVOYER_P2P}}
   </div>
@@ -620,6 +623,41 @@ __NAV_HTML__
   </div>
   <div id="oo-placeholder">
     <div id="oo-etat"><div class="oo-spin"></div><div>{{T_CHARGEMENT_DOCUMENT}}</div></div>
+  </div>
+</div>
+
+<!-- Lien de partage public -->
+<div class="modal" id="lienModal" role="dialog" aria-modal="true" aria-labelledby="lien-titre">
+  <div class="modal-content wide">
+    <div class="modal-header" id="lien-titre">
+      <img class="ico ico-20 ico-primary" src="/static/img/solid/link.svg"> Lien de partage — <span id="lien-nom" style="margin-left:4px;font-weight:600"></span>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:.82rem;color:var(--text-m);margin-bottom:12px">Toute personne qui a le lien peut télécharger ce fichier, sans compte VEX. Le fichier reste chiffré : la clé est dans le lien, le serveur ne peut pas le lire.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">
+        <div class="form-group" style="margin:0"><label for="lien-mdp">Mot de passe (optionnel)</label><input type="password" id="lien-mdp" maxlength="200" autocomplete="new-password"></div>
+        <div class="form-group" style="margin:0"><label for="lien-expire">Expiration</label>
+          <select id="lien-expire" class="vex-input" style="width:100%;padding:9px;border-radius:8px">
+            <option value="1">1 jour</option><option value="7" selected>7 jours</option><option value="30">30 jours</option><option value="365">1 an</option><option value="0">Jamais</option>
+          </select></div>
+        <div class="form-group" style="margin:0"><label for="lien-max">Téléchargements max</label><input type="number" id="lien-max" min="0" max="100000" placeholder="Illimité"></div>
+      </div>
+      <button class="btn btn-primary" id="lien-creer" style="margin-top:12px" onclick="creerLien()">
+        <img class="ico ico-sm ico-white" src="/static/img/solid/link.svg"> Créer le lien
+      </button>
+      <div id="lien-resultat" hidden style="margin-top:14px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface2)">
+        <label for="lien-url" style="font-size:.8rem;font-weight:700">Lien créé — copiez-le maintenant (la clé n'est pas conservée par le serveur) :</label>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <input id="lien-url" readonly style="flex:1;font-family:monospace;font-size:.78rem" onclick="this.select()">
+          <button class="btn btn-secondary" onclick="copierLien()">Copier</button>
+        </div>
+      </div>
+      <h4 style="margin:18px 0 6px;font-size:.9rem">Liens existants pour ce fichier</h4>
+      <div id="lien-liste" style="max-height:30vh;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('lienModal')">{{T_FERMER}}</button>
+    </div>
   </div>
 </div>
 
@@ -2132,6 +2170,91 @@ async function doDelete() {
   } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
 }
 
+// ── Lien de partage public (chiffré de bout en bout, clé dans le #)
+let lienFichier = null;
+function b64url(u8) {
+  let s = ''; for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function ouvrirLien(item) {
+  lienFichier = item;
+  document.getElementById('lien-nom').textContent = item.nom || '';
+  document.getElementById('lien-mdp').value = '';
+  document.getElementById('lien-max').value = '';
+  document.getElementById('lien-resultat').hidden = true;
+  openModal('lienModal');
+  chargerLiens();
+}
+async function chargerLiens() {
+  const box = document.getElementById('lien-liste');
+  box.innerHTML = '<div class="spinner" style="margin:8px auto;"></div>';
+  try {
+    const r = await vexFetch('/api/fchier/liens?id_fichier=' + encodeURIComponent(lienFichier.id));
+    const d = await r.json();
+    const liens = d.liens || [];
+    if (!liens.length) { box.innerHTML = '<p style="font-size:.8rem;color:var(--text-m)">Aucun lien.</p>'; return; }
+    box.innerHTML = liens.map(l => `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--border);font-size:.8rem">
+        <div style="flex:1;min-width:0">
+          <span style="font-family:monospace">…${escHtml(String(l.jeton).slice(-8))}</span>
+          ${l.mot_de_passe ? ' · 🔒' : ''}
+          · ${Number(l.telechargements)}${l.max_telechargements ? '/' + Number(l.max_telechargements) : ''} téléch.
+          · ${l.expire ? '<span style="color:var(--danger)">expiré</span>' : (l.expire_le ? 'expire le ' + escHtml(String(l.expire_le).slice(0,16)) : 'sans expiration')}
+        </div>
+        <button class="btn btn-secondary" style="color:var(--danger)" onclick="supprimerLien('${escHtml(String(l.jeton))}')">Révoquer</button>
+      </div>`).join('');
+  } catch(e) { box.innerHTML = `<p style="color:var(--danger)">${escHtml(e.message)}</p>`; }
+}
+async function creerLien() {
+  if (!requireCryptoSession() || !lienFichier) return;
+  const btn = document.getElementById('lien-creer');
+  btn.disabled = true;
+  try {
+    // 1. Récupère et déchiffre le fichier avec la clé personnelle.
+    const r = await vexFetch(`/api/fchier/download?id=${lienFichier.id}`, { credentials:'include' });
+    const data = await r.json();
+    if (!data.success) throw new Error(data.error || I18N.ERREUR);
+    const bytes = VEX.fromBase64(data.contenu);
+    let clair;
+    try { clair = new Uint8Array(await (await VEX.dechiffrerFichier(new Blob([bytes]), data.mime)).arrayBuffer()); }
+    catch (e) { if (!e.message || !e.message.includes('non chiffré')) throw e; clair = bytes; }
+    // 2. Rechiffre avec une clé aléatoire qui ne quittera pas le navigateur.
+    const cleBrute = crypto.getRandomValues(new Uint8Array(32));
+    const cle = await crypto.subtle.importKey('raw', cleBrute, 'AES-GCM', false, ['encrypt']);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const chiffre = new Uint8Array(await crypto.subtle.encrypt({ name:'AES-GCM', iv }, cle, clair));
+    const paquet = new Uint8Array(12 + chiffre.length); paquet.set(iv, 0); paquet.set(chiffre, 12);
+    // 3. Envoie la copie chiffrée ; la clé reste dans le fragment du lien.
+    const res = await apiFetch('/api/fchier/lien_creer', {
+      id_fichier: Number(lienFichier.id),
+      contenu: VEX.toBase64 ? VEX.toBase64(paquet) : btoa(String.fromCharCode.apply(null, paquet)),
+      mot_de_passe: document.getElementById('lien-mdp').value,
+      expire_jours: Number(document.getElementById('lien-expire').value) || 0,
+      max_telechargements: Number(document.getElementById('lien-max').value) || 0,
+    });
+    if (!res.success) throw new Error(res.error);
+    document.getElementById('lien-url').value = location.origin + res.url + '#' + b64url(cleBrute);
+    document.getElementById('lien-resultat').hidden = false;
+    document.getElementById('lien-url').select();
+    toast('Lien créé', 'ok');
+    chargerLiens();
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
+  finally { btn.disabled = false; }
+}
+async function copierLien() {
+  const v = document.getElementById('lien-url').value;
+  try { await navigator.clipboard.writeText(v); toast('Lien copié', 'ok'); }
+  catch (_) { document.getElementById('lien-url').select(); document.execCommand('copy'); toast('Lien copié', 'ok'); }
+}
+async function supprimerLien(jeton) {
+  if (!confirm('Révoquer ce lien ? Il ne fonctionnera plus.')) return;
+  try {
+    const r = await apiFetch('/api/fchier/lien_supprimer', { jeton });
+    if (!r.success) throw new Error(r.error);
+    toast('Lien révoqué', 'ok'); chargerLiens();
+  } catch(e) { toast(I18N.ERREUR_PREFIX + e.message, 'error'); }
+}
+
 // ── Corbeille (fichiers/dossiers supprimés, restaurables 30 jours)
 async function openCorbeille() {
   openModal('corbeilleModal');
@@ -2215,6 +2338,7 @@ function openCtx(e, type, id, item) {
   document.getElementById('ctx-visibility').style.display = (type === 'page' || type === 'file') ? 'flex' : 'none';
   document.getElementById('ctx-move').style.display       = (type === 'folder' || type === 'page' || type === 'file') ? 'flex' : 'none';
   document.getElementById('ctx-share').style.display      = type === 'file' || type === 'folder' ? 'flex' : 'none';
+  document.getElementById('ctx-lien').style.display       = type === 'file' ? 'flex' : 'none';
   document.getElementById('ctx-sendp2p').style.display    = type === 'file'   ? 'flex' : 'none';
   const menu = document.getElementById('contextMenu');
   menu.classList.add('show');
@@ -2240,6 +2364,7 @@ function handleAction(action) {
   else if (action === 'edit_office' && type === 'file')   { ouvrirOnlyOffice(item); }
   else if (action === 'rename')     { document.getElementById('rename-input').value = name; openModal('renameModal'); }
   else if (action === 'share')      { document.getElementById('share-ids').value = item.partage || ''; openModal('shareModal'); }
+  else if (action === 'lien'        && type === 'file')   { ouvrirLien(item); }
   else if (action === 'send_p2p')   { document.getElementById('p2p-to-user').value=''; openModal('p2pModal'); }
   else if (action === 'visibility') { document.getElementById('visibility-value').value = item.visble || item.prob || '1'; openModal('visibilityModal'); }
   else if (action === 'move')       { openModal('moveModal'); }
