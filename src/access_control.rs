@@ -417,7 +417,7 @@ fn servir_statique_extension_habillee(
     }
     let brut = String::from_utf8_lossy(&donnees).to_string();
     let prefs = crate::function::get_user_preferences(pool, session.user_id);
-    let theme = if prefs.teme == 1 { "dark" } else { "light" };
+    let theme = crate::function::theme_depuis_teme(prefs.teme);
     let nav = nav_extension(pool, session, request, id);
     let html = habiller_page(&brut, &nav, theme, &prefs.langue);
     Some(

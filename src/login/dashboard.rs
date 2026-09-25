@@ -801,7 +801,7 @@ pub fn handle_request(request: Request, pool: &DbPool, _config: &VexConfig, remo
         .to_string();
 
     let prefs = get_user_preferences(pool, user_id);
-    let theme = if prefs.teme == 1 { "dark" } else { "light" };
+    let theme = crate::function::theme_depuis_teme(prefs.teme);
     let langue = crate::function::get_user_language(pool, Some(user_id), None, None);
 
     // ── Tuiles publiees par les extensions ────────────────────────

@@ -894,7 +894,8 @@ fn serve_login_html(request: Request, pool: &DbPool, accept_lang: &str) {
             // Pas de session avant connexion → thème par défaut "light".
             // (Si tu veux respecter un thème mémorisé pré-connexion, il
             // faudrait un cookie non-HttpOnly dédié — hors scope ici.)
-            let html = html.replace("{{THEME}}", "light");
+            // Pas de session : le theme suit le reglage de l'appareil.
+            let html = html.replace("{{THEME}}", "auto");
 
             let html = appliquer_traductions(
                 &html,

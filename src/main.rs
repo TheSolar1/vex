@@ -67,6 +67,35 @@ use tiny_http::{Response, Server};
 const CONFIG_PATH: &str = "config.json";
 const DEFAULT_PORT: u16 = 8080;
 const DEFAULT_THREADS: usize = 8;
+
+const PAGE_404: &str = r#"<!DOCTYPE html>
+<html lang="fr" data-theme="auto">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Page introuvable — VEX</title>
+<link rel="stylesheet" href="/static/css/theme.css">
+<script src="/static/js/vex-ui.js"></script>
+<style>
+body{margin:0;padding:0!important;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;text-align:center}
+.c{padding:32px 24px;max-width:420px}
+.n{font-size:5.5rem;font-weight:900;line-height:1;background:linear-gradient(135deg,var(--vex-green-1),var(--vex-green-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+h1{font-size:1.3rem;margin:14px 0 8px}
+p{color:var(--text-dim);margin:0 0 22px}
+a{display:inline-block;padding:11px 20px;border-radius:10px;background:var(--accent);color:#fff;text-decoration:none;font-weight:700;margin:4px}
+a.s{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+</style>
+</head>
+<body>
+<main class="c">
+  <div class="n" aria-hidden="true">404</div>
+  <h1>Page introuvable</h1>
+  <p>Le lien est peut-être erroné, ou la page a été déplacée ou supprimée.</p>
+  <a href="/login/dashboard">Retour à l'accueil</a>
+  <a class="s" href="/recherche/">Rechercher</a>
+</main>
+</body>
+</html>
+"#;
 const LOG_DIR: &str = "log";
 
 // ══════════════════════════════════════════════════════════════════
@@ -905,7 +934,17 @@ fn traiter_requete(
         _ => {
             logger.warn(&format!("404 — {} {} (ip={})", method, path, ip_log));
             statut_req = Some(404);
-            let _ = request.respond(Response::from_string("404 Not Found").with_status_code(404));
+            // Page 404 lisible pour un navigateur ; texte brut pour l'API.
+            let veut_html = !path.starts_with("/api/")
+                && request.headers().iter().any(|h| h.field.equiv("Accept") && h.value.as_str().contains("text/html"));
+            if veut_html {
+                let resp = Response::from_string(PAGE_404)
+                    .with_status_code(404)
+                    .with_header(tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap());
+                let _ = request.respond(resp);
+            } else {
+                let _ = request.respond(Response::from_string("404 Not Found").with_status_code(404));
+            }
         }
     }
 

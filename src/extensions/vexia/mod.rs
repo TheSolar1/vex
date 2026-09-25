@@ -69,7 +69,7 @@ pub fn handle(
     match std::fs::read_to_string("static/extensions/vexia/index.html") {
         Ok(html) => {
             let prefs = crate::function::get_user_preferences(pool, session.user_id);
-            let theme = if prefs.teme == 1 { "dark" } else { "light" };
+            let theme = crate::function::theme_depuis_teme(prefs.teme);
             let nav = crate::access_control::nav_extension(pool, session, req, "vexia");
             let html = html
                 .replace("__NAV_HTML__", &nav)

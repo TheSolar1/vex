@@ -288,6 +288,15 @@ body {
 @media(max-width:768px) {
   .sidebar { width:70px; }
   .create-btn span, .nav-item span { display:none; }
+  /* Mobile : la barre (filtre / recherche / vue) passe sous le titre et
+     prend toute la largeur au lieu de sortir de l'ecran. */
+  .content-header { flex-wrap:wrap; gap:12px; }
+  .content-header > div:last-child { width:100%; flex-wrap:wrap; }
+  .content-header .search-box { flex:1 1 140px; min-width:0; }
+  .content-header .filter-select { flex:0 1 auto; max-width:48%; }
+  .content-title { font-size:1.4rem; }
+  /* La jauge de stockage ne tient pas dans la barre laterale reduite. */
+  #quota-widget { display:none; }
 }
   </style>
 </head>
@@ -763,7 +772,7 @@ __NAV_HTML__
 {{I18N_JS}}
 'use strict';
 const ICO = '/static/img/solid/';
-const THEMES = ['light','dark','solarized','rose']; // index = colonne `teme` en DB — identique à mess.html
+const THEMES = ['light','dark','solarized','rose','auto']; // index = colonne `teme` en DB — identique à mess.html
 
 const state = {
   dossier:     0,

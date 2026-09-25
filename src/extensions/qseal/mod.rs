@@ -55,7 +55,7 @@ pub fn handle(
             // Barre de navigation VEX + theme de l'utilisateur, comme
             // sur les pages integrees.
             let prefs = crate::function::get_user_preferences(pool, session.user_id);
-            let theme = if prefs.teme == 1 { "dark" } else { "light" };
+            let theme = crate::function::theme_depuis_teme(prefs.teme);
             let nav = crate::access_control::nav_extension(pool, session, req, "qseal");
             let html = html
                 .replace("__NAV_HTML__", &nav)

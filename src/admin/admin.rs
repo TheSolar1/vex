@@ -529,7 +529,7 @@ pub fn handle_request(
 
     let query = parse_query(&url);
     let prefs = get_user_preferences(pool, user_id);
-    let theme = if prefs.teme == 1 { "dark" } else { "light" };
+    let theme = crate::function::theme_depuis_teme(prefs.teme);
     let lang = get_user_language(pool, Some(user_id), None, None);
 
     let path = url.split('?').next().unwrap_or(&url).to_string();
