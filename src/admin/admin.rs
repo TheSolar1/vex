@@ -384,8 +384,27 @@ fn vex_pages() -> Vec<(&'static str, &'static str)> {
     ]
 }
 
+const JOURS_LOGS_AFFICHES: usize = 7;
+const LIGNES_MAX_PAR_LOG: usize = 2000;
+
 fn log_dir() -> std::path::PathBuf {
     std::path::PathBuf::from("log")
+}
+
+/// `type_log` : "vex" (journal principal) ou "acces" (journal d'acces
+/// HTTP) ; toute autre valeur = les deux.
+fn log_files_type(type_log: &str) -> Vec<std::path::PathBuf> {
+    log_files()
+        .into_iter()
+        .filter(|p| {
+            let nom = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            match type_log {
+                "vex" => !nom.starts_with("acces_"),
+                "acces" => nom.starts_with("acces_"),
+                _ => true,
+            }
+        })
+        .collect()
 }
 
 fn log_files() -> Vec<std::path::PathBuf> {
@@ -400,13 +419,26 @@ fn log_files() -> Vec<std::path::PathBuf> {
                 let is_vex_log = path
                     .file_name()
                     .and_then(|n| n.to_str())
-                    .map(|name| name.starts_with("vex_") && name.ends_with(".log"))
+                    .map(|name| {
+                        (name.starts_with("vex_") || name.starts_with("acces_"))
+                            && name.ends_with(".log")
+                    })
                     .unwrap_or(false);
                 is_vex_log.then_some(path)
             })
             .collect();
-        collected.sort();
-        files.extend(collected);
+        // Tri par date (dans le nom) puis type : vex_ avant acces_ pour un
+        // meme jour. Seuls les JOURS_LOGS_AFFICHES derniers jours sont lus :
+        // avant, tout l'historique etait recharge a chaque ouverture.
+        let date_de = |p: &std::path::PathBuf| -> String {
+            p.file_stem().and_then(|n| n.to_str())
+                .and_then(|n| n.rsplit('_').next()).unwrap_or("").to_string()
+        };
+        collected.sort_by(|a, b| date_de(a).cmp(&date_de(b)).then(b.cmp(a)));
+        let mut jours: Vec<String> = collected.iter().map(date_de).collect();
+        jours.dedup();
+        let garder: Vec<String> = jours.iter().rev().take(JOURS_LOGS_AFFICHES).cloned().collect();
+        files.extend(collected.into_iter().filter(|p| garder.contains(&date_de(p))));
     }
 
     if files.is_empty() {
@@ -419,10 +451,10 @@ fn log_files() -> Vec<std::path::PathBuf> {
     files
 }
 
-fn read_log_content() -> (bool, String, Vec<String>) {
+fn read_log_content(type_log: &str) -> (bool, String, Vec<String>) {
     let mut parts = Vec::new();
     let mut files = Vec::new();
-    for path in log_files() {
+    for path in log_files_type(type_log) {
         let label = path
             .file_name()
             .and_then(|n| n.to_str())
@@ -432,7 +464,16 @@ fn read_log_content() -> (bool, String, Vec<String>) {
         if let Ok(content) = std::fs::read_to_string(&path) {
             let trimmed = content.trim();
             if !trimmed.is_empty() {
-                parts.push(format!("===== {} =====\n{}", label, trimmed));
+                // Seulement la fin de chaque fichier (le journal d'acces
+                // grossit vite : une ligne par requete).
+                let lignes: Vec<&str> = trimmed.lines().collect();
+                let debut = lignes.len().saturating_sub(LIGNES_MAX_PAR_LOG);
+                let entete = if debut > 0 {
+                    format!("===== {} ({} premieres lignes masquees) =====", label, debut)
+                } else {
+                    format!("===== {} =====", label)
+                };
+                parts.push(format!("{}\n{}", entete, lignes[debut..].join("\n")));
             }
         }
     }
@@ -1375,22 +1416,25 @@ fn handle_api(
         }
 
         "/logs" => {
-            let (empty, content, files) = read_log_content();
+            // ?type=vex|acces  ?n=<lignes> (defaut 200, max 2000)  ?q=<filtre>
+            let type_log = match query.get("type").map(|s| s.as_str()) {
+                Some("acces") => "acces",
+                _ => "vex",
+            };
+            let n = query.get("n").and_then(|v| v.parse::<usize>().ok())
+                .unwrap_or(200).clamp(20, LIGNES_MAX_PAR_LOG);
+            let filtre = query.get("q").map(|q| q.trim().to_lowercase()).unwrap_or_default();
+            let (empty, content, files) = read_log_content(type_log);
             if empty || content.trim().is_empty() {
-                json!({"success":true,"data":{"empty":true,"files":files,"root":"log"}})
+                json!({"success":true,"data":{"empty":true,"files":files,"root":"log","type":type_log}})
             } else {
-                let lines: Vec<&str> = content.lines().collect();
-                let trimmed = lines
-                    .iter()
-                    .rev()
-                    .take(200)
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .rev()
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                json!({"success":true,"data":{"empty":false,"content":trimmed,"files":files,"root":"log"}})
+                let lines: Vec<&str> = content
+                    .lines()
+                    .filter(|l| filtre.is_empty() || l.starts_with("=====") || l.to_lowercase().contains(&filtre))
+                    .collect();
+                let debut = lines.len().saturating_sub(n);
+                let trimmed = lines[debut..].join("\n");
+                json!({"success":true,"data":{"empty":false,"content":trimmed,"files":files,"root":"log","type":type_log}})
             }
         }
 

@@ -26,11 +26,12 @@
   --orange: #f59e0b;
   --blue: #3b82f6;
 
-  /* FIX (demande utilisateur : "je veux un fond blanc") : la barre de
-     nav du haut (et son fil d'ariane) utilisait un degrade vert --
-     remplace par un blanc uni en theme clair. Le degrade reste en theme
-     sombre (un fond blanc y casserait le contraste). */
-  --nav-gradient: #ffffff;
+  /* FIX (retour utilisateur : "la barre de nav n'a plus le degrade,
+     elle est toute blanche") : degrade vert restaure en theme clair. Le
+     fond blanc uni rendait illisibles le nom d'utilisateur, les icones
+     et le fil d'ariane, tous blancs (voir .user-name-top-7844,
+     .topbar-btn-svg-7844, .nav-bc-link-7844 plus bas). */
+  --nav-gradient: linear-gradient(135deg,var(--vex-green-1) 0%,var(--vex-green-2) 100%);
   --shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 14px rgba(0,0,0,.04);
   --radius: 12px;
 
