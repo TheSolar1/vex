@@ -1194,6 +1194,20 @@ pub fn bump_version_fichiers(pool: &DbPool, id_utilisateur: i64) -> bool {
     ok
 }
 
+/// Ajoute / retire un favori ExoDrive (idempotent).
+pub fn definir_favori(pool: &DbPool, id_utilisateur: i64, item_type: &str, item_id: i64, favori: bool) -> bool {
+    let mut conn = match pool.get_conn() {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    let sql = if favori {
+        "INSERT IGNORE INTO `fchier_favoris` (id_utilisateur, item_type, item_id) VALUES (?, ?, ?)"
+    } else {
+        "DELETE FROM `fchier_favoris` WHERE id_utilisateur = ? AND item_type = ? AND item_id = ?"
+    };
+    conn.exec_drop(sql, (id_utilisateur, item_type, item_id)).is_ok()
+}
+
 /// Ids des elements de corbeille d'un utilisateur supprimes depuis plus
 /// de `jours` jours (purge automatique, voir fchier/corbeille.rs).
 pub fn corbeille_ids_expires(pool: &DbPool, id_utilisateur: i64, jours: u32) -> Vec<i64> {

@@ -149,6 +149,16 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
     )?;
 
+    // ── fchier_favoris ────────────────────────────────────────────
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `fchier_favoris` (
+            `id_utilisateur` INT         NOT NULL,
+            `item_type`      VARCHAR(10) NOT NULL,
+            `item_id`        BIGINT      NOT NULL,
+            PRIMARY KEY (`id_utilisateur`, `item_type`, `item_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+    )?;
+
     // ── login ─────────────────────────────────────────────────────
     conn.query_drop(
         "CREATE TABLE IF NOT EXISTS `login` (
