@@ -103,56 +103,94 @@ fn hashes_attendus() -> [(&'static str, u64); 4] {
 // LOGGER GLOBAL
 // ══════════════════════════════════════════════════════════════════
 struct VexLogger {
-    file: Mutex<std::fs::File>,
+    /// (date du fichier ouvert "YYYY-MM-DD", fichier) -- rouvert a chaque
+    /// changement de jour : avant, le fichier du jour de demarrage recevait
+    /// tout, meme des semaines plus tard.
+    file: Mutex<(String, Option<std::fs::File>)>,
+    /// Journal d'acces HTTP separe (une ligne par requete), meme rotation.
+    acces: Mutex<(String, Option<std::fs::File>)>,
 }
 
 impl VexLogger {
     fn ouvrir() -> Option<Arc<Self>> {
-        let _ = std::fs::create_dir_all(LOG_DIR);
-        let now = chrono_date_simple();
-        let path = format!("{}/vex_{}.log", LOG_DIR, now);
-        std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)
-            .ok()
-            .map(|f| Arc::new(VexLogger { file: Mutex::new(f) }))
+        std::fs::create_dir_all(LOG_DIR).ok()?;
+        let l = VexLogger {
+            file: Mutex::new((String::new(), None)),
+            acces: Mutex::new((String::new(), None)),
+        };
+        // Verifie des le demarrage que le dossier est inscriptible.
+        Self::fichier_du_jour(&l.file, "vex")?;
+        Some(Arc::new(l))
+    }
+
+    /// Fichier sans disque (fallback si log/ n'est pas inscriptible) :
+    /// stderr uniquement.
+    fn stderr_seul() -> Arc<Self> {
+        Arc::new(VexLogger {
+            file: Mutex::new(("-".into(), None)),
+            acces: Mutex::new(("-".into(), None)),
+        })
+    }
+
+    /// Ouvre (ou rouvre si la date a change) log/<prefixe>_<date>.log.
+    fn fichier_du_jour(slot: &Mutex<(String, Option<std::fs::File>)>, prefixe: &str) -> Option<()> {
+        let mut g = slot.lock().ok()?;
+        if g.0 == "-" {
+            return None;
+        }
+        let today = chrono_date_simple();
+        if g.0 != today || g.1.is_none() {
+            let path = format!("{}/{}_{}.log", LOG_DIR, prefixe, today);
+            let f = std::fs::OpenOptions::new().create(true).append(true).open(&path).ok()?;
+            *g = (today, Some(f));
+        }
+        Some(())
+    }
+
+    fn ecrire(slot: &Mutex<(String, Option<std::fs::File>)>, prefixe: &str, ligne: &str) {
+        if Self::fichier_du_jour(slot, prefixe).is_none() {
+            return;
+        }
+        if let Ok(mut g) = slot.lock() {
+            if let Some(f) = g.1.as_mut() {
+                let _ = f.write_all(ligne.as_bytes());
+            }
+        }
     }
 
     fn log(&self, niveau: &str, message: &str) {
         let ts = timestamp_now();
+        // Une ligne = une entree : les retours a la ligne d'un message
+        // (erreur multi-ligne, entree utilisateur) ne doivent pas pouvoir
+        // forger de fausses lignes de log.
+        let message = message.replace(['\n', '\r'], " ");
         let ligne = format!("[{}] [{}] {}\n", ts, niveau, message);
         eprint!("{}", ligne);
-        if let Ok(mut f) = self.file.lock() {
-            let _ = f.write_all(ligne.as_bytes());
-        }
+        Self::ecrire(&self.file, "vex", &ligne);
     }
 
     fn info(&self, msg: &str)  { self.log("INFO",  msg); }
     fn warn(&self, msg: &str)  { self.log("WARN",  msg); }
     fn error(&self, msg: &str) { self.log("ERROR", msg); }
     fn sec(&self, msg: &str)   { self.log("SECURITE", msg); }
+
+    /// Journal d'acces : une ligne par requete HTTP, dans
+    /// log/acces_<date>.log (pas sur stderr, trop verbeux).
+    fn acces(&self, a: &utils::LigneAcces) {
+        let ligne = format!("[{}] {}\n", timestamp_now(), a.formater());
+        Self::ecrire(&self.acces, "acces", &ligne);
+    }
 }
 
 fn chrono_date_simple() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let secs = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-    // Approximation : année / mois / jour depuis epoch Unix
-    let days  = secs / 86400;
-    let years = 1970 + days / 365;
-    let rem   = days % 365;
-    let month = rem / 30 + 1;
-    let day   = rem % 30 + 1;
-    format!("{:04}-{:02}-{:02}", years, month.min(12), day.min(31))
+    // FIX : l'ancienne "approximation" (annees de 365 jours, mois de 30
+    // jours) decalait la date de plusieurs semaines (ex. 2026-10-12 au
+    // lieu de 2026-09-25) -- dates des logs et noms de fichiers faux.
+    chrono::Utc::now().format("%Y-%m-%d").to_string()
 }
 
 fn timestamp_now() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let secs = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-    let h = (secs % 86400) / 3600;
-    let m = (secs % 3600) / 60;
-    let s = secs % 60;
-    format!("{}T{:02}:{:02}:{:02}Z", chrono_date_simple(), h, m, s)
+    chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string()
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -411,18 +449,8 @@ pub fn demande_elevation_fondateur_via_extension(
 fn main() {
     // ── Logger ────────────────────────────────────────────────────
     let logger = VexLogger::ouvrir().unwrap_or_else(|| {
-        eprintln!("[WARN] Impossible d'ouvrir le fichier de log dans {}/", LOG_DIR);
-        // Fallback : log vers stderr uniquement (pas de panic)
-        let tmp = std::env::temp_dir().join("vex_emergency.log");
-        let f = std::fs::OpenOptions::new().create(true).append(true).open(&tmp)
-            .unwrap_or_else(|_| {
-                // Dernier recours : /dev/null ou NUL
-                #[cfg(unix)]
-                { std::fs::File::open("/dev/null").unwrap() }
-                #[cfg(windows)]
-                { std::fs::File::open("NUL").unwrap() }
-            });
-        Arc::new(VexLogger { file: Mutex::new(f) })
+        eprintln!("[WARN] Impossible d'ouvrir le fichier de log dans {}/ -- logs sur stderr uniquement.", LOG_DIR);
+        VexLogger::stderr_seul()
     });
 
     logger.info("═══════════════════════════════════════════");
@@ -629,14 +657,30 @@ fn main() {
             .unwrap_or_else(|| "unknown".into());
         let remote = utils::strip_port(&remote_full);
 
+        // IP reelle du visiteur (en-tetes du reverse proxy si la connexion
+        // vient d'un proxy local) -- pour les LOGS uniquement ; `remote`
+        // (IP TCP brute) reste celle passee aux handlers pour les sessions.
+        let (ip_client, ip_proxy) = utils::client_ip(&request);
+        let ip_log = match &ip_proxy {
+            Some(p) => format!("{} (via {})", ip_client, p),
+            None => ip_client.clone(),
+        };
+        let debut_req = std::time::Instant::now();
+        let ua_req = request.headers().iter()
+            .find(|h| h.field.equiv("User-Agent"))
+            .map(|h| h.value.as_str().to_string()).unwrap_or_default();
+        let referer_req = request.headers().iter()
+            .find(|h| h.field.equiv("Referer"))
+            .map(|h| h.value.as_str().to_string()).unwrap_or_default();
+        let mut statut_req: Option<u16> = None;
+
         let path = url.split('?').next().unwrap_or(&url).to_string();
 
         req_count += 1;
 
         if config.app.debug_mode {
-            logger.info(&format!("[REQ #{}] {} {} {}", req_count, remote, method, path));
-            eprintln!("[{}] {} {}", remote, method, path);
-        } else if req_count % 500 == 0 {
+            logger.info(&format!("[REQ #{}] {} {} {}", req_count, ip_log, method, utils::masquer_secrets_chemin(&path)));
+                    } else if req_count % 500 == 0 {
             logger.info(&format!("[STAT] {} requêtes traitées.", req_count));
         }
 
@@ -651,17 +695,17 @@ fn main() {
         // contient "privilege" OU "admin", uniquement pour les requêtes qui
         // modifient quelque chose (POST).
         if (path.contains("privilege") || path.contains("admin")) && method == "POST" {
-            logger.sec(&format!("[ACCES SENSIBLE] {} {} {} (ip={})", method, path, req_count, remote));
+            logger.sec(&format!("[ACCES SENSIBLE] {} {} {} (ip={})", method, path, req_count, ip_log));
         }
 
         match path.as_str() {
             "/" | "/login" | "/login/" | "/login/login" | "/login/login.php" => {
-                logger.info(&format!("Login request depuis {}", remote));
+                logger.info(&format!("Login request depuis {}", ip_log));
                 login::login::handle_request(request, &pool, &config, &remote);
             }
 
             "/login/first_setup" => {
-                logger.info(&format!("First setup depuis {}", remote));
+                logger.info(&format!("First setup depuis {}", ip_log));
                 login::first_setup::handle_request(request, &pool, &config, &remote);
             }
 
@@ -678,7 +722,7 @@ fn main() {
             }
 
             "/logout" | "/logout/" | "/login/logout" | "/login/logout/" => {
-                logger.info(&format!("Logout depuis {}", remote));
+                logger.info(&format!("Logout depuis {}", ip_log));
                 login::logout::handle_request(request, &pool, &remote);
             }
 
@@ -688,7 +732,7 @@ fn main() {
                 || p == "/login/autologin"
                 || p == "/login/autologin/" =>
             {
-                logger.info(&format!("Autologin depuis {}", remote));
+                logger.info(&format!("Autologin depuis {}", ip_log));
                 login::autologin::handle_request(request, &pool, &config, &remote);
             }
 
@@ -709,7 +753,7 @@ fn main() {
             }
 
             p if p.starts_with("/admin") || p.starts_with("/api/admin") => {
-                logger.info(&format!("Admin panel depuis {} — {}", remote, path));
+                logger.info(&format!("Admin panel depuis {} — {} {}", ip_log, method, path));
                 admin::admin::handle_request(request, &pool, &config, CONFIG_PATH, &remote_full);
             }
 
@@ -717,7 +761,7 @@ fn main() {
             // Privilege + plan verifies dans access_control::servir_extension.
             p if p.starts_with("/ext/") || p.starts_with("/api/ext/") => {
                 let ext_id = access_control::extension_id_depuis_path(p);
-                logger.info(&format!("Extension '{}' depuis {} — {}", ext_id, remote, path));
+                logger.info(&format!("Extension '{}' depuis {} — {} {}", ext_id, ip_log, method, path));
                 access_control::servir_extension(&pool, &config, request, &path);
             }
 
@@ -789,9 +833,28 @@ fn main() {
             }
 
             _ => {
-                logger.warn(&format!("404 — {} {} (ip={})", method, path, remote));
+                logger.warn(&format!("404 — {} {} (ip={})", method, path, ip_log));
+                statut_req = Some(404);
                 let _ = request.respond(Response::from_string("404 Not Found").with_status_code(404));
             }
+        }
+
+        // ── Journal d'acces ────────────────────────────────────────
+        let duree_ms = debut_req.elapsed().as_millis();
+        logger.acces(&utils::LigneAcces {
+            ip: ip_client,
+            via: ip_proxy,
+            methode: method.clone(),
+            chemin: path.clone(),
+            statut: statut_req,
+            duree_ms,
+            user_agent: ua_req,
+            referer: referer_req,
+        });
+        // Le serveur traite les requetes une par une : une requete lente
+        // bloque tout le monde -- a signaler dans le log principal.
+        if duree_ms >= 2000 && path != "/api/fchier/attendre" {
+            logger.warn(&format!("Requete lente : {} {} en {} ms (ip={})", method, path, duree_ms, ip_log));
         }
     }
 }
@@ -917,6 +980,37 @@ fn serve_static(request: tiny_http::Request, path: &str) {
         return;
     }
     let file_path = format!(".{}", path);
+    // ETag (taille + date de modification) : le navigateur renvoie
+    // If-None-Match, et un fichier inchange repond 304 sans corps -- ni
+    // lecture disque ni transfert. Change automatiquement a chaque
+    // deploiement qui modifie le fichier.
+    let etag = std::fs::metadata(&file_path).ok().map(|m| {
+        let mtime = m.modified().ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs()).unwrap_or(0);
+        format!("\"{:x}-{:x}\"", m.len(), mtime)
+    });
+    let revalider = path.ends_with(".html") || path.ends_with(".js") || path.ends_with(".css");
+    let cache_control = if revalider {
+        // Revalidation a chaque chargement (304 si inchange) : un correctif
+        // CSS/JS deploye est visible immediatement.
+        "no-cache"
+    } else {
+        "public, max-age=604800"
+    };
+    if let Some(tag) = &etag {
+        let si_aucun = request.headers().iter()
+            .find(|h| h.field.equiv("If-None-Match"))
+            .map(|h| h.value.as_str().to_string());
+        if si_aucun.as_deref() == Some(tag.as_str()) {
+            let _ = request.respond(
+                Response::empty(304)
+                    .with_header(tiny_http::Header::from_bytes("ETag", tag.as_str()).unwrap())
+                    .with_header(tiny_http::Header::from_bytes("Cache-Control", cache_control).unwrap()),
+            );
+            return;
+        }
+    }
     match std::fs::read(&file_path) {
         Ok(data) => {
             // with_chunked_threshold : voir appareil.rs -- tiny_http bascule en
@@ -934,9 +1028,17 @@ fn serve_static(request: tiny_http::Request, path: &str) {
             // (frequemment mises a jour) forcent une revalidation a chaque
             // fois ; les autres assets (images, polices...) restent en cache
             // normalement.
-            if path.ends_with(".html") || path.ends_with(".js") {
+            if let Some(tag) = &etag {
+                resp = resp.with_header(tiny_http::Header::from_bytes("ETag", tag.as_str()).unwrap());
+            }
+            if revalider {
+                // FIX : theme.css etait en cache 7 jours (branche else) --
+                // un correctif de la nav mettait jusqu'a une semaine a
+                // apparaitre. HTML/JS/CSS : "no-cache" + ETag = revalidation
+                // a chaque fois, mais reponse 304 legere si rien n'a change
+                // (avant : "no-store", tout retelecharge a chaque page).
                 resp = resp.with_header(
-                    tiny_http::Header::from_bytes("Cache-Control", "no-cache, no-store, must-revalidate").unwrap(),
+                    tiny_http::Header::from_bytes("Cache-Control", cache_control).unwrap(),
                 );
                 // PWA (etape 5) : sw.js est servi depuis /static/, ce qui
                 // limiterait sa portee par defaut a /static/* -- ce header
@@ -960,7 +1062,7 @@ fn serve_static(request: tiny_http::Request, path: &str) {
                 // Ces fichiers (icones, polices, css) ne changent qu'au
                 // deploiement d'un correctif VEX, jamais a la volee.
                 resp = resp.with_header(
-                    tiny_http::Header::from_bytes("Cache-Control", "public, max-age=604800").unwrap(),
+                    tiny_http::Header::from_bytes("Cache-Control", cache_control).unwrap(),
                 );
             }
             let _ = request.respond(resp);

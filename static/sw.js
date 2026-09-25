@@ -11,7 +11,8 @@
 //     sur des fichiers chiffres/messages/etat de session)
 // ══════════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'vex-static-v1';
+// v2 : purge l'ancien cache (theme.css sans degrade de nav).
+const CACHE_NAME = 'vex-static-v2';
 const STATIC_PREFIXES = ['/static/css/', '/static/img/', '/static/js/', '/static/fa-local.js', '/static/crypto.js'];
 
 self.addEventListener('install', (event) => {
