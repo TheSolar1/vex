@@ -65,6 +65,7 @@ use tiny_http::{Response, Server};
 
 const CONFIG_PATH: &str = "config.json";
 const DEFAULT_PORT: u16 = 8080;
+const DEFAULT_THREADS: usize = 8;
 const LOG_DIR: &str = "log";
 
 // ══════════════════════════════════════════════════════════════════
@@ -645,218 +646,278 @@ fn main() {
     lancer_sync_periodique(pool.clone(), Arc::clone(&node_state));
     logger.info("Sync périodique P2P lancée (sync initiale incluse, en tache de fond).");
 
-    // Compteur de requêtes (pour logs périodiques)
-    let mut req_count: u64 = 0;
+    // ── Threads de traitement ─────────────────────────────────────
+    // PERF : avant, une seule boucle traitait les requetes UNE PAR UNE --
+    // un gros telechargement, un appel lent (Wikipedia, P2P) ou une
+    // requete SQL longue bloquait tout le serveur pour tout le monde.
+    // Desormais N threads (config "server.threads", defaut 8) se partagent
+    // la file d'attente de tiny_http (Server::recv est thread-safe).
+    let nb_threads = config
+        .extra
+        .get("server")
+        .and_then(|s| s.get("threads"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(DEFAULT_THREADS as u64)
+        .clamp(1, 64) as usize;
+    logger.info(&format!("{} threads de traitement HTTP.", nb_threads));
 
-    for mut request in server.incoming_requests() {
-        let url = request.url().to_string();
-        let method = request.method().to_string();
+    let server = Arc::new(server);
+    let config = Arc::new(config);
+    let compteur = Arc::new(std::sync::atomic::AtomicU64::new(0));
+    let mut threads = Vec::with_capacity(nb_threads);
+    for n in 0..nb_threads {
+        let server = Arc::clone(&server);
+        let pool = pool.clone();
+        let config = Arc::clone(&config);
+        let logger = Arc::clone(&logger);
+        let node_state = Arc::clone(&node_state);
+        let compteur = Arc::clone(&compteur);
+        let t = std::thread::Builder::new()
+            .name(format!("vex-http-{}", n))
+            .spawn(move || loop {
+                let request = match server.recv() {
+                    Ok(r) => r,
+                    Err(e) => {
+                        logger.error(&format!("Accept HTTP : {}", e));
+                        continue;
+                    }
+                };
+                let req_count = compteur.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                // Un panic dans un handler ne doit pas tuer le thread (le
+                // serveur perdrait un worker a chaque bug).
+                let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    traiter_requete(request, &pool, &config, &logger, &node_state, req_count);
+                }));
+                if res.is_err() {
+                    logger.error(&format!("Panic pendant la requete #{} (thread vex-http-{})", req_count, n));
+                }
+            })
+            .expect("creation thread HTTP");
+        threads.push(t);
+    }
+    for t in threads {
+        let _ = t.join();
+    }
+}
 
-        let remote_full = request
-            .remote_addr()
-            .map(|a| a.to_string())
-            .unwrap_or_else(|| "unknown".into());
-        let remote = utils::strip_port(&remote_full);
+/// Traite UNE requete HTTP (routage global). Appele en parallele par les
+/// threads de traitement -- tout l'etat partage est thread-safe (pool
+/// MySQL, Arc/RwLock).
+fn traiter_requete(
+    mut request: tiny_http::Request,
+    pool: &appeldb::DbPool,
+    config: &config_loader::VexConfig,
+    logger: &VexLogger,
+    node_state: &Arc<RwLock<NodeState>>,
+    req_count: u64,
+) {
+    let url = request.url().to_string();
+    let method = request.method().to_string();
 
-        // IP reelle du visiteur (en-tetes du reverse proxy si la connexion
-        // vient d'un proxy local) -- pour les LOGS uniquement ; `remote`
-        // (IP TCP brute) reste celle passee aux handlers pour les sessions.
-        let (ip_client, ip_proxy) = utils::client_ip(&request);
-        let ip_log = match &ip_proxy {
-            Some(p) => format!("{} (via {})", ip_client, p),
-            None => ip_client.clone(),
-        };
-        let debut_req = std::time::Instant::now();
-        let ua_req = request.headers().iter()
-            .find(|h| h.field.equiv("User-Agent"))
-            .map(|h| h.value.as_str().to_string()).unwrap_or_default();
-        let referer_req = request.headers().iter()
-            .find(|h| h.field.equiv("Referer"))
-            .map(|h| h.value.as_str().to_string()).unwrap_or_default();
-        let mut statut_req: Option<u16> = None;
+    let remote_full = request
+        .remote_addr()
+        .map(|a| a.to_string())
+        .unwrap_or_else(|| "unknown".into());
+    let remote = utils::strip_port(&remote_full);
 
-        let path = url.split('?').next().unwrap_or(&url).to_string();
+    // IP reelle du visiteur (en-tetes du reverse proxy si la connexion
+    // vient d'un proxy local) -- pour les LOGS uniquement ; `remote`
+    // (IP TCP brute) reste celle passee aux handlers pour les sessions.
+    let (ip_client, ip_proxy) = utils::client_ip(&request);
+    let ip_log = match &ip_proxy {
+        Some(p) => format!("{} (via {})", ip_client, p),
+        None => ip_client.clone(),
+    };
+    let debut_req = std::time::Instant::now();
+    let ua_req = request.headers().iter()
+        .find(|h| h.field.equiv("User-Agent"))
+        .map(|h| h.value.as_str().to_string()).unwrap_or_default();
+    let referer_req = request.headers().iter()
+        .find(|h| h.field.equiv("Referer"))
+        .map(|h| h.value.as_str().to_string()).unwrap_or_default();
+    let mut statut_req: Option<u16> = None;
 
-        req_count += 1;
+    let path = url.split('?').next().unwrap_or(&url).to_string();
 
-        if config.app.debug_mode {
-            logger.info(&format!("[REQ #{}] {} {} {}", req_count, ip_log, method, utils::masquer_secrets_chemin(&path)));
-                    } else if req_count % 500 == 0 {
-            logger.info(&format!("[STAT] {} requêtes traitées.", req_count));
+
+    if config.app.debug_mode {
+        logger.info(&format!("[REQ #{}] {} {} {}", req_count, ip_log, method, utils::masquer_secrets_chemin(&path)));
+                } else if req_count % 500 == 0 {
+        logger.info(&format!("[STAT] {} requêtes traitées.", req_count));
+    }
+
+    // ── Surveillance accès aux routes sensibles ───────────────
+    // FIX : `&&` étant prioritaire sur `||`, l'ancienne condition
+    //   path.contains("privilege") || path.contains("admin") && method == "POST"
+    // se lisait en réalité :
+    //   path.contains("privilege") || (path.contains("admin") && method == "POST")
+    // → toute requête contenant "privilege" était loguée même en GET et
+    // hors admin, alors que "admin" n'exigeait "POST" que pour lui-même.
+    // Intention corrigée : logguer un accès sensible dès que le chemin
+    // contient "privilege" OU "admin", uniquement pour les requêtes qui
+    // modifient quelque chose (POST).
+    if (path.contains("privilege") || path.contains("admin")) && method == "POST" {
+        logger.sec(&format!("[ACCES SENSIBLE] {} {} {} (ip={})", method, path, req_count, ip_log));
+    }
+
+    match path.as_str() {
+        "/" | "/login" | "/login/" | "/login/login" | "/login/login.php" => {
+            logger.info(&format!("Login request depuis {}", ip_log));
+            login::login::handle_request(request, &pool, &config, &remote);
         }
 
-        // ── Surveillance accès aux routes sensibles ───────────────
-        // FIX : `&&` étant prioritaire sur `||`, l'ancienne condition
-        //   path.contains("privilege") || path.contains("admin") && method == "POST"
-        // se lisait en réalité :
-        //   path.contains("privilege") || (path.contains("admin") && method == "POST")
-        // → toute requête contenant "privilege" était loguée même en GET et
-        // hors admin, alors que "admin" n'exigeait "POST" que pour lui-même.
-        // Intention corrigée : logguer un accès sensible dès que le chemin
-        // contient "privilege" OU "admin", uniquement pour les requêtes qui
-        // modifient quelque chose (POST).
-        if (path.contains("privilege") || path.contains("admin")) && method == "POST" {
-            logger.sec(&format!("[ACCES SENSIBLE] {} {} {} (ip={})", method, path, req_count, ip_log));
+        "/login/first_setup" => {
+            logger.info(&format!("First setup depuis {}", ip_log));
+            login::first_setup::handle_request(request, &pool, &config, &remote);
         }
 
-        match path.as_str() {
-            "/" | "/login" | "/login/" | "/login/login" | "/login/login.php" => {
-                logger.info(&format!("Login request depuis {}", ip_log));
-                login::login::handle_request(request, &pool, &config, &remote);
-            }
-
-            "/login/first_setup" => {
-                logger.info(&format!("First setup depuis {}", ip_log));
-                login::first_setup::handle_request(request, &pool, &config, &remote);
-            }
-
-            "/api/login/config" => {
-                login::login::handle_request(request, &pool, &config, &remote);
-            }
-
-            "/login/account" | "/login/account/" => {
-                login::account::handle_request(request, &pool, &config, &remote);
-            }
-
-            p if p.starts_with("/api/account") => {
-                login::account::handle_request(request, &pool, &config, &remote);
-            }
-
-            "/logout" | "/logout/" | "/login/logout" | "/login/logout/" => {
-                logger.info(&format!("Logout depuis {}", ip_log));
-                login::logout::handle_request(request, &pool, &remote);
-            }
-
-            p if p == "/autologin"
-                || p == "/autologin/"
-                || p.starts_with("/autologin/")
-                || p == "/login/autologin"
-                || p == "/login/autologin/" =>
-            {
-                logger.info(&format!("Autologin depuis {}", ip_log));
-                login::autologin::handle_request(request, &pool, &config, &remote);
-            }
-
-            p if p.starts_with("/api/appareil")
-                || p == "/autoriser-appareil"
-                || p == "/autoriser-appareil/"
-                || p == "/install.ps1" =>
-            {
-                login::appareil::handle_request(request, &pool, &remote);
-            }
-
-            p if p.starts_with("/api/dashboard") => {
-                login::dashboard::handle_request(request, &pool, &config, &remote);
-            }
-
-            "/dashboard" | "/dashboard/" | "/login/dashboard" | "/login/dashboard/" => {
-                login::dashboard::handle_request(request, &pool, &config, &remote);
-            }
-
-            p if p.starts_with("/admin") || p.starts_with("/api/admin") => {
-                logger.info(&format!("Admin panel depuis {} — {} {}", ip_log, method, path));
-                admin::admin::handle_request(request, &pool, &config, CONFIG_PATH, &remote_full);
-            }
-
-            // Extensions : /ext/<id> (page) et /api/ext/<id> (API).
-            // Privilege + plan verifies dans access_control::servir_extension.
-            p if p.starts_with("/ext/") || p.starts_with("/api/ext/") => {
-                let ext_id = access_control::extension_id_depuis_path(p);
-                logger.info(&format!("Extension '{}' depuis {} — {} {}", ext_id, ip_log, method, path));
-                access_control::servir_extension(&pool, &config, request, &path);
-            }
-
-            // FIX (retour utilisateur : "je veux pas de requete quand il
-            // se passe rien") -- /attendre est un LONG-POLL : elle bloque
-            // jusqu'a 25s cote serveur (voir fchier::attendre_bloquant).
-            // Ce serveur traite les requetes UNE PAR UNE sur ce thread
-            // principal (`for request in server.incoming_requests()`) --
-            // la traiter ici comme les autres routes fchier gelerait TOUT
-            // LE SERVEUR pour tout le monde pendant l'attente. `Request`
-            // implemente Send (voir tiny_http) : on la deplace donc sur un
-            // thread dedie, jetable, et la boucle principale continue
-            // immediatement sans attendre -- seule cette route est
-            // concernee, toutes les autres restent traitees en ligne,
-            // inchangees.
-            "/api/fchier/attendre" => {
-                let pool2 = pool.clone();
-                std::thread::spawn(move || {
-                    let resp = fchier::fchier::attendre_bloquant(&pool2, &request);
-                    let _ = request.respond(resp);
-                });
-            }
-
-            p if p.starts_with("/fchier") || p.starts_with("/api/fchier") => {
-                let resp = fchier::fchier::handle(&pool, &mut request);
-                let _ = request.respond(resp);
-            }
-
-            p if p.starts_with("/mess") || p.starts_with("/api/mess") => {
-                let resp = mess::mess::handle(&pool, &mut request);
-                let _ = request.respond(resp);
-            }
-
-            p if p.starts_with("/p2p/") || p.starts_with("/neut/") => {
-                handle_request(request, &pool, &node_state, &config);
-            }
-
-            p if p.starts_with("/viso") || p.starts_with("/api/viso") => {
-                let resp = viso::viso::handle(&pool, &mut request);
-                let _ = request.respond(resp);
-            }
-
-            p if p.starts_with("/sitec")
-                || p.starts_with("/api/sitec")
-                || p.starts_with("/page/") =>
-            {
-                let resp = sitec::sitec::handle(&pool, &mut request);
-                let _ = request.respond(resp);
-            }
-
-            p if p.starts_with("/recherche") || p.starts_with("/api/recherche") => {
-                let resp = recherche::recherche::handle(&pool, &config, &mut request);
-                let _ = request.respond(resp);
-            }
-
-            "/api/db" => {
-                let params = utils::parse_query(&url);
-                let action = params.get("action").cloned().unwrap_or_default();
-                let resp = appeldb::handle_api_action(&pool, &action, &params, &remote);
-                respond_json(request, resp);
-            }
-
-            p if is_static(p) => {
-                serve_static(request, p);
-            }
-
-            "/health" => {
-                let _ = request.respond(Response::from_string("ok"));
-            }
-
-            _ => {
-                logger.warn(&format!("404 — {} {} (ip={})", method, path, ip_log));
-                statut_req = Some(404);
-                let _ = request.respond(Response::from_string("404 Not Found").with_status_code(404));
-            }
+        "/api/login/config" => {
+            login::login::handle_request(request, &pool, &config, &remote);
         }
 
-        // ── Journal d'acces ────────────────────────────────────────
-        let duree_ms = debut_req.elapsed().as_millis();
-        logger.acces(&utils::LigneAcces {
-            ip: ip_client,
-            via: ip_proxy,
-            methode: method.clone(),
-            chemin: path.clone(),
-            statut: statut_req,
-            duree_ms,
-            user_agent: ua_req,
-            referer: referer_req,
-        });
-        // Le serveur traite les requetes une par une : une requete lente
-        // bloque tout le monde -- a signaler dans le log principal.
-        if duree_ms >= 2000 && path != "/api/fchier/attendre" {
-            logger.warn(&format!("Requete lente : {} {} en {} ms (ip={})", method, path, duree_ms, ip_log));
+        "/login/account" | "/login/account/" => {
+            login::account::handle_request(request, &pool, &config, &remote);
         }
+
+        p if p.starts_with("/api/account") => {
+            login::account::handle_request(request, &pool, &config, &remote);
+        }
+
+        "/logout" | "/logout/" | "/login/logout" | "/login/logout/" => {
+            logger.info(&format!("Logout depuis {}", ip_log));
+            login::logout::handle_request(request, &pool, &remote);
+        }
+
+        p if p == "/autologin"
+            || p == "/autologin/"
+            || p.starts_with("/autologin/")
+            || p == "/login/autologin"
+            || p == "/login/autologin/" =>
+        {
+            logger.info(&format!("Autologin depuis {}", ip_log));
+            login::autologin::handle_request(request, &pool, &config, &remote);
+        }
+
+        p if p.starts_with("/api/appareil")
+            || p == "/autoriser-appareil"
+            || p == "/autoriser-appareil/"
+            || p == "/install.ps1" =>
+        {
+            login::appareil::handle_request(request, &pool, &remote);
+        }
+
+        p if p.starts_with("/api/dashboard") => {
+            login::dashboard::handle_request(request, &pool, &config, &remote);
+        }
+
+        "/dashboard" | "/dashboard/" | "/login/dashboard" | "/login/dashboard/" => {
+            login::dashboard::handle_request(request, &pool, &config, &remote);
+        }
+
+        p if p.starts_with("/admin") || p.starts_with("/api/admin") => {
+            logger.info(&format!("Admin panel depuis {} — {} {}", ip_log, method, path));
+            admin::admin::handle_request(request, &pool, &config, CONFIG_PATH, &remote_full);
+        }
+
+        // Extensions : /ext/<id> (page) et /api/ext/<id> (API).
+        // Privilege + plan verifies dans access_control::servir_extension.
+        p if p.starts_with("/ext/") || p.starts_with("/api/ext/") => {
+            let ext_id = access_control::extension_id_depuis_path(p);
+            logger.info(&format!("Extension '{}' depuis {} — {} {}", ext_id, ip_log, method, path));
+            access_control::servir_extension(&pool, &config, request, &path);
+        }
+
+        // FIX (retour utilisateur : "je veux pas de requete quand il
+        // se passe rien") -- /attendre est un LONG-POLL : elle bloque
+        // jusqu'a 25s cote serveur (voir fchier::attendre_bloquant).
+        // Ce serveur traite les requetes UNE PAR UNE sur ce thread
+        // principal (`for request in server.incoming_requests()`) --
+        // la traiter ici comme les autres routes fchier gelerait TOUT
+        // LE SERVEUR pour tout le monde pendant l'attente. `Request`
+        // implemente Send (voir tiny_http) : on la deplace donc sur un
+        // thread dedie, jetable, et la boucle principale continue
+        // immediatement sans attendre -- seule cette route est
+        // concernee, toutes les autres restent traitees en ligne,
+        // inchangees.
+        "/api/fchier/attendre" => {
+            let pool2 = pool.clone();
+            std::thread::spawn(move || {
+                let resp = fchier::fchier::attendre_bloquant(&pool2, &request);
+                let _ = request.respond(resp);
+            });
+        }
+
+        p if p.starts_with("/fchier") || p.starts_with("/api/fchier") => {
+            let resp = fchier::fchier::handle(&pool, &mut request);
+            statut_req = Some(repondre(request, resp));
+        }
+
+        p if p.starts_with("/mess") || p.starts_with("/api/mess") => {
+            let resp = mess::mess::handle(&pool, &mut request);
+            statut_req = Some(repondre(request, resp));
+        }
+
+        p if p.starts_with("/p2p/") || p.starts_with("/neut/") => {
+            handle_request(request, &pool, &node_state, &config);
+        }
+
+        p if p.starts_with("/viso") || p.starts_with("/api/viso") => {
+            let resp = viso::viso::handle(&pool, &mut request);
+            statut_req = Some(repondre(request, resp));
+        }
+
+        p if p.starts_with("/sitec")
+            || p.starts_with("/api/sitec")
+            || p.starts_with("/page/") =>
+        {
+            let public = path.starts_with("/page/");
+            let resp = sitec::sitec::handle(&pool, &mut request);
+            statut_req = Some(repondre_opts(request, resp, !public));
+        }
+
+        p if p.starts_with("/recherche") || p.starts_with("/api/recherche") => {
+            let resp = recherche::recherche::handle(&pool, &config, &mut request);
+            statut_req = Some(repondre(request, resp));
+        }
+
+        "/api/db" => {
+            let params = utils::parse_query(&url);
+            let action = params.get("action").cloned().unwrap_or_default();
+            let resp = appeldb::handle_api_action(&pool, &action, &params, &remote);
+            respond_json(request, resp);
+        }
+
+        p if is_static(p) => {
+            serve_static(request, p);
+        }
+
+        "/health" => {
+            let _ = request.respond(Response::from_string("ok"));
+        }
+
+        _ => {
+            logger.warn(&format!("404 — {} {} (ip={})", method, path, ip_log));
+            statut_req = Some(404);
+            let _ = request.respond(Response::from_string("404 Not Found").with_status_code(404));
+        }
+    }
+
+    // ── Journal d'acces ────────────────────────────────────────
+    let duree_ms = debut_req.elapsed().as_millis();
+    logger.acces(&utils::LigneAcces {
+        ip: ip_client,
+        via: ip_proxy,
+        methode: method.clone(),
+        chemin: path.clone(),
+        statut: statut_req,
+        duree_ms,
+        user_agent: ua_req,
+        referer: referer_req,
+    });
+    // Le serveur traite les requetes une par une : une requete lente
+    // bloque tout le monde -- a signaler dans le log principal.
+    if duree_ms >= 2000 && path != "/api/fchier/attendre" {
+        logger.warn(&format!("Requete lente : {} {} en {} ms (ip={})", method, path, duree_ms, ip_log));
     }
 }
 
@@ -975,6 +1036,14 @@ fn is_static(path: &str) -> bool {
         || path.ends_with(".woff2")
 }
 
+fn repondre(request: tiny_http::Request, resp: Response<std::io::Cursor<Vec<u8>>>) -> u16 {
+    utils::envoyer(request, resp)
+}
+
+fn repondre_opts(request: tiny_http::Request, resp: Response<std::io::Cursor<Vec<u8>>>, anti_iframe: bool) -> u16 {
+    utils::envoyer_opts(request, resp, anti_iframe)
+}
+
 fn serve_static(request: tiny_http::Request, path: &str) {
     if path.contains("..") {
         let _ = request.respond(Response::from_string("403").with_status_code(403));
@@ -1066,7 +1135,8 @@ fn serve_static(request: tiny_http::Request, path: &str) {
                     tiny_http::Header::from_bytes("Cache-Control", cache_control).unwrap(),
                 );
             }
-            let _ = request.respond(resp);
+            let gzip_ok = utils::accepte_gzip(&request);
+            let _ = request.respond(utils::compresser_reponse(resp, gzip_ok));
         }
         Err(_) => {
             let _ = request.respond(Response::from_string("404").with_status_code(404));

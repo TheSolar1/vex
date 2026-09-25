@@ -463,7 +463,7 @@ fn handle_srp_step2(
     }))
     .unwrap_or_default();
 
-    let _ = request.respond(
+    let _ = crate::utils::envoyer(request, 
         Response::from_string(body_json)
             .with_header(
                 tiny_http::Header::from_bytes("Content-Type", "application/json; charset=utf-8").unwrap(),
@@ -940,12 +940,12 @@ fn serve_login_html(request: Request, pool: &DbPool, accept_lang: &str) {
             );
             let html = html.replace("{{I18N_JS}}", &i18n_js);
 
-            let _ = request.respond(Response::from_string(html).with_header(
+            let _ = crate::utils::envoyer(request, Response::from_string(html).with_header(
                 tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap(),
             ));
         }
         Err(_) => {
-            let _ = request.respond(
+            let _ = crate::utils::envoyer(request, 
                 Response::from_string(format!("Fichier introuvable : {}", path)).with_status_code(500),
             );
         }
@@ -953,7 +953,7 @@ fn serve_login_html(request: Request, pool: &DbPool, accept_lang: &str) {
 }
 
 fn respond_json(request: Request, body: serde_json::Value, status: u16) {
-    let _ = request.respond(
+    let _ = crate::utils::envoyer(request, 
         Response::from_string(body.to_string())
             .with_status_code(status)
             .with_header(

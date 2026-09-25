@@ -516,7 +516,7 @@ pub fn handle_request(
     let privilege = user.get("privilege").and_then(|v| v.as_i64()).unwrap_or(99);
 
     if privilege > PRIVILEGE_MAX {
-        let _ = request.respond(Response::from_string(
+        let _ = crate::utils::envoyer(request, Response::from_string(
             r#"<!DOCTYPE html><html><body style="font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a0a;color:#4caf50">
 <div style="text-align:center"><div style="font-size:6rem;font-weight:900">403</div>
 <p style="opacity:.6">Accès réservé aux administrateurs</p>
@@ -659,7 +659,7 @@ pub fn handle_request(
         }
     };
 
-    let _ = request.respond(Response::from_string(html).with_header(
+    let _ = crate::utils::envoyer(request, Response::from_string(html).with_header(
         tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap(),
     ));
 }
@@ -1408,7 +1408,7 @@ fn handle_api(
                             "Content-Disposition",
                             format!("attachment; filename=\"{}\"", nom),
                         ).unwrap());
-                    let _ = request.respond(reponse);
+                    let _ = crate::utils::envoyer(request, reponse);
                     return;
                 }
                 Err(_) => return respond_json(request, json!({"success":false,"error":i18n::t(langue, Cle::AdmBackupErrFichierIntrouvable)})),
@@ -2467,7 +2467,7 @@ fn handle_api(
 }
 
 fn respond_json(request: Request, body: Value) {
-    let _ = request.respond(Response::from_string(body.to_string()).with_header(
+    let _ = crate::utils::envoyer(request, Response::from_string(body.to_string()).with_header(
         tiny_http::Header::from_bytes("Content-Type", "application/json; charset=utf-8").unwrap(),
     ));
 }

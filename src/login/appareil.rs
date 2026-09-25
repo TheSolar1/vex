@@ -93,7 +93,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, remote_ip: &str) {
         ("GET", "/install.ps1") => script_installation(&host),
         _ => reponse_json(json!({"success": false, "error": "route inconnue"}), 404),
     };
-    let _ = request.respond(reponse);
+    let _ = crate::utils::envoyer(request, reponse);
 }
 
 // ══════════════════════════════════════════════════════════════════

@@ -35,5 +35,6 @@ uuid       = { version = "1", features = ["v4"] }
 
 num-bigint = "0.4"
 num-traits = "0.2"
+flate2     = "1"
 zip        = { version = "2", default-features = false, features = ["deflate"] }
 mysql = { version = "28.0.0", default-features = false, features = ["rustls-tls"] }
