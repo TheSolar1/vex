@@ -801,6 +801,13 @@ fn main() {
                 respond_json(request, resp);
             }
 
+            // Empreinte d'appareil envoyee par /static/fp.js (voir
+            // recevoir_empreinte) -- sert a reperer quel appareil se
+            // connecte meme quand l'IP change (4G).
+            "/api/empreinte" => {
+                recevoir_empreinte(request, &ip_log, &logger);
+            }
+
             // Politique de confidentialite : lien "J'accepte la Politique de
             // Confidentialite" de l'inscription (href="/constiontu.html"),
             // qui tombait en 404 -- le fichier vit dans static/.
@@ -1012,6 +1019,57 @@ fn guess_mime(path: &str) -> &'static str {
     else if path.ends_with(".svg")   { "image/svg+xml" }
     else if path.ends_with(".woff2") { "font/woff2" }
     else                             { "application/octet-stream" }
+}
+
+/// Recoit une empreinte d'appareil ({h, page, d} en JSON, cf. static/fp.js)
+/// et l'ajoute a log/empreintes.tsv avec l'IP reelle et le User-Agent.
+/// Lu par ~/vex-securite/check_vex.sh (alerte "nouvel appareil").
+/// Corps limite a 4 Ko et hash valide (64 hex) : un appel forge ne peut
+/// pas remplir le disque ni injecter de tabulation/retour ligne dans le TSV.
+fn recevoir_empreinte(mut request: tiny_http::Request, ip: &str, logger: &VexLogger) {
+    use std::io::Read;
+    let mut body = String::new();
+    let _ = request.as_reader().take(4096).read_to_string(&mut body);
+
+    let v: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
+    let h = v.get("h").and_then(|x| x.as_str()).unwrap_or("");
+    if h.len() != 64 || !h.chars().all(|c| c.is_ascii_hexdigit()) {
+        let _ = request.respond(Response::from_string("").with_status_code(400));
+        return;
+    }
+    let propre = |s: &str, max: usize| -> String {
+        s.chars().map(|c| if c.is_control() { ' ' } else { c }).take(max).collect()
+    };
+    let page = propre(v.get("page").and_then(|x| x.as_str()).unwrap_or(""), 100);
+    let detail = propre(v.get("d").and_then(|x| x.as_str()).unwrap_or(""), 300);
+    let ua = propre(
+        &request
+            .headers()
+            .iter()
+            .find(|h| h.field.as_str().as_str().eq_ignore_ascii_case("User-Agent"))
+            .map(|h| h.value.as_str().to_string())
+            .unwrap_or_default(),
+        300,
+    );
+
+    let ligne = format!(
+        "{}\t{}\t{}\t{}\t{}\t{}\n",
+        chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+        h.to_ascii_lowercase(),
+        ip,
+        page,
+        ua,
+        detail
+    );
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(format!("{}/empreintes.tsv", LOG_DIR))
+    {
+        let _ = f.write_all(ligne.as_bytes());
+    }
+    logger.info(&format!("[EMPREINTE] {} depuis {} — {}", &h[..16], ip, page));
+    let _ = request.respond(Response::from_string("").with_status_code(204));
 }
 
 fn respond_json(request: tiny_http::Request, body: serde_json::Value) {
