@@ -945,8 +945,7 @@ fn hash_autologin_token(token: &str, server_secret: &str) -> String {
 }
 
 fn read_body(request: &mut Request) -> HashMap<String, String> {
-    let mut body = String::new();
-    let _ = std::io::Read::read_to_string(request.as_reader(), &mut body);
+    let body = crate::utils::lire_corps(request, crate::utils::CORPS_MAX_DEFAUT).unwrap_or_default();
     let mut map = HashMap::new();
     for pair in body.split('&') {
         let mut kv = pair.splitn(2, '=');

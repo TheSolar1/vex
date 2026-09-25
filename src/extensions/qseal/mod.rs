@@ -247,8 +247,7 @@ fn echapper(s: &str) -> String {
 }
 
 fn lire_corps(req: &mut Request) -> std::collections::HashMap<String, String> {
-    let mut brut = String::new();
-    let _ = std::io::Read::read_to_string(req.as_reader(), &mut brut);
+    let brut = crate::utils::lire_corps(req, crate::utils::CORPS_MAX_DEFAUT).unwrap_or_default();
     let mut m = std::collections::HashMap::new();
     for paire in brut.split('&') {
         let mut kv = paire.splitn(2, '=');

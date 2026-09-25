@@ -261,8 +261,7 @@ pub fn handle(pool: &DbPool, config: &VexConfig, req: &mut Request) -> Response<
 }
 
 fn lire_body_formulaire(req: &mut Request) -> HashMap<String, String> {
-    let mut contenu = String::new();
-    let _ = std::io::Read::read_to_string(req.as_reader(), &mut contenu);
+    let contenu = crate::utils::lire_corps(req, crate::utils::CORPS_MAX_DEFAUT).unwrap_or_default();
     contenu
         .split('&')
         .filter_map(|paire| {

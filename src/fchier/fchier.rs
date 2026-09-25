@@ -179,13 +179,22 @@ fn urlencoding_decode(s: &str) -> String {
 }
 
 fn read_body(req: &mut Request) -> String {
-    let mut body = String::new();
-    let _ = std::io::Read::read_to_string(req.as_reader(), &mut body);
-    body
+    crate::utils::lire_corps(req, crate::utils::CORPS_MAX_DEFAUT).unwrap_or_default()
+}
+
+/// Corps volumineux autorisé (upload de fichier, création de lien de
+/// partage : contenu en base64). Renvoie None si la limite est dépassée.
+pub(super) fn read_body_upload(req: &mut Request) -> Option<String> {
+    crate::utils::lire_corps(req, crate::utils::CORPS_MAX_UPLOAD)
 }
 
 pub(super) fn parse_json_body(req: &mut Request) -> Option<Value> {
     serde_json::from_str(&read_body(req)).ok()
+}
+
+/// parse_json_body pour les corps volumineux (upload, lien de partage).
+pub(super) fn parse_json_body_upload(req: &mut Request) -> Option<Value> {
+    read_body_upload(req).and_then(|b| serde_json::from_str(&b).ok())
 }
 
 fn urlenc_simple(s: &str) -> String {
@@ -1011,9 +1020,9 @@ fn api_upload(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
     // Support multipart/form-data ET application/json
     let (nom, file_b64, mime_type, taille, visble, current_folder) =
         if content_type.contains("application/json") {
-            let body = match parse_json_body(req) {
+            let body = match parse_json_body_upload(req) {
                 Some(b) => b,
-                None => return json_response(400, json!({"error":"Corps JSON invalide"})),
+                None => return json_response(413, json!({"error":"Fichier trop volumineux ou corps JSON invalide"})),
             };
             (
                 body.get("file_name").and_then(|v| v.as_str()).unwrap_or("fichier").to_string(),
@@ -1024,8 +1033,11 @@ fn api_upload(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
                 body.get("current_folder").and_then(|v| v.as_i64()).unwrap_or(0),
             )
         } else {
-            // multipart: lit le body brut et parse manuellement
-            let raw = read_body(req);
+            // multipart: lit le body brut (borné) et parse manuellement
+            let raw = match read_body_upload(req) {
+                Some(r) => r,
+                None => return json_response(413, json!({"error":"Fichier trop volumineux"})),
+            };
             let get_field = |name: &str| -> String {
                 // cherche name=...valeur... dans le body urlencoded ou multipart simplifié
                 raw.split('&').find_map(|part| {

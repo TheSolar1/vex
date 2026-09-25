@@ -171,8 +171,7 @@ fn jerr(msg: &str) -> String {
 }
 
 fn read_body(req: &mut Request) -> HashMap<String, String> {
-    let mut s = String::new();
-    let _ = std::io::Read::read_to_string(req.as_reader(), &mut s);
+    let s = crate::utils::lire_corps(req, crate::utils::CORPS_MAX_DEFAUT).unwrap_or_default();
     let mut m = HashMap::new();
     for pair in s.split('&') {
         let mut kv = pair.splitn(2, '=');

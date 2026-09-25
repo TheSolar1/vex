@@ -632,8 +632,7 @@ pub fn handle_request(
 
     // Corps POST
     let body = if method == "POST" {
-        let mut s = String::new();
-        let _ = std::io::Read::read_to_string(request.as_reader(), &mut s);
+        let s = crate::utils::lire_corps(&mut request, crate::utils::CORPS_MAX_UPLOAD).unwrap_or_default();
         let mut m = HashMap::new();
         for pair in s.split('&') {
             let mut kv = pair.splitn(2, '=');

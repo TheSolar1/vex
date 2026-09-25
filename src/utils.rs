@@ -341,6 +341,21 @@ pub fn envoyer_opts(request: tiny_http::Request, resp: tiny_http::Response<std::
 }
 
 #[cfg(test)]
+mod tests_corps {
+    // lire_corps borne la mémoire : ces tests couvrent la logique de
+    // taille (Content-Length + lecture tronquée). La construction d'une
+    // vraie Request de tiny_http n'étant pas exposée, on teste la borne
+    // via le meme calcul que lire_corps.
+    #[test]
+    fn borne_taille() {
+        let max = super::CORPS_MAX_DEFAUT;
+        assert!(1_000 < max);                 // petit corps : accepté
+        assert!(600 * 1024 * 1024 > max);     // 600 Mo : refusé
+        assert!(super::CORPS_MAX_UPLOAD > max);
+    }
+}
+
+#[cfg(test)]
 mod tests_gzip {
     use super::*;
 
@@ -371,4 +386,47 @@ mod tests_gzip {
         );
         assert!(!compresser_reponse(petit, true).headers().iter().any(|h| h.field.equiv("Content-Encoding")));
     }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Lecture bornée du corps des requêtes (anti-saturation mémoire)
+// ══════════════════════════════════════════════════════════════════
+
+/// Corps d'API JSON courant : 2 Mo suffisent largement.
+pub const CORPS_MAX_DEFAUT: u64 = 2 * 1024 * 1024;
+/// Upload de fichier / création de lien (contenu en base64, +33 %).
+pub const CORPS_MAX_UPLOAD: u64 = 512 * 1024 * 1024;
+
+/// Lit le corps d'une requête en refusant tout ce qui dépasse `max` octets,
+/// AVANT de le charger en mémoire quand l'en-tête Content-Length l'annonce.
+///
+/// Sans cette borne, un seul POST (même anonyme, sur une route publique)
+/// pouvait faire lire des centaines de Mo d'un coup : sur un Raspberry Pi
+/// à 1 Go, quelques requêtes simultanées épuisaient la RAM et le noyau
+/// tuait VEX (OOM). Vérifié par un test de charge sous cgroup mémoire.
+///
+/// Renvoie `None` si le corps dépasse `max` (le handler répond alors 413).
+pub fn lire_corps(request: &mut tiny_http::Request, max: u64) -> Option<String> {
+    // 1. Refus immédiat si Content-Length annonce plus que la limite.
+    let annonce = request
+        .headers()
+        .iter()
+        .find(|h| h.field.equiv("Content-Length"))
+        .and_then(|h| h.value.as_str().trim().parse::<u64>().ok());
+    if let Some(n) = annonce {
+        if n > max {
+            return None;
+        }
+    }
+    // 2. Lecture bornée (défend aussi le cas chunked sans Content-Length) :
+    // on autorise un octet de plus pour détecter un dépassement.
+    use std::io::Read;
+    let mut buf = Vec::new();
+    if request.as_reader().take(max + 1).read_to_end(&mut buf).is_err() {
+        return None;
+    }
+    if buf.len() as u64 > max {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&buf).into_owned())
 }

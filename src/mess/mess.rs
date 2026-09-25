@@ -565,10 +565,7 @@ fn get_cookie(request: &Request, name: &str) -> String {
 }
 
 fn read_body(request: &mut Request) -> String {
-    use std::io::Read;
-    let mut body = String::new();
-    let _ = request.as_reader().read_to_string(&mut body);
-    body
+    crate::utils::lire_corps(request, crate::utils::CORPS_MAX_DEFAUT).unwrap_or_default()
 }
 
 /// Décode %XX dans une URL (ex: %40 → @)

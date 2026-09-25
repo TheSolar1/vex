@@ -242,7 +242,7 @@ fn chat(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Value {
     }
 
     let mut brut = String::new();
-    if std::io::Read::read_to_string(req.as_reader(), &mut brut).is_err() {
+    if { brut = crate::utils::lire_corps(req, crate::utils::CORPS_MAX_DEFAUT).unwrap_or_default(); false } {
         return json!({"success": false, "error": "Corps de requete illisible."});
     }
     let corps: ChatBody = match serde_json::from_str(&brut) {
@@ -433,7 +433,7 @@ fn prune_pending(map: &mut HashMap<String, PendingAction>) {
 
 fn confirmer(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Value {
     let mut brut = String::new();
-    if std::io::Read::read_to_string(req.as_reader(), &mut brut).is_err() {
+    if { brut = crate::utils::lire_corps(req, crate::utils::CORPS_MAX_DEFAUT).unwrap_or_default(); false } {
         return json!({"success": false, "error": "Corps de requete illisible."});
     }
     let corps: ConfirmBody = match serde_json::from_str(&brut) {
@@ -497,7 +497,7 @@ struct PrefsBody {
 
 fn prefs_update(pool: &DbPool, session: &SessionInfo, req: &mut Request) -> Value {
     let mut brut = String::new();
-    if std::io::Read::read_to_string(req.as_reader(), &mut brut).is_err() {
+    if { brut = crate::utils::lire_corps(req, crate::utils::CORPS_MAX_DEFAUT).unwrap_or_default(); false } {
         return json!({"success": false, "error": "Corps de requete illisible."});
     }
     let corps: PrefsBody = match serde_json::from_str(&brut) {

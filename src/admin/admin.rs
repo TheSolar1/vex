@@ -2502,8 +2502,7 @@ pub(crate) fn read_config(path: &str) -> Value {
 }
 
 fn read_body(request: &mut Request) -> HashMap<String, String> {
-    let mut s = String::new();
-    let _ = std::io::Read::read_to_string(request.as_reader(), &mut s);
+    let s = crate::utils::lire_corps(request, crate::utils::CORPS_MAX_DEFAUT).unwrap_or_default();
     let mut m = HashMap::new();
     for pair in s.split('&') {
         let mut kv = pair.splitn(2, '=');

@@ -79,9 +79,10 @@ fn noter_echec(jeton: &str) {
 /// POST /api/fchier/lien_creer
 /// { id_fichier, contenu (base64 IV||ciphertext), mot_de_passe?, expire_jours?, max_telechargements? }
 pub fn api_creer(pool: &DbPool, req: &mut Request, uid: i64) -> Resp {
-    let body = match parse_json_body(req) {
+    // Contenu rechiffré volumineux : corps large autorisé (mais borné).
+    let body = match super::fchier::parse_json_body_upload(req) {
         Some(b) => b,
-        None => return json_response(400, json!({"success":false,"error":"Corps invalide"})),
+        None => return json_response(413, json!({"success":false,"error":"Contenu trop volumineux ou corps invalide"})),
     };
     let id_fichier = body.get("id_fichier").and_then(|v| v.as_i64()).unwrap_or(0);
     let contenu = body.get("contenu").and_then(|v| v.as_str()).unwrap_or("");

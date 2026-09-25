@@ -98,8 +98,7 @@ pub fn handle(pool: &DbPool, request: &mut Request) -> Response<Cursor<Vec<u8>>>
         if method != Method::Post {
             return json_response(&erreur("Méthode non autorisée."), 405);
         }
-        let mut body = String::new();
-        let _ = request.as_reader().read_to_string(&mut body);
+        let body = crate::utils::lire_corps(request, crate::utils::CORPS_MAX_DEFAUT).unwrap_or_default();
         let params = crate::utils::parse_query(&format!("?{}", body));
         let action = params.get("action").cloned().unwrap_or_default();
         let langue = resoudre_langue(pool, &cookie_val, &accept_lang);
