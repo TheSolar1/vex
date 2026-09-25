@@ -405,6 +405,7 @@ body {
 
     <div class="sidebar-foot">
       <div>{{T_CONNECTE}} <strong id="userEmail">—</strong></div>
+      <button type="button" id="notifBtn" hidden class="btn btn-secondary" style="margin:8px 0;width:100%;font-size:.78rem">🔔 Activer les notifications</button>
       <div class="key-info" id="keyInfo">
         <img class="ico ico-sm ico-primary ico-spin" id="keyIco" src="/static/img/solid/arrows-rotate.svg">
         <span id="keyLabel">{{T_GENERATION_CLES}}</span>
@@ -695,6 +696,7 @@ function renderList() {
       </div>
       <div class="msg-subj">${esc(subj)}</div>
       <div class="msg-prev">${esc(prev)}</div>
+      ${currentFolder === 'sent' ? `<div class="msg-accuse" style="font-size:.72rem;margin-top:3px;color:${m.lu ? 'var(--accent)' : 'var(--text-m)'}">${m.lu ? '✓✓ Lu' : '✓ Envoyé'}</div>` : ''}
       <span class="msg-lock"><img class="ico ico-sm ico-primary" src="${ICO}lock.svg"></span>
     </div>`;
   }).join('');
@@ -734,9 +736,11 @@ async function selectMessage(id) {
           <button class="btn btn-primary" onclick="replyTo(${m.id})">
             <img class="ico ico-sm ico-white" src="${ICO}reply.svg"> ${I18N.REPONDRE}
           </button>
-          ${currentFolder!=='sent'?`<button class="btn btn-danger" onclick="deleteMsg(${m.id})">
+          ${currentFolder!=='trash'?`<button class="btn btn-danger" onclick="deleteMsg(${m.id})">
             <img class="ico ico-sm ico-white" src="${ICO}trash.svg"> ${I18N.SUPPRIMER}
-          </button>`:''}
+          </button>`:`<button class="btn btn-secondary" onclick="restaurerMsg(${m.id})">
+            <img class="ico ico-sm ico-muted" src="${ICO}trash-arrow-up.svg"> Restaurer
+          </button>`}
         </div>
         <h2 class="msg-title">${esc(d.subject)}</h2>
         <div class="sender-row">
@@ -744,7 +748,7 @@ async function selectMessage(id) {
           <div>
             <div class="sender-name">${esc(who.split('@')[0])}</div>
             <div class="sender-email">${esc(who)}</div>
-            <div class="msg-meta">${date}</div>
+            <div class="msg-meta">${date}${currentFolder === 'sent' ? (m.lu ? ' · <span style="color:var(--accent)">✓✓ Lu par le destinataire</span>' : ' · ✓ Envoyé, pas encore lu') : ''}</div>
             <div class="enc-stamp">
               <img class="ico ico-sm ico-primary" src="${ICO}shield-halved.svg">
               ${I18N.DECHIFFRE_LOCALEMENT_ECDH}
@@ -787,6 +791,63 @@ async function deleteMsg(id) {
   toast(I18N.SUPPRIME_TOAST,'ok');
 }
 
+async function restaurerMsg(id) {
+  const r = await apiFetch(`${API}/restore`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+  const d = await r.json().catch(() => ({}));
+  if (!d.success) { toast(d.error || 'Erreur', 'error'); return; }
+  messages = messages.filter(m => m.id !== id);
+  deselect();
+  toast('Message restauré', 'ok');
+}
+
+// ── Nouveaux messages : badge, titre de l'onglet, notification bureau.
+// Requete legere (/unread) toutes les 30 s, en pause quand l'onglet est
+// cache depuis plus de 10 min (economie de requetes).
+const TITRE_BASE = document.title;
+let dernierIdVu = null;
+async function verifierNouveaux() {
+  try {
+    const r = await apiFetch(`${API}/unread`);
+    const d = await r.json();
+    if (!d.success) return;
+    updateBadge(d.unread);
+    document.title = d.unread > 0 ? `(${d.unread}) ${TITRE_BASE}` : TITRE_BASE;
+    if (dernierIdVu !== null && d.dernier_id > dernierIdVu) {
+      if (currentFolder === 'inbox' && !selectedMsg) loadMessages();
+      notifierNouveau(d.unread);
+    }
+    dernierIdVu = Math.max(dernierIdVu || 0, d.dernier_id || 0);
+  } catch (_) {}
+}
+function notifierNouveau(n) {
+  toast('Nouveau message reçu', 'ok');
+  if (!('Notification' in window) || Notification.permission !== 'granted' || !document.hidden) return;
+  try {
+    const notif = new Notification('VEX Mail', { body: n > 1 ? `${n} messages non lus` : 'Nouveau message chiffré', icon: '/static/img/icon-192.png', tag: 'vex-mail' });
+    notif.onclick = () => { window.focus(); notif.close(); };
+  } catch (_) {}
+}
+function initNotifications() {
+  const btn = document.getElementById('notifBtn');
+  if (!btn) return;
+  const maj = () => {
+    const ok = !('Notification' in window) || Notification.permission !== 'default';
+    btn.hidden = ok;
+  };
+  btn.onclick = async () => { try { await Notification.requestPermission(); } catch (_) {} maj(); };
+  maj();
+  verifierNouveaux();
+  let cacheDepuis = null;
+  document.addEventListener('visibilitychange', () => {
+    cacheDepuis = document.hidden ? Date.now() : null;
+    if (!document.hidden) verifierNouveaux();
+  });
+  setInterval(() => {
+    if (cacheDepuis && Date.now() - cacheDepuis > 10 * 60 * 1000) return;
+    verifierNouveaux();
+  }, 30000);
+}
+
 function replyTo(id) {
   const m = messages.find(x=>x.id===id); if(!m) return;
   const d = decrypted[m.id];
@@ -825,7 +886,7 @@ async function sendMessage() {
       }),
     });
     const data = await r.json();
-    if (data.success) { closeModal('composeModal'); toast(I18N.MESSAGE_ENVOYE,'ok'); }
+    if (data.success) { closeModal('composeModal'); toast(I18N.MESSAGE_ENVOYE,'ok'); verifierNouveaux(); if (currentFolder === 'sent') loadMessages(); }
     else toast(I18N.ERREUR_PREFIX+(data.error||'?'),'err');
   } catch(e) {
     if (e.message!=='Session expirée') toast(I18N.ERREUR_PREFIX+e.message,'err');
@@ -941,6 +1002,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       loadMessages();
     }
   );
+
+  initNotifications();
 
   // Fermer modal en cliquant hors
   document.getElementById('composeModal').addEventListener('click', e => {

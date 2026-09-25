@@ -125,6 +125,15 @@ pub fn handle(pool: &DbPool, request: &mut Request) -> Response<std::io::Cursor<
             with_conn(pool, |c| handle_read(c, &session, &body))
         }
 
+        "/api/mess/unread" => {
+            with_conn(pool, |c| handle_unread(c, &session))
+        }
+
+        "/api/mess/restore" => {
+            let body = read_body(request);
+            with_conn(pool, |c| handle_restore(c, &session, &body))
+        }
+
         "/api/mess/delete" => {
             let body = read_body(request);
             with_conn(pool, |c| handle_delete(c, &session, &body))
@@ -285,6 +294,35 @@ fn handle_get_pubkey_for(
     }
 }
 
+// ── Suppression par cote ────────────────────────────────────────
+// Un message est UNE ligne partagee entre expediteur et destinataire.
+// Avant, "supprimer" passait status='delivered' : le message disparaissait
+// pour LES DEUX (l'expediteur qui nettoyait ses envoyes effacait la boite
+// de reception du destinataire). Desormais chaque cote a son drapeau dans
+// metadata : $.suppr_exp (expediteur) / $.suppr_dest (destinataire).
+// status='delivered' (ancien comportement) reste compris comme "supprime
+// des deux cotes" pour les messages existants.
+// Comparaison en CHAINE : un booleen JSON compare a `false` ne se comporte
+// pas pareil sur MySQL et MariaDB (MariaDB convertit 'true' en 0).
+const NON_SUPPR_DEST: &str =
+    "COALESCE(JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.suppr_dest')), 'false') = 'false'";
+const NON_SUPPR_EXP: &str =
+    "COALESCE(JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.suppr_exp')), 'false') = 'false'";
+const DE: &str = "JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.from'))";
+const A: &str = "JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.to'))";
+
+/// Clause WHERE d'un dossier ; chaque `?` recoit l'email de l'utilisateur.
+fn clause_dossier(folder: &str) -> String {
+    match folder {
+        "sent" => format!("{DE} = ? AND status != 'delivered' AND {NON_SUPPR_EXP}"),
+        "trash" => format!(
+                "(status = 'delivered' AND ({DE} = ? OR {A} = ?)) \
+                 OR (status != 'delivered' AND (({DE} = ? AND NOT ({NON_SUPPR_EXP})) OR ({A} = ? AND NOT ({NON_SUPPR_DEST}))))"
+        ),
+        _ => format!("{A} = ? AND status != 'delivered' AND {NON_SUPPR_DEST}"),
+    }
+}
+
 /// Coeur de la liste des messages d'un dossier, reutilise par le handler
 /// HTTP et par l'outil VexIA "mess_list_my_messages".
 pub(crate) fn query_messages(
@@ -292,21 +330,18 @@ pub(crate) fn query_messages(
     session: &crate::c::SessionInfo,
     folder: &str,
 ) -> Value {
-    let email = esc(&session.user_email);
-
-    let where_clause = match folder {
-        "sent"  => format!("message_type='mess' AND JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.from'))='{}' AND status!='delivered'", email),
-        "trash" => format!("message_type='mess' AND status='delivered' AND (JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.from'))='{0}' OR JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.to'))='{0}')", email),
-        _       => format!("message_type='mess' AND JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.to'))='{}' AND status!='delivered'", email),
-    };
-
+    let clause = clause_dossier(folder);
+    let nb_params = clause.matches('?').count();
+    let params: Vec<mysql::Value> = (0..nb_params)
+        .map(|_| mysql::Value::from(session.user_email.as_str()))
+        .collect();
     let sql = format!(
         "SELECT id,metadata,content,UNIX_TIMESTAMP(created_at),status \
-         FROM p2p_messages WHERE {} ORDER BY created_at DESC LIMIT 200",
-        where_clause
+         FROM p2p_messages WHERE message_type='mess' AND ({}) ORDER BY created_at DESC LIMIT 200",
+        clause
     );
 
-    let rows: Vec<Value> = mysql::prelude::Queryable::query_map(conn, sql,
+    let rows: Vec<Value> = mysql::prelude::Queryable::exec_map(conn, sql, params,
         |(id, metadata, content, created_at, status): (i64, String, String, u64, String)| {
             let meta: Value = serde_json::from_str(&metadata).unwrap_or_default();
             json!({
@@ -321,8 +356,41 @@ pub(crate) fn query_messages(
         }
     ).unwrap_or_default();
 
-    let unread = rows.iter().filter(|m| !m["lu"].as_bool().unwrap_or(true)).count();
+    let unread = if folder == "inbox" || folder.is_empty() {
+        rows.iter().filter(|m| !m["lu"].as_bool().unwrap_or(true)).count()
+    } else {
+        compter_non_lus(conn, session)
+    };
     json!({"success":true,"messages":rows,"unread":unread})
+}
+
+/// Nombre de messages non lus de la boite de reception (requete legere,
+/// appelee regulierement par l'interface pour les notifications).
+fn compter_non_lus(conn: &mut mysql::PooledConn, session: &crate::c::SessionInfo) -> usize {
+    let sql = format!(
+        "SELECT COUNT(*) FROM p2p_messages WHERE message_type='mess' \
+         AND {A} = ? AND status = 'sent' AND {NON_SUPPR_DEST}"
+    );
+    mysql::prelude::Queryable::exec_first::<u64, _, _>(conn, sql, (session.user_email.as_str(),))
+        .ok()
+        .flatten()
+        .unwrap_or(0) as usize
+}
+
+fn handle_unread(
+    conn: &mut mysql::PooledConn,
+    session: &crate::c::SessionInfo,
+) -> Response<std::io::Cursor<Vec<u8>>> {
+    // id du message le plus recent : l'interface detecte un NOUVEAU
+    // message (notification) sans recharger toute la liste.
+    let sql = format!(
+        "SELECT COALESCE(MAX(id),0) FROM p2p_messages WHERE message_type='mess' \
+         AND {A} = ? AND status != 'delivered' AND {NON_SUPPR_DEST}"
+    );
+    let dernier: i64 = mysql::prelude::Queryable::exec_first::<i64, _, _>(
+        conn, sql, (session.user_email.as_str(),),
+    ).ok().flatten().unwrap_or(0);
+    json_resp(json!({"success":true,"unread":compter_non_lus(conn, session),"dernier_id":dernier}), 200)
 }
 
 fn handle_list(
@@ -350,6 +418,10 @@ fn handle_send(
     if to_email.is_empty() || subj_enc.is_empty() || body_enc.is_empty() {
         return json_resp(json!({"success":false,"error":i18n::t(&langue, Cle::MessErreurChampsManquants)}), 400);
     }
+    // Garde-fou taille (un message chiffre reste du texte : 2 Mo suffisent).
+    if subj_enc.len() > 64 * 1024 || body_enc.len() > 2 * 1024 * 1024 {
+        return json_resp(json!({"success":false,"error":"Message trop volumineux"}), 413);
+    }
 
     // Vérifier que le destinataire existe
     let exists = !selectionner(
@@ -365,15 +437,15 @@ fn handle_send(
         return json_resp(json!({"success":false,"error":i18n::t(&langue, Cle::MessErreurDestinataireIntrouvable)}), 404);
     }
 
-    let _now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
-
+    let metadata = json!({"from":session.user_email,"to":to_email,"subj_enc":subj_enc}).to_string();
     match pool.get_conn() {
-        Ok(mut conn) => match mysql::prelude::Queryable::query_drop(&mut conn, format!(
+        // Requete parametree : plus d'echappement manuel des valeurs.
+        Ok(mut conn) => match mysql::prelude::Queryable::exec_drop(
+            &mut conn,
             "INSERT INTO p2p_messages (id,from_user_id,to_user_id,message_type,metadata,content,status) \
-             VALUES (NULL,0,0,'mess','{}','{}','sent')",
-            esc(&json!({"from":session.user_email,"to":to_email,"subj_enc":subj_enc}).to_string()), esc(&body_enc)
-        )) {
+             VALUES (NULL,0,0,'mess',?,?,'sent')",
+            (metadata, body_enc),
+        ) {
             Ok(_) => json_resp(json!({"success":true}), 200),
             Err(e) => { eprintln!("[mess/send] {e}"); err500() }
         },
@@ -389,29 +461,40 @@ fn handle_read(
     let data: Value = serde_json::from_str(body).unwrap_or_default();
     let id = data["id"].as_i64().unwrap_or(0);
     if id == 0 { return json_resp(json!({"success":false,"error":"id manquant"}), 400); }
-    mysql::prelude::Queryable::query_drop(conn, format!(
-        "UPDATE p2p_messages SET status='read' WHERE id={} AND message_type='mess' AND JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.to'))='{}'",
-        id, esc(&session.user_email)
-    )).ok();
+    mysql::prelude::Queryable::exec_drop(conn, format!(
+        "UPDATE p2p_messages SET status='read' WHERE id=? AND status='sent' AND message_type='mess' AND {A} = ?"
+    ), (id, session.user_email.as_str())).ok();
     json_resp(json!({"success":true}), 200)
 }
 
-/// Coeur de la suppression d'un message (marque "delivered", scope a
-/// l'utilisateur courant), reutilise par le handler HTTP et par l'outil
-/// VexIA "mess_delete_my_message".
+/// Coeur de la suppression d'un message POUR L'UTILISATEUR COURANT
+/// uniquement (l'autre partie le garde), reutilise par le handler HTTP et
+/// par l'outil VexIA "mess_delete_my_message".
 pub(crate) fn delete_message(
     conn: &mut mysql::PooledConn,
     session: &crate::c::SessionInfo,
     id: i64,
 ) -> Result<Value, String> {
+    marquer_suppression(conn, session, id, true)
+}
+
+fn marquer_suppression(
+    conn: &mut mysql::PooledConn,
+    session: &crate::c::SessionInfo,
+    id: i64,
+    supprime: bool,
+) -> Result<Value, String> {
     if id == 0 {
         return Err("id manquant".into());
     }
-    mysql::prelude::Queryable::query_drop(conn, format!(
-        "UPDATE p2p_messages SET status='delivered' \
-         WHERE id={} AND message_type='mess' AND (JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.to'))='{}' OR JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.from'))='{}')",
-        id, esc(&session.user_email), esc(&session.user_email)
-    )).ok();
+    let email = session.user_email.as_str();
+    for (drapeau, cote) in [("$.suppr_dest", A), ("$.suppr_exp", DE)] {
+        mysql::prelude::Queryable::exec_drop(conn, format!(
+            "UPDATE p2p_messages SET metadata = JSON_SET(metadata, '{drapeau}', {}) \
+             WHERE id = ? AND message_type='mess' AND {cote} = ?",
+            if supprime { "true" } else { "false" }
+        ), (id, email)).map_err(|e| e.to_string())?;
+    }
     Ok(json!({"success":true,"id":id}))
 }
 
@@ -428,13 +511,28 @@ fn handle_delete(
     }
 }
 
+/// Restaure un message de la corbeille (uniquement ceux supprimes avec
+/// le nouveau mecanisme par cote).
+fn handle_restore(
+    conn: &mut mysql::PooledConn,
+    session: &crate::c::SessionInfo,
+    body: &str,
+) -> Response<std::io::Cursor<Vec<u8>>> {
+    let data: Value = serde_json::from_str(body).unwrap_or_default();
+    let id = data["id"].as_i64().unwrap_or(0);
+    match marquer_suppression(conn, session, id, false) {
+        Ok(v) => json_resp(v, 200),
+        Err(e) => json_resp(json!({"success":false,"error":e}), 400),
+    }
+}
+
 fn handle_users(
     conn: &mut mysql::PooledConn,
     session: &crate::c::SessionInfo,
 ) -> Response<std::io::Cursor<Vec<u8>>> {
-    let rows: Vec<Value> = mysql::prelude::Queryable::query_map(conn,
-        format!("SELECT nom,email FROM login WHERE email!='{}' ORDER BY nom LIMIT 100",
-            esc(&session.user_email)),
+    let rows: Vec<Value> = mysql::prelude::Queryable::exec_map(conn,
+        "SELECT nom,email FROM login WHERE email != ? ORDER BY nom LIMIT 100",
+        (session.user_email.as_str(),),
         |(nom, email): (String, String)| json!({"nom":nom,"email":email})
     ).unwrap_or_default();
     json_resp(json!({"success":true,"users":rows}), 200)
@@ -495,7 +593,6 @@ fn url_decode(s: &str) -> String {
     out
 }
 
-fn esc(s: &str) -> String { s.replace('\\', "\\\\").replace('\'', "\\'") }
 
 fn json_resp(body: Value, code: u16) -> Response<std::io::Cursor<Vec<u8>>> {
     Response::from_string(body.to_string())
@@ -511,4 +608,66 @@ fn html_resp(body: &str, code: u16) -> Response<std::io::Cursor<Vec<u8>>> {
 }
 fn err500() -> Response<std::io::Cursor<Vec<u8>>> {
     json_resp(json!({"success":false,"error":"Erreur serveur"}), 500)
+}
+
+/// Test contre une vraie base :
+///   VEX_TEST_DB=mysql://... cargo test -- --ignored messagerie
+#[cfg(test)]
+mod tests_db {
+    use super::*;
+
+    fn session(email: &str) -> crate::c::SessionInfo {
+        let mut s = crate::c::SessionInfo::default();
+        s.connecte = true;
+        s.user_email = email.to_string();
+        s
+    }
+
+    fn ids(v: &Value) -> Vec<i64> {
+        v["messages"].as_array().unwrap().iter().map(|m| m["id"].as_i64().unwrap()).collect()
+    }
+
+    #[test]
+    #[ignore]
+    fn messagerie_suppression_par_cote() {
+        let url = match std::env::var("VEX_TEST_DB") { Ok(u) => u, Err(_) => return };
+        let pool = mysql::Pool::new(mysql::Opts::from_url(&url).unwrap()).unwrap();
+        let mut c = pool.get_conn().unwrap();
+        let n = std::process::id();
+        let (a, b) = (format!("a{}@t.local", n), format!("b'{}\\@t.local", n)); // quote + backslash : doit passer
+        mysql::prelude::Queryable::exec_drop(&mut c,
+            "INSERT INTO p2p_messages (id,from_user_id,to_user_id,message_type,metadata,content,status) VALUES (NULL,0,0,'mess',?,?,'sent')",
+            (json!({"from":a,"to":b,"subj_enc":"s"}).to_string(), "corps")).unwrap();
+        let id: i64 = mysql::prelude::Queryable::query_first(&mut c, "SELECT LAST_INSERT_ID()").unwrap().unwrap();
+        let (sa, sb) = (session(&a), session(&b));
+
+        assert!(ids(&query_messages(&mut c, &sb, "inbox")).contains(&id));
+        assert_eq!(compter_non_lus(&mut c, &sb), 1);
+        assert!(ids(&query_messages(&mut c, &sa, "sent")).contains(&id));
+
+        // L'expediteur supprime de ses envoyes : le destinataire le garde.
+        delete_message(&mut c, &sa, id).unwrap();
+        assert!(!ids(&query_messages(&mut c, &sa, "sent")).contains(&id));
+        assert!(ids(&query_messages(&mut c, &sa, "trash")).contains(&id));
+        assert!(ids(&query_messages(&mut c, &sb, "inbox")).contains(&id), "destinataire garde le message");
+        assert!(!ids(&query_messages(&mut c, &sb, "trash")).contains(&id));
+
+        // Restauration cote expediteur.
+        marquer_suppression(&mut c, &sa, id, false).unwrap();
+        assert!(ids(&query_messages(&mut c, &sa, "sent")).contains(&id));
+        assert!(!ids(&query_messages(&mut c, &sa, "trash")).contains(&id));
+
+        // Lecture = accuse de lecture visible par l'expediteur.
+        handle_read(&mut c, &sb, &json!({"id":id}).to_string());
+        assert_eq!(compter_non_lus(&mut c, &sb), 0);
+        let envoyes = query_messages(&mut c, &sa, "sent");
+        let m = envoyes["messages"].as_array().unwrap().iter().find(|m| m["id"] == id).unwrap().clone();
+        assert_eq!(m["lu"], true);
+
+        // Un tiers ne peut pas supprimer ni lire.
+        delete_message(&mut c, &session("x@t.local"), id).unwrap();
+        assert!(ids(&query_messages(&mut c, &sb, "inbox")).contains(&id));
+
+        mysql::prelude::Queryable::exec_drop(&mut c, "DELETE FROM p2p_messages WHERE id=?", (id,)).unwrap();
+    }
 }
