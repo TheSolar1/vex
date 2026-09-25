@@ -674,6 +674,8 @@ fn main() {
     // sert aussi de sync initiale -- plus besoin d'un appel bloquant a
     // part ici.
     lancer_sync_periodique(pool.clone(), Arc::clone(&node_state));
+    // Sauvegardes automatiques (config.json -> backup.auto_heures ; 0 = off).
+    admin::admin::lancer_sauvegardes_auto(CONFIG_PATH);
     logger.info("Sync périodique P2P lancée (sync initiale incluse, en tache de fond).");
 
     // ── Threads de traitement ─────────────────────────────────────

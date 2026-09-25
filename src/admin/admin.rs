@@ -1305,6 +1305,12 @@ fn handle_api(
             Err(e) => json!({"success":false,"error":e}),
         },
         "/machine/update_status" => json!({"success":true,"data":lire_machine_update_status()}),
+        "/machine/versions" => machine_versions(),
+        "/machine/rollback" => match machine_retour_arriere() {
+            Ok(()) => json!({"success":true,"message":"Retour à la version précédente : redémarrage en cours…"}),
+            Err(e) => json!({"success":false,"error":e}),
+        },
+        "/machine/nettoyer" => machine_nettoyer_target(),
         "/machine/restart" => match machine_redemarrer() {
             Ok(_) => json!({"success":true}),
             Err(e) => json!({"success":false,"error":e}),
@@ -1371,6 +1377,22 @@ fn handle_api(
 
         "/backup/status" => {
             json!({"success":true,"data":lire_backup_status()})
+        }
+
+        "/backup/auto" => {
+            if method == "POST" {
+                let heures = body.get("heures").and_then(|v| v.parse::<u64>().ok()).unwrap_or(0).min(24 * 30);
+                let garder = body.get("garder").and_then(|v| v.parse::<u64>().ok()).unwrap_or(7).clamp(1, 365);
+                let mut cfg = read_config(config_path);
+                cfg["backup"] = json!({"auto_heures": heures, "garder": garder});
+                match ecrire_config(config_path, &cfg) {
+                    Ok(()) => json!({"success":true,"message": if heures == 0 { "Sauvegardes automatiques désactivées.".to_string() } else { format!("Sauvegarde automatique toutes les {} h, {} conservées.", heures, garder) }}),
+                    Err(e) => json!({"success":false,"error":e}),
+                }
+            } else {
+                let (heures, garder) = reglages_backup_auto(config_path);
+                json!({"success":true,"data":{"heures":heures,"garder":garder}})
+            }
         }
 
         "/backup/create" => {
@@ -2948,9 +2970,13 @@ fn lire_machine_update_status() -> Value {
 /// voir machine_redemarrer(), declenche separement par l'admin une fois la
 /// compilation confirmee reussie.
 fn machine_build_cmd() -> String {
+    // Le binaire en service est conserve dans ./vex.precedent avant d'etre
+    // remplace : c'est lui que le redemarrage relance automatiquement si
+    // le nouveau ne demarre pas (voir machine_redemarrer).
     ". $HOME/.cargo/env 2>/dev/null; \
      git pull --ff-only origin main && \
      cargo build --release && \
+     { if [ -f ./vex ]; then cp -f ./vex ./vex.precedent; fi; } && \
      cp -f target/release/vex ./vex"
         .to_string()
 }
@@ -3001,12 +3027,13 @@ fn machine_redemarrer() -> Result<(), String> {
     {
         let pid = std::process::id();
         let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
-        let script = format!(
-            "sleep 1; kill {pid} 2>/dev/null; for i in $(seq 1 20); do kill -0 {pid} 2>/dev/null || break; sleep 0.5; done; \
-             cd '{cwd}' && nohup ./vex >> log/vex.out 2>&1 & disown",
-            pid = pid,
-            cwd = cwd.display()
-        );
+        let port = crate::config_loader::load_config("config.json")
+            .extra
+            .get("server")
+            .and_then(|s| s.get("port"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(8080);
+        let script = script_redemarrage(pid, &cwd.display().to_string(), port);
         std::process::Command::new("sh")
             .arg("-c")
             .arg(script)
@@ -3020,6 +3047,100 @@ fn machine_redemarrer() -> Result<(), String> {
         });
         Ok(())
     }
+}
+
+/// Script shell detache de redemarrage (voir machine_redemarrer).
+#[cfg_attr(not(unix), allow(dead_code))]
+fn script_redemarrage(pid: u32, cwd: &str, port: u64) -> String {
+        // Retour arriere automatique : apres le relancement, on laisse 20 s
+        // au nouveau binaire. S'il s'est arrete (ou ne repond pas sur
+        // /health quand curl est disponible), on remet ./vex.precedent en
+        // place et on le relance -- avant, un binaire casse laissait le
+        // site hors ligne jusqu'a une intervention SSH.
+    format!(
+            "sleep 1; kill {pid} 2>/dev/null; for i in $(seq 1 20); do kill -0 {pid} 2>/dev/null || break; sleep 0.5; done; \
+             cd '{cwd}' || exit 1; mkdir -p log; \
+             nohup ./vex >> log/vex.out 2>&1 & NOUVEAU=$!; \
+             sleep 20; OK=1; kill -0 $NOUVEAU 2>/dev/null || OK=0; \
+             if [ $OK = 1 ] && command -v curl >/dev/null 2>&1; then curl -sf -m 5 http://127.0.0.1:{port}/health >/dev/null || OK=0; fi; \
+             if [ $OK = 0 ] && [ -f ./vex.precedent ]; then \
+               kill $NOUVEAU 2>/dev/null; sleep 1; \
+               cp -f ./vex ./vex.echoue; cp -f ./vex.precedent ./vex; \
+               echo \"[MAJ] $(date -u +%FT%TZ) nouveau binaire hors service -- retour automatique a la version precedente\" >> log/vex.out; \
+               printf '{{\"retour_arriere\":true,\"date\":\"%s\"}}' \"$(date -u +%FT%TZ)\" > log/maj_retour_arriere.json; \
+               nohup ./vex >> log/vex.out 2>&1 & \
+             fi",
+            pid = pid,
+            cwd = cwd,
+            port = port,
+        )
+}
+
+/// Retour manuel a la version precedente (./vex.precedent), puis
+/// redemarrage.
+fn machine_retour_arriere() -> Result<(), String> {
+    if !std::path::Path::new("vex.precedent").exists() {
+        return Err("Aucune version précédente disponible (elle est conservée à chaque mise à jour).".into());
+    }
+    let _ = std::fs::copy("vex", "vex.echoue");
+    std::fs::copy("vex.precedent", "vex").map_err(|e| format!("Copie impossible : {e}"))?;
+    machine_redemarrer()
+}
+
+/// Etat des versions : binaire precedent disponible ? retour arriere
+/// automatique survenu ?
+fn machine_versions() -> Value {
+    let date = |p: &str| {
+        std::fs::metadata(p)
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs())
+    };
+    let retour: Value = std::fs::read_to_string("log/maj_retour_arriere.json")
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or(Value::Null);
+    json!({
+        "success": true,
+        "data": {
+            "precedent": date("vex.precedent"),
+            "actuel": date("vex"),
+            "retour_arriere_auto": retour,
+        }
+    })
+}
+
+fn taille_recursive_mb(p: &std::path::Path) -> f64 {
+    fn octets(p: &std::path::Path) -> u64 {
+        match std::fs::symlink_metadata(p) {
+            Ok(m) if m.is_dir() => std::fs::read_dir(p)
+                .map(|it| it.filter_map(Result::ok).map(|e| octets(&e.path())).sum())
+                .unwrap_or(0),
+            Ok(m) => m.len(),
+            Err(_) => 0,
+        }
+    }
+    octets(p) as f64 / 1_048_576.0
+}
+
+/// Libere l'espace pris par les artefacts de compilation inutiles au
+/// fonctionnement : target/debug (builds de dev) et les caches
+/// incrementaux de target/release. Le binaire en service (./vex) n'est pas
+/// touche ; la prochaine mise a jour recompile simplement ce qui manque.
+fn machine_nettoyer_target() -> Value {
+    let mut libere = 0.0;
+    let mut supprimes = Vec::new();
+    for d in ["target/debug", "target/release/incremental"] {
+        if std::path::Path::new(d).exists() {
+            let mb = taille_recursive_mb(std::path::Path::new(d));
+            if std::fs::remove_dir_all(d).is_ok() {
+                libere += mb;
+                supprimes.push(d);
+            }
+        }
+    }
+    json!({"success": true, "message": format!("{:.0} Mo libérés ({}).", libere, if supprimes.is_empty() { "rien à nettoyer".to_string() } else { supprimes.join(", ") })})
 }
 
 // ── Mise à jour OS (paquets systeme) et redemarrage programme de la
@@ -3487,6 +3608,12 @@ fn lister_backups() -> Vec<Value> {
 /// Lance un dump complet (structure + donnees, fichiers inclus car
 /// stockes en base64 dans `fichiers`) dans un thread separe.
 fn lancer_backup(db: &crate::config_loader::DbConfig, langue: &str) -> Result<(), String> {
+    lancer_backup_nomme(db, langue, "vex-backup-")
+}
+
+/// `prefixe` : "vex-backup-" (manuelle) ou "vex-backup-auto-" (planifiee,
+/// seules celles-ci sont supprimees par la rotation automatique).
+fn lancer_backup_nomme(db: &crate::config_loader::DbConfig, langue: &str, prefixe: &str) -> Result<(), String> {
     use std::process::Stdio;
     use std::sync::atomic::Ordering;
     if BACKUP_EN_COURS.swap(true, Ordering::SeqCst) {
@@ -3494,7 +3621,7 @@ fn lancer_backup(db: &crate::config_loader::DbConfig, langue: &str) -> Result<()
     }
     let _ = std::fs::create_dir_all(BACKUP_DIR);
     let horodatage = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
-    let nom = format!("vex-backup-{}.sql.gz", horodatage);
+    let nom = format!("{}{}.sql.gz", prefixe, horodatage);
     let chemin = format!("{}/{}", BACKUP_DIR, nom);
     let db = db.clone();
     let langue = langue.to_string();
@@ -3555,6 +3682,72 @@ fn lancer_backup(db: &crate::config_loader::DbConfig, langue: &str) -> Result<()
         BACKUP_EN_COURS.store(false, Ordering::SeqCst);
     });
     Ok(())
+}
+
+// ── Sauvegardes automatiques ─────────────────────────────────────
+// config.json -> "backup": { "auto_heures": 24, "garder": 7 }
+// auto_heures = 0 (defaut) : desactive. Verifie toutes les 10 minutes si
+// la derniere sauvegarde automatique est plus vieille que auto_heures, et
+// ne garde que les `garder` plus recentes (les sauvegardes manuelles ne
+// sont jamais supprimees automatiquement).
+const PREFIXE_BACKUP_AUTO: &str = "vex-backup-auto-";
+
+fn reglages_backup_auto(config_path: &str) -> (u64, usize) {
+    let cfg = read_config(config_path);
+    let b = cfg.get("backup");
+    let heures = b.and_then(|b| b.get("auto_heures")).and_then(|v| v.as_u64()).unwrap_or(0).min(24 * 30);
+    let garder = b.and_then(|b| b.get("garder")).and_then(|v| v.as_u64()).unwrap_or(7).clamp(1, 365) as usize;
+    (heures, garder)
+}
+
+fn rotation_backups_auto(garder: usize) {
+    let auto: Vec<String> = lister_backups()
+        .into_iter()
+        .filter_map(|b| b["nom"].as_str().map(String::from))
+        .filter(|n| n.starts_with(PREFIXE_BACKUP_AUTO))
+        .collect(); // deja tries du plus recent au plus ancien
+    for nom in auto.into_iter().skip(garder) {
+        if backup_nom_valide(&nom) {
+            let _ = std::fs::remove_file(format!("{}/{}", BACKUP_DIR, nom));
+        }
+    }
+}
+
+/// A lancer une fois au demarrage (main.rs).
+pub fn lancer_sauvegardes_auto(config_path: &'static str) {
+    std::thread::Builder::new()
+        .name("vex-backup-auto".into())
+        .spawn(move || loop {
+            std::thread::sleep(std::time::Duration::from_secs(600));
+            let (heures, garder) = reglages_backup_auto(config_path);
+            if heures == 0 {
+                continue;
+            }
+            let derniere = lister_backups()
+                .iter()
+                .filter(|b| b["nom"].as_str().map(|n| n.starts_with(PREFIXE_BACKUP_AUTO)).unwrap_or(false))
+                .filter_map(|b| b["modifie"].as_u64())
+                .max()
+                .unwrap_or(0);
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            if now.saturating_sub(derniere) < heures * 3600 {
+                rotation_backups_auto(garder);
+                continue;
+            }
+            if let Ok(db) = crate::config_loader::load_db_config(config_path) {
+                if lancer_backup_nomme(&db, "fr", PREFIXE_BACKUP_AUTO).is_ok() {
+                    // Attend la fin du dump avant la rotation.
+                    while BACKUP_EN_COURS.load(std::sync::atomic::Ordering::SeqCst) {
+                        std::thread::sleep(std::time::Duration::from_secs(5));
+                    }
+                    rotation_backups_auto(garder);
+                }
+            }
+        })
+        .ok();
 }
 
 fn ecrire_config(path: &str, cfg: &Value) -> Result<(), String> {
@@ -4170,4 +4363,39 @@ fn market_extraire_zip(id: &str, donnees: &[u8]) -> Result<Vec<String>, String> 
         return Err("Archive vide ou sans fichier exploitable.".into());
     }
     Ok(ecrits)
+}
+
+#[cfg(test)]
+mod tests_machine {
+    #[test]
+    fn script_redemarrage_syntaxe_shell_valide() {
+        let script = super::script_redemarrage(12345, "/opt/vex dossier", 8080);
+        let out = std::process::Command::new("sh").arg("-n").arg("-c").arg(&script).output().expect("sh");
+        assert!(out.status.success(), "sh -n : {}", String::from_utf8_lossy(&out.stderr));
+        assert!(script.contains("vex.precedent") && script.contains("/health"));
+    }
+}
+
+#[cfg(test)]
+mod tests_backup_auto {
+    #[test]
+    fn rotation_ne_supprime_que_les_auto_en_trop() {
+        let _ = std::fs::create_dir_all(super::BACKUP_DIR);
+        let noms: Vec<String> = (1..=5).map(|i| format!("vex-backup-auto-2000010{}-000000.sql.gz", i)).collect();
+        let manuelle = "vex-backup-20000101-000000.sql.gz".to_string();
+        for (i, n) in noms.iter().chain(std::iter::once(&manuelle)).enumerate() {
+            let p = format!("{}/{}", super::BACKUP_DIR, n);
+            std::fs::write(&p, b"x").unwrap();
+            // dates de modification croissantes : le plus recent = le dernier
+            let t = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000 + i as u64 * 60);
+            std::fs::File::options().write(true).open(&p).unwrap().set_modified(t).unwrap();
+        }
+        super::rotation_backups_auto(2);
+        let restants: Vec<String> = noms.iter().filter(|n| std::path::Path::new(&format!("{}/{}", super::BACKUP_DIR, n)).exists()).cloned().collect();
+        assert_eq!(restants, vec![noms[3].clone(), noms[4].clone()], "garde les 2 auto les plus recentes");
+        assert!(std::path::Path::new(&format!("{}/{}", super::BACKUP_DIR, manuelle)).exists(), "manuelle conservee");
+        for n in noms.iter().chain(std::iter::once(&manuelle)) {
+            let _ = std::fs::remove_file(format!("{}/{}", super::BACKUP_DIR, n));
+        }
+    }
 }
