@@ -226,7 +226,7 @@ html[data-theme] body {
 .nav-sidebar-item-7844.admin-item { color:var(--danger)!important; }
 .nav-sidebar-item-7844.admin-item:hover { background:var(--alt); }
 .nav-sidebar-item-7844.admin-item.active { background:var(--danger);color:#fff!important; }
-.sidebar-svg-7844 { width:20px;height:20px;flex-shrink:0;display:block; filter:none; }
+.sidebar-svg-7844 { width:20px;height:20px;flex-shrink:0;display:block; filter:var(--icon-filter); }
 .nav-sidebar-item-7844.active .sidebar-svg-7844 { filter:brightness(0) invert(1); }
 .nav-sidebar-item-7844.admin-item .sidebar-svg-7844 { filter:invert(27%) sepia(51%) saturate(2878%) hue-rotate(346deg) brightness(104%) contrast(97%); }
 .nav-sidebar-divider-7844 { height:1px;background:var(--border);margin:10px 8px; }
