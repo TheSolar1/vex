@@ -257,8 +257,7 @@ __NAV_HTML__
     <div class="sb-a" data-sec="apps"><img src="/static/img/solid/cube.svg" alt=""> <span>{{T_SB_APPLICATIONS}}</span></div>
     <div class="sb-a" data-sec="extensions"><img src="/static/img/solid/puzzle-piece.svg" alt=""> <span>{{T_SB_EXTENSIONS_PLUGIN}}</span></div>
     <div class="sb-a" data-sec="roles"><img src="/static/img/solid/id-badge.svg" alt=""> <span>{{T_SB_ROLES_PLANS}}</span></div>
-    <div class="sb-a" data-sec="revenus"><img src="/static/img/solid/euro-sign.svg" alt=""> <span>Revenus</span></div>
-    <div class="sb-a" data-sec="logs"><img src="/static/img/solid/scroll.svg" alt=""> <span>{{T_SB_LOGS}}</span></div>
+    <div class="sb-a" data-sec="revenus"><img src="/static/img/solid/euro-sign.svg" alt=""> <span>Revenus</span></div>    <div class="sb-a" data-sec="logs"><img src="/static/img/solid/scroll.svg" alt=""> <span>{{T_SB_LOGS}}</span></div>
     <div class="sb-a sb-machine-item" data-sec="machine-update" style="display:none"><img src="/static/img/solid/code-commit.svg" alt=""> <span>{{T_MACHINE_ONGLET_MAJ}}</span></div>
     <div class="sb-a" data-sec="onlyoffice"><img src="/static/img/solid/file-lines.svg" alt=""> <span>{{T_SB_EDITEUR_EN_LIGNE}}</span><span class="sb-pill w" id="pill-oo" style="display:none">!</span></div>
     <div class="sb-a" id="sb-p2p" data-sec="p2p" style="display:none"><img src="/static/img/solid/network-wired.svg" alt=""> <span>{{T_SB_P2P_ANONNET}}</span><span class="sb-pill" id="pill-p2p">0</span></div>
@@ -448,6 +447,10 @@ __NAV_HTML__
             <div class="ch"><span><img src="/static/img/solid/euro-sign.svg" class="ico ico-accent" alt=""> Utilisateurs payants</span></div>
             <div class="cb" id="revenus-content"></div>
         </div>
+        <div class="card" style="margin-top:16px">
+            <div class="ch"><span><img src="/static/img/solid/fingerprint.svg" class="ico ico-accent" alt=""> Appareils des comptes payants <small>empreintes</small></span></div>
+            <div class="cb" id="revenus-appareils"></div>
+        </div>
     </div>
 
     <!-- Machine (mise a jour VEX / stockage / etat) -- 4 entrees separees de sidebar, ce conteneur est partage -->
@@ -521,6 +524,19 @@ __NAV_HTML__
                 <button class="btn bg2" onclick="loadVexiaAudit()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> {{T_RAFRAICHIR}}</button>
             </div>
             <div style="padding:14px" id="vexia-audit-content"><div class="loading"><span class="spin"></span></div></div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+            <div class="ch">
+                <span><img src="/static/img/solid/fingerprint.svg" class="ico ico-accent" alt=""> Empreintes récentes <small>% de correspondance</small></span>
+                <button class="btn bg2" onclick="loadEmpreintesLogs()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> Rafraîchir</button>
+            </div>
+            <div style="overflow-x:auto" id="logs-empreintes"><div class="loading"><span class="spin"></span></div></div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+            <div class="ch"><span><img src="/static/img/solid/desktop.svg" class="ico ico-accent" alt=""> Appareils vus <small>empreintes · 20 éléments</small></span></div>
+            <div style="overflow-x:auto" id="appareils-liste"></div>
         </div>
     </div>
 
@@ -596,7 +612,7 @@ function nav(sec){
         return;
     }
     document.getElementById('sec-'+sec).classList.add('on');
-    ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,logs:loadLogs,onlyoffice:loadEditor,p2p:loadP2p,apps:loadApps,extensions:loadExt,roles:loadRoles,revenus:loadRevenus,backup:loadBackups}[sec]||Function)();
+    ({dashboard:loadDash,users:loadUsers,blocks:loadBlocks,db:loadDb,config:loadCfg,logs:()=>{loadLogs();loadEmpreintesLogs();},onlyoffice:loadEditor,p2p:loadP2p,apps:loadApps,extensions:loadExt,roles:loadRoles,revenus:()=>{loadRevenus();loadRevenusAppareils();},backup:loadBackups}[sec]||Function)();
     history.replaceState(null,'','?section='+sec);
 }
 // FIX (demande utilisateur) : les messages doivent apparaitre en bas a
@@ -702,7 +718,10 @@ async function loadDash(){
 /* ── Utilisateurs ── */
 async function loadUsers(){
     document.getElementById('users-table').innerHTML='<div class="loading"><span class="spin"></span></div>';
-    const r=await api('/users');if(!r.success){flash(r.error,true);return;}
+    // /empreintes est reserve aux superadmins : en cas de refus, la colonne
+    // "Appareils" n'est simplement pas affichee (S.fpComptes = null).
+    const [r,rf]=await Promise.all([api('/users'),api('/empreintes')]);if(!r.success){flash(r.error,true);return;}
+    S.fpComptes=rf.success?Object.fromEntries((rf.data.comptes||[]).map(c=>[c.compte,c])):null;
     S.users=r.data;
     document.getElementById('users-count').textContent=I18N.USERS_N_COMPTES.replace('{n}',S.users.length);
     document.getElementById('pill-users').textContent=S.users.length;
@@ -712,7 +731,7 @@ async function loadUsers(){
 }
 function vipOpts(v){return[`<option value="0" ${!v?'selected':''}>${I18N.VIP_FREE_OPTION}</option>`,...S.vipTypes.map(t=>`<option value="${esc(String(t.id))}" ${v==t.id?'selected':''}>${esc(t.label)}</option>`)].join('');}
 function renderUsers(users){
-    document.getElementById('users-table').innerHTML=`<table class="t" id="utbl"><thead><tr><th>#</th><th>${I18N.NOM}</th><th>${I18N.EMAIL}</th><th>${I18N.USERS_ROLE_ACTUEL}</th><th>${I18N.USERS_CHANGER_ROLE}</th><th>VIP</th><th>${I18N.ACTIONS}</th></tr></thead><tbody>${users.map(u=>{
+    document.getElementById('users-table').innerHTML=`<table class="t" id="utbl"><thead><tr><th>#</th><th>${I18N.NOM}</th><th>${I18N.EMAIL}</th><th>${I18N.USERS_ROLE_ACTUEL}</th><th>${I18N.USERS_CHANGER_ROLE}</th><th>VIP</th>${S.fpComptes?'<th title="Empreintes d\'appareil : machines distinctes et ressemblance entre elles">Appareils</th>':''}<th>${I18N.ACTIONS}</th></tr></thead><tbody>${users.map(u=>{
         const options=u.privilege===1?[1,...[2,3,4,5,6,7,8,9,10,11,12]]:[2,3,4,5,6,7,8,9,10,11,12];
         const po=options.map(p=>`<option value="${p}" ${u.privilege==p?'selected':''} ${p===1?'disabled':''}>${p} — ${pNom(p)}</option>`).join('');
         const badge=`<span class="b bx" style="color:${pCol(u.privilege)};border:1px solid ${pCol(u.privilege)}44">${u.privilege} — ${esc(pNom(u.privilege))}</span>`;
@@ -724,7 +743,9 @@ function renderUsers(users){
         // changer quoi que ce soit.
         const vipLock=u.vip_paye&&!IS_FOUNDER;
         const vipPaidBadge=u.vip_paye?` <span class="b bx" title="Plan payé par le client">💳</span>`:'';
-        return`<tr data-s="${(u.nom+u.email).toLowerCase()}"><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${badge}</td><td><select class="isel" style="color:${pCol(u.privilege)};font-weight:600" onchange="setPriv(${u.id},this.value)">${po}</select></td><td><select class="vip-sel" onchange="setVip(${u.id},this.value,${u.vip_paye?'true':'false'},'${esc(u.nom)}')" ${vipLock?'disabled title="Plan payé — seul le fondateur peut le modifier"':''}>${vipOpts(u.vip)}</select>${vipPaidBadge}</td><td><button class="btn br2" data-del-uid="${u.id}" data-del-nom="${esc(u.nom)}"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SUPPRIMER}</button></td></tr>`;
+        const fp=S.fpComptes?S.fpComptes[u.nom]:null;
+        const fpCell=!S.fpComptes?'':`<td>${fp?`<span class="b bx">${fp.machines} machine${fp.machines>1?'s':''}</span> ${pctBadge(fp.ressemblance)}${fp.partage_suspect?' <span class="b br">partage suspect</span>':''}`:'<span class="b bx">—</span>'}</td>`;
+        return`<tr data-s="${(u.nom+u.email).toLowerCase()}"><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${badge}</td><td><select class="isel" style="color:${pCol(u.privilege)};font-weight:600" onchange="setPriv(${u.id},this.value)">${po}</select></td><td><select class="vip-sel" onchange="setVip(${u.id},this.value,${u.vip_paye?'true':'false'},'${esc(u.nom)}')" ${vipLock?'disabled title="Plan payé — seul le fondateur peut le modifier"':''}>${vipOpts(u.vip)}</select>${vipPaidBadge}</td>${fpCell}<td><button class="btn br2" data-del-uid="${u.id}" data-del-nom="${esc(u.nom)}"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SUPPRIMER}</button></td></tr>`;
     }).join('')}</tbody></table>`;
 }
 function filterUsers(q){document.querySelectorAll('#utbl tbody tr').forEach(r=>{r.style.display=r.dataset.s.includes(q.toLowerCase())?'':'none';});}
@@ -2122,6 +2143,66 @@ async function osAnnulerRedemarrage(){
 /* ── Logs ── */
 async function loadLogs(){document.getElementById('log-content').innerHTML='<div class="loading"><span class="spin"></span></div>';const lt=document.getElementById('log-type'),ln=document.getElementById('log-n'),lq=document.getElementById('log-q');const qs='type='+encodeURIComponent(lt?lt.value:'vex')+'&n='+encodeURIComponent(ln?ln.value:'200')+'&q='+encodeURIComponent(lq?lq.value:'');const r=await api('/logs?'+qs);if(!r.success){flash(r.error,true);return;}const files=r.data.files||[];const filesHtml=files.length?`<div style="margin-bottom:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:.78rem;color:var(--text-m)"><div style="font-weight:700;color:var(--text);margin-bottom:6px">${I18N.LOGS_FICHIERS_DE_LOGS}</div><div style="display:flex;flex-wrap:wrap;gap:6px">${files.map(f=>`<span style="padding:4px 8px;border-radius:999px;background:var(--alt);color:var(--accent);font-family:monospace">${esc(f)}</span>`).join('')}</div></div>`:'';document.getElementById('log-content').innerHTML=r.data.empty?`<div style="padding:24px;text-align:center;color:var(--text-m)">${I18N.LOGS_AUCUN_DISPONIBLE}</div>`:`<div>${filesHtml}<div class="lb" id="lb">${esc(r.data.content)}</div></div>`;scrollLogs();loadVexiaAudit();}
 function scrollLogs(){const lb=document.getElementById('lb');if(lb)lb.scrollTop=lb.scrollHeight;}
+// ── Empreintes d'appareil (src/empreinte.rs, route /empreintes) ─────
+// Utilise par les sections Appareils, Logs (Empreintes recentes) et
+// Revenus (Appareils des comptes payants).
+async function empreintesData(){const r=await api('/empreintes');return r.success?r.data:{erreur:r.error||'Erreur.'};}
+function pctBadge(p){if(p===null||p===undefined||p==='')return '<span class="b bx">—</span>';const c=p>=90?'bg':p>=70?'bb':p>=50?'bo':'br';return `<span class="b ${c}">${p} %</span>`;}
+function hCourt(h){return `<span style="font-family:var(--mono);font-size:.75rem" title="${esc(h||'')}">${esc((h||'').slice(0,12))}…</span>`;}
+function videFp(t){return `<div style="padding:18px;text-align:center;color:var(--text-m);font-size:.84rem">${t}</div>`;}
+// Liste des appareils (section Logs, sous "Empreintes recentes")
+function renderAppareilsFp(d){
+    const boxA=document.getElementById('appareils-liste');if(!boxA)return;
+    if(d.erreur){boxA.innerHTML='';return;}
+    boxA.innerHTML=d.appareils.length?`<table class="t"><thead><tr><th>Appareil</th><th>Comptes</th><th>IP</th><th>Visites</th><th>Dernière visite</th><th>Appareil le plus proche</th></tr></thead><tbody>${d.appareils.map(a=>`<tr>
+        <td>${hCourt(a.hash)}<div style="font-size:.74rem;color:var(--text-m);margin-top:3px">${esc(a.detail)}</div></td>
+        <td>${a.comptes.length?a.comptes.map(c=>`<span class="b bb">${esc(c)}</span>`).join(' '):'<span class="b bx">non connecté</span>'}</td>
+        <td class="m" title="${esc(a.ips.join(', '))}">${esc(a.ips.slice(0,3).join(', '))}${a.ips.length>3?` +${a.ips.length-3}`:''}</td>
+        <td class="m">${a.visites}</td>
+        <td class="m">${esc(a.derniere)}</td>
+        <td>${a.proche_hash?`${pctBadge(a.proche_pct)} ${hCourt(a.proche_hash)}${a.proche_compte?` <small>(${esc(a.proche_compte)})</small>`:''}${a.proche_diff.length&&a.proche_diff.length<20?`<div style="font-size:.7rem;color:var(--text-m);margin-top:3px">diffère : ${a.proche_diff.map(esc).join(', ')}</div>`:''}`:'<span class="b bx">seul appareil</span>'}</td>
+    </tr>`).join('')}</tbody></table>`:videFp('Aucun appareil enregistré pour le moment.');
+}
+async function loadEmpreintesLogs(){
+    const box=document.getElementById('logs-empreintes');if(!box)return;
+    box.innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const d=await empreintesData();
+    renderAppareilsFp(d);
+    if(d.erreur){box.innerHTML=videFp(esc(d.erreur));return;}
+    box.innerHTML=d.recents.length?`<table class="t"><thead><tr><th>Date</th><th>Compte</th><th>IP</th><th>Page</th><th>Appareil</th><th>% compte</th><th>% plus proche</th></tr></thead><tbody>${d.recents.map(r=>`<tr>
+        <td class="m">${esc(r.date)}</td>
+        <td>${r.compte?`<span class="b bb">${esc(r.compte)}</span>`:'<span class="b bx">—</span>'}</td>
+        <td class="m">${esc(r.ip)}</td><td class="m">${esc(r.page)}</td>
+        <td>${hCourt(r.hash)}<div style="font-size:.72rem;color:var(--text-m)">${esc(r.detail)}</div></td>
+        <td title="Ressemblance avec les appareils déjà utilisés par ce compte">${pctBadge(r.pct_compte)}</td>
+        <td title="${esc(r.proche_hash||'')}">${pctBadge(r.pct_proche)}</td>
+    </tr>`).join('')}</tbody></table>`:videFp('Aucune empreinte enregistrée pour le moment.');
+}
+async function loadRevenusAppareils(){
+    const box=document.getElementById('revenus-appareils');if(!box)return;
+    box.innerHTML='<div class="loading"><span class="spin"></span></div>';
+    const [d,ru]=await Promise.all([empreintesData(),api('/users')]);
+    if(d.erreur){box.innerHTML=videFp(esc(d.erreur));return;}
+    if(!S.configData){const rc=await api('/config');if(rc.success)S.configData=rc.data;}
+    const plans=S.configData?.plans?.available_plans||[];
+    const prix=id=>(plans.find(p=>p.id===id)||{}).price_eur_month||0;
+    const payants=(ru.success?ru.data:[]).filter(u=>u.vip_paye);
+    if(!payants.length){box.innerHTML=videFp('Aucun compte payant pour le moment.');return;}
+    const parNom={};d.comptes.forEach(c=>{parNom[c.compte]=c;});
+    let risque=0,nbSuspects=0;
+    const lignes=payants.map(u=>{
+        const c=parNom[u.nom],p=prix(u.vip);
+        if(c&&c.partage_suspect){risque+=p;nbSuspects++;}
+        return `<tr><td>${esc(u.nom)}</td><td>${esc(u.vip)}</td><td class="m">${p}€</td><td class="m">${c?c.machines:'—'}</td><td>${c?pctBadge(c.ressemblance):'<span class="b bx">—</span>'}</td>
+            <td>${!c?'<span class="b bx">aucune empreinte</span>':c.partage_suspect?'<span class="b br">partage suspect</span>':'<span class="b bg">OK</span>'}</td></tr>`;
+    }).join('');
+    box.innerHTML=`<div style="display:flex;gap:22px;flex-wrap:wrap;margin-bottom:12px;font-size:.84rem">
+            <div><strong>${nbSuspects}</strong> / ${payants.length} compte(s) payant(s) suspect(s) de partage</div>
+            <div>Revenus à risque : <strong style="color:${risque?'var(--danger)':'var(--accent)'}">${risque.toFixed(2)}€/mois</strong></div>
+        </div>
+        <div style="overflow-x:auto"><table class="t"><thead><tr><th>Compte</th><th>Plan</th><th>Prix</th><th>Machines</th><th>Ressemblance</th><th>Statut</th></tr></thead><tbody>${lignes}</tbody></table></div>
+        <div style="font-size:.74rem;color:var(--text-m);margin-top:8px">Un compte payant utilisé sur 3 machines différentes ou plus est peut-être partagé : autant d'abonnements en moins.</div>`;
+}
 async function clearLogs(){if(!await confirmerDialogue(I18N.LOGS_VIDER_CONFIRM,{danger:true}))return;const r=await post('/logs/clear');if(r.success){flash(r.message);loadLogs();}else flash(r.error,true);}
 
 async function loadVexiaAudit(){

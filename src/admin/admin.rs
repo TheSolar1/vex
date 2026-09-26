@@ -715,6 +715,9 @@ fn handle_api(
         // Visualiser les actions admin declenchees par VexIA (toutes,
         // pas seulement les siennes) est aussi sensible que les executer.
         "/vexia/audit",
+        // Empreintes d'appareil : IP + comptes + appareils = donnees
+        // sensibles, reservees aux superadmins.
+        "/empreintes",
     ];
     let needs_super = sub.starts_with("/p2p")
         || sub.starts_with("/backup")
@@ -1458,6 +1461,12 @@ fn handle_api(
                 let trimmed = lines[debut..].join("\n");
                 json!({"success":true,"data":{"empty":false,"content":trimmed,"files":files,"root":"log","type":type_log}})
             }
+        }
+
+        // Appareils / % de correspondance (voir src/empreinte.rs) -- utilise
+        // par les sections Appareils, Logs et Revenus du panel.
+        "/empreintes" => {
+            json!({"success":true,"data":crate::empreinte::resume_admin()})
         }
 
         "/logs/clear" => {
