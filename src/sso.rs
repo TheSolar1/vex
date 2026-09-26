@@ -19,6 +19,11 @@
 // Pas connecte : la connexion VEX s'ouvre dans un onglet, et cette page
 // continue seule des que la session existe (/p2p/sso/etat) -- le login
 // de VEX n'est pas modifie.
+//
+// « Ne plus me demander » : les domaines deja autorises sont retenus
+// dans le cookie `vex_sso_ok` (HttpOnly, Path=/p2p/sso), signe par la
+// cle du nœud et lie au compte : un autre compte sur le meme navigateur
+// revoit la page d'accord. Effacer ce cookie retire toutes les autorisations.
 // ══════════════════════════════════════════════════════════════════
 
 use crate::appeldb::DbPool;
@@ -34,6 +39,11 @@ use tiny_http::{Header, Request, Response};
 
 /// Duree de validite d'un jeton signe (secondes).
 const VALIDITE_JETON: i64 = 300;
+/// Nom et duree (secondes) du cookie des domaines autorises.
+const COOKIE_ACCORDS: &str = "vex_sso_ok";
+const DUREE_ACCORDS: i64 = 180 * 24 * 3600;
+/// Nombre maximal de domaines retenus.
+const MAX_ACCORDS: usize = 20;
 
 pub fn traiter(mut request: Request, pool: &DbPool, node_state: &Arc<RwLock<NodeState>>) {
     let url = request.url().to_string();
@@ -93,6 +103,11 @@ pub fn traiter(mut request: Request, pool: &DbPool, node_state: &Arc<RwLock<Node
             );
             return page(request, "Connexion à un service externe", &corps, "light");
         };
+        // Domaine deja autorise par ce compte : pas de page d'accord.
+        if accords(&request, node_state, s.user_id).iter().any(|d| *d == domaine(&retour)) {
+            let dest = emettre(pool, node_state, &s, &retour, &etat);
+            return rediriger(request, &dest, None);
+        }
         let refus = format!("{}{}erreur=refus&etat={}", retour, sep(&retour), etat);
         let corps = format!(
             "<p class=\"sso-demande\"><b>{service}</b> demande à vérifier votre identité VEX.</p>\
@@ -106,6 +121,8 @@ pub fn traiter(mut request: Request, pool: &DbPool, node_state: &Arc<RwLock<Node
                <input type=\"hidden\" name=\"service\" value=\"{hs}\">\
                <input type=\"hidden\" name=\"retour\" value=\"{hr}\">\
                <input type=\"hidden\" name=\"etat\" value=\"{he}\">\
+               <label class=\"sso-petit sso-retenir\"><input type=\"checkbox\" name=\"retenir\" value=\"1\" checked> \
+                 Ne plus me demander pour <b>{domaine}</b> sur ce navigateur</label>\
                <div class=\"sso-boutons\">\
                  <a class=\"sso-btn sec\" href=\"{hrefus}\">Refuser</a>\
                  <button class=\"sso-btn\" type=\"submit\" name=\"decision\" value=\"ok\">Autoriser</button>\
@@ -127,8 +144,24 @@ pub fn traiter(mut request: Request, pool: &DbPool, node_state: &Arc<RwLock<Node
         return page(request, "Session expirée", "<p>Votre session VEX a expiré. Recommencez depuis le service.</p>", "light");
     };
     if body.get("decision").map(|d| d.as_str()) != Some("ok") {
-        return rediriger(request, &format!("{}{}erreur=refus&etat={}", retour, sep(&retour), etat));
+        return rediriger(request, &format!("{}{}erreur=refus&etat={}", retour, sep(&retour), etat), None);
     }
+    let cookie = if body.get("retenir").map(|d| d.as_str()) == Some("1") {
+        let mut liste = accords(&request, node_state, s.user_id);
+        let d = domaine(&retour);
+        liste.retain(|x| *x != d);
+        liste.insert(0, d);
+        liste.truncate(MAX_ACCORDS);
+        Some(cookie_accords(node_state, s.user_id, &liste))
+    } else {
+        None
+    };
+    let dest = emettre(pool, node_state, &s, &retour, &etat);
+    rediriger(request, &dest, cookie.as_deref());
+}
+
+/// Signe l'identite de l'utilisateur et renvoie l'URL de retour du service.
+fn emettre(pool: &DbPool, node_state: &Arc<RwLock<NodeState>>, s: &crate::c::SessionInfo, retour: &str, etat: &str) -> String {
     let ns = node_state.read().unwrap();
     let maintenant = chrono::Utc::now().timestamp();
     let charge = json!({
@@ -145,7 +178,32 @@ pub fn traiter(mut request: Request, pool: &DbPool, node_state: &Arc<RwLock<Node
     let jeton = B64URL.encode(charge.to_string().as_bytes());
     let sig = B64URL.encode(ns.signing_key.sign(jeton.as_bytes()).to_bytes());
     drop(ns);
-    rediriger(request, &format!("{}{}etat={}&jeton={}&sig={}", retour, sep(&retour), etat, jeton, sig));
+    format!("{}{}etat={}&jeton={}&sig={}", retour, sep(retour), etat, jeton, sig)
+}
+
+/// Domaines deja autorises par `user_id` (cookie absent, altere ou d'un
+/// autre compte : liste vide).
+fn accords(request: &Request, node_state: &Arc<RwLock<NodeState>>, user_id: i64) -> Vec<String> {
+    use ed25519_dalek::{Signature, Verifier};
+    let brut = crate::access_control::get_cookie(request, COOKIE_ACCORDS);
+    let Some((charge, sig)) = brut.split_once('.') else { return vec![] };
+    let Ok(sig) = B64URL.decode(sig) else { return vec![] };
+    let Ok(sig) = Signature::from_slice(&sig) else { return vec![] };
+    if node_state.read().unwrap().verifying_key.verify(charge.as_bytes(), &sig).is_err() {
+        return vec![];
+    }
+    let Ok(octets) = B64URL.decode(charge) else { return vec![] };
+    let Ok(v) = serde_json::from_slice::<serde_json::Value>(&octets) else { return vec![] };
+    if v["u"].as_i64() != Some(user_id) {
+        return vec![];
+    }
+    v["d"].as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default()
+}
+
+fn cookie_accords(node_state: &Arc<RwLock<NodeState>>, user_id: i64, domaines: &[String]) -> String {
+    let charge = B64URL.encode(json!({ "u": user_id, "d": domaines }).to_string().as_bytes());
+    let sig = B64URL.encode(node_state.read().unwrap().signing_key.sign(charge.as_bytes()).to_bytes());
+    format!("{}={}.{}; Path=/p2p/sso; Max-Age={}; HttpOnly; SameSite=Lax", COOKIE_ACCORDS, charge, sig, DUREE_ACCORDS)
 }
 
 fn lire_formulaire(request: &mut Request) -> HashMap<String, String> {
@@ -187,12 +245,14 @@ fn theme_de(pool: &DbPool, user_id: i64) -> &'static str {
     if crate::function::get_user_preferences(pool, user_id).teme == 1 { "dark" } else { "light" }
 }
 
-fn rediriger(request: Request, location: &str) {
-    let _ = request.respond(
-        Response::empty(302)
-            .with_header(Header::from_bytes("Location", location).unwrap())
-            .with_header(Header::from_bytes("Cache-Control", "no-store").unwrap()),
-    );
+fn rediriger(request: Request, location: &str, cookie: Option<&str>) {
+    let mut r = Response::empty(302)
+        .with_header(Header::from_bytes("Location", location).unwrap())
+        .with_header(Header::from_bytes("Cache-Control", "no-store").unwrap());
+    if let Some(c) = cookie {
+        r = r.with_header(Header::from_bytes("Set-Cookie", c).unwrap());
+    }
+    let _ = request.respond(r);
 }
 
 fn page(request: Request, titre: &str, corps: &str, theme: &str) {
@@ -215,6 +275,7 @@ fn page(request: Request, titre: &str, corps: &str, theme: &str) {
   .sso-demande {{ font-size:15px; line-height:1.5; }}
   .sso-cadre {{ background:var(--alt); border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:6px; font-size:14px; }}
   .sso-petit {{ font-size:12.5px; color:var(--text-dim); line-height:1.5; }}
+  .sso-retenir {{ display:flex; align-items:center; gap:7px; margin-top:12px; cursor:pointer; }}
   .sso-boutons {{ display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }}
   .sso-btn {{ padding:9px 18px; border-radius:8px; border:1px solid transparent; background:var(--accent); color:#fff; font-weight:600;
               font-size:14px; cursor:pointer; text-decoration:none; }}
