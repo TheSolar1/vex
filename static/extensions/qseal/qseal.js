@@ -400,10 +400,11 @@ document.addEventListener("click", async (e) => {
     sauverContacts(); rendreContacts(); rendreSelecteurs();
   } else if (b.dataset.pub) {
     const id = [...ouvertes.values()].find((i) => i._fichier === Number(b.dataset.pub));
-    if (id) montrerBloc("Cle publique QSeal", Q.exportPublicKeyBlock(Q.toPublicIdentity(id)));
+    if (id && confirm("Exporter la cle publique de cette identite ?")) montrerBloc("Cle publique QSeal", Q.exportPublicKeyBlock(Q.toPublicIdentity(id)));
   } else if (b.dataset.sauv) {
     const id = [...ouvertes.values()].find((i) => i._fichier === Number(b.dataset.sauv));
     if (!id) return;
+    if (!confirm("Exporter une sauvegarde de cette cle privee ? Garde-la en lieu sur.")) return;
     const pass = prompt("Phrase secrete pour proteger la sauvegarde :");
     if (!pass) { message("Sauvegarde annulee : une phrase secrete est requise.", true); return; }
     montrerBloc("Sauvegarde QSeal", await Q.encryptBackup(pass, identiteVersJson(id)));

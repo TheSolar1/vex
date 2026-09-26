@@ -184,7 +184,8 @@ pub fn handle(pool: &DbPool, request: &mut Request) -> Response<std::io::Cursor<
             return redirect("/login/login");
         }
         let langue = crate::function::get_user_language(pool, Some(session.user_id), None, Some(&accept_lang));
-        return serve_sitec_html(&langue);
+        let theme = crate::function::get_theme_attr(pool, session.user_id);
+        return serve_sitec_html(&langue, theme);
     }
 
     // ── API (auth requise) ──────────────────────────────────────────
@@ -1888,10 +1889,12 @@ fn get_page(pool: &DbPool, id: &str) -> Option<SitecPage> {
 // ══════════════════════════════════════════════════════════════════
 // HELPERS
 // ══════════════════════════════════════════════════════════════════
-fn serve_sitec_html(langue: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+fn serve_sitec_html(langue: &str, theme: &str) -> Response<std::io::Cursor<Vec<u8>>> {
     match std::fs::read_to_string("./static/sitec/sitec.html") {
         Ok(html) => {
             let html = html.replace("lang=\"fr\"", &format!("lang=\"{}\"", langue));
+            // Theme de l'utilisateur (la page n'en avait aucun : toujours claire).
+            let html = html.replacen("id=\"html-root\"", &format!("id=\"html-root\" data-theme=\"{}\"", theme), 1);
             let html = crate::i18n::appliquer_traductions(
                 &html,
                 langue,

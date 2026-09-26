@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Paiement — VEX</title>
 <link rel="icon" href="/static/img/favicon.ico" type="image/svg+xml">
-<link rel="stylesheet" href="/static/css/theme.css">
+<link rel="stylesheet" href="/static/css/theme.css?v=10">
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#4fa553">
   <link rel="apple-touch-icon" href="/static/img/icon-192.png">
@@ -28,7 +28,7 @@ h1{font-size:22px;color:var(--text);margin-bottom:4px}
 .methode{flex:1;padding:12px;border:2px solid var(--panel-border);border-radius:10px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;color:var(--text-dim);display:flex;flex-direction:column;align-items:center;gap:6px}
 .methode img{width:22px;height:22px;opacity:.6}
 .methode.on{border-color:var(--accent);color:var(--accent);background:var(--alt)}
-.methode.on img{opacity:1;filter:invert(45%) sepia(90%) saturate(400%) hue-rotate(95deg)}
+.methode.on img{opacity:1;filter:var(--icon-filter)}
 .form-group{margin-bottom:14px}
 .form-label{display:block;margin-bottom:6px;font-size:13px;font-weight:600;color:var(--text)}
 .form-input{width:100%;padding:11px 14px;border:1px solid var(--panel-border);border-radius:8px;font-size:14px;background:var(--input);color:var(--text)}
@@ -42,7 +42,7 @@ h1{font-size:22px;color:var(--text);margin-bottom:4px}
 </head>
 <body>
 <div class="wrap">
-    <div class="banner">🚧 Page de démonstration — aucun paiement n'est réellement traité pour l'instant.</div>
+    <div class="banner"><span class="vi" style="--i:url(/static/img/solid/circle-info.svg)"></span> Page de démonstration — aucun paiement n'est réellement traité pour l'instant.</div>
     <h1>Choisis ton offre</h1>
     <div class="sub">Sélectionne un plan puis un moyen de paiement.</div>
 

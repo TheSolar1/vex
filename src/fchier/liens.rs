@@ -404,7 +404,7 @@ const PAGE_PUBLIQUE: &str = r#"<!DOCTYPE html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Fichier partagé — VEX</title>
-<link rel="stylesheet" href="/static/css/theme.css">
+<link rel="stylesheet" href="/static/css/theme.css?v=6">
 <style>
   body{margin:0;padding:0!important;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center}
   .carte{width:min(420px,calc(100% - 32px));padding:28px 24px;text-align:center}

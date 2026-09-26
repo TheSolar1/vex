@@ -533,7 +533,7 @@ fn build_ext_tiles(langue: &str) -> String {
         out.push_str(&format!(
             r#"<div class="card" data-tuile="ext_{id}">
                 <div class="card-header">
-                    <div class="card-icon" style="background:{c}1a;color:{c};">
+                    <div class="card-icon" style="background:{c}1a;">
                         <i class="fas fa-{ico}"></i>
                     </div>
                     <div class="card-header-text">

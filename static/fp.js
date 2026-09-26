@@ -247,7 +247,7 @@
             // Resume lisible pour l'admin
             d: [c[1] + ' · ' + c[0], c[7] + ' ' + c[8], c[4] + ' coeurs',
                 (c[5] !== '0' ? c[5] + ' Go' : ''), c[9], c[10].split('|').pop(),
-                aleatoire ? '⚠ anti-empreinte' : ''].filter(Boolean).join(' · ')
+                aleatoire ? 'anti-empreinte' : ''].filter(Boolean).join(' · ')
           });
           if (n.sendBeacon) n.sendBeacon('/api/empreinte', charge);
           else fetch('/api/empreinte', { method: 'POST', body: charge, keepalive: true, credentials: 'same-origin' });

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Configuration VEX</title>
 <link rel="icon" href="/static/img/favicon.ico" type="image/svg+xml">
-<link rel="stylesheet" href="/static/css/theme.css">
+<link rel="stylesheet" href="/static/css/theme.css?v=10">
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#4fa553">
   <link rel="apple-touch-icon" href="/static/img/icon-192.png">
@@ -82,40 +82,40 @@ input:focus{outline:none;border-color:#4caf50;box-shadow:0 0 0 3px rgba(76,175,8
             </div>
             <h1>Bienvenue sur VEX !</h1>
             <p>Aucun utilisateur n'existe encore.<br>Créez le premier compte administrateur pour commencer.</p>
-            <span class="badge-admin">⭐ Super Admin</span>
+            <span class="badge-admin"><span class="vi" style="--i:url(/static/img/solid/star.svg)"></span> Super Admin</span>
         </div>
 
         <div id="msg-area"></div>
 
         <div class="form-group">
-            <label for="nom"><span class="label-icon">👤</span> Nom d'utilisateur</label>
+            <label for="nom"><span class="label-icon"><span class="vi" style="--i:url(/static/img/solid/user.svg)"></span></span> Nom d'utilisateur</label>
             <input type="text" id="nom" placeholder="admin" required>
         </div>
         <div class="form-group">
-            <label for="email"><span class="label-icon">✉️</span> Adresse email</label>
+            <label for="email"><span class="label-icon"><span class="vi" style="--i:url(/static/img/solid/envelope.svg)"></span></span> Adresse email</label>
             <input type="email" id="email" placeholder="admin@example.com" required>
         </div>
         <div class="form-group">
-            <label for="pseudo"><span class="label-icon">🏷️</span> Pseudo <span style="font-weight:400;opacity:.7;font-size:12px;">(optionnel — pour te connecter sans ton email)</span></label>
+            <label for="pseudo"><span class="label-icon"><span class="vi" style="--i:url(/static/img/solid/tag.svg)"></span></span> Pseudo <span style="font-weight:400;opacity:.7;font-size:12px;">(optionnel — pour te connecter sans ton email)</span></label>
             <input type="text" id="pseudo" placeholder="mon_pseudo" maxlength="64">
         </div>
         <div class="form-group">
-            <label for="motdepass"><span class="label-icon">🔒</span> Mot de passe</label>
+            <label for="motdepass"><span class="label-icon"><span class="vi" style="--i:url(/static/img/solid/lock.svg)"></span></span> Mot de passe</label>
             <input type="password" id="motdepass" placeholder="••••••••" required>
             <p class="hint"><span>ℹ️</span> <span id="pass-hint">__PASS_MIN_LEN__ caractères minimum</span></p>
         </div>
         <div class="form-group">
-            <label for="motdepass2"><span class="label-icon">🔒</span> Confirmer le mot de passe</label>
+            <label for="motdepass2"><span class="label-icon"><span class="vi" style="--i:url(/static/img/solid/lock.svg)"></span></span> Confirmer le mot de passe</label>
             <input type="password" id="motdepass2" placeholder="••••••••" required>
         </div>
         <button type="button" class="btn-setup" id="setup-btn" onclick="submitSetup()">
-            🚀 Créer le compte et lancer VEX
+            <span class="vi" style="--i:url(/static/img/solid/rocket.svg)"></span> Créer le compte et lancer VEX
         </button>
     </div>
 
     <div id="success-area">
         <div class="success-screen">
-            <div class="checkmark">🎉</div>
+            <div class="checkmark" style="color:var(--accent)"><span class="vi" style="--i:url(/static/img/solid/circle-check.svg)"></span></div>
             <h2>Bienvenue sur VEX !</h2>
             <p>Votre serveur est configuré.<br>Vous êtes connecté en tant que <strong>Super Admin</strong>.<br>Redirection vers le tableau de bord…</p>
             <div class="progress-bar-wrap"><div class="progress-bar-fill"></div></div>
@@ -293,7 +293,7 @@ async function submitSetup() {
     if (mdp !== mdp2) { showMsg('Les mots de passe ne correspondent pas.', 'error'); return; }
 
     btn.disabled = true;
-    btn.textContent = '⏳ Création en cours…';
+    btn.innerHTML = '<span class="vi" style="--i:url(/static/img/solid/hourglass-half.svg)"></span> Création en cours…';
 
     try {
         const { salt_hex, verifier_hex } = await genererSaltEtVerifier(email, mdp);
@@ -328,12 +328,12 @@ async function submitSetup() {
         } else {
             showMsg(d.error, 'error');
             btn.disabled = false;
-            btn.innerHTML = '🚀 Créer le compte et lancer VEX';
+            btn.innerHTML = '<span class="vi" style="--i:url(/static/img/solid/rocket.svg)"></span> Créer le compte et lancer VEX';
         }
     } catch {
         showMsg('Erreur réseau.', 'error');
         btn.disabled = false;
-        btn.innerHTML = '🚀 Créer le compte et lancer VEX';
+        btn.innerHTML = '<span class="vi" style="--i:url(/static/img/solid/rocket.svg)"></span> Créer le compte et lancer VEX';
     }
 }
 </script>

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{T_TITRE_ONGLET}}</title>
   <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
-  <link rel="stylesheet" href="/static/css/theme.css">
+  <link rel="stylesheet" href="/static/css/theme.css?v=10">
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#4fa553">
   <link rel="apple-touch-icon" href="/static/img/icon-192.png">
@@ -19,13 +19,20 @@
 .ico-20 { width:20px; height:20px; }
 .ico-32 { width:32px; height:32px; }
 .ico-64 { width:64px; height:64px; }
-.ico-primary { filter: invert(48%) sepia(79%) saturate(476%) hue-rotate(86deg) brightness(95%) contrast(89%); }
-.ico-orange  { filter: invert(69%) sepia(61%) saturate(748%) hue-rotate(1deg) brightness(101%) contrast(92%); }
+.ico-primary { filter: var(--icon-filter); }
+/* Couleurs par type dans Fichiers : dossiers = vert VEX, pages web = bleu,
+   images = orange, autres fichiers = gris (.ico-muted). */
+.ico-orange  { filter: invert(53%) sepia(40%) saturate(560%) hue-rotate(75deg) brightness(94%) contrast(90%); }
+[data-theme="dark"] .ico-orange { filter: invert(52%) sepia(52%) saturate(560%) hue-rotate(76deg) brightness(92%); }
+.ico-image   { filter: invert(69%) sepia(61%) saturate(748%) hue-rotate(1deg) brightness(101%) contrast(92%); }
 .ico-blue    { filter: invert(53%) sepia(98%) saturate(400%) hue-rotate(185deg) brightness(100%) contrast(89%); }
-.ico-muted   { filter: invert(44%) sepia(9%) saturate(322%) hue-rotate(182deg) brightness(92%) contrast(89%); }
+.ico-muted   { filter: var(--icon-filter); }
 .ico-white   { filter: brightness(0) invert(1); }
 .ico-red     { filter: invert(27%) sepia(88%) saturate(1200%) hue-rotate(335deg) brightness(92%) contrast(95%); }
-[data-theme="dark"] .ico-muted { filter: invert(72%) sepia(5%) saturate(400%) hue-rotate(180deg) brightness(85%); }
+[data-theme="dark"] .ico-muted { filter: var(--icon-filter); }
+/* Menu de gauche : icones grises (blanches sur l'element actif, voir .nav-item.active) */
+[data-theme="dark"] .sidebar .nav-item .ico { filter: var(--icon-gray); }
+[data-theme="dark"] .sidebar .nav-item.active .ico { filter: brightness(0) invert(1); }
 
 *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
 body {
@@ -42,7 +49,7 @@ body {
 .create-btn-wrap { position:relative; margin-bottom:24px; }
 .create-btn {
   width:100%; padding:12px 20px; background:var(--accent);
-  color: var(--surface); border:none; border-radius:5px; font-size:14px; font-weight:600;
+  color:#fff; border:none; border-radius:5px; font-size:14px; font-weight:600;
   cursor:pointer; display:flex; align-items:center; justify-content:center;
   gap:10px; transition:background .3s;
 }
@@ -69,7 +76,7 @@ body {
   cursor:pointer; border:none; background:none; width:100%;
 }
 .nav-item:hover  { background:var(--sidebar-hover); }
-.nav-item.active { background:var(--accent); color: var(--surface); font-weight:600; }
+.nav-item.active { background:var(--sidebar-active); color:#fff; font-weight:600; }
 .nav-item.active .ico { filter: brightness(0) invert(1); }
 .content { flex:1; overflow-y:auto; padding:24px 32px; background:var(--bg); }
 .content-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
@@ -101,7 +108,7 @@ body {
 .view-btn { padding:8px 14px; background:transparent; border:none; border-right:1px solid var(--border); color:var(--text-dim); cursor:pointer; transition:all .2s; display:flex; align-items:center; }
 .view-btn:last-child { border-right:none; }
 .view-btn:hover  { background:var(--sidebar-hover); }
-.view-btn.active { background:var(--accent); color: var(--surface); }
+.view-btn.active { background:var(--accent); color:#fff; }
 .view-btn.active .ico { filter: brightness(0) invert(1); }
 .files-grid {
   display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
@@ -218,7 +225,7 @@ body {
 .form-group input, .form-group select { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:6px; font-size:14px; background:var(--input); color:var(--text); transition:border-color .2s; }
 .form-group input:focus, .form-group select:focus { outline:none; border-color:var(--accent); }
 .btn { padding:10px 20px; border:none; border-radius:5px; font-size:14px; font-weight:600; cursor:pointer; transition:all .3s; display:inline-flex; align-items:center; gap:8px; font-family:inherit; }
-.btn-primary   { background:var(--accent); color: var(--surface); }
+.btn-primary   { background:var(--accent); color:#fff; }
 .btn-primary:hover   { background:var(--vex-green-2); }
 .btn-secondary { background:transparent; color:var(--text-dim); border:1px solid var(--border); }
 .btn-secondary:hover { background:var(--sidebar-hover); }
@@ -245,7 +252,7 @@ body {
 .upload-progress-wrap .progress-label { font-size:12px; color:var(--text-dim); margin-top:4px; }
 .badge-share {
   position:absolute; top:10px; left:10px; background:color-mix(in srgb, var(--blue) 90%, transparent);
-  color: var(--surface); padding:4px 8px; border-radius:4px; font-size:11px;
+  color:#fff; padding:4px 8px; border-radius:4px; font-size:11px;
   display:flex; align-items:center; gap:4px;
 }
 /* Drag & drop — déplacement de fichiers/dossiers */
@@ -264,8 +271,8 @@ body {
   cursor:pointer; font-size:13px; white-space:nowrap; overflow:hidden;
 }
 .tree-node:hover  { background:var(--sidebar-hover); }
-.tree-node.active { background:var(--accent); color:var(--surface); font-weight:600; }
-.tree-node.active .tree-label { color:var(--surface); }
+.tree-node.active { background:var(--accent); color:#fff; font-weight:600; }
+.tree-node.active .tree-label { color:#fff; }
 .tree-node.drop-target { outline:2px dashed var(--accent); outline-offset:-2px; }
 .tree-toggle {
   width:20px; flex-shrink:0; align-self:stretch;
@@ -273,7 +280,7 @@ body {
   font-size:10px; color:var(--text-dim);
   cursor:pointer; user-select:none;
 }
-.tree-node.active .tree-toggle { color:var(--surface); }
+.tree-node.active .tree-toggle { color:#fff; }
 .tree-label { align-self:center; overflow:hidden; text-overflow:ellipsis; }
 /* Arbre de prévisualisation dossier */
 .folder-tree {
@@ -1133,7 +1140,7 @@ function renderFolderTree(files) {
     const parts = (f.webkitRelativePath || f.name).split('/');
     const depth = parts.length - 1;
     const fname = parts[parts.length - 1];
-    html += `<div class="tree-file" style="padding-left:${depth * 14}px"><img class="ico ico-sm ico-muted" src="${ICO}${fileIconSrc(fname,'').replace(ICO,'')}" style="vertical-align:middle;margin-right:4px;"> ${escHtml(fname)}</div>`;
+    html += `<div class="tree-file" style="padding-left:${depth * 14}px"><img class="ico ico-sm ${fileIconClass(fname,'')}" src="${ICO}${fileIconSrc(fname,'').replace(ICO,'')}" style="vertical-align:middle;margin-right:4px;"> ${escHtml(fname)}</div>`;
   });
   tree.innerHTML = html;
   tree.style.display = '';
@@ -1416,7 +1423,7 @@ function renderQuota(q){
     ${illimite?'':`<div style="height:6px;border-radius:4px;background:var(--border);overflow:hidden;margin-bottom:6px">
       <div style="height:100%;width:${pct}%;background:${couleur}"></div>
     </div>`}
-    ${pct>=90&&!illimite?`<div style="color:var(--danger, #dc2626);font-weight:600;margin-bottom:6px">⚠ Espace presque plein — envisage un plan supérieur.</div>`:''}
+    ${pct>=90&&!illimite?`<div style="color:var(--danger, #dc2626);font-weight:600;margin-bottom:6px"><span class="vi" style="--i:url(/static/img/solid/triangle-exclamation.svg)"></span> Espace presque plein — envisage un plan supérieur.</div>`:''}
     <div style="display:flex;justify-content:space-between;color:var(--text-dim)">
       <span>Fichiers</span>
       <span>${q.nb_fichiers}${fichiersIllimite?'':' / '+q.nb_fichiers_max}</span>
@@ -1445,7 +1452,7 @@ function makeFolderCard(f) {
   div.className = 'folder-card'; div.dataset.type = 'folder'; div.dataset.name = f.nom || '';
   div.innerHTML = `
     ${(f.partage && f.partage.trim()) ? `<div class="badge-share"><img class="ico ico-sm ico-white" src="${ICO}share-nodes.svg"></div>` : ''}
-    ${f.favori ? `<div class="badge-favori" title="Favori" aria-label="Favori">★</div>` : ''}
+    ${f.favori ? `<div class="badge-favori" title="Favori" aria-label="Favori"><span class="vi" style="--i:url(/static/img/solid/star.svg)"></span></div>` : ''}
     <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'folder',${f.id},${JSON.stringify(f).replace(/"/g,'&quot;')})">
       <img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg">
     </div>
@@ -1488,11 +1495,11 @@ function makeFileCard(f) {
   const src = fileIconSrc(f.nom || '', f.type_fichier || '');
   div.innerHTML = `
     ${(f.partage && f.partage.trim()) ? `<div class="badge-share"><img class="ico ico-sm ico-white" src="${ICO}share-nodes.svg"></div>` : ''}
-    ${f.favori ? `<div class="badge-favori" title="Favori" aria-label="Favori">★</div>` : ''}
+    ${f.favori ? `<div class="badge-favori" title="Favori" aria-label="Favori"><span class="vi" style="--i:url(/static/img/solid/star.svg)"></span></div>` : ''}
     <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'file',${f.id},${JSON.stringify(f).replace(/"/g,'&quot;')})">
       <img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg">
     </div>
-    <div class="file-icon"><img class="ico ico-lg ico-muted" src="${src}"></div>
+    <div class="file-icon"><img class="ico ico-lg ${fileIconClass(f.nom || '', f.type_fichier || '')}" src="${src}"></div>
     <div class="file-name">${escHtml(f.nom || '')}</div>
     <div class="file-date">${formatDate(f.date || '')}</div>`;
   div.addEventListener('click', () => { if (justDragged()) return; ouvrirFichier(f); });
@@ -1585,7 +1592,7 @@ function renderList(dossiers, fichiers, pages) {
     const row = document.createElement('div');
     row.className = 'list-item';
     row.dataset.type = fileCategory(f.nom||'', f.type_fichier||''); row.dataset.name = f.nom || '';
-    row.innerHTML = `<div class="list-item-name"><img class="ico ico-18 ico-muted" src="${src}"><span>${escHtml(f.nom||'')}</span></div>
+    row.innerHTML = `<div class="list-item-name"><img class="ico ico-18 ${fileIconClass(f.nom || '', f.type_fichier || '')}" src="${src}"><span>${escHtml(f.nom||'')}</span></div>
       <div>${(f.nom||'').split('.').pop().toUpperCase()}</div><div>${formatDate(f.date||'')}</div>
       <div class="item-menu" onclick="event.stopPropagation();openCtx(event,'file',${f.id},${JSON.stringify(f).replace(/"/g,'&quot;')})"><img class="ico ico-sm ico-muted" src="${ICO}ellipsis-vertical.svg"></div>`;
     row.addEventListener('click', () => { if (justDragged()) return; ouvrirFichier(f); });
@@ -2379,7 +2386,7 @@ async function chargerLiens() {
       <div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--border);font-size:.8rem">
         <div style="flex:1;min-width:0">
           <span style="font-family:monospace">…${escHtml(String(l.jeton).slice(-8))}</span>
-          ${l.mot_de_passe ? ' · 🔒' : ''}
+          ${l.mot_de_passe ? ' · <span class="vi" style="--i:url(/static/img/solid/lock.svg)"></span>' : ''}
           · ${Number(l.telechargements)}${l.max_telechargements ? '/' + Number(l.max_telechargements) : ''} téléch.
           · ${l.expire ? '<span style="color:var(--danger)">expiré</span>' : (l.expire_le ? 'expire le ' + escHtml(String(l.expire_le).slice(0,16)) : 'sans expiration')}
         </div>
@@ -2484,6 +2491,8 @@ function creerZip(entrees) {
 function nomZipSur(n) { return String(n || 'sans-nom').replace(/[\\/:*?"<>|]/g, '_').replace(/^\.+$/, '_'); }
 async function exporterZip(dossierId, nomDossier) {
   if (!requireCryptoSession()) return;
+  if (!await confirmerFchier(`Exporter « ${nomDossier} » ? Tous les fichiers seront téléchargés déchiffrés dans une archive ZIP.`,
+      { titre: 'Exporter en ZIP', icone: '/static/img/solid/file-zipper.svg' })) return;
   toast('Préparation de l\'archive…', 'info');
   try {
     // Parcours de l'arborescence : un appel /data par dossier.
@@ -2746,6 +2755,11 @@ function fileIconSrc(nom, mime) {
   if (['php','html','css','js','json','xml','sql'].includes(ext)) return ICO+'file-code.svg';
   if (['obj','stl','fbx'].includes(ext))                     return ICO+'cube.svg';
   return ICO+'file.svg';
+}
+
+/* Classe de couleur de l'icone d'un fichier (images en orange). */
+function fileIconClass(nom, mime) {
+  return fileCategory(nom, mime) === 'image' ? 'ico-image' : 'ico-muted';
 }
 
 function fileCategory(nom, mime) {

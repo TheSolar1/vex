@@ -124,7 +124,8 @@ pub fn handle(pool: &DbPool, config: &VexConfig, req: &mut Request) -> Response<
         });
         let langue = get_user_language(pool, Some(uid), None, None);
         let privilege = user.get("privilege").and_then(|v| v.as_i64()).unwrap_or(99);
-        return html_response(serve_html(&nav, &langue, uid, privilege));
+        let theme = crate::function::get_theme_attr(pool, uid);
+        return html_response(serve_html(&nav, &langue, uid, privilege, theme));
     }
 
     if path == "/api/recherche/global" {
@@ -1330,8 +1331,10 @@ fn faq_delete(pool: &DbPool, id: i64) -> Response<std::io::Cursor<Vec<u8>>> {
     json_response(200, json!({"success":true,"message":"Entrée supprimée"}))
 }
 
-fn serve_html(nav_html: &str, langue: &str, uid: i64, privilege: i64) -> String {
-    let html = include_str!("../../static/recherche/recherche.html").replace("__NAV_HTML__", nav_html);
+fn serve_html(nav_html: &str, langue: &str, uid: i64, privilege: i64, theme: &str) -> String {
+    let html = include_str!("../../static/recherche/recherche.html").replace("__NAV_HTML__", nav_html)
+        // Theme de l'utilisateur (la page n'en avait aucun : toujours claire).
+        .replacen("id=\"html-root\"", &format!("id=\"html-root\" data-theme=\"{}\"", theme), 1);
     let html = i18n::appliquer_traductions(&html, langue, &[
         ("{{T_TITRE_ONGLET}}", Cle::RechTitreOnglet),
         ("{{T_TITRE}}", Cle::RechTitre),

@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{T_TITRE_ONGLET}}</title>
   <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
-  <link rel="stylesheet" href="/static/css/theme.css">
+  <link rel="stylesheet" href="/static/css/theme.css?v=10">
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#4fa553">
   <link rel="apple-touch-icon" href="/static/img/icon-192.png">
   <style>
-.ico { display:inline-block; width:16px; height:16px; vertical-align:middle; flex-shrink:0; }
+.ico { display:inline-block; width:16px; height:16px; vertical-align:middle; flex-shrink:0; filter:var(--icon-filter); }
+.btn-primaire .ico { filter:brightness(0) invert(1); }
 .ico-sm { width:14px; height:14px; }
 *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
 body {

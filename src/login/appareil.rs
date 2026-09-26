@@ -181,7 +181,7 @@ fn page_autorisation(
                      <p style=\"background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;\
                      font-size:.8rem;color:var(--text-dim)\">{label} \
                      <strong style=\"color:var(--text);letter-spacing:1px\">{code}</strong> — {verifie}</p>\
-                     <p style=\"color:var(--orange);font-size:.8rem\">⚠ {avertissement}</p>\
+                     <p style=\"color:var(--orange);font-size:.8rem\"><span class=\"vi\" style=\"--i:url(/static/img/solid/triangle-exclamation.svg)\"></span> {avertissement}</p>\
                      <div style=\"display:flex;gap:10px;margin-top:20px\">\
                      <button onclick=\"repondre('oui')\" style=\"flex:1;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer\">{bouton_autoriser}</button>\
                      <button onclick=\"repondre('non')\" style=\"flex:1;padding:12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;font-weight:700;cursor:pointer\">{bouton_refuser}</button>\
@@ -202,7 +202,7 @@ fn page_autorisation(
     let html = format!(
         r#"<!DOCTYPE html><html lang="{langue}" data-theme="{theme}"><head><meta charset="UTF-8">
 <title>{titre_page}</title>
-<link rel="stylesheet" href="/static/css/theme.css">
+<link rel="stylesheet" href="/static/css/theme.css?v=6">
 <style>
 body {{ font-family:-apple-system,sans-serif; background:var(--bg); color:var(--text); display:flex;
        justify-content:center; padding:60px 16px; margin:0; }}

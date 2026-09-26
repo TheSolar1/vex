@@ -75,7 +75,7 @@ const PAGE_404: &str = r#"<!DOCTYPE html>
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Page introuvable — VEX</title>
-<link rel="stylesheet" href="/static/css/theme.css">
+<link rel="stylesheet" href="/static/css/theme.css?v=6">
 <script src="/static/js/vex-ui.js"></script>
 <style>
 body{margin:0;padding:0!important;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;text-align:center}
@@ -1334,7 +1334,7 @@ fn recevoir_empreinte(
         }
     }
     if detail.contains("anti-empreinte") {
-        msg += " — ⚠ protection anti-empreinte détectée";
+        msg += " — protection anti-empreinte détectée";
     }
     if pct_compte.map_or(false, |p| p < 50) {
         logger.sec(&msg);

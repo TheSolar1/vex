@@ -71,11 +71,11 @@
     panel.id = 'vexia-widget-panel';
     panel.innerHTML = `
         <div id="vexia-widget-head"><img src="/static/img/solid/robot.svg" alt=""> VexIA
-            <button id="vexia-widget-close" title="Fermer">✕</button></div>
+            <button id="vexia-widget-close" title="Fermer"><span style="display:inline-block;width:1em;height:1em;vertical-align:-.125em;background:currentColor;-webkit-mask:url(/static/img/solid/xmark.svg) center/contain no-repeat;mask:url(/static/img/solid/xmark.svg) center/contain no-repeat"></span></button></div>
         <div id="vexia-widget-msgs"><div class="vw-vide">Posez une question a VexIA.</div></div>
         <div id="vexia-widget-bar">
             <textarea id="vexia-widget-input" rows="1" placeholder="Message…"></textarea>
-            <button id="vexia-widget-send" title="Envoyer">➤</button>
+            <button id="vexia-widget-send" title="Envoyer"><span style="display:inline-block;width:1em;height:1em;vertical-align:-.125em;background:currentColor;-webkit-mask:url(/static/img/solid/paper-plane.svg) center/contain no-repeat;mask:url(/static/img/solid/paper-plane.svg) center/contain no-repeat"></span></button>
         </div>`;
 
     document.body.appendChild(bulle);

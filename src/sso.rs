@@ -263,7 +263,7 @@ fn page(request: Request, titre: &str, corps: &str, theme: &str) {
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{titre} — VEX</title>
 <link rel="icon" href="/static/img/favicon.ico">
-<link rel="stylesheet" href="/static/css/theme.css">
+<link rel="stylesheet" href="/static/css/theme.css?v=6">
 <style>
   body {{ margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;
          font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); }}

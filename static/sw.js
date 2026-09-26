@@ -12,7 +12,10 @@
 // ══════════════════════════════════════════════════════════════════
 
 // v2 : purge l'ancien cache (theme.css sans degrade de nav).
-const CACHE_NAME = 'vex-static-v2';
+// v3 : theme.css versionne (?v=) + icones .vi a la place des emojis.
+// v4 : palette sombre noire.
+// v6 : CSS/JS en reseau d'abord.
+const CACHE_NAME = 'vex-static-v6';
 const STATIC_PREFIXES = ['/static/css/', '/static/img/', '/static/js/', '/static/fa-local.js', '/static/crypto.js'];
 
 self.addEventListener('install', (event) => {
@@ -36,6 +39,11 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
   if (!estStatique(url)) return; // laisse passer sans intervention (jamais l'API/HTML)
 
+  // CSS/JS : reseau d'abord (un correctif deploye est visible au premier
+  // rechargement ; avant, l'ancienne copie en cache etait servie d'abord et
+  // les changements semblaient "pas appliques"). Cache = secours hors-ligne.
+  // Images : cache d'abord (elles ne changent pas).
+  const reseauDabord = /\.(css|js)$/.test(url.pathname);
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
       const cached = await cache.match(event.request);
@@ -43,6 +51,7 @@ self.addEventListener('fetch', (event) => {
         if (resp && resp.ok) cache.put(event.request, resp.clone());
         return resp;
       }).catch(() => cached);
+      if (reseauDabord) return fetchPromise;
       return cached || fetchPromise;
     })
   );

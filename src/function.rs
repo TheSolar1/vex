@@ -634,7 +634,8 @@ fn app_visible(choix: &HashMap<String, Value>, url: &str) -> bool {
 }
 
 fn fa_to_img(fa_class: &str) -> String {
-    let name = fa_class.split_whitespace().find(|p| p.starts_with("fa-")).map(|p| p.trim_start_matches("fa-")).unwrap_or("file");
+    let name = fa_class.split_whitespace().find(|p| p.starts_with("fa-")).map(|p| p.trim_start_matches("fa-"))
+        .or_else(|| fa_class.split_whitespace().last()).unwrap_or("file");
     format!(
         r#"<span class="app-icon-wrap-7844"><img src="/static/img/solid/{}.svg" alt="{}" class="app-svg-icon-7844"></span>"#,
         name, name
@@ -782,7 +783,8 @@ pub fn build_nav_html(ctx: &NavContext) -> String {
         } else {
             ""
         };
-        let icon_name = icon.split_whitespace().find(|p| p.starts_with("fa-")).map(|p| p.trim_start_matches("fa-")).unwrap_or("file");
+        let icon_name = icon.split_whitespace().find(|p| p.starts_with("fa-")).map(|p| p.trim_start_matches("fa-"))
+            .or_else(|| icon.split_whitespace().last()).unwrap_or("file");
         let item = format!(
             "<a href=\"{}\" class=\"nav-sidebar-item-7844{}{}\"{}>\
             <img src=\"/static/img/solid/{}.svg\" class=\"sidebar-svg-7844\" alt=\"\">\
@@ -866,7 +868,7 @@ pub fn build_nav_html(ctx: &NavContext) -> String {
     // .nav-sidebar-7844, etc.) vivent désormais dans static/css/theme.css,
     // chargé une seule fois par page. build_nav_html() ne renvoie plus que
     // du HTML + JS. Important : toute page qui appelle cette fonction doit
-    // avoir <link rel="stylesheet" href="/static/css/theme.css"> dans son
+    // avoir <link rel="stylesheet" href="/static/css/theme.css?v=6"> dans son
     // <head>, sinon la nav s'affiche sans mise en forme.
 
     // ── JS ─────────────────────────────────────────────────────────

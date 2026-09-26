@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{T_TITRE_ONGLET}}</title>
 <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
-<link rel="stylesheet" href="/static/css/theme.css">
+<link rel="stylesheet" href="/static/css/theme.css?v=10">
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#4fa553">
   <link rel="apple-touch-icon" href="/static/img/icon-192.png">
@@ -51,7 +51,7 @@ body > .controls-bar {
 .field input { width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid var(--panel-border); background: var(--bg); color: var(--text); font-size: 14px; }
 .field input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-.btn-primary { width: 100%; padding: 12px; border: none; border-radius: 9px; background: var(--nav-gradient); color: var(--surface); font-weight: 700; font-size: 14px; cursor: pointer; box-shadow: var(--shadow); }
+.btn-primary { width: 100%; padding: 12px; border: none; border-radius: 9px; background: var(--nav-gradient); color:#fff; font-weight: 700; font-size: 14px; cursor: pointer; box-shadow: var(--shadow); }
 .btn-primary:hover { filter: brightness(1.05); }
 .btn-primary:disabled { opacity: .55; cursor: not-allowed; }
 
@@ -94,7 +94,7 @@ body > .controls-bar {
 .tile-avatar {
   width: 30%; height: 30%; min-width: 56px; min-height: 56px; max-width: 96px; max-height: 96px;
   border-radius: 50%; display: none; align-items: center; justify-content: center;
-  font-size: clamp(16px, 4vw, 30px); font-weight: 700; color: var(--surface);
+  font-size: clamp(16px, 4vw, 30px); font-weight: 700; color:#fff;
   background: linear-gradient(135deg,var(--vex-green-1) 0%,var(--vex-green-2) 100%);
 }
 .tile.no-video .tile-avatar { display: flex; }
@@ -121,10 +121,10 @@ body > .controls-bar {
 .ctrl-btn { width: 46px; height: 46px; border-radius: 50%; border: none; background: var(--bg); color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s, transform .1s; }
 .ctrl-btn svg { display: block; }
 .ctrl-btn:hover { transform: translateY(-2px); }
-.ctrl-btn.off { background: var(--danger); color: var(--surface); }
-.ctrl-btn.hangup { background: var(--danger); color: var(--surface); width: 56px; }
+.ctrl-btn.off { background: var(--danger); color:#fff; }
+.ctrl-btn.hangup { background: var(--danger); color:#fff; width: 56px; }
 .ctrl-btn.hangup:hover { background: color-mix(in srgb, var(--danger) 85%, black); }
-.ctrl-btn.active-toggle { background: var(--accent); color: var(--surface); }
+.ctrl-btn.active-toggle { background: var(--accent); color:#fff; }
 
 /* FIX (demande utilisateur, plusieurs fois : "je veux le meme style
    exactement que dans fchier pour info/erreur, pas autre chose") -- avant,
