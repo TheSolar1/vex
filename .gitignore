@@ -36,3 +36,9 @@ paiement-pi/
 # OS
 .DS_Store
 Thumbs.db
+
+# Binaire compile et backups locaux (jamais dans git)
+/vex
+/vex.old.*
+/vex.out
+/build.out

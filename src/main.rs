@@ -550,27 +550,16 @@ fn main() {
     // verifier_integrite(&pool, &logger);
 
     // ── Fondateur légitime ────────────────────────────────────────
-    // FIX : `donner_privilege_1_thesolar` ne doit s'exécuter QUE s'il
-    // n'existe pas déjà un fondateur (privilege=1) en base. Avant, cet
-    // appel était inconditionnel à chaque démarrage : si le compte
-    // "thesolar" avait été rétrogradé volontairement (ou si un autre
-    // fondateur légitime avait été mis en place), il était systématiquement
-    // remis à privilege=1 au redémarrage suivant, écrasant tout changement
-    // manuel. On vérifie maintenant qu'aucun fondateur n'existe avant
-    // d'assigner le privilege=1 au compte thesolar.
-    let fondateur_deja_present: bool = {
-        use appeldb::selectionner;
-        !selectionner(&pool, "login", &[("privilege", mysql::Value::from(1i64))], &["id"], None, Some(1))
-            .is_empty()
-    };
-    if !fondateur_deja_present {
-        match appeldb::donner_privilege_1_thesolar(&pool) {
-            Ok(n) => logger.info(&format!("Aucun fondateur trouvé — UPDATE privilege=1 (thesolar) : {} ligne(s) affectée(s).", n)),
-            Err(e) => logger.error(&format!("donner_privilege_1_thesolar a échoué : {}", e)),
-        }
-    } else {
-        logger.info("Fondateur déjà présent en base — donner_privilege_1_thesolar ignoré.");
-    }
+    // SECURITE : le role fondateur (privilege=1) n'est PLUS attribue
+    // automatiquement a une adresse e-mail au demarrage. Avant, VEX
+    // faisait `UPDATE login SET privilege=1 WHERE email='...'` s'il
+    // n'existait aucun fondateur -- sur une installation tierce aux
+    // inscriptions ouvertes, n'importe qui pouvait s'inscrire avec cette
+    // adresse (aucune verification d'e-mail a l'inscription) et devenir
+    // fondateur au redemarrage suivant. Le role fondateur ne s'obtient
+    // desormais QUE depuis le terminal du serveur, via
+    // `./vex --set-fondateur <user_id>`, et uniquement s'il n'existe pas
+    // encore de fondateur (voir handle_terminal_db_commands).
 
     // Récupère l'id du fondateur légitime pour l'audit
     let fondateur_id: i64 = {
@@ -619,6 +608,17 @@ fn main() {
         .and_then(|s| s.get("port"))
         .and_then(|v| v.as_u64())
         .unwrap_or(DEFAULT_PORT as u64) as u16;
+    // Adresse d'ecoute (config "server.bind", defaut 0.0.0.0). install.sh
+    // la restreint (127.0.0.1, ou la passerelle Docker si OnlyOffice) pour
+    // que VEX ne soit joignable qu'a travers Caddy / Tor.
+    let bind = config
+        .extra
+        .get("server")
+        .and_then(|s| s.get("bind"))
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .unwrap_or("0.0.0.0")
+        .to_string();
 
     // ── Init P2P ─────────────────────────────────────────────────
     let vex_url = config
@@ -649,8 +649,8 @@ fn main() {
     // (la boucle d'acceptation demarre plus bas, mais le socket ecoute
     // deja et met en file les connexions entrantes) avant toute tentative
     // de sync sortante.
-    logger.info(&format!("Démarrage HTTP sur 0.0.0.0:{}", port));
-    let server = match Server::http(format!("0.0.0.0:{}", port)) {
+    logger.info(&format!("Démarrage HTTP sur {}:{}", bind, port));
+    let server = match Server::http(format!("{}:{}", bind, port)) {
         Ok(s) => s,
         Err(e) => {
             logger.error(&format!("Serveur HTTP : {}", e));
@@ -659,8 +659,8 @@ fn main() {
         }
     };
 
-    eprintln!("[VEX] http://0.0.0.0:{}", port);
-    logger.info(&format!("VEX en écoute sur http://0.0.0.0:{}", port));
+    eprintln!("[VEX] http://{}:{}", bind, port);
+    logger.info(&format!("VEX en écoute sur http://{}:{}", bind, port));
 
     // FIX : la sync bootstrap (initiale ET periodique) doit tourner dans un
     // thread A PART du thread principal -- celui-ci gere les requetes
@@ -1077,6 +1077,51 @@ fn handle_terminal_db_commands(
         }
     }
 
+    // --set-fondateur <user_id> : attribue le role fondateur (privilege=1)
+    // au compte donne. SECURITE : n'aboutit QUE s'il n'existe pas deja de
+    // fondateur en base -- ainsi, sur une installation neuve, seul celui
+    // qui a acces au terminal du serveur (donc a la machine) peut se
+    // designer fondateur une fois, et personne ne peut ensuite se
+    // substituer a lui via cette commande. C'est le seul chemin pour
+    // obtenir privilege=1 (l'attribution automatique par e-mail a ete
+    // retiree, et --set-privilege refuse le niveau 1).
+    if let Some(pos) = args.iter().position(|a| a == "--set-fondateur") {
+        let user_id = match args.get(pos + 1).and_then(|v| v.parse::<i64>().ok()) {
+            Some(v) => v,
+            None => {
+                eprintln!("Usage: --set-fondateur <user_id>");
+                return Some(1);
+            }
+        };
+        let fondateur_existant = !appeldb::selectionner(
+            pool, "login", &[("privilege", mysql::Value::from(1i64))], &["id"], None, Some(1),
+        ).is_empty();
+        if fondateur_existant {
+            logger.sec(&format!(
+                "CLI --set-fondateur REFUSÉ : un fondateur existe déjà (tentative user_id={})",
+                user_id
+            ));
+            eprintln!("[SECURITE] Un fondateur existe déjà. Impossible d'en désigner un autre par cette commande.");
+            return Some(1);
+        }
+        // Le compte doit exister.
+        if appeldb::selectionner(
+            pool, "login", &[("id", mysql::Value::from(user_id))], &["id"], None, Some(1),
+        ).is_empty() {
+            eprintln!("Utilisateur id={} introuvable.", user_id);
+            return Some(1);
+        }
+        logger.sec(&format!("CLI --set-fondateur : attribution privilege=1 au user_id={}", user_id));
+        appeldb::inserer_ou_modifier(
+            pool, "login",
+            &[("privilege", mysql::Value::from(1i64))],
+            &[("id", mysql::Value::from(user_id))],
+        );
+        logger.sec(&format!("CLI --set-fondateur : user_id={} est désormais fondateur.", user_id));
+        println!("L'utilisateur {} est désormais fondateur (privilege=1).", user_id);
+        return Some(0);
+    }
+
     None
 }
 
@@ -1084,6 +1129,7 @@ fn print_db_help() {
     println!("Commandes DB terminal disponibles:");
     println!("  cargo run -- --table-action <table> <vider|supprimer-lignes>");
     println!("  cargo run -- --set-privilege <user_id> <privilege>   (2-12 uniquement)");
+    println!("  cargo run -- --set-fondateur <user_id>   (privilege=1, seulement si aucun fondateur)");
     println!("Tables autorisees: {}", TABLES_MODIFIABLES_TERMINAL.join(", "));
     println!("Privilege autorise: entre 2 et 12 (le privilege 1 est réservé au fondateur)");
     println!("Logs : {}/vex_YYYY-MM-DD.log", LOG_DIR);

@@ -144,6 +144,56 @@ fn base_url_publique() -> String {
         .to_string()
 }
 
+/// URL par laquelle le conteneur OnlyOffice joint VEX (appels
+/// serveur-a-serveur : document_url, callback_url). config.json
+/// (extra.server.internal_url, ex: http://host.docker.internal:8080),
+/// sinon l'URL publique comme avant. Indispensable quand l'adresse
+/// publique n'est pas joignable depuis le conteneur (.onion, certificat
+/// auto-signe, reseau local) -- voir install.sh.
+fn base_url_interne() -> String {
+    let cfg = crate::config_loader::load_config("config.json");
+    cfg.extra
+        .get("server")
+        .and_then(|s| s.get("internal_url"))
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.trim_end_matches('/').to_string())
+        .unwrap_or_else(base_url_publique)
+}
+
+/// Le callback de sauvegarde donne une URL publique (celle vue par le
+/// navigateur, ex: https://domaine/onlyoffice/cache/...). Quand
+/// internal_url est configuree, VEX la recupere directement aupres du
+/// conteneur (server_url du provider) plutot qu'en repassant par
+/// l'adresse publique, qui peut etre injoignable depuis le serveur
+/// lui-meme (.onion...).
+fn url_sauvegarde_interne(url: &str) -> String {
+    let cfg = crate::config_loader::load_config("config.json");
+    let a_interne = cfg
+        .extra
+        .get("server")
+        .and_then(|s| s.get("internal_url"))
+        .and_then(|v| v.as_str())
+        .map_or(false, |s| !s.is_empty());
+    if !a_interne {
+        return url.to_string();
+    }
+    let serveur = onlyoffice_provider_cfg()
+        .get("server_url")
+        .and_then(|v| v.as_str())
+        .unwrap_or("http://127.0.0.1:8084")
+        .trim_end_matches('/')
+        .to_string();
+    let base = base_url_publique();
+    for prefixe in [format!("{base}/onlyoffice/"), format!("{base}/cache/")] {
+        if let Some(reste) = url.strip_prefix(&prefixe) {
+            let reste = if prefixe.ends_with("/cache/") { format!("cache/{reste}") } else { reste.to_string() };
+            return format!("{serveur}/{reste}");
+        }
+    }
+    url.to_string()
+}
+
 // ══════════════════════════════════════════════════════════════════
 // 1. prepare — cree la session d'edition
 // ══════════════════════════════════════════════════════════════════
@@ -201,8 +251,9 @@ pub fn prepare(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::
     let jwt_enabled = provider.get("jwt_enabled").and_then(|v| v.as_bool()).unwrap_or(true);
     let editor_api_js = format!("{}/onlyoffice/web-apps/apps/api/documents/api.js", base);
 
-    let document_url = format!("{}/api/fchier/onlyoffice/doc?token={}", base, token);
-    let callback_url = format!("{}/api/fchier/onlyoffice/callback?token={}", base, token);
+    let interne = base_url_interne();
+    let document_url = format!("{}/api/fchier/onlyoffice/doc?token={}", interne, token);
+    let callback_url = format!("{}/api/fchier/onlyoffice/callback?token={}", interne, token);
     let doc_key = format!("vex_{}_{}", file_id, &token[..16]);
 
     let mut config = json!({
@@ -284,7 +335,8 @@ pub fn callback(req: &mut Request) -> Response<std::io::Cursor<Vec<u8>>> {
                 map.get(&token).map(|p| p.path.clone())
             };
             if let Some(path) = path {
-                if let Ok(resp) = ureq::get(url).timeout(Duration::from_secs(30)).call() {
+                let url = url_sauvegarde_interne(url);
+                if let Ok(resp) = ureq::get(&url).timeout(Duration::from_secs(30)).call() {
                     let mut bytes = Vec::new();
                     if std::io::Read::read_to_end(&mut resp.into_reader(), &mut bytes).is_ok() {
                         let _ = std::fs::write(&path, bytes);
