@@ -767,6 +767,16 @@ fn desinstaller() {
     }
     fenetre_mdp::effacer_configuration_locale();
     let _ = std::fs::remove_file(chemin_jeton());
+    // Plus de relance automatique au prochain demarrage de Windows.
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let _ = std::process::Command::new("schtasks")
+            .args(["/Delete", "/TN", "VEXCloudSync", "/F"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+    }
+    retirer_ancienne_entree_run();
     if let Ok(profil) = env::var("USERPROFILE") {
         let _ = std::fs::remove_file(format!("{profil}\\Desktop\\VEX.lnk"));
     }
@@ -1026,6 +1036,31 @@ enum EvenementTray {
     Quitter,
 }
 
+/// Icone seule dans la barre des taches, sans fenetre, jusqu'a ce que
+/// l'utilisateur choisisse "Ouvrir" (true) ou "Quitter" (false). Utilise au
+/// demarrage automatique quand la synchro ne peut pas reprendre seule.
+fn attendre_ouverture_tray(icone_dossier_locale: &str) -> bool {
+    let (tx, rx) = mpsc::channel::<EvenementTray>();
+    let icone_brute = fenetre_mdp::charger_icone_brute(icone_dossier_locale, 32);
+    let Ok(mut tray) = tray_item::TrayItem::new(
+        "VEX Cloud Client",
+        tray_item::IconSource::RawIcon(icone_brute),
+    ) else {
+        // Pas d'icone possible : on ne bloque pas l'utilisateur sans aucun
+        // moyen d'agir, on retombe sur le parcours normal (fenetres).
+        return true;
+    };
+    let langue = i18n::langue_courante();
+    let tx1 = tx.clone();
+    let _ = tray.add_menu_item(i18n::t(&langue, i18n::Cle::TrayOuvrir), move || {
+        let _ = tx1.send(EvenementTray::Ouvrir);
+    });
+    let _ = tray.add_menu_item(i18n::t(&langue, i18n::Cle::TrayQuitter), move || {
+        let _ = tx.send(EvenementTray::Quitter);
+    });
+    matches!(rx.recv(), Ok(EvenementTray::Ouvrir))
+}
+
 /// Verrou mono-instance : Windows Cloud Filter n'autorise qu'UNE seule
 /// session connectee a la fois sur une racine de synchro donnee -- lancer
 /// une deuxieme instance (double-clic accidentel, ancien process pas
@@ -1038,7 +1073,7 @@ enum EvenementTray {
 /// process (Windows le libere tout seul a la sortie), d'ou le retour ici
 /// plutot qu'un drop immediat.
 fn deja_en_cours() -> Option<windows::Win32::Foundation::HANDLE> {
-    use windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
+    use windows::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS};
     use windows::Win32::System::Threading::CreateMutexW;
     use windows::core::PCWSTR;
     let nom: Vec<u16> = "Global\\VEXCloudSyncSingleInstance\0".encode_utf16().collect();
@@ -1046,6 +1081,9 @@ fn deja_en_cours() -> Option<windows::Win32::Foundation::HANDLE> {
         match CreateMutexW(None, false, PCWSTR(nom.as_ptr())) {
             Ok(h) => {
                 if GetLastError() == ERROR_ALREADY_EXISTS {
+                    // Referme notre handle : sinon le mutex nomme survivrait a
+                    // l'autre instance et attendre_verrou() ne reussirait jamais.
+                    let _ = CloseHandle(h);
                     None
                 } else {
                     Some(h)
@@ -1085,6 +1123,57 @@ fn deja_en_cours() -> Option<windows::Win32::Foundation::HANDLE> {
 /// retire). On verifie donc le code de sortie : la tache planifiee n'est
 /// gardee QUE si sa creation reussit reellement, avec repli sur le Run key
 /// (mecanisme eprouve, fonctionne sans droits admin) dans le cas contraire.
+/// Argument ajoute par le demarrage automatique (tache planifiee / Run key) :
+/// distingue une relance silencieuse au demarrage de Windows d'une ouverture
+/// manuelle par l'utilisateur (qui, elle, propose Continuer / Reinstaller /
+/// Desinstaller).
+const ARG_DEMARRAGE_AUTO: &str = "--demarrage-auto";
+
+/// Executable vise par le demarrage automatique. L'app est souvent lancee
+/// depuis un dossier temporaire (archive ouverte avec WinRAR/7-Zip :
+/// %TEMP%\Rar$EX...) que Windows vide ensuite -- le demarrage automatique
+/// pointait alors vers un fichier disparu. On copie l'exe dans
+/// %LOCALAPPDATA%\VexCloudSync et c'est cette copie qui est relancee.
+fn exe_pour_demarrage_auto() -> Option<std::path::PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let base = env::var("LOCALAPPDATA").ok()?;
+    let dest = std::path::PathBuf::from(base).join("VexCloudSync").join("vex-cloudsync.exe");
+    if exe.to_string_lossy().eq_ignore_ascii_case(&dest.to_string_lossy()) {
+        return Some(dest);
+    }
+    let _ = std::fs::create_dir_all(dest.parent()?);
+    match std::fs::copy(&exe, &dest) {
+        Ok(_) => Some(dest),
+        // Copie impossible (copie installee en cours d'execution...) : on
+        // garde celle deja en place si elle existe.
+        Err(_) if dest.exists() => Some(dest),
+        Err(_) => Some(exe),
+    }
+}
+
+/// Arrete l'instance deja lancee (en general celle du demarrage
+/// automatique) pour que Reinstaller / Desinstaller reprenne la main.
+fn arreter_autre_instance() {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    let filtre = format!("PID ne {}", std::process::id());
+    let _ = std::process::Command::new("taskkill")
+        .args(["/F", "/IM", "vex-cloudsync.exe", "/FI", &filtre])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+}
+
+/// Attend (10 s max) que le verrou mono-instance se libere.
+fn attendre_verrou() -> Option<windows::Win32::Foundation::HANDLE> {
+    for _ in 0..50 {
+        if let Some(h) = deja_en_cours() {
+            return Some(h);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    }
+    None
+}
+
 fn assurer_demarrage_auto() {
     if tenter_tache_planifiee() {
         // Tache planifiee active : retire une eventuelle vieille entree Run
@@ -1100,7 +1189,7 @@ fn assurer_demarrage_auto() {
 /// Tente de creer/mettre a jour la tache planifiee. Retourne true UNIQUEMENT
 /// si `schtasks` a reellement reussi (code de sortie 0) -- jamais suppose.
 fn tenter_tache_planifiee() -> bool {
-    let Ok(exe) = std::env::current_exe() else { return false };
+    let Some(exe) = exe_pour_demarrage_auto() else { return false };
     let exe_xml = exe
         .to_string_lossy()
         .replace('&', "&amp;")
@@ -1134,6 +1223,7 @@ fn tenter_tache_planifiee() -> bool {
   <Actions Context="Author">
     <Exec>
       <Command>"{exe_xml}"</Command>
+      <Arguments>{ARG_DEMARRAGE_AUTO}</Arguments>
     </Exec>
   </Actions>
 </Task>"#
@@ -1170,8 +1260,8 @@ fn ecrire_entree_run() {
     };
     use windows::core::PCWSTR;
 
-    let Ok(exe) = std::env::current_exe() else { return };
-    let valeur = format!("\"{}\"", exe.to_string_lossy());
+    let Some(exe) = exe_pour_demarrage_auto() else { return };
+    let valeur = format!("\"{}\" {}", exe.to_string_lossy(), ARG_DEMARRAGE_AUTO);
     let sous_cle: Vec<u16> = "Software\\Microsoft\\Windows\\CurrentVersion\\Run\0".encode_utf16().collect();
     let nom_valeur: Vec<u16> = "VEXCloudSync\0".encode_utf16().collect();
     let mut data: Vec<u16> = valeur.encode_utf16().collect();
@@ -1232,12 +1322,36 @@ fn retirer_ancienne_entree_run() {
 }
 
 fn main() {
+    // Relance par le demarrage de Windows (tache planifiee / Run key) :
+    // silencieuse. Sinon c'est l'utilisateur qui ouvre l'app.
+    let lancement_auto = env::args().any(|a| a == ARG_DEMARRAGE_AUTO);
+    let mut action_choisie: Option<fenetre_mdp::ActionInstallation> = None;
     let _verrou_instance = match deja_en_cours() {
         Some(h) => h,
+        None if lancement_auto => return,
         None => {
-            let langue = i18n::langue_courante();
-            afficher_message("VEX Cloud Client", i18n::t(&langue, i18n::Cle::DejaEnCoursExecution));
-            return;
+            // DEMANDE UTILISATEUR : l'app tourne deja (demarrage automatique)
+            // et l'utilisateur l'ouvre a la main -- avant, simple message
+            // "deja en cours", impossible de reinstaller ou de rechoisir le
+            // dossier. On propose le choix ; Reinstaller / Desinstaller arrete
+            // l'instance en cours puis reprend la main.
+            let (icone, _) = extraire_icones_locales();
+            let action = fenetre_mdp::demander_action_installation(&icone, &get_client_path());
+            if matches!(action, fenetre_mdp::ActionInstallation::Continuer) {
+                return;
+            }
+            arreter_autre_instance();
+            match attendre_verrou() {
+                Some(h) => {
+                    action_choisie = Some(action);
+                    h
+                }
+                None => {
+                    let langue = i18n::langue_courante();
+                    afficher_message("VEX Cloud Client", i18n::t(&langue, i18n::Cle::DejaEnCoursExecution));
+                    return;
+                }
+            }
         }
     };
 
@@ -1271,13 +1385,39 @@ fn main() {
     // rien) : le resultat de CE premier appel est reutilise plus bas, sauf
     // si "Reinstaller" vient de l'effacer entre-temps.
     let deja_install = deja_installe();
-    let mdp_en_cache = if deja_install { fenetre_mdp::charger_mdp_sauvegarde() } else { None };
+    let mut mdp_en_cache = if deja_install { fenetre_mdp::charger_mdp_sauvegarde() } else { None };
     fenetre_mdp::diag(&format!(
-        "demarrage : deja_installe={deja_install}, mdp_en_cache={}",
+        "demarrage : deja_installe={deja_install}, mdp_en_cache={}, auto={lancement_auto}",
         mdp_en_cache.is_some()
     ));
-    if deja_install && mdp_en_cache.is_none() {
-        match fenetre_mdp::demander_action_installation(&icone_dossier_locale, &get_client_path()) {
+    // DEMANDE UTILISATEUR : au demarrage de Windows, AUCUNE fenetre -- juste
+    // l'icone dans la barre des taches. S'il manque le mot de passe (config
+    // effacee par "Reinstaller", cache DPAPI perdu...), on attend dans la
+    // barre des taches que l'utilisateur clique "Ouvrir" : on reprend alors
+    // exactement le parcours d'une ouverture manuelle.
+    let mut lancement_auto = lancement_auto;
+    if lancement_auto && mdp_en_cache.is_none() {
+        fenetre_mdp::diag("demarrage auto sans mot de passe en cache : attente dans la barre des taches");
+        if !attendre_ouverture_tray(&icone_dossier_locale) {
+            return;
+        }
+        lancement_auto = false;
+    }
+    // DEMANDE UTILISATEUR : a l'ouverture MANUELLE, toujours proposer
+    // Continuer / Reinstaller / Desinstaller (meme mot de passe en cache) --
+    // sinon plus aucun moyen de reinstaller ni de rechoisir le dossier. Au
+    // demarrage automatique, seulement s'il manque le mot de passe (sinon
+    // la synchro resterait bloquee sur cette fenetre apres chaque
+    // redemarrage, voir plus haut).
+    let action = match action_choisie {
+        Some(a) => Some(a),
+        None if deja_install && (!lancement_auto || mdp_en_cache.is_none()) => {
+            Some(fenetre_mdp::demander_action_installation(&icone_dossier_locale, &get_client_path()))
+        }
+        None => None,
+    };
+    if let Some(action) = action {
+        match action {
             fenetre_mdp::ActionInstallation::Desinstaller => {
                 desinstaller();
                 return;
@@ -1285,6 +1425,7 @@ fn main() {
             fenetre_mdp::ActionInstallation::Reinstaller => {
                 fenetre_mdp::effacer_configuration_locale();
                 let _ = std::fs::remove_file(chemin_jeton());
+                mdp_en_cache = None;
             }
             // Fermer cette fenetre (croix, Echap) = reconnecter normalement,
             // PAS quitter. BUG CONSTATE EN PRATIQUE : le `return` ici faisait
@@ -1407,7 +1548,9 @@ fn main() {
             }
         }
 
-        if !deja_affiche_resultat && (termine || a_erreur) {
+        // DEMANDE UTILISATEUR : au demarrage automatique, plus de fenetre
+        // "connecte" a chaque redemarrage -- seulement en cas d'erreur.
+        if !deja_affiche_resultat && (a_erreur || (termine && !lancement_auto)) {
             deja_affiche_resultat = true;
             afficher_statut(&etat);
         }
