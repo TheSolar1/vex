@@ -25,15 +25,6 @@ pub fn creer_pool(cfg: &DbConfig) -> Result<DbPool> {
     Pool::new(opts)
 }
 
-/// Crée un pool sur une base différente.
-pub fn creer_pool_db(cfg: &DbConfig, db_name: &str) -> Result<DbPool> {
-    let url = format!(
-        "mysql://{}:{}@{}:{}/{}",
-        cfg.user, cfg.password, cfg.host, cfg.port, db_name
-    );
-    Pool::new(Opts::from_url(&url)?)
-}
-
 // ══════════════════════════════════════════════════════════════════
 // FONCTION 1 : verifier_connexion()
 // Vérifie le cookie dans loginc, puis récupère les vraies infos
@@ -1048,19 +1039,6 @@ pub fn p2p_upsert_peer(
     ).is_ok()
 }
 
-/// Marque un nœud comme offline.
-pub fn p2p_peer_offline(pool: &DbPool, node_id: &str) -> bool {
-    let mut conn = match pool.get_conn() {
-        Ok(c) => c,
-        Err(_) => return false,
-    };
-    conn.exec_drop(
-        "UPDATE `p2p_peers` SET status='offline' WHERE node_id=?",
-        (node_id,),
-    )
-    .is_ok()
-}
-
 /// Liste tous les nœuds connus (online ou offline).
 pub fn p2p_lister_peers(pool: &DbPool) -> Vec<HashMap<String, Value>> {
     selectionner(
@@ -1076,28 +1054,6 @@ pub fn p2p_lister_peers(pool: &DbPool) -> Vec<HashMap<String, Value>> {
             "tor_addr",
             "pub_key",
             "status",
-            "last_seen",
-            "version",
-        ],
-        Some("last_seen DESC"),
-        None,
-    )
-}
-
-/// Liste uniquement les nœuds en ligne.
-pub fn p2p_lister_peers_online(pool: &DbPool) -> Vec<HashMap<String, Value>> {
-    selectionner(
-        pool,
-        "p2p_peers",
-        &[("status", mysql::Value::from("online"))],
-        &[
-            "id",
-            "node_id",
-            "vex_url",
-            "ip",
-            "port",
-            "tor_addr",
-            "pub_key",
             "last_seen",
             "version",
         ],
@@ -1600,13 +1556,6 @@ pub fn executer_action_table_terminal(
     let fk_result = conn.query_drop("SET FOREIGN_KEY_CHECKS = 1");
     result?;
     fk_result?;
-    Ok(())
-}
-
-pub fn vider_tables_terminal(pool: &mysql::Pool, tables: &[&str]) -> Result<(), mysql::Error> {
-    for table in tables {
-        executer_action_table_terminal(pool, table, ActionTableTerminal::Vider)?;
-    }
     Ok(())
 }
 

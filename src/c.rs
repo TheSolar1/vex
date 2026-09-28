@@ -162,35 +162,6 @@ pub fn verifier_blocage(
 }
 
 // ══════════════════════════════════════════════════════════════════
-// aquete()
-// ══════════════════════════════════════════════════════════════════
-pub fn aquete(
-    pool: &DbPool,
-    cookie_val: &str,
-    remote_ip: &str,
-    user_agent: &str,
-    raison: &str,
-    current_path: &str,
-) -> bool {
-    let session = verifier_session(pool, cookie_val, remote_ip, user_agent);
-    let idcokier = if session.user_idcokier.is_empty() {
-        "pas".to_string()
-    } else {
-        session.user_idcokier
-    };
-    let auteur = format!("{}{}", current_path, raison);
-    inserer_ou_modifier(
-        pool,
-        "sus-hac",
-        &[
-            ("id-c", mysql::Value::from(idcokier.as_str())),
-            ("auteur", mysql::Value::from(auteur.as_str())),
-        ],
-        &[],
-    ) >= 0
-}
-
-// ══════════════════════════════════════════════════════════════════
 // Utilitaires
 // ══════════════════════════════════════════════════════════════════
 
@@ -220,20 +191,6 @@ pub fn is_recent_local(date_str: &str, seconds: i64) -> bool {
     let diff = now_local.signed_duration_since(naive).num_seconds();
 
     diff >= 0 && diff < seconds
-}
-
-/// Ancienne version gardée pour compatibilité (comparaison UTC)
-pub fn is_recent(date_str: &str, seconds: i64) -> bool {
-    is_recent_local(date_str, seconds)
-}
-
-fn unix_timestamp_approx(y: u32, m: u32, d: u32, h: u32, mi: u32, s: u32) -> i64 {
-    let (year, month, day) = (y as i64, m as i64, d as i64);
-    let a = (14 - month) / 12;
-    let y2 = year + 4800 - a;
-    let m2 = month + 12 * a - 3;
-    let jdn = day + (153 * m2 + 2) / 5 + 365 * y2 + y2 / 4 - y2 / 100 + y2 / 400 - 32045;
-    (jdn - 2440588) * 86400 + h as i64 * 3600 + mi as i64 * 60 + s as i64
 }
 
 pub fn random_hex_id() -> String {

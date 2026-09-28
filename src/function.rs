@@ -39,14 +39,6 @@ pub fn get_privilege_details_json(privilege: i64) -> Value {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// GETNAME
-// ══════════════════════════════════════════════════════════════════
-pub fn get_name_details(pool: &DbPool, user_id: i64) -> Option<String> {
-    let rows = selectionner(pool, "login", &[("id", mysql::Value::from(user_id))], &["nom"], None, Some(1));
-    rows.into_iter().next().and_then(|r| r.get("nom").and_then(|v| v.as_str().map(|s| s.to_string())))
-}
-
-// ══════════════════════════════════════════════════════════════════
 // PRÉFÉRENCES UTILISATEUR
 // ══════════════════════════════════════════════════════════════════
 #[derive(Debug, Clone)]
@@ -196,13 +188,6 @@ pub fn update_user_preference(pool: &DbPool, user_id: i64, pref_name: &str, pref
 // ══════════════════════════════════════════════════════════════════
 // THÈME
 // ══════════════════════════════════════════════════════════════════
-pub fn toggle_user_theme(pool: &DbPool, user_id: i64) -> Option<i64> {
-    let prefs = get_user_preferences(pool, user_id);
-    let new_theme = if prefs.teme == 0 { 1i64 } else { 0i64 };
-    let ok = update_user_preference(pool, user_id, "teme", &new_theme.to_string());
-    if ok { Some(new_theme) } else { None }
-}
-
 /// Valeur `teme` du theme "Automatique" (suit le reglage clair/sombre de
 /// l'appareil). 2 et 3 sont deja pris cote client (solarized, rose).
 pub const TEME_AUTO: i64 = 4;
@@ -231,9 +216,6 @@ const SUPPORTED_LANGS: &[(&str, &str)] = &[
 
 pub fn get_supported_languages() -> Vec<(&'static str, &'static str)> {
     SUPPORTED_LANGS.to_vec()
-}
-pub fn is_rtl(lang: &str) -> bool {
-    matches!(lang, "ar" | "he" | "fa" | "ur")
 }
 
 pub fn get_user_language(pool: &DbPool, user_id: Option<i64>, cookie_lang: Option<&str>, accept_lang: Option<&str>) -> String {
@@ -273,46 +255,6 @@ pub fn set_user_language(pool: &DbPool, user_id: i64, lang: &str) -> bool {
 // ══════════════════════════════════════════════════════════════════
 const ALLOWED_TAG_COLUMNS: &[&str] = &["VMotdePasse", "VPrivilege", "VVIP", "vcreAutologin", "vAutologin", "VEmail"];
 
-pub fn verifierrr(pool: &DbPool, iduser: i64, tag_user_column: &str) -> String {
-    if !ALLOWED_TAG_COLUMNS.contains(&tag_user_column) {
-        return "oui".to_string();
-    }
-    let tag_rows = selectionner(pool, "tag-user", &[("user-id", mysql::Value::from(iduser))], &[], None, Some(1));
-    if tag_rows.is_empty() {
-        return "oui".to_string();
-    }
-    let tag_row = &tag_rows[0];
-    let tag_value = tag_row.get(tag_user_column).and_then(|v| v.as_str()).unwrap_or("0").to_string();
-    let tag_tout = tag_row.get("tout").and_then(|v| v.as_str()).unwrap_or("non").to_string();
-    if tag_tout == "v" {
-        return "non".to_string();
-    }
-    if tag_tout != "non" {
-        let (check_table, check_col, check_where, need_check) = match tag_user_column {
-            "VMotdePasse" => ("login", "motdepass", "id", true),
-            "VPrivilege" => ("login", "privilege", "id", true),
-            "VVIP" => ("login", "vip", "id", true),
-            "vcreAutologin" => ("autologin", "nombre", "compteid", true),
-            "vAutologin" => ("", "", "", false),
-            "VEmail" => ("login", "Email", "id", true),
-            _ => ("", "", "", false),
-        };
-        let vefier = if need_check {
-            selectionner(pool, check_table, &[(check_where, mysql::Value::from(iduser))], &[check_col], None, Some(1))
-                .into_iter().next()
-                .and_then(|r| r.get(check_col).and_then(|v| v.as_str().map(|s| s.to_string())))
-                .unwrap_or_else(|| "nonononoon".to_string())
-        } else {
-            "nonononoon".to_string()
-        };
-        if tag_value == "v" || tag_value == vefier {
-            return "non".to_string();
-        }
-        return "oui".to_string();
-    }
-    tag_value
-}
-
 // ══════════════════════════════════════════════════════════════════
 // ENVOI MAIL
 // ══════════════════════════════════════════════════════════════════
@@ -331,110 +273,6 @@ pub fn vex_send_mail(to: &str, subject: &str, html: &str) -> bool {
         Ok(resp) => resp.status() == 201,
         Err(e) => { eprintln!("vex_send_mail error: {}", e); false }
     }
-}
-
-// ══════════════════════════════════════════════════════════════════
-// ICÔNES FICHIERS
-// ══════════════════════════════════════════════════════════════════
-pub fn get_file_icon(extension: &str) -> &'static str {
-    match extension.to_lowercase().as_str() {
-        "jpg" | "jpeg" | "svg" | "gif" => "fa-file-image",
-        "tiff" | "tif" => r#""><img src="/img/fill-image-etoile.svg" class="icone-fichier"#,
-        "psd" => r#""><img src="/img/fill-ps.svg" class="icone-fichier"#,
-        "mp4" | "webm" => "fa-file-video",
-        "pdf" => "fa-file-pdf",
-        "doc" | "docx" => "fa-file-word",
-        "xls" | "xlsx" => "fa-file-excel",
-        "ppt" | "pptx" => "fa-file-powerpoint",
-        "txt" => "fa-file-lines",
-        "csv" => "fa-file-csv",
-        "zip" | "gz" | "rar" | "7z" => "fa-file-zipper",
-        "sql" => "fa-database",
-        "php" | "html" | "css" | "js" | "json" | "xml" => "fa-file-code",
-        "exe" | "bat" => r#""><img src="/img/fill-exe-bat.svg" class="icone-fichier"#,
-        "mtl" | "obj" | "fbx" | "fbxl" | "stl" => "fa-solid fa-cube",
-        "gcode" => r#""><img src="/img/fill-gcode.svg" class="icone-fichier"#,
-        _ => "fa-file",
-    }
-}
-
-// ══════════════════════════════════════════════════════════════════
-// AVATAR
-// ══════════════════════════════════════════════════════════════════
-pub fn display_user_avatar(nom: &str, pdp: Option<&[u8]>) -> String {
-    if let Some(data) = pdp {
-        if !data.is_empty() {
-            use base64::Engine as _;
-            let b64 = base64::engine::general_purpose::STANDARD.encode(data);
-            let safe_nom = html_escape(nom);
-            return format!(r#"<img src="data:image/jpeg;base64,{}" alt="{}" class="user-avatar">"#, b64, safe_nom);
-        }
-    }
-    let initial = nom.chars().next().unwrap_or('?').to_uppercase().to_string();
-    format!(r#"<div class="user-avatar-initials">{}</div>"#, initial)
-}
-
-// ══════════════════════════════════════════════════════════════════
-// MEET
-// ══════════════════════════════════════════════════════════════════
-pub fn generate_room_code() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let charset = b"abcdefghijklmnopqrstuvwxyz0123456789";
-    let seed = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(42);
-    let mut state = seed as u64 ^ 0x9e3779b97f4a7c15;
-    let mut code = String::with_capacity(10);
-    for _ in 0..10 {
-        state ^= state << 13; state ^= state >> 7; state ^= state << 17;
-        code.push(charset[(state as usize) % charset.len()] as char);
-    }
-    code
-}
-
-pub fn create_meet_room(
-    pool: &DbPool, creator_id: i64, title: &str, is_public: bool,
-    require_password: bool, password: Option<&str>, max_participants: i64,
-) -> Option<HashMap<String, Value>> {
-    let mut room_code = String::new();
-    for _ in 0..10 {
-        let candidate = generate_room_code();
-        let exists = !selectionner(pool, "meet_rooms", &[("room_code", mysql::Value::from(candidate.as_str()))], &["room_code"], None, Some(1)).is_empty();
-        if !exists { room_code = candidate; break; }
-    }
-    if room_code.is_empty() {
-        return None;
-    }
-    let pass_val: mysql::Value = if require_password {
-        if let Some(p) = password { mysql::Value::from(sha256_simple(p)) } else { mysql::Value::NULL }
-    } else {
-        mysql::Value::NULL
-    };
-    let result = inserer_ou_modifier(
-        pool, "meet_rooms",
-        &[
-            ("room_code", mysql::Value::from(room_code.as_str())),
-            ("creator_id", mysql::Value::from(creator_id)),
-            ("title", mysql::Value::from(title)),
-            ("is_public", mysql::Value::from(is_public as i64)),
-            ("require_password", mysql::Value::from(require_password as i64)),
-            ("password_hash", pass_val),
-            ("max_participants", mysql::Value::from(max_participants)),
-        ],
-        &[],
-    );
-    if result < 0 {
-        return None;
-    }
-    let mut out = HashMap::new();
-    out.insert("id".into(), json!(result));
-    out.insert("room_code".into(), json!(room_code));
-    out.insert("title".into(), json!(title));
-    out.insert("is_public".into(), json!(is_public));
-    out.insert("creator_id".into(), json!(creator_id));
-    Some(out)
-}
-
-pub fn get_room_info(pool: &DbPool, room_code: &str) -> Option<HashMap<String, Value>> {
-    selectionner(pool, "meet_rooms", &[("room_code", mysql::Value::from(room_code)), ("is_active", mysql::Value::from(1i64))], &[], None, Some(1)).into_iter().next()
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -564,27 +402,6 @@ pub fn extensions_actives(config_path: &str) -> Vec<(String, Value)> {
         }
     }
     out
-}
-
-/// Ecrit une cle du bloc d'une extension dans config.json.
-/// Utilisable depuis une extension : `publier_bloc_extension(
-///     "config.json", "monchat", "admin_infos", json!([...]))`.
-pub fn publier_bloc_extension(
-    config_path: &str,
-    ext_id: &str,
-    cle: &str,
-    valeur: Value,
-) -> Result<(), String> {
-    let mut cfg: Value = std::fs::read_to_string(config_path)
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_else(|| json!({}));
-    if !cfg["extensions"]["extension_params"][ext_id].is_object() {
-        return Err(format!("Extension « {} » inconnue dans config.json.", ext_id));
-    }
-    cfg["extensions"]["extension_params"][ext_id][cle] = valeur;
-    let txt = serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())?;
-    std::fs::write(config_path, txt).map_err(|e| e.to_string())
 }
 
 /// Apps declarees par les extensions actives.
@@ -973,28 +790,6 @@ pub fn build_nav_html(ctx: &NavContext) -> String {
     )
 }
 
-pub fn get_nav_data(ctx: &NavContext) -> Value {
-    let user_data = resolve_nav_user(ctx);
-    let resolved_uid = user_data.as_ref().and_then(|u| u.get("id").and_then(|v| v.as_i64()));
-    let is_admin = user_data.as_ref().and_then(|u| u.get("privilege").and_then(|v| v.as_i64())).map(|p| p <= 6).unwrap_or(false);
-    let theme = if let Some(uid) = resolved_uid {
-        theme_depuis_teme(get_user_preferences(ctx.pool, uid).teme)
-    } else { "light" };
-    let prefs = resolved_uid.map(|uid| get_user_preferences(ctx.pool, uid));
-    let show_sidebar_btn = prefs.as_ref().map(|p| p.nav_button_style.get(ctx.page_key).and_then(|v| v.as_i64()).unwrap_or(0) != 0).unwrap_or(false);
-    let show_logo = prefs.as_ref().map(|p| p.logo_pages.get(ctx.page_key).and_then(|v| v.as_i64()).unwrap_or(0) != 0).unwrap_or(true);
-    let breadcrumb = if ctx.page_key == "tel" {
-        ctx.query_id.and_then(|fid| {
-            selectionner(ctx.pool, "fichiers", &[("id", mysql::Value::from(fid))], &["nom"], None, Some(1))
-                .into_iter().next()
-                .and_then(|r| r.get("nom").and_then(|v| v.as_str().map(|s| s.to_string())))
-        })
-    } else { None };
-    json!({"user":user_data,"is_admin":is_admin,"theme":theme,
-           "show_sidebar_btn":show_sidebar_btn,"show_logo":show_logo,
-           "page_key":ctx.page_key,"breadcrumb_file":breadcrumb})
-}
-
 fn resolve_nav_user(ctx: &NavContext) -> Option<Value> {
     if let Some(uid) = ctx.user_id {
         if uid > 0 {
@@ -1029,17 +824,6 @@ fn build_user_value(row: HashMap<String, Value>) -> Option<Value> {
     let vip = row.get("vip").and_then(|v| v.as_i64()).unwrap_or(0);
     let pd = get_privilege_details_json(privilege);
     Some(json!({"id":id,"nom":nom,"email":email,"privilege":privilege,"vip":vip,"privilege_details":pd}))
-}
-
-// ══════════════════════════════════════════════════════════════════
-// COLOR SCHEME
-// ══════════════════════════════════════════════════════════════════
-pub fn get_color_scheme(theme: &str) -> Value {
-    match theme {
-        "dark" => json!({"nav_bg":"#1a1a1a","nav_gradient":"linear-gradient(to bottom,#1a1a1a,#0f0f0f)"}),
-        "blue" => json!({"nav_bg":"#1e3a5f","nav_gradient":"linear-gradient(to bottom,#1e3a5f,#152943)"}),
-        _ => json!({"nav_bg":"#43a047","nav_gradient":"linear-gradient(135deg,#66bb6a 0%,#388e3c 100%)"}),
-    }
 }
 
 // ══════════════════════════════════════════════════════════════════

@@ -805,31 +805,6 @@ pub fn fermer_salle(
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 8. NETTOYAGE PÉRIODIQUE (à appeler depuis un thread cron dans main.rs)
-// ══════════════════════════════════════════════════════════════════
-pub fn nettoyer_sessions_expirees(pool: &DbPool) -> (u64, u64) {
-    let mut conn = match pool.get_conn() {
-        Ok(c) => c,
-        Err(_) => return (0, 0),
-    };
-    use mysql::prelude::Queryable;
-
-    let _ = conn.exec_drop(
-        "DELETE FROM `meet_participants` WHERE last_seen < NOW() - INTERVAL ? MINUTE",
-        (SESSION_TIMEOUT_MINUTES,),
-    );
-    let participants_purges = conn.affected_rows();
-
-    let _ = conn.exec_drop(
-        "DELETE FROM `meet_signaling` WHERE created_at < NOW() - INTERVAL ? MINUTE",
-        (SIGNAL_RETENTION_MINUTES,),
-    );
-    let signaux_purges = conn.affected_rows();
-
-    (participants_purges, signaux_purges)
-}
-
-// ══════════════════════════════════════════════════════════════════
 // 9. ROUTEUR D'ACTIONS API (POST /api/viso, champ `action`)
 // ══════════════════════════════════════════════════════════════════
 pub fn handle_viso_action(

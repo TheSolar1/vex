@@ -393,11 +393,6 @@ fn is_shared_with(partage: &str, uid: i64) -> bool {
     })
 }
 
-/// Indique si un champ partage est non-vide (pour le badge côté JSON)
-fn has_shares(partage: &str) -> bool {
-    !partage.trim().is_empty()
-}
-
 fn dos_parent(idpage: &str) -> Option<i64> {
     let prefix = "dos:";
     if let Some(pos) = idpage.find(prefix) {
