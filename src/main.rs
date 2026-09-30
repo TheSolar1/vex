@@ -861,6 +861,14 @@ fn traiter_requete(
             access_control::servir_extension(&pool, &config, request, &path);
         }
 
+        // Apps de base (ExoDrive, Mail, Visio, Sitec) désactivées dans
+        // Admin > Extensions : refusées ici, avant leurs routes ci-dessous.
+        p if access_control::app_de_base_desactivee(p).is_some() => {
+            let id = access_control::app_de_base_desactivee(p).unwrap_or("");
+            access_control::refuser_app_desactivee(request, p, id);
+            statut_req = Some(503);
+        }
+
         // FIX (retour utilisateur : "je veux pas de requete quand il
         // se passe rien") -- /attendre est un LONG-POLL : elle bloque
         // jusqu'a 25s cote serveur (voir fchier::attendre_bloquant).

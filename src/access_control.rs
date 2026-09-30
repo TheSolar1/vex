@@ -192,6 +192,45 @@ pub fn plan_autorise(plans_autorises: &[String], user_vip: i64) -> bool {
     })
 }
 
+/// Apps de base activables/désactivables depuis Admin > Extensions :
+/// (préfixes de routes, ids possibles dans extension_params).
+const APPS_DE_BASE: &[(&[&str], &[&str])] = &[
+    (&["/fchier", "/api/fchier", "/partage/", "/api/partage/"], &["exodrive"]),
+    (&["/mess", "/api/mess"], &["vexmail", "mess"]),
+    (&["/viso", "/api/viso"], &["meet", "viso"]),
+    (&["/sitec", "/api/sitec", "/page/"], &["sitec"]),
+];
+
+/// Une app est active sauf si une de ses entrées dans config.json
+/// (lu à chaque appel : la désactivation s'applique sans redémarrage)
+/// porte "enabled": false. Entrée absente = active.
+pub fn app_active(ids: &[&str]) -> bool {
+    let cfg: serde_json::Value = std::fs::read_to_string("config.json")
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default();
+    let ep = &cfg["extensions"]["extension_params"];
+    !ids.iter().any(|id| ep[*id]["enabled"].as_bool() == Some(false))
+}
+
+/// Ids de l'app de base servie par ce chemin, si elle est désactivée.
+pub fn app_de_base_desactivee(path: &str) -> Option<&'static str> {
+    APPS_DE_BASE
+        .iter()
+        .find(|(prefixes, _)| prefixes.iter().any(|p| path.starts_with(p)))
+        .filter(|(_, ids)| !app_active(ids))
+        .map(|(_, ids)| ids[0])
+}
+
+/// Refus d'une app de base désactivée (page HTML ou JSON selon le chemin).
+pub fn refuser_app_desactivee(request: tiny_http::Request, path: &str, id: &str) {
+    let _ = crate::utils::envoyer(request, ext_refus(
+        path,
+        503,
+        &format!("Application « {} » désactivée.", id),
+    ));
+}
+
 /// Réponse d'erreur JSON ou HTML selon que le chemin est une API ou une page.
 fn ext_refus(
     path: &str,
@@ -228,11 +267,17 @@ fn ext_refus(
 /// Point d'entrée unique des extensions uploadées depuis le panel admin.
 pub fn servir_extension(
     pool: &DbPool,
-    config: &VexConfig,
+    _config_demarrage: &VexConfig,
     mut request: tiny_http::Request,
     path: &str,
 ) {
     let id = extension_id_depuis_path(path);
+
+    // config.json relu à chaque requête : `config` est celle du démarrage,
+    // une extension désactivée depuis l'admin restait sinon accessible
+    // jusqu'au prochain redémarrage.
+    let config_live = crate::config_loader::load_config("config.json");
+    let config = &config_live;
 
     if !config.extensions.enabled {
         let _ = crate::utils::envoyer(request, ext_refus(path, 503, "Les extensions sont désactivées."));

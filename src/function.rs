@@ -496,6 +496,7 @@ pub fn build_nav_html(ctx: &NavContext) -> String {
     let apps_filtrees: Vec<NavApp> = toutes_apps
         .into_iter()
         .filter(|a| app_visible(&choix_apps, &a.url))
+        .filter(|a| crate::access_control::app_de_base_desactivee(&a.url).is_none())
         .collect();
     let apps_ref: &[NavApp] = &apps_filtrees;
 
@@ -542,6 +543,8 @@ pub fn build_nav_html(ctx: &NavContext) -> String {
         // retiré de cette liste. L'accès reste dans Compte > Abonnement
         // uniquement (voir account.html).
         if is_admin { v.push(("fas fa-shield-alt".to_string(), "Administration".to_string(), "/admin".to_string(), true)); }
+        // Apps de base désactivées dans Admin > Extensions : retirées.
+        v.retain(|(_, _, url, _)| crate::access_control::app_de_base_desactivee(url).is_none());
         v
     };
 
