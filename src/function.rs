@@ -230,6 +230,13 @@ pub fn get_user_language(pool: &DbPool, user_id: Option<i64>, cookie_lang: Optio
             return lang.to_string();
         }
     }
+    // Langue du serveur (Admin > Configuration > Application > Langue par
+    // défaut) : s'impose à tout visiteur qui n'a pas choisi sa langue
+    // (compte ou cookie). config.json relu ici : le changement s'applique
+    // sans redémarrage.
+    if let Some(lang) = langue_serveur() {
+        return lang;
+    }
     if let Some(al) = accept_lang {
         let bl = &al[..al.len().min(2)];
         if is_supported_lang(bl) {
@@ -237,6 +244,13 @@ pub fn get_user_language(pool: &DbPool, user_id: Option<i64>, cookie_lang: Optio
         }
     }
     "fr".to_string()
+}
+
+/// app.default_language de config.json, si c'est une langue gérée.
+fn langue_serveur() -> Option<String> {
+    let cfg: Value = serde_json::from_str(&std::fs::read_to_string("config.json").ok()?).ok()?;
+    let lang = cfg["app"]["default_language"].as_str()?;
+    is_supported_lang(lang).then(|| lang.to_string())
 }
 
 pub fn is_supported_lang(lang: &str) -> bool {

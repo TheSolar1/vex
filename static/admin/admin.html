@@ -904,7 +904,7 @@ async function runSql(){
 /* ── Config ── */
 const P2P_DEFAULTS={bootstrap_url:'https://vex.hopto.org/neut',use_tor:false,tor_addr:'',port:7700,chunk_size_bytes:1048576,sync_interval_secs:1800,chunks_dir:'/tmp/vex_chunks',output_dir:'/tmp/vex_received'};
 const CFG_DEFS=[
-    {icon:'cube',title:I18N.CFG_APPLICATION,sec:'app',fields:[['name',I18N.CFG_NOM,'text'],['version',I18N.CFG_VERSION,'text'],['default_language',I18N.CFG_LANGUE_DEFAUT,'select',['fr','en','es','de']],['maintenance_mode',I18N.CFG_MAINTENANCE,'bool'],['debug_mode',I18N.CFG_DEBUG,'bool']]},
+    {icon:'cube',title:I18N.CFG_APPLICATION,sec:'app',fields:[['name',I18N.CFG_NOM,'text'],['version',I18N.CFG_VERSION,'text'],['default_language',I18N.CFG_LANGUE_DEFAUT,'select',['fr','en','es','de','it','pt','ar','zh','ja','ru']],['maintenance_mode',I18N.CFG_MAINTENANCE,'bool'],['debug_mode',I18N.CFG_DEBUG,'bool']]},
     {icon:'users',title:I18N.SB_UTILISATEURS,sec:'users',fields:[['max_users',I18N.CFG_NB_MAX,'number'],['registration_mode',I18N.CFG_INSCRIPTION,'select',['open','invitation','closed']],['activation_key',I18N.CFG_CLE_ACTIVATION,'text'],['session_expiration_minutes',I18N.CFG_DUREE_SESSION,'number'],['activation_key_required',I18N.CFG_CLE_REQUISE,'bool']]},
     {icon:'lock',title:I18N.CFG_SECURITE,sec:'security',fields:[['password_min_length',I18N.CFG_LONGUEUR_MIN_MDP,'number'],['max_login_attempts',I18N.CFG_TENTATIVES_MAX,'number'],['lockout_duration_minutes',I18N.CFG_VERROUILLAGE,'number'],['password_require_uppercase',I18N.CFG_MAJUSCULE,'bool'],['password_require_number',I18N.CFG_CHIFFRE,'bool']]},
     {icon:'hard-drive',title:I18N.CFG_STOCKAGE,sec:'storage',fields:[['max_file_size_mb',I18N.CFG_TAILLE_MAX_MB,'number'],['file_retention_days',I18N.CFG_RETENTION_J,'number']]},
