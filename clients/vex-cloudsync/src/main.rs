@@ -354,9 +354,14 @@ impl SyncFilter for Filter {
                     CloudErrorKind::InvalidRequest
                 })?;
             }
-            // Suppression de dossier distant : pas encore expose cote
-            // VexClient (a ajouter -- endpoint serveur deja existant).
-            Some(Cible::Dossier(_)) => return Err(CloudErrorKind::NotSupported),
+            // Dossier : part dans la corbeille cote serveur (restaurable
+            // depuis le site), comme une suppression faite dans ExoDrive.
+            Some(Cible::Dossier(id)) => {
+                self.client.supprimer_dossier(id).map_err(|e| {
+                    println!("delete: erreur suppression dossier distant id={id} : {e}");
+                    CloudErrorKind::InvalidRequest
+                })?;
+            }
             None => return Err(CloudErrorKind::InvalidRequest),
         }
         ticket.pass().map_err(|_| CloudErrorKind::InvalidRequest)?;
@@ -498,7 +503,10 @@ fn nettoyer_placeholders_orphelines(local_dir: &Path, client: &VexClient, dossie
         // Ne touche qu'une vraie placeholder deja synchronisee -- un
         // fichier local pas encore uploade (pas une placeholder cloud
         // filter) n'est jamais concerne par ce nettoyage.
-        if Placeholder::open(&chemin).is_err() {
+        // BUG CORRIGE : le test etait `Placeholder::open(..).is_err()`, qui
+        // reussit aussi sur un fichier ordinaire -- un fichier tout juste
+        // depose (pas encore sur le serveur) pouvait etre SUPPRIME ici.
+        if !est_placeholder(&chemin) {
             continue;
         }
         if !noms_distants.contains(&nom) {
@@ -641,6 +649,210 @@ fn lancer_reconciliation_periodique(client_path: String, client: VexClient) -> m
                 }
             }
         }
+    });
+    tx_stop
+}
+
+/// Fichiers temporaires / systeme jamais envoyes (verrous Office, caches
+/// de miniatures, telechargements en cours...).
+fn nom_ignore(nom: &str) -> bool {
+    let n = nom.to_ascii_lowercase();
+    n.starts_with("~$")
+        || n.starts_with(".~")
+        || n.ends_with(".tmp")
+        || n.ends_with(".crdownload")
+        || n.ends_with(".part")
+        || n == "desktop.ini"
+        || n == "thumbs.db"
+}
+
+/// Vrai si `chemin` est une placeholder Cloud Files (donc deja liee a un
+/// element du serveur). ATTENTION : `Placeholder::open` n'est PAS un test
+/// valable -- CfOpenFileWithOplock ouvre aussi un fichier ordinaire du
+/// dossier synchronise. CfGetPlaceholderInfo, lui, echoue avec
+/// ERROR_NOT_A_CLOUD_FILE sur un fichier qui n'est pas une placeholder.
+/// Ouverture en simple lecture d'attributs : n'hydrate jamais le fichier.
+fn est_placeholder(chemin: &Path) -> bool {
+    use std::os::windows::fs::OpenOptionsExt;
+    use std::os::windows::io::AsRawHandle;
+    use windows::Win32::Foundation::{ERROR_MORE_DATA, HANDLE};
+    use windows::Win32::Storage::CloudFilters::{CfGetPlaceholderInfo, CF_PLACEHOLDER_INFO_BASIC};
+    const FILE_READ_ATTRIBUTES: u32 = 0x80;
+    const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000; // requis pour ouvrir un dossier
+    let Ok(f) = std::fs::OpenOptions::new()
+        .access_mode(FILE_READ_ATTRIBUTES)
+        .share_mode(7)
+        .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
+        .open(chemin)
+    else {
+        return false;
+    };
+    let mut buf = [0u8; 256];
+    let mut lu = 0u32;
+    let res = unsafe {
+        CfGetPlaceholderInfo(
+            HANDLE(f.as_raw_handle() as _),
+            CF_PLACEHOLDER_INFO_BASIC,
+            buf.as_mut_ptr() as *mut _,
+            buf.len() as u32,
+            Some(&mut lu),
+        )
+    };
+    match res {
+        Ok(()) => true,
+        Err(e) => e.code() == ERROR_MORE_DATA.to_hresult(),
+    }
+}
+
+/// Vrai si `chemin` est un fichier/dossier ajoute localement et pas encore
+/// envoye.
+fn est_local_non_envoye(chemin: &Path) -> bool {
+    let nom = chemin.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+    !nom.is_empty() && !nom_ignore(&nom) && chemin.exists() && !est_placeholder(chemin)
+}
+
+/// DEMANDE UTILISATEUR ("quand je mets un fichier dans VEX Cloud ce n'est
+/// pas instantane") : en realite rien n'etait JAMAIS envoye -- ce client
+/// ne faisait que descendre les fichiers du serveur. Envoie ici tout
+/// fichier/dossier local qui n'est pas encore une placeholder, puis le
+/// convertit en placeholder synchronisee (meme conversion que
+/// mark_in_sync). Recursif. Retourne true si un fichier a du etre saute
+/// parce qu'il etait encore en cours d'ecriture (a retenter).
+fn envoyer_nouveaux_locaux(local_dir: &Path, client: &VexClient, dossier_distant_id: i64) -> bool {
+    let Ok((dossiers, fichiers)) = client.lister_dossier(dossier_distant_id) else { return true };
+    let Ok(entries) = local_dir.read_dir() else { return false };
+    let mut a_retenter = false;
+
+    for entry in entries.filter_map(|e| e.ok()) {
+        let chemin = entry.path();
+        let nom = entry.file_name().to_string_lossy().to_string();
+        if nom_ignore(&nom) {
+            continue;
+        }
+        let est_dossier = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
+        let deja_synchro = est_placeholder(&chemin);
+
+        if est_dossier {
+            let id = match dossiers.iter().find(|d| d.nom == nom) {
+                Some(d) => d.id,
+                None if deja_synchro => continue,
+                None => match client.creer_dossier(&nom, dossier_distant_id) {
+                    Ok(id) => id,
+                    Err(e) => {
+                        println!("envoi: creation du dossier {nom} echouee : {e}");
+                        a_retenter = true;
+                        continue;
+                    }
+                },
+            };
+            a_retenter |= envoyer_nouveaux_locaux(&chemin, client, id);
+            if !deja_synchro {
+                let options = ConvertOptions::default()
+                    .mark_in_sync()
+                    .has_children()
+                    .blob(encoder_blob_dossier(id));
+                if let Ok(mut p) = Placeholder::open(&chemin) {
+                    if let Err(e) = p.convert_to_placeholder(options, None) {
+                        println!("envoi: conversion du dossier {nom} echouee : {e:?}");
+                    }
+                }
+            }
+            continue;
+        }
+
+        if deja_synchro {
+            continue;
+        }
+        // Meme nom deja present cote serveur : on ne l'ecrase pas (la
+        // version distante reste intacte, le fichier local reste tel quel).
+        if fichiers.iter().any(|f| f.nom == nom) {
+            continue;
+        }
+        // Fichier encore en cours de copie : on attend qu'il soit libre.
+        let Ok(meta) = entry.metadata() else { continue };
+        let recent = meta
+            .modified()
+            .ok()
+            .and_then(|m| m.elapsed().ok())
+            .map(|d| d < std::time::Duration::from_millis(400))
+            .unwrap_or(false);
+        let contenu = if recent { None } else { std::fs::read(&chemin).ok() };
+        let Some(contenu) = contenu else {
+            a_retenter = true;
+            continue;
+        };
+        match client.uploader_dans(dossier_distant_id, &nom, &contenu, vex_sync_client::sync::deviner_mime(&nom)) {
+            Ok(id) => {
+                println!("envoi: {nom} envoye (id {id})");
+                let options = ConvertOptions::default().mark_in_sync().blob(encoder_blob_fichier(id));
+                match std::fs::File::open(&chemin) {
+                    Ok(f) => {
+                        let mut p: Placeholder = f.into();
+                        if let Err(e) = p.convert_to_placeholder(options, None) {
+                            println!("envoi: conversion de {nom} echouee : {e:?}");
+                        }
+                    }
+                    Err(e) => println!("envoi: ouverture de {nom} impossible : {e}"),
+                }
+            }
+            Err(e) => {
+                println!("envoi: {nom} echoue : {e}");
+                a_retenter = true;
+            }
+        }
+    }
+    a_retenter
+}
+
+/// Surveille le dossier local (ReadDirectoryChangesW via `notify`) : des
+/// qu'un fichier/dossier non synchronise apparait ou change, attend un
+/// court instant de calme (copie en cours) puis l'envoie. Aucune requete
+/// reseau tant que rien de nouveau n'apparait localement -- les evenements
+/// dus aux placeholders elles-memes (hydratation, creation par la
+/// reconciliation) sont filtres par est_local_non_envoye.
+fn lancer_envoi_local(client_path: String, client: VexClient) -> mpsc::Sender<()> {
+    use notify::{RecursiveMode, Watcher};
+    let (tx_stop, rx_stop) = mpsc::channel::<()>();
+    std::thread::spawn(move || {
+        let racine = PathBuf::from(&client_path);
+        let (tx_evt, rx_evt) = mpsc::channel::<()>();
+        let mut watcher = match notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
+            if let Ok(ev) = res {
+                if ev.paths.iter().any(|p| est_local_non_envoye(p)) {
+                    let _ = tx_evt.send(());
+                }
+            }
+        }) {
+            Ok(w) => w,
+            Err(e) => {
+                println!("envoi: surveillance impossible : {e}");
+                return;
+            }
+        };
+        if let Err(e) = watcher.watch(&racine, RecursiveMode::Recursive) {
+            println!("envoi: surveillance de {racine:?} impossible : {e}");
+            return;
+        }
+
+        // Premier passage : fichiers deposes pendant que l'app ne tournait pas.
+        let mut a_retenter = envoyer_nouveaux_locaux(&racine, &client, 0);
+        loop {
+            if rx_stop.try_recv().is_ok() {
+                break;
+            }
+            let attente = if a_retenter { std::time::Duration::from_secs(1) } else { std::time::Duration::from_millis(500) };
+            match rx_evt.recv_timeout(attente) {
+                Ok(()) => {}
+                Err(mpsc::RecvTimeoutError::Timeout) if a_retenter => {}
+                Err(mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            }
+            // Regroupe une rafale d'evenements (copie de plusieurs fichiers).
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            while rx_evt.try_recv().is_ok() {}
+            a_retenter = envoyer_nouveaux_locaux(&racine, &client, 0);
+        }
+        drop(watcher);
     });
     tx_stop
 }
@@ -1015,6 +1227,7 @@ fn executer_synchro(password: String, url_serveur: String, etat: EtatPartage, rx
         }
     };
 
+    let arreter_envoi = lancer_envoi_local(client_path.clone(), client_pour_reconciliation.clone());
     let arreter_reconciliation = lancer_reconciliation_periodique(client_path.clone(), client_pour_reconciliation);
 
     {
@@ -1027,6 +1240,7 @@ fn executer_synchro(password: String, url_serveur: String, etat: EtatPartage, rx
     let _ = rx_quitter.recv();
 
     let _ = arreter_reconciliation.send(());
+    let _ = arreter_envoi.send(());
     drop(connection);
     let _ = sync_root_id.unregister();
 }

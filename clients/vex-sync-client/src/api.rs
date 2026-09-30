@@ -296,10 +296,19 @@ impl VexClient {
 
     /// Supprime un fichier distant (propagation d'une suppression locale).
     pub fn supprimer_fichier(&self, id: i64) -> Result<(), String> {
+        self.supprimer_element("file", id)
+    }
+
+    /// Supprime un dossier distant (va dans la corbeille cote serveur).
+    pub fn supprimer_dossier(&self, id: i64) -> Result<(), String> {
+        self.supprimer_element("folder", id)
+    }
+
+    fn supprimer_element(&self, item_type: &str, id: i64) -> Result<(), String> {
         let resp = self
             .appliquer_auth(self.agent.post(&format!("{}/api/fchier/delete", self.base_url)))
             .set("Content-Type", "application/json")
-            .send_json(serde_json::json!({"item_type": "file", "item_id": id}))
+            .send_json(serde_json::json!({"item_type": item_type, "item_id": id}))
             .map_err(|e| format!("Suppression impossible : {e}"))?;
         let body: Value = resp.into_json().map_err(|e| format!("Reponse illisible : {e}"))?;
         if body.get("success").and_then(|v| v.as_bool()) != Some(true) {

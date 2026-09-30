@@ -26,6 +26,9 @@ path = "src/bin/desinstaller.rs"
 [dependencies]
 cloud-filter = "0.0.6"
 ctrlc = "3"
+# Surveillance du dossier local (ReadDirectoryChangesW) : envoi immediat
+# des fichiers ajoutes, sans aucune requete tant que rien ne change.
+notify = "6"
 serde_json = "1"
 ureq = { version = "2", features = ["json", "tls"] }
 num-bigint = "0.4"
@@ -60,6 +63,7 @@ windows = { version = "0.58", features = [
     "Win32_System_Threading",
     "Win32_System_Registry",
     "Win32_Security_Cryptography",
+    "Win32_Storage_CloudFilters",
 ] }
 
 [build-dependencies]
