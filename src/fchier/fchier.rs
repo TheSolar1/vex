@@ -130,6 +130,32 @@ pub(super) fn lire_contenu_b64(valeur: &str) -> Result<String, String> {
     }
 }
 
+/// Octets d'enveloppe du format chiffre "VEX2" : magic (4) + sel (32) +
+/// IV (12) + tag GCM (16). Le contenu dechiffre fait exactement
+/// (taille chiffree - 64).
+const ENVELOPPE_VEX2: i64 = 64;
+
+/// Taille DECHIFFREE d'un fichier a partir de son contenu stocke (base64
+/// du blob chiffre). BUG CORRIGE : la colonne `taille` recevait tantot la
+/// taille chiffree (site web), tantot la taille claire (client Windows),
+/// si bien que VEX Cloud annoncait a Windows 64 octets de trop et ne
+/// pouvait plus ouvrir ces fichiers ("operation de cloud non valide").
+/// Calcule sans decoder tout le contenu.
+pub(super) fn taille_claire_b64(b64: &str) -> i64 {
+    let b = b64.trim_end();
+    let pad = b.bytes().rev().take_while(|&c| c == b'=').count();
+    let longueur = (b.len() / 4 * 3).saturating_sub(pad) as i64;
+    let chiffre = b
+        .get(..8)
+        .and_then(|debut| B64.decode(debut).ok())
+        .map_or(false, |o| o.starts_with(b"VEX2"));
+    if chiffre && longueur >= ENVELOPPE_VEX2 {
+        longueur - ENVELOPPE_VEX2
+    } else {
+        longueur
+    }
+}
+
 pub(super) fn json_response(status: u16, body: Value) -> Response<std::io::Cursor<Vec<u8>>> {
     Response::from_data(body.to_string().into_bytes())
         .with_status_code(status)
@@ -1068,12 +1094,13 @@ fn api_upload(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std::io::C
         return json_response(400, json!({"error": format!("Extension .{} non autorisée", ext)}));
     }
 
-    // Taille réelle depuis le base64 si non fournie
-    let taille_reelle = if taille > 0 {
-        taille
+    // Taille DECHIFFREE calculee depuis le contenu recu -- jamais celle
+    // annoncee par le client (chiffree cote site web, claire cote client
+    // Windows : voir taille_claire_b64).
+    let taille_reelle = if !file_b64.is_empty() {
+        taille_claire_b64(&file_b64)
     } else {
-        // base64: 4 chars = 3 bytes
-        file_b64.len() as i64 * 3 / 4
+        taille.max(0)
     };
 
     // FIX (demande utilisateur : "la limite de place ne marche pas") --
@@ -1679,7 +1706,7 @@ fn api_edit_content(pool: &DbPool, req: &mut Request, uid: i64) -> Response<std:
     if B64.decode(contenu_b64).is_err() {
         return json_response(400, json!({"error":"Contenu invalide (base64 attendu)."}));
     }
-    let taille_reelle = contenu_b64.len() as i64 * 3 / 4;
+    let taille_reelle = taille_claire_b64(contenu_b64);
     // La colonne `date` doit refleter la derniere modification du CONTENU,
     // pas seulement la creation -- sans ca, un client de sync (ou tout
     // consommateur de l'API) ne peut pas distinguer un fichier inchange

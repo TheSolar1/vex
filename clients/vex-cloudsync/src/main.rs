@@ -248,7 +248,7 @@ impl SyncFilter for Filter {
         let contenu = id.and_then(|id| match self.client.telecharger(id) {
             Ok(c) => Some(c),
             Err(e) => {
-                println!("fetch_data: erreur telechargement id={id} : {e} -- ecrit du contenu vide plutot que d'echouer (voir FIX crash 0xc0000409)");
+                fenetre_mdp::diag(&format!("fetch_data: erreur telechargement id={id} : {e}"));
                 None
             }
         });
@@ -273,6 +273,26 @@ impl SyncFilter for Filter {
         // infiniment mieux qu'un crash qui coupe tout le monde ; nettoye
         // des que la reconciliation peut a nouveau lire ses metadonnees
         // (voir le fix catch_unwind sur nettoyer_placeholders_orphelines).
+        // BUG CORRIGE ("je ne peux pas ouvrir un fichier depuis le dossier
+        // VEX Cloud") : la taille annoncee par le serveur etait souvent la
+        // taille CHIFFREE (+64 octets, fichiers envoyes depuis le site).
+        // Windows exige qu'on remplisse le fichier jusqu'a sa taille
+        // declaree : impossible, d'ou "operation de cloud non valide".
+        // La taille ne peut pas changer pendant ce transfert : on la
+        // corrige juste apres (autre thread, une fois ce fetch termine) --
+        // l'ouverture suivante fonctionne, et le serveur enregistre
+        // desormais la bonne taille pour les nouveaux envois.
+        if let Some(c) = &contenu {
+            let taille_declaree = request.file_size();
+            if c.len() as u64 != taille_declaree {
+                fenetre_mdp::diag(&format!(
+                    "fetch_data: taille declaree {taille_declaree} != reelle {} -- correction de la placeholder",
+                    c.len()
+                ));
+                corriger_taille_placeholder(request.path(), c.len() as u64, id.unwrap_or(0));
+            }
+        }
+
         let zeros;
         let source: &[u8] = match &contenu {
             Some(c) => c,
@@ -284,8 +304,14 @@ impl SyncFilter for Filter {
         let fin = (start as usize + longueur).min(source.len());
         let debut = (start as usize).min(fin);
 
+        fenetre_mdp::diag(&format!(
+            "fetch_data: id={id:?} plage={start}..{} contenu={:?} ecrit={}",
+            range.end,
+            contenu.as_ref().map(|c| c.len()),
+            fin - debut
+        ));
         if let Err(e) = ticket.write_at(&source[debut..fin], start) {
-            println!("fetch_data: write_at a echoue ({e:?}) -- ignore plutot que de renvoyer Err (voir FIX crash 0xc0000409)");
+            fenetre_mdp::diag(&format!("fetch_data: write_at a echoue : {e:?}"));
         }
 
         Ok(())
@@ -651,6 +677,79 @@ fn lancer_reconciliation_periodique(client_path: String, client: VexClient) -> m
         }
     });
     tx_stop
+}
+
+/// Remet la taille d'une placeholder a sa vraie valeur (dechiffree), une
+/// fois le fetch_data en cours termine (la placeholder est alors libre).
+/// Garde l'identite (blob) et la marque synchronisee, et la deshydrate
+/// pour que le prochain acces redemande le contenu complet.
+fn corriger_taille_placeholder(chemin: PathBuf, taille: u64, id: i64) {
+    std::thread::spawn(move || {
+        let blob = encoder_blob_fichier(id);
+        for _ in 0..20 {
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            // Handle Win32 ordinaire (celui de Placeholder::open est un
+            // handle "protege" refuse par CfUpdatePlaceholder). Ouvrir en
+            // ecriture sans lire n'hydrate pas le fichier.
+            use std::os::windows::fs::OpenOptionsExt;
+            const FILE_WRITE_DATA: u32 = 0x2;
+            const FILE_READ_ATTRIBUTES: u32 = 0x80;
+            const FILE_WRITE_ATTRIBUTES: u32 = 0x100;
+            let Ok(f) = std::fs::OpenOptions::new()
+                .access_mode(FILE_WRITE_DATA | FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES)
+                .share_mode(7)
+                .open(&chemin)
+            else {
+                continue;
+            };
+            match maj_taille_placeholder(&f, taille, &blob) {
+                Ok(()) => {
+                    fenetre_mdp::diag(&format!("taille corrigee : {chemin:?} -> {taille}"));
+                    return;
+                }
+                Err(e) => fenetre_mdp::diag(&format!("correction de taille {chemin:?} : {e:?}")),
+            }
+        }
+    });
+}
+
+/// CfUpdatePlaceholder appele directement (UpdateOptions du crate
+/// cloud-filter 0.0.6 construit des parametres refuses par Windows) :
+/// nouvelle taille, dates et attributs actuels conserves, marquee
+/// synchronisee.
+fn maj_taille_placeholder(f: &std::fs::File, taille: u64, blob: &[u8]) -> windows::core::Result<()> {
+    use std::os::windows::io::AsRawHandle;
+    use windows::Win32::Foundation::HANDLE;
+    use windows::Win32::Storage::CloudFilters::{CfUpdatePlaceholder, CF_FS_METADATA, CF_UPDATE_FLAG_MARK_IN_SYNC};
+    use windows::Win32::Storage::FileSystem::{FileBasicInfo, GetFileInformationByHandleEx, FILE_BASIC_INFO};
+    let h = HANDLE(f.as_raw_handle() as _);
+    let mut info = FILE_BASIC_INFO::default();
+    unsafe {
+        GetFileInformationByHandleEx(
+            h,
+            FileBasicInfo,
+            &mut info as *mut _ as *mut _,
+            std::mem::size_of::<FILE_BASIC_INFO>() as u32,
+        )?;
+    }
+    // Seulement les attributs "utilisateur" (pas reparse/recall/offline).
+    info.FileAttributes &= 0x1 | 0x2 | 0x4 | 0x20 | 0x2000;
+    if info.FileAttributes == 0 {
+        info.FileAttributes = 0x80; // FILE_ATTRIBUTE_NORMAL
+    }
+    let meta = CF_FS_METADATA { BasicInfo: info, FileSize: taille as i64 };
+    unsafe {
+        CfUpdatePlaceholder(
+            h,
+            Some(&meta),
+            Some(blob.as_ptr() as *const _),
+            blob.len() as u32,
+            None,
+            CF_UPDATE_FLAG_MARK_IN_SYNC,
+            None,
+            None,
+        )
+    }
 }
 
 /// Fichiers temporaires / systeme jamais envoyes (verrous Office, caches
