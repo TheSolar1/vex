@@ -91,14 +91,17 @@ pub fn traiter(mut request: Request, pool: &DbPool, node_state: &Arc<RwLock<Node
             return;
         }
         let Some(s) = session else {
-            // Pas connecte : connexion VEX dans un onglet, puis on continue seul.
+            // Pas connecte : le formulaire de connexion VEX s'affiche ICI, dans
+            // un cadre du meme site (/login autorise X-Frame-Options SAMEORIGIN),
+            // sans ouvrir d'autre page. Des que la session existe, on continue.
             let corps = format!(
-                "<p class=\"sso-demande\"><b>{service}</b> veut vérifier votre identité VEX.</p>\
-                 <div class=\"sso-cadre\">Connectez-vous d'abord à VEX : cette page continuera toute seule.</div>\
-                 <div class=\"sso-boutons\"><a class=\"sso-btn\" href=\"/login\" target=\"_blank\" rel=\"opener\">Se connecter à VEX</a></div>\
+                "<p class=\"sso-demande\"><b>{service}</b> veut vérifier votre identité VEX. Connectez-vous ci-dessous : \
+                 la page continuera toute seule.</p>\
+                 <iframe src=\"/login\" title=\"Connexion à VEX\" \
+                 style=\"width:100%;height:560px;border:1px solid var(--panel-border);border-radius:10px;background:var(--bg)\"></iframe>\
                  <p class=\"sso-petit\" id=\"attente\">En attente de votre connexion…</p>\
                  <script>setInterval(function(){{fetch('/p2p/sso/etat',{{cache:'no-store'}}).then(function(r){{return r.json()}})\
-                 .then(function(d){{if(d.connecte)location.reload()}}).catch(function(){{}})}},2000);</script>",
+                 .then(function(d){{if(d.connecte)location.reload()}}).catch(function(){{}})}},1500);</script>",
                 service = html_escape(&service)
             );
             return page(request, "Connexion à un service externe", &corps, "light");
