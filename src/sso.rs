@@ -91,20 +91,10 @@ pub fn traiter(mut request: Request, pool: &DbPool, node_state: &Arc<RwLock<Node
             return;
         }
         let Some(s) = session else {
-            // Pas connecte : le formulaire de connexion VEX s'affiche ICI, dans
-            // un cadre du meme site (/login autorise X-Frame-Options SAMEORIGIN),
-            // sans ouvrir d'autre page. Des que la session existe, on continue.
-            let corps = format!(
-                "<p class=\"sso-demande\"><b>{service}</b> veut vérifier votre identité VEX. Connectez-vous ci-dessous : \
-                 la page continuera toute seule.</p>\
-                 <iframe src=\"/login\" title=\"Connexion à VEX\" \
-                 style=\"width:100%;height:560px;border:1px solid var(--panel-border);border-radius:10px;background:var(--bg)\"></iframe>\
-                 <p class=\"sso-petit\" id=\"attente\">En attente de votre connexion…</p>\
-                 <script>setInterval(function(){{fetch('/p2p/sso/etat',{{cache:'no-store'}}).then(function(r){{return r.json()}})\
-                 .then(function(d){{if(d.connecte)location.reload()}}).catch(function(){{}})}},1500);</script>",
-                service = html_escape(&service)
-            );
-            return page(request, "Connexion à un service externe", &corps, "light");
+            // Pas connecte : directement la vraie page de connexion VEX, qui
+            // revient ici apres la connexion (`next` n'accepte qu'un chemin
+            // local, voir cibleApresConnexion dans login.html).
+            return rediriger(request, &format!("/login?next={}", enc(&ici)), None);
         };
         // Domaine deja autorise par ce compte : pas de page d'accord.
         if accords(&request, node_state, s.user_id).iter().any(|d| *d == domaine(&retour)) {
