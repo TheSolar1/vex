@@ -331,6 +331,9 @@ const APPS_VEX: &[(&str, &str, &str)] = &[
     ("Vidéos", "/viso/", "Visioconférence"),
     ("Sitec", "/sitec/", "Éditeur de sites web"),
     ("Compte", "/login/account", "Paramètres du compte et abonnement"),
+    // Jeu servi par Apache sous /worldfront/ (processus a part) : trouvable
+    // seulement par la Recherche, pas dans le menu de VEX.
+    ("WorldFront", "/worldfront/", "Jeu de stratégie et de guerre multijoueur"),
 ];
 
 /// Recherche par TITRE uniquement (une app n'a pas de "contenu") parmi les
