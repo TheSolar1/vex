@@ -453,6 +453,28 @@ fn api_connecter(
         cookie_id
     );
 
+    // `next` : page du site ou aller apres la connexion (ex. /worldfront/jeu).
+    // Seulement un chemin local (pas de //, \ ni schema) : jamais un autre
+    // site. Page intermediaire plutot qu'un 302 : un lien ouvert depuis une
+    // autre appli est une navigation inter-sites, et le cookie SameSite=Strict
+    // ne suivrait pas la redirection ; location.replace() repart du site.
+    let next = params.get("next").map(|s| s.as_str()).unwrap_or("");
+    let local = next.starts_with('/') && !next.starts_with("//") && !next.contains('\\') && !next.contains("://")
+        && !next.contains(['<', '>', '"', '\'']);
+    if local {
+        let cible = serde_json::to_string(next).unwrap_or_else(|_| "\"/\"".into());
+        let attr = next.replace('&', "&amp;").replace('"', "&quot;").replace('<', "&lt;");
+        let html = format!(
+            "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"0;url={}\">\
+             <script>location.replace({});</script></head><body></body></html>",
+            attr, cible
+        );
+        return Response::from_string(html)
+            .with_header(tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap())
+            .with_header(tiny_http::Header::from_bytes("Cache-Control", "no-store").unwrap())
+            .with_header(tiny_http::Header::from_bytes("Set-Cookie", cookie_header.as_bytes()).unwrap());
+    }
+
     Response::from_string("")
         .with_status_code(302)
         .with_header(tiny_http::Header::from_bytes("Location", b"/login/dashboard").unwrap())
