@@ -43,9 +43,60 @@ pub const COMPOSANTS: [(&str, u32); 20] = [
     ("Plugins", 3),
 ];
 
-/// Seuil au-dessus duquel deux empreintes sont la meme machine
-/// (ex : meme PC apres une mise a jour de Firefox).
-pub const SEUIL_MEME_MACHINE: u32 = 70;
+/// Composants qui dependent de la MACHINE et pas du navigateur (index dans
+/// COMPOSANTS, poids) : le meme PC vu par Chrome, Edge et Firefox doit
+/// rester UNE machine. Canvas, audio, maths, parametres WebGL, plugins…
+/// changent d'un navigateur a l'autre : ils sont exclus. La memoire pese
+/// peu (Firefox ne la donne pas).
+const MATERIEL: [(usize, u32); 10] = [
+    (1, 6),  // Systeme
+    (2, 2),  // Langues
+    (3, 3),  // Plateforme
+    (4, 5),  // Coeurs CPU
+    (5, 1),  // Memoire
+    (6, 4),  // Tactile
+    (7, 6),  // Ecran
+    (9, 3),  // Fuseau horaire
+    (10, 6), // Carte graphique
+    (12, 8), // Polices installees
+];
+
+/// Seuil (sur le materiel seulement) pour regrouper deux appareils en une
+/// meme machine.
+pub const SEUIL_MATERIEL: u32 = 80;
+
+/// Partage suspect : au moins 3 machines vues depuis au moins 3 reseaux
+/// differents, ou 5 machines et plus (un PC, un telephone et une tablette
+/// a la maison ne declenchent rien).
+const SUSPECT_MACHINES: usize = 3;
+const SUSPECT_RESEAUX: usize = 3;
+const SUSPECT_MACHINES_SEULES: usize = 5;
+
+/// Ressemblance ponderee sur les composants materiels uniquement.
+pub fn similarite_machine(a: &[String], b: &[String]) -> u32 {
+    if a.len() != COMPOSANTS.len() || b.len() != COMPOSANTS.len() {
+        return 0;
+    }
+    let total: u32 = MATERIEL.iter().map(|(_, p)| p).sum();
+    let communs: u32 = MATERIEL.iter().filter(|(i, _)| a[*i] == b[*i]).map(|(_, p)| p).sum();
+    ((communs as f64 / total as f64) * 100.0).round() as u32
+}
+
+/// Navigateur pilote par un programme (tests, robots) : compte a part.
+pub fn est_automatise(l: &Ligne) -> bool {
+    let ua = l.ua.to_lowercase();
+    ua.contains("headless") || ua.contains("puppeteer") || ua.contains("playwright") || ua.contains("selenium")
+}
+
+/// Reseau d'une IP : /24 en IPv4, /48 en IPv6 (une box change parfois
+/// d'adresse dans le meme bloc).
+fn reseau(ip: &str) -> String {
+    if ip.contains(':') {
+        ip.split(':').take(3).collect::<Vec<_>>().join(":")
+    } else {
+        ip.rsplitn(2, '.').nth(1).unwrap_or(ip).to_string()
+    }
+}
 
 #[derive(Clone)]
 pub struct Ligne {
@@ -160,20 +211,39 @@ pub fn correspondance_compte(lignes: &[Ligne], compte: &str, hash: &str, comps: 
     siens.iter().map(|l| similarite(comps, &l.comps)).max()
 }
 
-/// Regroupe des empreintes en "machines" : deux empreintes a
-/// SEUIL_MEME_MACHINE % ou plus sont la meme machine.
-fn nb_machines(appareils: &[&Ligne]) -> usize {
-    let mut groupes: Vec<Vec<&Ligne>> = Vec::new();
+/// Regroupe des appareils en "machines" d'apres le MATERIEL : meme PC avec
+/// plusieurs navigateurs = une machine. Deux appareils sont aussi la meme
+/// machine s'ils partagent une IP avec le meme systeme et le meme ecran.
+fn machines(appareils: &[&Ligne]) -> Vec<Vec<Ligne>> {
+    let mut groupes: Vec<Vec<Ligne>> = Vec::new();
     for a in appareils {
-        match groupes
-            .iter_mut()
-            .find(|g| g.iter().any(|b| similarite(&a.comps, &b.comps) >= SEUIL_MEME_MACHINE))
-        {
-            Some(g) => g.push(a),
-            None => groupes.push(vec![a]),
+        let meme = |b: &Ligne| {
+            similarite_machine(&a.comps, &b.comps) >= SEUIL_MATERIEL
+                || (a.ip == b.ip && a.comps.len() == COMPOSANTS.len() && b.comps.len() == COMPOSANTS.len()
+                    && a.comps[1] == b.comps[1] && a.comps[7] == b.comps[7])
+        };
+        match groupes.iter_mut().find(|g| g.iter().any(meme)) {
+            Some(g) => g.push((*a).clone()),
+            None => groupes.push(vec![(*a).clone()]),
         }
     }
-    groupes.len()
+    groupes
+}
+
+/// Petit resume d'une machine pour le panel : systeme, navigateurs, reseaux.
+fn decrire(g: &[Ligne]) -> Value {
+    let navigateurs: BTreeSet<String> = g
+        .iter()
+        .map(|l| l.detail.split(" · ").nth(1).unwrap_or("?").to_string())
+        .collect();
+    let systeme = g.first().map(|l| l.detail.split(" · ").next().unwrap_or("?").to_string()).unwrap_or_default();
+    let reseaux: BTreeSet<String> = g.iter().map(|l| reseau(&l.ip)).collect();
+    json!({
+        "systeme": systeme,
+        "navigateurs": navigateurs,
+        "reseaux": reseaux,
+        "derniere": g.iter().map(|l| l.date.clone()).max().unwrap_or_default(),
+    })
 }
 
 /// Resume pour le panel admin : appareils, comptes et dernieres visites.
@@ -233,28 +303,38 @@ pub fn resume_admin() -> Value {
     let mut comptes: Vec<Value> = par_compte
         .iter()
         .map(|(compte, apps)| {
-            let machines = nb_machines(apps);
-            // Ressemblance moyenne entre les appareils du compte : proche de
-            // 100 % = memes machines ; tres bas = machines sans rapport.
+            // Les navigateurs automatises (tests, robots) sont comptes a part.
+            let (auto, humains): (Vec<&Ligne>, Vec<&Ligne>) = apps.iter().partition(|l| est_automatise(l));
+            let groupes = machines(&humains);
+            // Ressemblance moyenne du MATERIEL entre les machines du compte :
+            // proche de 100 % = memes machines ; tres bas = sans rapport.
             let mut paires = Vec::new();
-            for i in 0..apps.len() {
-                for j in (i + 1)..apps.len() {
-                    paires.push(similarite(&apps[i].comps, &apps[j].comps));
+            for i in 0..groupes.len() {
+                for j in (i + 1)..groupes.len() {
+                    paires.push(similarite_machine(&groupes[i][0].comps, &groupes[j][0].comps));
                 }
             }
-            let moyenne = if paires.is_empty() {
-                100
+            let moyenne = if paires.is_empty() { 100 } else { paires.iter().sum::<u32>() / paires.len() as u32 };
+            let reseaux: BTreeSet<String> = humains.iter().map(|l| reseau(&l.ip)).collect();
+            let n = groupes.len();
+            let suspect = (n >= SUSPECT_MACHINES && reseaux.len() >= SUSPECT_RESEAUX) || n >= SUSPECT_MACHINES_SEULES;
+            let raison = if !suspect {
+                String::new()
+            } else if n >= SUSPECT_MACHINES_SEULES {
+                format!("{} machines différentes", n)
             } else {
-                paires.iter().sum::<u32>() / paires.len() as u32
+                format!("{} machines depuis {} réseaux différents", n, reseaux.len())
             };
             json!({
                 "compte": compte,
                 "empreintes": apps.len(),
-                "machines": machines,
+                "machines": n,
+                "reseaux": reseaux.len(),
+                "automatises": auto.len(),
                 "ressemblance": moyenne,
-                // PC + telephone = 2 machines, normal. 3 ou plus = compte
-                // possiblement partage entre plusieurs personnes.
-                "partage_suspect": machines >= 3,
+                "partage_suspect": suspect,
+                "raison": raison,
+                "machines_detail": groupes.iter().map(|g| decrire(g)).collect::<Vec<_>>(),
             })
         })
         .collect();
@@ -288,4 +368,37 @@ pub fn resume_admin() -> Value {
         "recents": recents,
         "composants": COMPOSANTS.iter().map(|(n, p)| json!({"nom": n, "poids": p})).collect::<Vec<_>>(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ligne(ip: &str, ua: &str, comps: &[&str]) -> Ligne {
+        Ligne {
+            date: "2026-10-06".into(), hash: format!("{:?}", comps), ip: ip.into(), page: "login".into(), ua: ua.into(),
+            detail: "Windows · Chrome".into(), compte: "1".into(), comps: comps.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    /// Composants : on change seulement ceux qui dependent du navigateur.
+    fn pc(nav: &str) -> Vec<&'static str> {
+        let nav: &'static str = Box::leak(nav.to_string().into_boxed_str());
+        vec![nav, "win", "fr", "x64", "8", "8", "0", "1920", "24", "paris", "rtx", nav, "polices", nav, nav, nav, nav, nav, nav, nav]
+    }
+
+    #[test]
+    fn meme_pc_plusieurs_navigateurs_une_machine() {
+        let a = ligne("1.2.3.4", "Chrome", &pc("chrome"));
+        let b = ligne("1.2.3.4", "Edge", &pc("edge"));
+        let c = ligne("1.2.3.9", "Firefox", &pc("firefox"));
+        assert!(similarite(&a.comps, &b.comps) < 70, "l'ancien calcul les separait");
+        assert_eq!(machines(&[&a, &b, &c]).len(), 1, "un seul PC");
+    }
+
+    #[test]
+    fn navigateur_automatise_ignore() {
+        assert!(est_automatise(&ligne("1.1.1.1", "Mozilla/5.0 HeadlessChrome/141", &pc("x"))));
+        assert!(!est_automatise(&ligne("1.1.1.1", "Mozilla/5.0 Chrome/141", &pc("x"))));
+    }
 }

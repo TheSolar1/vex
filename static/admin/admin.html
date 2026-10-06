@@ -744,7 +744,9 @@ function renderUsers(users){
         const vipLock=u.vip_paye&&!IS_FOUNDER;
         const vipPaidBadge=u.vip_paye?` <span class="b bx" title="Plan payé par le client"><span class="vi" style="--i:url(/static/img/solid/credit-card.svg)"></span></span>`:'';
         const fp=S.fpComptes?S.fpComptes[u.nom]:null;
-        const fpCell=!S.fpComptes?'':`<td>${fp?`<span class="b bx">${fp.machines} machine${fp.machines>1?'s':''}</span> ${pctBadge(fp.ressemblance)}${fp.partage_suspect?' <span class="b br">partage suspect</span>':''}`:'<span class="b bx">—</span>'}</td>`;
+        // Detail au survol : chaque machine (systeme, navigateurs, reseaux) et la raison du verdict.
+        const fpDetail=fp?[(fp.machines_detail||[]).map((m,i)=>`Machine ${i+1} : ${m.systeme} · ${(m.navigateurs||[]).join(', ')} · ${(m.reseaux||[]).length} réseau(x)`).join('\n'),fp.automatises?`+ ${fp.automatises} navigateur(s) automatisé(s), non comptés`:'' ,fp.raison?`Suspect : ${fp.raison}`:''].filter(Boolean).join('\n'):'';
+        const fpCell=!S.fpComptes?'':`<td title="${esc(fpDetail)}">${fp?`<span class="b bx">${fp.machines} machine${fp.machines>1?'s':''}</span> ${pctBadge(fp.ressemblance)}${fp.partage_suspect?' <span class="b br">partage suspect</span>':''}`:'<span class="b bx">—</span>'}</td>`;
         return`<tr data-s="${(u.nom+u.email).toLowerCase()}"><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${badge}</td><td><select class="isel" style="color:${pCol(u.privilege)};font-weight:600" onchange="setPriv(${u.id},this.value)">${po}</select></td><td><select class="vip-sel" onchange="setVip(${u.id},this.value,${u.vip_paye?'true':'false'},'${esc(u.nom)}')" ${vipLock?'disabled title="Plan payé — seul le fondateur peut le modifier"':''}>${vipOpts(u.vip)}</select>${vipPaidBadge}</td>${fpCell}<td><button class="btn br2" data-del-uid="${u.id}" data-del-nom="${esc(u.nom)}"><img src="/static/img/solid/trash.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.SUPPRIMER}</button></td></tr>`;
     }).join('')}</tbody></table>`;
 }
