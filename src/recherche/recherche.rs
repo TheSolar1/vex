@@ -334,6 +334,9 @@ const APPS_VEX: &[(&str, &str, &str)] = &[
     // Jeu servi par Apache sous /worldfront/ (processus a part) : trouvable
     // seulement par la Recherche, pas dans le menu de VEX.
     ("WorldFront", "/worldfront/", "Jeu de stratégie et de guerre multijoueur"),
+    // Experience (jeu a part, Apache /spotimaster/) : trouvable aussi en
+    // cherchant « expérience ».
+    ("Spoti Master", "/spotimaster/", "Expérience · jeu façon Pokémon où l'on collectionne des musiques"),
 ];
 
 /// Recherche par TITRE uniquement (une app n'a pas de "contenu") parmi les
@@ -346,7 +349,7 @@ fn apps_rechercher(q: &str) -> Vec<Value> {
     }
     APPS_VEX
         .iter()
-        .filter(|(titre, _, _)| titre.to_lowercase().contains(&motif))
+        .filter(|(titre, _, description)| titre.to_lowercase().contains(&motif) || (motif.chars().count() >= 4 && description.to_lowercase().contains(&motif)))
         .map(|(titre, url, description)| {
             json!({
                 "type": "app",
