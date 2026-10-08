@@ -336,7 +336,7 @@ const APPS_VEX: &[(&str, &str, &str)] = &[
     ("WorldFront", "/worldfront/", "Jeu de stratégie et de guerre multijoueur"),
     // Experience (jeu a part, Apache /spotimaster/) : trouvable aussi en
     // cherchant « expérience ».
-    ("Spoti Master", "/spotimaster/", "Expérience · jeu façon Pokémon où l'on collectionne des musiques"),
+    ("soundex", "/spotimaster/", "Expérience · jeu façon Pokémon où l'on collectionne des musiques (ex Spoti Master)"),
 ];
 
 /// Recherche par TITRE uniquement (une app n'a pas de "contenu") parmi les
