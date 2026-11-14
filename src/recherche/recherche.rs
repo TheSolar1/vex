@@ -337,6 +337,10 @@ const APPS_VEX: &[(&str, &str, &str)] = &[
     // Experience (jeu a part, Apache /spotimaster/) : trouvable aussi en
     // cherchant « expérience ».
     ("soundex", "/spotimaster/", "Expérience · jeu façon Pokémon où l'on collectionne des musiques (ex Spoti Master)"),
+    // Jeu de balance (page statique, static/jeux/bonne-mesure/) : trouvable
+    // seulement par la Recherche, comme les autres jeux. Aussi en cherchant
+    // « balance », « poids » ou « planète » (description).
+    ("La bonne mesure", "/static/jeux/bonne-mesure/index.html", "Jeu de balance · devine le poids d'animaux, de monuments et de planètes"),
 ];
 
 /// Recherche par TITRE uniquement (une app n'a pas de "contenu") parmi les

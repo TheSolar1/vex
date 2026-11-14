@@ -1,0 +1,1229 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f2f0e9">
+  <title>La bonne mesure</title>
+  <style>
+    /* Une balance en laiton sur papier crème : la scène à gauche, les commandes du mode à droite. */
+    :root {
+      color-scheme: light;
+      --paper: #f2f0e9;
+      --ink: #202a26;
+      --muted: #6c746a;
+      --green: #265746;
+      --green-dark: #193d32;
+      --green-soft: #e2f0e4;
+      --coral: #e17458;
+      --coral-dark: #c95d42;
+      --amber: #b7791f;
+      --amber-soft: #fbf0dc;
+      --red: #c4523a;
+      --red-soft: #f8e4de;
+      --yellow: #e7bd59;
+      --line: #deddd3;
+      --white: #fffefa;
+      --chip: #f3f2eb;
+      --shadow: 0 18px 50px #26392b14;
+      --serif: Fraunces, Georgia, serif;
+      --sans: 'DM Sans', 'Trebuchet MS', sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background-color: var(--paper);
+      background-image: radial-gradient(#68715a14 .7px, transparent .7px);
+      background-size: 7px 7px;
+      font-family: var(--sans);
+    }
+    button, input, select { font: inherit; color: inherit; }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+
+    /* ------------------------------------------------------------ en-tête */
+    .topbar {
+      height: 64px;
+      padding: 0 clamp(16px, 5vw, 72px);
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      border-bottom: 1px solid #dcdacf;
+      background: #f7f5efcc;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; font-weight: 700; letter-spacing: .02em; }
+    .brand-mark { width: 31px; height: 31px; display: grid; place-items: center; background: var(--green); color: white; border-radius: 50%; }
+    .brand-mark svg { width: 18px; height: 18px; }
+    .top-tools { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; }
+    .best { white-space: nowrap; }
+    .best strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+    .mode-button {
+      min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 18px; background: var(--white);
+      font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .mode-button:hover { border-color: #8aa18b; }
+    .icon-button {
+      width: 36px; height: 36px; display: grid; place-items: center; padding: 0;
+      border: 1px solid var(--line); border-radius: 50%; background: var(--white); cursor: pointer;
+    }
+    .icon-button:hover { border-color: #8aa18b; }
+    .icon-button svg { width: 17px; height: 17px; }
+
+    /* ------------------------------------------------------------ mise en page */
+    main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 26px 0 24px; }
+    .intro { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
+    .eyebrow { color: var(--green); font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 4px 0 0; font: 700 clamp(28px, 5vw, 42px)/1.05 var(--serif); text-wrap: balance; }
+    .round-status { display: flex; align-items: center; gap: 14px; }
+    .round-copy { color: var(--muted); font-size: 12px; white-space: nowrap; text-align: right; }
+    .round-copy strong { color: var(--ink); font-size: 14px; font-variant-numeric: tabular-nums; }
+    .progress { width: 96px; height: 7px; overflow: hidden; border-radius: 6px; background: var(--line); }
+    .progress-fill { width: 0; height: 100%; background: var(--coral); border-radius: inherit; transition: width .4s ease; }
+
+    .layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(300px, .7fr); gap: 18px; align-items: stretch; }
+    .panel { border: 1px solid var(--line); border-radius: 10px; background: var(--white); box-shadow: var(--shadow); }
+
+    /* ------------------------------------------------------------ scène */
+    .stage-panel { position: relative; padding: 20px 20px 16px; display: flex; flex-direction: column; min-width: 0; }
+    .stage-head { display: flex; justify-content: space-between; align-items: start; gap: 14px; }
+    .stage-head h2 { margin: 3px 0 0; font: 600 25px/1.1 var(--serif); text-wrap: balance; }
+    .object-detail { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.4; max-width: 52ch; }
+    .lock-badge {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 5px;
+      background: #f3eee1; color: #806b3c; font-size: 11px; font-weight: 700; white-space: nowrap;
+    }
+    .lock-badge.free { background: var(--green-soft); color: var(--green-dark); }
+    .lock-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+    .stage {
+      position: relative; flex: 1; margin-top: 12px; border-radius: 8px; overflow: hidden;
+      background-color: #edf1e8;
+      background-image: linear-gradient(#ffffff80 1px, transparent 1px), linear-gradient(90deg, #ffffff80 1px, transparent 1px);
+      background-size: 25px 25px;
+    }
+    .stage svg { display: block; width: 100%; height: auto; }
+    .pan-weight { cursor: pointer; }
+    .pan-weight:hover .w-body { opacity: .65; }
+    .pan-total, .mystery-tag {
+      position: absolute; top: 12px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 5px;
+      background: #fffefaee; font-size: 12px; color: var(--muted); max-width: 46%;
+    }
+    .pan-total { right: 12px; text-align: right; }
+    .mystery-tag { left: 12px; }
+    .pan-total strong, .mystery-tag strong { font-size: 15px; font-variant-numeric: tabular-nums; }
+    .pan-total strong { color: var(--ink); }
+    .mystery-tag strong { color: var(--coral-dark); }
+
+    .feedback {
+      min-height: 46px; margin-top: 12px; padding: 11px 13px; border-radius: 6px; background: var(--chip);
+      color: var(--muted); font-size: 14px; line-height: 1.4;
+    }
+    .feedback.good { background: var(--green-soft); color: var(--green-dark); font-weight: 700; }
+    .feedback.mid { background: var(--amber-soft); color: #7d4f10; font-weight: 600; }
+    .feedback.bad { background: var(--red-soft); color: #8e3a25; font-weight: 600; }
+
+    /* ------------------------------------------------------------ panneau de jeu */
+    .side { padding: 20px 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    .side h2 { margin: 3px 0 0; font: 600 21px/1.15 var(--serif); }
+    .play-zone, .result-zone, .mode-block { display: flex; flex-direction: column; gap: 12px; }
+
+    .tray { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+    .weight-button {
+      min-height: 62px; padding: 7px 8px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 7px;
+      border: 1px solid #e6e4da; border-radius: 7px; background: var(--white); cursor: pointer; text-align: left;
+      font-size: 12px; font-weight: 700;
+      transition: border-color .15s, background .15s, transform .1s;
+    }
+    .weight-button:hover:not(:disabled) { border-color: #b99a4b; background: #fbf6e8; transform: translateY(-2px); }
+    .weight-button:active:not(:disabled) { transform: translateY(1px); }
+    .weight-button:disabled { opacity: .45; cursor: not-allowed; }
+    .item-emoji { font-size: 27px; line-height: 1; text-align: center; }
+    .item-name { font-size: 12px; line-height: 1.25; overflow-wrap: anywhere; }
+
+    .pan-tools, .fine { display: flex; gap: 8px; }
+    .ghost-button {
+      flex: 1; min-height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--white);
+      font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .ghost-button:hover:not(:disabled) { border-color: #8aa18b; background: #f5f8f1; }
+    .ghost-button:disabled { opacity: .45; cursor: not-allowed; }
+    .ghost-button.big { font-size: 20px; font-weight: 700; }
+
+    .adjust-card { padding: 14px; border-radius: 8px; background: #f7f3e6; display: grid; gap: 10px; }
+    .adjust-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #806b3c; }
+    .adjust-value { font: 700 30px/1.1 var(--serif); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .adjust-range { width: 100%; height: 30px; margin: 0; accent-color: var(--green); cursor: pointer; }
+    .adjust-ends { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+    .field-label { font-size: 12px; font-weight: 700; }
+    .type-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .type-input, .type-unit {
+      height: 50px; border: 1px solid #d9dcd2; border-radius: 6px; background: var(--white); color: var(--ink);
+    }
+    .type-input { flex: 1 1 120px; min-width: 0; padding: 0 12px; font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .type-unit { flex: 1 1 140px; min-width: 0; padding: 0 8px; font-size: 14px; font-weight: 600; }
+    .hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+    .primary-button {
+      width: 100%; min-height: 50px; border: 0; border-radius: 7px; background: var(--green); color: white;
+      font-size: 15px; font-weight: 700; cursor: pointer; transition: background .15s, transform .15s;
+    }
+    .primary-button:hover:not(:disabled) { background: var(--green-dark); transform: translateY(-1px); }
+    .primary-button:disabled { background: #a9b5aa; cursor: not-allowed; }
+    .primary-button.coral { background: var(--coral); }
+    .primary-button.coral:hover { background: var(--coral-dark); }
+
+    .result { padding: 14px; border-radius: 7px; background: var(--chip); }
+    .result.good { background: var(--green-soft); }
+    .result.mid { background: var(--amber-soft); }
+    .result.bad { background: var(--red-soft); }
+    .result-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .result-title { font-weight: 700; font-size: 14px; }
+    .score-badge { padding: 5px 9px; border-radius: 5px; background: var(--muted); color: white; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .score-badge.good { background: var(--green); }
+    .score-badge.mid { background: var(--amber); }
+    .score-badge.bad { background: var(--red); }
+    .stars { margin-top: 6px; font-size: 22px; letter-spacing: 3px; color: var(--yellow); }
+    .stars .off { color: #d5d6cb; }
+    .result p { margin: 6px 0 0; font-size: 13px; color: #4f5a50; line-height: 1.45; }
+    .t-good { color: var(--green); }
+    .t-mid { color: var(--amber); }
+    .t-bad { color: var(--red); }
+
+    /* ------------------------------------------------------------ fenêtres */
+    .overlay {
+      position: fixed; inset: 0; z-index: 10; display: none; place-items: center; padding: 18px;
+      background: #1f2a25b3; overflow: auto;
+    }
+    .overlay.visible { display: grid; }
+    .card { width: min(500px, 100%); padding: 24px 22px 20px; border-radius: 12px; background: var(--white); box-shadow: 0 30px 80px #0006; }
+    .card h2 { margin: 6px 0 8px; font: 700 30px/1.1 var(--serif); }
+    .card p { margin: 0 0 14px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+    .mode-list { display: grid; gap: 8px; margin-bottom: 14px; }
+    .mode-option {
+      display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 12px; align-items: center; padding: 12px;
+      border: 1px solid var(--line); border-radius: 8px; background: var(--white); text-align: left; cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .mode-option:hover { border-color: #8aa18b; background: #f5f8f1; }
+    .mode-option.current { border-color: var(--green); box-shadow: 0 0 0 2px #26574622; }
+    .mode-icon { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: #edf1e8; font-size: 21px; }
+    .mode-name { display: flex; justify-content: space-between; gap: 8px; font-weight: 700; font-size: 15px; }
+    .mode-name small { color: var(--muted); font-weight: 600; font-size: 11px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .mode-desc { display: block; margin-top: 3px; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+    .final-score { font: 700 50px/1 var(--serif); font-variant-numeric: tabular-nums; }
+    .final-score small { font: 600 16px var(--sans); color: var(--muted); }
+    .rank { margin: 6px 0 14px; font-weight: 700; color: var(--coral-dark); }
+    .recap { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+    .recap li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 6px; background: var(--chip); font-variant-numeric: tabular-nums; }
+    .recap .r-w { color: var(--muted); text-align: right; }
+    .recap .r-s { font-weight: 800; min-width: 3ch; text-align: right; }
+    .end-actions { display: grid; gap: 8px; }
+
+    .credits { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding-bottom: 28px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+
+    @media (max-width: 800px) {
+      .layout { grid-template-columns: 1fr; }
+      .intro { align-items: start; flex-direction: column; gap: 10px; }
+      .round-copy { text-align: left; }
+      .stage-panel { padding: 16px 14px 14px; }
+      .side { padding: 16px 14px; }
+      .stage-head h2 { font-size: 21px; }
+    }
+    @media (max-width: 460px) {
+      .brand span:last-child, .best span { display: none; }
+      .tray { grid-template-columns: 1fr; }
+      .pan-total, .mystery-tag { font-size: 11px; padding: 5px 8px; }
+      .pan-total strong, .mystery-tag strong { font-size: 13px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 4v13m-7-8h14M5 9l-3 6h6L5 9Zm14 0-3 6h6l-3-6ZM8 20h8m-4-3v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span>La bonne mesure</span>
+    </div>
+    <div class="top-tools">
+      <div class="best"><span>Record : </span><strong id="best-label">—</strong></div>
+      <a class="mode-button" href="/recherche" style="display:inline-flex;align-items:center;text-decoration:none;color:inherit">VEX</a>
+      <button class="mode-button" id="mode-button" title="Changer de mode">Modes</button>
+      <button class="icon-button" id="sound-button" aria-label="Couper le son" title="Son" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path id="sound-waves" d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="intro" aria-label="Progression">
+      <div>
+        <div class="eyebrow" id="mode-eyebrow">Mode objets en face</div>
+        <h1 id="mode-title">Trouve l'équilibre.</h1>
+      </div>
+      <div class="round-status">
+        <div class="round-copy"><strong id="round-label">Objet 1 / 5</strong><br><span id="score-label">Moyenne en attente</span></div>
+        <div class="progress" aria-hidden="true"><div class="progress-fill" id="progress-fill"></div></div>
+      </div>
+    </section>
+
+    <div class="layout">
+      <section class="panel stage-panel" aria-labelledby="object-title">
+        <div class="stage-head">
+          <div>
+            <div class="eyebrow">Objet mystère</div>
+            <h2 id="object-title">…</h2>
+            <p class="object-detail" id="object-detail"></p>
+          </div>
+          <span class="lock-badge" id="lock-badge"><span class="lock-dot"></span><span id="lock-text">Balance calée</span></span>
+        </div>
+
+        <div class="stage">
+          <svg id="scale" viewBox="0 0 700 440" role="img" aria-labelledby="scale-desc">
+            <desc id="scale-desc">Balance à deux plateaux : l'objet mystère à gauche, ta mesure à droite.</desc>
+            <defs>
+              <linearGradient id="brassH" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0" stop-color="#8f6c22"/><stop offset=".38" stop-color="#ecd183"/>
+                <stop offset=".62" stop-color="#c9a24a"/><stop offset="1" stop-color="#7d5c1a"/>
+              </linearGradient>
+              <linearGradient id="brassV" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0" stop-color="#ecd183"/><stop offset=".5" stop-color="#c9a24a"/><stop offset="1" stop-color="#8a6a25"/>
+              </linearGradient>
+              <linearGradient id="wood" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0" stop-color="#7b5236"/><stop offset="1" stop-color="#4f3221"/>
+              </linearGradient>
+              <linearGradient id="dish" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0" stop-color="#e3c672"/><stop offset="1" stop-color="#96762c"/>
+              </linearGradient>
+            </defs>
+
+            <ellipse cx="350" cy="418" rx="240" ry="12" fill="#26392b1c"/>
+            <rect x="225" y="388" width="250" height="26" rx="5" fill="url(#wood)"/>
+            <rect x="245" y="378" width="210" height="12" rx="4" fill="#8a5f41"/>
+            <path d="M338 378 L343 150 h14 L362 378 Z" fill="url(#brassH)"/>
+            <rect x="330" y="366" width="40" height="13" rx="3" fill="url(#brassH)"/>
+            <rect x="336" y="238" width="28" height="9" rx="3" fill="url(#brassH)"/>
+            <path d="M314 232 A60 60 0 0 0 386 232" fill="none" stroke="#7d5c1a" stroke-width="2"/>
+            <g stroke="#7d5c1a" stroke-width="2" stroke-linecap="round">
+              <line x1="350" y1="236" x2="350" y2="246"/>
+              <line x1="332" y1="233" x2="330" y2="241"/><line x1="368" y1="233" x2="370" y2="241"/>
+              <line x1="316" y1="227" x2="312" y2="234"/><line x1="384" y1="227" x2="388" y2="234"/>
+            </g>
+
+            <!-- plateau gauche : objet mystère -->
+            <g id="pan-left">
+              <g stroke="#8a6a25" stroke-width="2" fill="none">
+                <line x1="0" y1="0" x2="-84" y2="150"/><line x1="0" y1="0" x2="84" y2="150"/><line x1="0" y1="0" x2="0" y2="150" opacity=".45"/>
+              </g>
+              <image id="object-image" x="0" y="0" width="10" height="10" preserveAspectRatio="xMidYMid meet"/>
+              <text id="object-emoji" x="0" y="134" text-anchor="middle" font-size="112" style="filter: drop-shadow(0 6px 4px #26392b44)"></text>
+              <text id="object-badge" x="62" y="140" text-anchor="middle" font-size="22" font-weight="800" fill="#4d3a10" stroke="#fffefa" stroke-width="5" paint-order="stroke" font-family="DM Sans, sans-serif"></text>
+              <path d="M-92 150 H92 Q80 178 0 180 Q-80 178 -92 150 Z" fill="url(#dish)"/>
+              <rect x="-94" y="146" width="188" height="6" rx="3" fill="#ecd183"/>
+              <circle r="5" fill="#7d5c1a"/>
+            </g>
+
+            <!-- plateau droit : la mesure du joueur -->
+            <g id="pan-right">
+              <g stroke="#8a6a25" stroke-width="2" fill="none">
+                <line x1="0" y1="0" x2="-84" y2="150"/><line x1="0" y1="0" x2="84" y2="150"/><line x1="0" y1="0" x2="0" y2="150" opacity=".45"/>
+              </g>
+              <g id="pan-weights"></g>
+              <path d="M-92 150 H92 Q80 178 0 180 Q-80 178 -92 150 Z" fill="url(#dish)"/>
+              <rect x="-94" y="146" width="188" height="6" rx="3" fill="#ecd183"/>
+              <circle r="5" fill="#7d5c1a"/>
+            </g>
+
+            <g id="beam">
+              <path d="M347 124 L350 232 L353 124 Z" fill="#b5462c"/>
+              <rect x="134" y="113" width="432" height="14" rx="7" fill="url(#brassV)"/>
+              <circle cx="140" cy="120" r="10" fill="url(#brassH)"/><circle cx="560" cy="120" r="10" fill="url(#brassH)"/>
+              <circle cx="350" cy="120" r="15" fill="url(#brassH)" stroke="#7d5c1a" stroke-width="2"/>
+              <circle cx="350" cy="120" r="5" fill="#7d5c1a"/>
+            </g>
+            <path d="M350 92 l-9 14 h18 Z" fill="url(#brassH)"/>
+          </svg>
+          <div class="mystery-tag">Objet<br><strong id="mystery-weight">? kg</strong></div>
+          <div class="pan-total"><span id="pan-label">Sur le plateau</span><br><strong id="pan-total">0 objet</strong></div>
+        </div>
+
+        <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
+      </section>
+
+      <aside class="panel side" aria-label="Ta mesure">
+        <div>
+          <div class="eyebrow" id="panel-round-label">Défi 1 / 5</div>
+          <h2 id="side-title">Mets des objets en face</h2>
+        </div>
+
+        <div class="play-zone" id="play-zone">
+          <!-- mode 1 : objets en face -->
+          <div class="mode-block" id="block-objects">
+            <div class="tray" id="tray" aria-label="Objets à poser en face"></div>
+            <div class="pan-tools">
+              <button class="ghost-button" id="undo-button">Retirer le dernier</button>
+              <button class="ghost-button" id="clear-button">Vider le plateau</button>
+            </div>
+          </div>
+
+          <!-- mode 2 : balance à régler -->
+          <div class="mode-block" id="block-adjust" hidden>
+            <div class="adjust-card">
+              <div class="adjust-label">Masse réglable</div>
+              <div class="adjust-value" id="adjust-value" aria-live="polite">—</div>
+              <input class="adjust-range" id="adjust-range" type="range" min="0" max="1000" step="1" value="500" aria-label="Régler la masse">
+              <div class="adjust-ends"><span id="adjust-min"></span><span id="adjust-max"></span></div>
+            </div>
+            <div class="fine">
+              <button class="ghost-button big" id="minus-button" aria-label="Un peu moins lourd">−</button>
+              <button class="ghost-button big" id="plus-button" aria-label="Un peu plus lourd">+</button>
+            </div>
+            <p class="hint">Fais glisser le curseur, puis affine avec − et +. Le vrai poids n'est pas forcément au milieu.</p>
+          </div>
+
+          <!-- mode 3 : au jugé -->
+          <div class="mode-block" id="block-type" hidden>
+            <label class="field-label" for="type-value">Ton estimation</label>
+            <div class="type-row">
+              <input class="type-input" id="type-value" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 4,5">
+              <select class="type-unit" id="type-unit" aria-label="Unité">
+                <option value="0.001">grammes</option>
+                <option value="1" selected>kilos</option>
+                <option value="1000">tonnes</option>
+                <option value="1e9">millions de tonnes</option>
+                <option value="1e12">milliards de tonnes</option>
+                <option value="5.97e24">× la masse de la Terre</option>
+                <option value="1.99e30">× la masse du Soleil</option>
+              </select>
+            </div>
+            <p class="hint">Pour une planète ou une étoile, compare avec la Terre ou le Soleil : « 300 × la masse de la Terre ».</p>
+          </div>
+
+          <button class="primary-button" id="weigh-button">Lâcher la balance</button>
+        </div>
+
+        <div class="result-zone" id="result-zone" hidden>
+          <div class="result" id="result-box" aria-live="polite">
+            <div class="result-top"><span class="result-title" id="result-title"></span><span class="score-badge" id="result-score"></span></div>
+            <div class="stars" id="result-stars" aria-hidden="true"></div>
+            <p id="result-detail"></p>
+          </div>
+          <button class="primary-button coral" id="next-button">Objet suivant</button>
+        </div>
+      </aside>
+    </div>
+  </main>
+  <footer class="credits">Photos : Aliva Sahoo (tours Eiffel, Wikimedia Commons, CC BY-SA 3.0), Pixabay (chaton), Suki Lee (plante) et Rulo Davila (radio) via Pexels. Masses des objets célèbres, planètes et étoiles : Wikipédia et Wikidata. Animaux, personnes et récipients : ordres de grandeur calculés par le jeu.</footer>
+
+  <!-- choix du mode -->
+  <div class="overlay visible" id="mode-overlay" role="dialog" aria-modal="true" aria-labelledby="mode-overlay-title">
+    <div class="card">
+      <div class="eyebrow">Choisis ton mode</div>
+      <h2 id="mode-overlay-title">La bonne mesure</h2>
+      <p>Un objet mystère attend sur le plateau gauche : chat de race, monument, seau de miel, planète… Une seule pesée par objet et une note sur 100. À 80 ou plus, ta note passe au vert.</p>
+      <div class="mode-list" id="mode-list"></div>
+      <button class="ghost-button" id="resume-button" hidden>Reprendre la partie en cours</button>
+    </div>
+  </div>
+
+  <!-- fin de partie -->
+  <div class="overlay" id="end-overlay" role="dialog" aria-modal="true" aria-labelledby="end-title">
+    <div class="card">
+      <div class="eyebrow" id="end-mode"></div>
+      <h2 id="end-title">Ton résultat</h2>
+      <div class="final-score"><span id="final-score">0</span> <small>/ 100</small></div>
+      <div class="rank" id="final-rank"></div>
+      <ul class="recap" id="recap"></ul>
+      <div class="end-actions">
+        <button class="primary-button" id="restart-button">Rejouer</button>
+        <button class="ghost-button" id="change-mode-button">Changer de mode</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    "use strict";
+
+    const $ = (id) => document.getElementById(id);
+    const SVG = 'http://www.w3.org/2000/svg';
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const pick = (list) => list[Math.floor(Math.random() * list.length)];
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    function shuffle(list) {
+      for (let i = list.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [list[i], list[j]] = [list[j], list[i]];
+      }
+      return list;
+    }
+
+    // ============================================================ données (toutes les masses en kg)
+    const MODES = {
+      objects: { icon: '⚖️', name: 'Objets en face', eyebrow: 'Mode objets en face', title: "Trouve l'équilibre.", side: 'Mets des objets en face',
+        desc: "Pose des objets connus sur l'autre plateau jusqu'à faire l'équilibre. Leur poids est caché.",
+        button: 'Lâcher la balance', hello: "Pose des objets sur le plateau d'en face, puis lâche la balance." },
+      adjust: { icon: '🎚️', name: 'Balance à régler', eyebrow: 'Mode balance à régler', title: 'Règle la balance.', side: 'Règle la masse',
+        desc: 'Fais glisser une masse réglable jusqu\'au poids que tu crois juste.',
+        button: 'Lâcher la balance', hello: 'Règle la masse avec le curseur, puis lâche la balance.' },
+      type: { icon: '✍️', name: 'Au jugé', eyebrow: 'Mode au jugé', title: 'Devine le poids.', side: 'Écris ton estimation',
+        desc: 'Écris directement le poids que tu imagines, avec la bonne unité.',
+        button: 'Valider et peser', hello: "Écris ton estimation, choisis l'unité, puis valide." }
+    };
+
+    // Les 5 photos détourées
+    const PHOTOS = [
+      { emoji: '🗼', name: 'Trois tours Eiffel souvenirs', detail: 'Lot de trois tours en métal massif, 15 à 25 cm de haut.', kg: 1.2,
+        image: 'images/eiffel-souvenir-cutout.png', w: 921, h: 705, width: 150, base: .90 },
+      { emoji: '🪴', name: "Plante d'intérieur en pot", detail: 'Plante verte de 40 cm, pot en céramique de 18 cm rempli de terreau humide.', kg: 2.4,
+        image: 'images/plant-cutout.png', w: 759, h: 792, width: 126, base: .98 },
+      { emoji: '🐈', name: 'Chaton européen tigré', detail: "Chaton de gouttière gris tigré, mâle, âgé d'environ 3 mois.", kg: 1.5,
+        image: 'images/cat-cutout.png', w: 948, h: 941, width: 150, base: .93 },
+      { emoji: '📻', name: 'Radio à lampes', detail: 'Poste de salon des années 1950, coffret en bakélite, 45 cm de large.', kg: 4.8,
+        image: 'images/radio-cutout.png', w: 729, h: 568, width: 168, base: .85 },
+      { emoji: '🚲', name: 'Vélo de ville', detail: 'Vélo à pignon fixe, cadre aluminium taille M, roues de 28 pouces, sans accessoires.', kg: 11,
+        image: 'images/bicycle-clean.png', w: 960, h: 694, width: 232, base: .78 }
+    ];
+
+    // Animaux : race, poids adulte (kg), âge adulte (mois), durée de vie (ans)
+    const SPECIES = [
+      { kind: 'Chat', emoji: '🐈', adult: 12, life: 16, birth: .03, female: .8, breeds: [['européen', 4.5], ['maine coon', 8], ['persan', 4.5], ['siamois', 4], ['sphynx', 3.8], ['ragdoll', 7], ['bengal', 5.5], ['chartreux', 5.5], ['british shorthair', 6]] },
+      { kind: 'Chien', emoji: '🐕', adult: 14, life: 13, birth: .04, female: .85, breeds: [['chihuahua', 2.4], ['yorkshire', 3], ['teckel', 9], ['bouledogue français', 12], ['beagle', 12], ['border collie', 19], ['husky', 24], ['golden retriever', 32], ['labrador', 33], ['berger allemand', 35], ['dogue allemand', 70], ['saint-bernard', 80]] },
+      { kind: 'Cheval', emoji: '🐎', adult: 48, life: 28, birth: .1, female: .92, breeds: [['poney shetland', 200], ['pur-sang', 500], ['frison', 650], ['ardennais', 800], ['percheron', 900]] },
+      { kind: 'Lapin', emoji: '🐇', adult: 8, life: 9, birth: .03, female: 1.05, breeds: [['nain', 1.2], ['bélier', 2.2], ['rex', 3.8], ['géant des Flandres', 7]] },
+      { kind: 'Vache', emoji: '🐄', adult: 30, life: 15, birth: .06, onlyFemale: true, breeds: [["prim'holstein", 680], ['normande', 720], ['charolaise', 850], ['salers', 700], ['highland', 500]] },
+      { kind: 'Cochon', emoji: '🐖', adult: 24, life: 15, birth: .006, female: .85, breeds: [['large white', 280], ['vietnamien', 70], ['basque', 220]] },
+      { kind: 'Mouton', emoji: '🐑', adult: 18, life: 12, birth: .05, female: .75, breeds: [['mérinos', 80], ["d'Ouessant", 15], ['texel', 100]] },
+      { kind: 'Poule', emoji: '🐔', adult: 6, life: 8, birth: .02, onlyFemale: true, breeds: [['brahma', 4.5], ['marans', 2.8], ['soie', 1.2]] },
+      { kind: 'Tortue', emoji: '🐢', adult: 240, life: 80, birth: .01, female: 1.1, breeds: [["d'Hermann", 1.5], ['sillonnée', 70], ['géante des Seychelles', 250]] },
+      { kind: 'Éléphant', emoji: '🐘', adult: 180, life: 60, birth: .02, female: .5, breeds: [["d'Afrique", 6000], ["d'Asie", 4500]] },
+      { kind: 'Lion', emoji: '🦁', adult: 48, life: 15, birth: .008, female: .65, breeds: [["d'Afrique", 190]] },
+      { kind: 'Ours', emoji: '🐻', adult: 72, life: 25, birth: .002, female: .6, breeds: [['brun', 300], ['polaire', 450]] },
+      { kind: 'Girafe', emoji: '🦒', adult: 60, life: 25, birth: .07, female: .7, breeds: [["d'Afrique", 1200]] },
+      { kind: 'Gorille', emoji: '🦍', adult: 144, life: 40, birth: .012, female: .5, breeds: [['des plaines', 170]] },
+      { kind: 'Panda', emoji: '🐼', adult: 60, life: 25, birth: .002, female: .85, breeds: [['géant', 110]] },
+      { kind: 'Kangourou', emoji: '🦘', adult: 30, life: 18, birth: .01, female: .4, breeds: [['roux', 85]] },
+      { kind: 'Rhinocéros', emoji: '🦏', adult: 96, life: 40, birth: .03, female: .8, breeds: [['blanc', 2300]] },
+      { kind: 'Crocodile', emoji: '🐊', adult: 180, life: 60, birth: .001, female: .4, breeds: [['du Nil', 410]] },
+      { kind: 'Dauphin', emoji: '🐬', adult: 120, life: 40, birth: .07, female: .9, breeds: [['souffleur', 300]] },
+      { kind: 'Requin', emoji: '🦈', adult: 180, life: 70, birth: .02, female: 1.3, breeds: [['blanc', 900]] }
+    ];
+    const CHILD_KG = [0, 9.5, 12, 14, 16, 18, 20.5, 23, 25.5, 28.5, 32, 36, 40, 45, 50, 55, 59, 62];
+
+    // Choses célèbres ou démesurées. Masses tirées de Wikipédia / Wikidata (novembre 2026),
+    // sauf quelques valeurs courantes notées « estimation » dans leur description.
+    const FAMOUS = [
+      { emoji: '🚁', name: 'Hélicoptère Ingenuity', kg: 1.8, detail: 'Le petit hélicoptère de la NASA qui a volé sur Mars.' },
+      { emoji: '🎬', name: 'Statuette des Oscars', kg: 3.85, detail: 'La vraie statuette remise à Hollywood, 34 cm de haut.' },
+      { emoji: '🏆', name: 'Coupe du monde de football', kg: 6.175, detail: 'Le vrai trophée en or 18 carats, 36,8 cm de haut.' },
+      { emoji: '🚴', name: 'Vélo du Tour de France', kg: 6.8, detail: 'Un vélo de course au poids minimum autorisé par le règlement.' },
+      { emoji: '⛲', name: 'Manneken-Pis', kg: 17, detail: 'La petite statue en bronze de Bruxelles.' },
+      { emoji: '📡', name: 'Spoutnik 1', kg: 83.6, detail: 'Le tout premier satellite artificiel, lancé en 1957.' },
+      { emoji: '🤖', name: 'Robot Philae', kg: 97.9, detail: "L'atterrisseur qui s'est posé sur une comète en 2014." },
+      { emoji: '🏎️', name: 'Formule 1 avec son pilote', kg: 798, detail: 'Une F1 au poids minimum réglementaire, pilote assis dedans.' },
+      { emoji: '🛸', name: 'Sonde Voyager 1', kg: 815, detail: 'La sonde la plus lointaine jamais lancée, à son départ en 1977.' },
+      { emoji: '🚙', name: 'Rover Curiosity', kg: 899, detail: 'Le robot qui roule sur Mars depuis 2012.' },
+      { emoji: '🔔', name: 'Cloche de la Liberté', kg: 943, detail: 'La Liberty Bell fêlée, exposée à Philadelphie.' },
+      { emoji: '🛰️', name: 'Sonde Rosetta', kg: 3000, detail: 'La sonde européenne partie rejoindre la comète Tchouri.' },
+      { emoji: '🔭', name: 'Télescope James Webb', kg: 6161, detail: 'Le grand télescope spatial lancé en 2021.' },
+      { emoji: '🦖', name: 'Tyrannosaure « Sue »', kg: 8400, detail: "Le plus célèbre T. rex, tel qu'il était vivant (estimation)." },
+      { emoji: '🔭', name: 'Télescope Hubble', kg: 11110, detail: 'Le télescope spatial en orbite depuis 1990.' },
+      { emoji: '🔔', name: 'Big Ben (la cloche)', kg: 13700, detail: 'La grande cloche de la tour de Westminster, à Londres.' },
+      { emoji: '🪖', name: 'Char Leclerc', kg: 56000, detail: "Le char de combat de l'armée française." },
+      { emoji: '🌠', name: 'Météorite de Hoba', kg: 60000, detail: 'La plus grosse météorite connue, restée en Namibie.' },
+      { emoji: '🐋', name: 'Baleine bleue adulte', kg: 150000, detail: 'Le plus gros animal de tous les temps, 25 m de long (estimation).' },
+      { emoji: '✈️', name: 'Concorde au décollage', kg: 185065, detail: 'Le supersonique franco-britannique, à sa masse maximale.' },
+      { emoji: '🔔', name: 'Cloche du Tsar', kg: 201924, detail: 'La plus grosse cloche du monde, au Kremlin de Moscou.' },
+      { emoji: '🗽', name: 'Statue de la Liberté', kg: 204100, detail: 'La statue de New York (cuivre et armature), sans le socle.' },
+      { emoji: '🚄', name: 'Rame de TGV Duplex', kg: 380000, detail: 'Une rame complète à deux étages, vide (estimation).' },
+      { emoji: '🛰️', name: 'Station spatiale internationale', kg: 419725, detail: "L'ISS, en orbite autour de la Terre." },
+      { emoji: '🛩️', name: 'Airbus A380 au décollage', kg: 575000, detail: 'Masse maximale au décollage, pleins et passagers compris.' },
+      { emoji: '🙏', name: 'Christ Rédempteur de Rio', kg: 1.145e6, detail: 'La statue de 30 m qui domine Rio de Janeiro.' },
+      { emoji: '🌲', name: 'Séquoia « General Sherman »', kg: 1.91e6, detail: 'Le plus gros arbre vivant, en Californie (estimation de 1938).' },
+      { emoji: '⚛️', name: 'Atomium de Bruxelles', kg: 2.4e6, detail: "Les neuf boules d'acier et leurs tubes." },
+      { emoji: '🚀', name: 'Fusée Saturn V au décollage', kg: 2.965e6, detail: 'La fusée des missions Apollo, pleins faits.' },
+      { emoji: '🗼', name: 'Tour Eiffel', kg: 1.01e7, detail: 'La vraie, à Paris, avec tout ce qui la compose.' },
+      { emoji: '🏛️', name: 'Tour de Pise', kg: 1.47e7, detail: 'Le campanile penché, en marbre.' },
+      { emoji: '⚓', name: 'Porte-avions Charles-de-Gaulle', kg: 4.25e7, detail: 'Le porte-avions de la Marine nationale, à pleine charge (estimation).' },
+      { emoji: '🚢', name: 'Titanic', kg: 5.231e7, detail: 'Le paquebot de 1912, au moment de son départ.' },
+      { emoji: '🪨', name: 'Obélisque de Washington', kg: 8.04e7, detail: 'Le grand obélisque de 169 m au cœur de Washington.' },
+      { emoji: '🏙️', name: 'Empire State Building', kg: 3.65e8, detail: 'Le gratte-ciel de New York, 443 m antenne comprise.' },
+      { emoji: '🌇', name: 'Burj Khalifa', kg: 4.5e8, detail: 'La plus haute tour du monde, à Dubaï.' },
+      { emoji: '🔺', name: 'Pyramide de Khéops', kg: 5.0e9, detail: 'La grande pyramide de Gizeh, en Égypte.' },
+      { emoji: '🥔', name: 'Astéroïde Itokawa', kg: 3.5e10, detail: 'Petit astéroïde en forme de cacahuète, visité par la sonde Hayabusa.' },
+      { emoji: '🥔', name: 'Astéroïde Apophis', kg: 6.1e10, detail: "L'astéroïde qui frôlera la Terre en 2029." },
+      { emoji: '🥔', name: 'Astéroïde Bennu', kg: 7.33e10, detail: 'Astéroïde de 490 m dont la sonde OSIRIS-REx a rapporté des grains.' },
+      { emoji: '☄️', name: 'Comète Tchouri', kg: 1.0e13, detail: "La comète 67P, où s'est posé le robot Philae." },
+      { emoji: '☄️', name: 'Comète de Halley', kg: 2.2e14, detail: 'La comète qui repasse tous les 76 ans.' },
+      { emoji: '🌑', name: 'Déimos', kg: 1.48e15, detail: 'La plus petite des deux lunes de Mars.' },
+      { emoji: '🌑', name: 'Phobos', kg: 1.066e16, detail: 'La plus grosse des deux lunes de Mars.' },
+      { emoji: '🧽', name: 'Hypérion', kg: 5.55e18, detail: 'Lune de Saturne qui ressemble à une éponge.' },
+      { emoji: '⚪', name: 'Mimas', kg: 3.75e19, detail: 'Lune de Saturne avec un cratère géant.' },
+      { emoji: '⚪', name: 'Miranda', kg: 6.6e19, detail: "Lune d'Uranus aux falaises vertigineuses." },
+      { emoji: '⚪', name: 'Encelade', kg: 1.08e20, detail: 'Lune glacée de Saturne qui crache des geysers.' },
+      { emoji: '🪨', name: 'Vesta', kg: 2.59e20, detail: 'Un des plus gros astéroïdes de la ceinture principale.' },
+      { emoji: '⚪', name: 'Téthys', kg: 6.17e20, detail: 'Lune de Saturne faite surtout de glace.' },
+      { emoji: '🪨', name: 'Cérès', kg: 9.39e20, detail: "La planète naine de la ceinture d'astéroïdes." },
+      { emoji: '⚪', name: 'Dioné', kg: 1.095e21, detail: 'Lune de Saturne.' },
+      { emoji: '⚪', name: 'Charon', kg: 1.52e21, detail: 'La grosse lune de Pluton.' },
+      { emoji: '⚪', name: 'Japet', kg: 1.806e21, detail: 'Lune de Saturne à deux couleurs.' },
+      { emoji: '⚪', name: 'Rhéa', kg: 2.307e21, detail: 'La deuxième plus grosse lune de Saturne.' },
+      { emoji: '⚪', name: 'Obéron', kg: 3.01e21, detail: "Lune d'Uranus." },
+      { emoji: '⚪', name: 'Makemake', kg: 3.1e21, detail: 'Planète naine au-delà de Neptune.' },
+      { emoji: '⚪', name: 'Titania', kg: 3.53e21, detail: "La plus grosse lune d'Uranus." },
+      { emoji: '🥚', name: 'Haumea', kg: 4.0e21, detail: "Planète naine en forme d'œuf, qui tourne sur elle-même en 4 heures." },
+      { emoji: '⚪', name: 'Pluton', kg: 1.305e22, detail: "L'ancienne neuvième planète, devenue planète naine." },
+      { emoji: '⚪', name: 'Éris', kg: 1.66e22, detail: 'Planète naine très lointaine, un peu plus lourde que Pluton.' },
+      { emoji: '🧊', name: 'Triton', kg: 2.14e22, detail: "La grande lune de Neptune, qui tourne à l'envers." },
+      { emoji: '🧊', name: 'Europe', kg: 4.8e22, detail: 'Lune glacée de Jupiter.' },
+      { emoji: '🌙', name: 'Lune', kg: 7.35e22, detail: 'Notre Lune, tout entière.' },
+      { emoji: '🌋', name: 'Io', kg: 8.93e22, detail: 'Lune de Jupiter couverte de volcans.' },
+      { emoji: '⚪', name: 'Callisto', kg: 1.076e23, detail: 'Lune de Jupiter couverte de cratères.' },
+      { emoji: '🟤', name: 'Titan', kg: 1.345e23, detail: 'La plus grosse lune de Saturne.' },
+      { emoji: '⚪', name: 'Ganymède', kg: 1.481e23, detail: 'La plus grosse lune du système solaire, autour de Jupiter.' },
+      { emoji: '🌑', name: 'Mercure', kg: 3.30e23, detail: 'La planète la plus proche du Soleil.' },
+      { emoji: '🔴', name: 'Mars', kg: 6.42e23, detail: 'La planète rouge.' },
+      { emoji: '🟡', name: 'Vénus', kg: 4.87e24, detail: 'La planète voisine de la Terre, couverte de nuages.' },
+      { emoji: '🌍', name: 'Terre', kg: 5.97e24, detail: 'Notre planète, océans compris.' },
+      { emoji: '🔵', name: 'Uranus', kg: 8.68e25, detail: 'La géante de glace qui roule sur le côté.' },
+      { emoji: '🫐', name: 'Neptune', kg: 1.02e26, detail: 'La planète la plus lointaine du système solaire.' },
+      { emoji: '🪐', name: 'Saturne', kg: 5.68e26, detail: 'La planète aux anneaux, anneaux compris.' },
+      { emoji: '🟠', name: 'Jupiter', kg: 1.90e27, detail: 'La plus grosse planète du système solaire.' },
+      { emoji: '🟫', name: 'Naine brune', kg: 9.5e28, detail: 'Une naine brune typique, trop petite pour devenir une étoile (estimation).' },
+      { emoji: '🔴', name: 'Proxima du Centaure', kg: 2.39e29, detail: "L'étoile la plus proche du Soleil, une naine rouge." },
+      { emoji: '💎', name: 'Sirius B', kg: 2.02e30, detail: 'Naine blanche compagne de Sirius, à peine plus grosse que la Terre.' },
+      { emoji: '☀️', name: 'Soleil', kg: 1.989e30, detail: 'Notre étoile.' },
+      { emoji: '⭐', name: 'Alpha du Centaure A', kg: 2.19e30, detail: "L'étoile principale du système le plus proche de nous." },
+      { emoji: '⭐', name: 'Sirius A', kg: 4.1e30, detail: "L'étoile la plus brillante du ciel nocturne." },
+      { emoji: '⭐', name: 'Véga', kg: 4.25e30, detail: "L'étoile bleutée de la constellation de la Lyre." },
+      { emoji: '✨', name: 'Étoile polaire', kg: 1.19e31, detail: "L'étoile qui indique le nord." },
+      { emoji: '🔷', name: 'Rigel', kg: 3.58e31, detail: "La supergéante bleue au pied d'Orion." },
+      { emoji: '🌟', name: 'Bételgeuse', kg: 3.54e31, detail: "La supergéante rouge à l'épaule d'Orion." },
+      { emoji: '💫', name: 'R136a1', kg: 5.79e32, detail: "L'étoile la plus massive connue." },
+      { emoji: '🕳️', name: 'Sagittarius A*', kg: 8.16e36, detail: 'Le trou noir géant au centre de notre galaxie.' }
+    ];
+
+    // Objets du quotidien à poser en face (tous 1 kg ou plus)
+    const EVERYDAY = [
+      ['🍍', 'Ananas entier', 1], ['🦔', 'Hérisson bien nourri', 1.1], ['💻', 'Ordinateur portable 13 pouces', 1.3], ['🧠', 'Cerveau humain adulte', 1.4],
+      ['📖', 'Gros dictionnaire', 1.5], ['🍾', 'Bouteille de champagne pleine', 1.6], ['🐕', 'Chihuahua adulte', 2], ['🪓', 'Hache de bûcheron', 2.5],
+      ['🐓', 'Coq fermier', 3], ['👶', 'Nouveau-né', 3.3], ['🎸', 'Guitare électrique', 3.5], ['🐈', 'Chat européen adulte', 4],
+      ['🎳', 'Boule de bowling de 10 livres', 4.5], ['🍉', 'Grosse pastèque', 5], ['🪑', 'Chaise en bois massif', 6], ['🦃', 'Dinde de Noël', 7],
+      ['🛞', 'Pneu de citadine', 8], ['🎃', "Citrouille d'Halloween", 9], ['🧳', 'Valise cabine pleine', 10], ['🥇', "Lingot d'or standard", 12.4],
+      ['📺', 'Télévision 55 pouces', 15], ['🧱', 'Parpaing', 20], ['🐧', 'Manchot empereur', 30], ['🧒', 'Enfant de 10 ans', 32],
+      ['🚽', 'Toilettes en porcelaine', 40], ['🧑', 'Adulte moyen', 70], ['🛋️', 'Canapé trois places', 80], ['🦁', 'Lion mâle', 190],
+      ['🏍️', 'Moto routière', 200], ['🐖', 'Cochon de ferme', 250], ['🎹', 'Piano à queue de concert', 500], ['🐄', 'Vache laitière', 700],
+      ['🚗', 'Petite voiture citadine', 1000], ['🦛', 'Hippopotame mâle', 1800], ['🐘', "Éléphant d'Afrique mâle", 6000], ['🚌', 'Bus de ville', 12000],
+      ['🚛', 'Semi-remorque chargé', 40000], ['🏠', 'Maison individuelle', 120000]
+    ].map(([emoji, name, kg]) => ({ emoji, name, kg }));
+    const TRAY = [...EVERYDAY, ...FAMOUS.filter((f) => !EVERYDAY.some((e) => e.name === f.name))];
+
+    // Quantités : N fois la même chose
+    const STACKS = [
+      { emoji: '🍍', plural: 'ananas entiers', kg: 1, max: 40, detail: 'Des ananas de taille normale, avec leur couronne.' },
+      { emoji: '🍉', plural: 'pastèques', kg: 5, max: 30, detail: 'Des pastèques bien mûres, de taille moyenne.' },
+      { emoji: '🧱', plural: 'briques rouges', kg: 2.5, max: 60, detail: 'Des briques de construction pleines, toutes identiques.' },
+      { emoji: '🎳', plural: 'boules de bowling', kg: 6, max: 30, detail: 'Des boules de bowling de 13 livres.' },
+      { emoji: '🛞', plural: 'pneus de voiture', kg: 8, max: 40, detail: 'Des pneus de citadine, sans jante.' },
+      { emoji: '🥇', plural: "lingots d'or", kg: 12.4, max: 30, detail: "Des lingots d'or standard de banque centrale." },
+      { emoji: '🍾', plural: 'bouteilles de champagne', kg: 1.6, max: 48, detail: 'Des bouteilles de 75 cl pleines, bouchées.' },
+      { emoji: '💧', plural: "packs de 6 bouteilles d'eau", kg: 9.2, max: 30, detail: "Des packs de six bouteilles d'1,5 litre." },
+      { emoji: '🚗', plural: 'petites voitures', kg: 1000, max: 30, detail: 'Des citadines vides, sans passager.' },
+      { emoji: '🐘', plural: "éléphants d'Afrique", kg: 6000, max: 20, detail: 'Des éléphants mâles adultes.' },
+      { emoji: '🐋', plural: 'baleines bleues', kg: 150000, max: 12, detail: 'Des baleines bleues adultes.' },
+      { emoji: '🗼', plural: 'tours Eiffel', kg: 1.01e7, max: 9, detail: 'Des copies grandeur nature de la tour Eiffel.' },
+      { emoji: '🌙', plural: 'Lunes', kg: 7.35e22, max: 20, detail: 'Des lunes identiques à la nôtre.' },
+      { emoji: '🌍', plural: 'Terres', kg: 5.97e24, max: 12, detail: 'Des planètes identiques à la Terre.' },
+      { emoji: '☀️', plural: 'Soleils', kg: 1.99e30, max: 9, detail: 'Des étoiles identiques à notre Soleil.' },
+      { emoji: '🐄', plural: 'vaches laitières', kg: 700, max: 30, detail: "Des vaches prim'holstein adultes." },
+      { emoji: '🚌', plural: 'bus de ville', kg: 12000, max: 20, detail: 'Des bus standard de 12 m, vides.' },
+      { emoji: '🗽', plural: 'statues de la Liberté', kg: 204100, max: 12, detail: 'Des copies grandeur nature, sans leur socle.' },
+      { emoji: '🚢', plural: 'Titanic', kg: 5.231e7, max: 9, detail: 'Des copies exactes du paquebot.' },
+      { emoji: '🔺', plural: 'pyramides de Khéops', kg: 5.0e9, max: 9, detail: 'Des copies exactes de la grande pyramide.' },
+      { emoji: '🟠', plural: 'Jupiter', kg: 1.90e27, max: 9, detail: 'Des planètes identiques à Jupiter.' }
+    ];
+
+    // Récipients remplis : contenance (litres) × densité (kg par litre)
+    const CONTAINERS = [
+      { emoji: '🥤', name: "Une bouteille d'1,5 litre remplie", fem: true, L: 1.5 },
+      { emoji: '🫙', name: 'Un grand bocal rempli', L: 3 },
+      { emoji: '🪣', name: 'Un seau rempli', L: 10 },
+      { emoji: '⛽', name: 'Un jerrican rempli', L: 20 },
+      { emoji: '🐠', name: 'Un aquarium rempli', L: 120 },
+      { emoji: '🛢️', name: 'Un baril de 159 litres rempli', L: 159 },
+      { emoji: '🛁', name: 'Une baignoire remplie', fem: true, L: 180 },
+      { emoji: '🚚', name: 'Un camion-citerne rempli', L: 30000 },
+      { emoji: '🏊', name: 'Une piscine olympique remplie', fem: true, L: 2.5e6 },
+      { emoji: '🛢️', name: 'Une cuve de 1 000 litres remplie', fem: true, L: 1000 },
+      { emoji: '🛳️', name: 'Un pétrolier géant rempli', L: 3.18e8 },
+      { emoji: '🏞️', name: 'Le lac Léman rempli', L: 8.9e13 }
+    ];
+    const CONTENTS = [
+      { emoji: '💧', of: "d'eau", d: 1 }, { emoji: '🥛', of: 'de lait', d: 1.03 }, { emoji: '🍯', of: 'de miel', d: 1.42 },
+      { emoji: '🫒', of: "d'huile d'olive", d: .92 }, { emoji: '🏖️', of: 'de sable sec', d: 1.6 }, { emoji: '🌡️', of: 'de mercure', d: 13.5 },
+      { emoji: '🥇', of: "d'or fondu", d: 17.3 }, { emoji: '🍿', of: 'de pop-corn', d: .03 }, { emoji: '🍊', of: "de jus d'orange", d: 1.05 },
+      { emoji: '⛽', of: "d'essence", d: .75 }, { emoji: '🌋', of: 'de lave en fusion', d: 2.6 }
+    ];
+
+    const MAX_ON_PAN = 20;
+    const MAX_ANGLE = 13 * Math.PI / 180;
+    const PIVOT = { x: 350, y: 120 }, ARM = 210;
+    const ROUNDS = 5;
+
+    // ============================================================ outils
+    const nf = (v) => new Intl.NumberFormat('fr-FR', { maximumSignificantDigits: 3 }).format(v).replace(/\s/g, ' ');
+    function fmt(kg) {
+      if (kg < 1) return `${nf(kg * 1000)} g`;
+      if (kg < 1000) return `${nf(kg)} kg`;
+      const t = kg / 1000;
+      if (t < 1e6) return `${nf(t)} t`;
+      if (t < 1e9) { const v = t / 1e6; return `${nf(v)} million${v >= 2 ? 's' : ''} de t`; }
+      if (t < 1e12) { const v = t / 1e9; return `${nf(v)} milliard${v >= 2 ? 's' : ''} de t`; }
+      const exp = Math.floor(Math.log10(kg));
+      const sup = String(exp).replace(/\d/g, (d) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]);
+      return `${nf(kg / 10 ** exp)} × 10${sup} kg`;
+    }
+    const roundSig = (v) => Number(v.toPrecision(3));
+
+    // Note sur 100 : 100 pile dessus, environ 90 à 10 % d'écart, 0 à partir d'un facteur 3.
+    function scoreOf(guess, truth) {
+      if (!(guess > 0)) return 0;
+      return Math.max(0, Math.round(100 * (1 - Math.abs(Math.log(guess / truth)) / Math.log(3))));
+    }
+    const tier = (s) => (s >= 80 ? 'good' : s >= 50 ? 'mid' : 'bad');
+    // Écart lisible : en pourcentage du vrai poids, ou « N fois » quand on est très loin
+    function gapText(ratio) {
+      if (ratio >= .5 && ratio <= 2) return `${nf(Math.abs(ratio - 1) * 100)} %`;
+      return `${nf(ratio > 1 ? ratio : 1 / ratio)} fois`;
+    }
+    function gapPhrase(ratio) {
+      const side = ratio < 1 ? 'léger' : 'lourd';
+      if (ratio >= .5 && ratio <= 2) return `trop ${side} de ${gapText(ratio)}`;
+      return `${gapText(ratio)} trop ${side}`;
+    }
+    const starCount = (s) => (s >= 90 ? 3 : s >= 70 ? 2 : s > 0 ? 1 : 0);
+    const stars = (n) => '★'.repeat(n) + `<span class="off">${'★'.repeat(3 - n)}</span>`;
+
+    function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
+    function load(key, fallback) { try { const v = JSON.parse(localStorage.getItem(key)); return v ?? fallback; } catch (e) { return fallback; } }
+    const bestOf = (mode) => load(`bonne-mesure-record-${mode}`, 0);
+
+    // ============================================================ générateur d'objets mystères
+    function genAnimal() {
+      const sp = pick(SPECIES);
+      const [breed, adultKg] = pick(sp.breeds);
+      const female = sp.onlyFemale || Math.random() < .5;
+      const young = Math.random() < .35;
+      const months = young ? Math.max(1, Math.round(rnd(.12, .95) * sp.adult)) : Math.round(rnd(sp.adult, sp.life * 12));
+      const growth = months >= sp.adult ? 1 : Math.max(sp.birth, (months / sp.adult) ** .85);
+      const kg = adultKg * (female && !sp.onlyFemale ? sp.female : 1) * growth * rnd(.92, 1.08);
+      const age = months < 18 ? `${months} mois` : `${Math.round(months / 12)} ans`;
+      const sex = sp.onlyFemale ? 'Femelle' : female ? 'Femelle' : 'Mâle';
+      return {
+        key: `${sp.kind} ${breed}`, emoji: sp.emoji, kg,
+        name: `${sp.kind} ${breed}`,
+        detail: `${sex} de ${age}${young ? ', encore en pleine croissance' : ''}, en bonne santé, ni gros ni maigre.`
+      };
+    }
+    function genHuman() {
+      if (Math.random() < .5) {
+        const age = 1 + Math.floor(Math.random() * 17), girl = Math.random() < .5;
+        return {
+          key: `enfant-${age}`, emoji: girl ? '👧' : '👦', kg: CHILD_KG[age] * (girl ? .97 : 1) * rnd(.9, 1.1),
+          name: `${girl ? 'Fille' : 'Garçon'} de ${age} an${age > 1 ? 's' : ''}`,
+          detail: 'Enfant en bonne santé, de taille moyenne pour son âge, habillé léger et sans chaussures.'
+        };
+      }
+      const woman = Math.random() < .5;
+      const h = Math.round(rnd(woman ? 1.52 : 1.62, woman ? 1.80 : 1.96) * 100) / 100;
+      const bmi = rnd(19.5, 28), age = Math.floor(rnd(20, 75));
+      const build = bmi < 22 ? 'mince' : bmi < 25.5 ? 'moyenne' : 'costaude';
+      return {
+        key: `adulte-${woman}-${h}`, emoji: woman ? '👩' : '👨', kg: h * h * bmi,
+        name: `${woman ? 'Femme' : 'Homme'} de ${String(h.toFixed(2)).replace('.', ',')} m`,
+        detail: `${age} ans, de corpulence ${build}, habillé${woman ? 'e' : ''} léger et sans chaussures.`
+      };
+    }
+    function genFamous() {
+      const f = pick(FAMOUS);
+      return { key: f.name, emoji: f.emoji, kg: f.kg, name: f.name, detail: f.detail };
+    }
+    function genStack() {
+      const s = pick(STACKS);
+      const n = Math.max(2, Math.round(Math.exp(rnd(Math.log(2), Math.log(s.max)))));
+      return { key: `stack-${s.plural}`, emoji: s.emoji, badge: `×${n}`, kg: n * s.kg * rnd(.97, 1.03), name: `${n} ${s.plural}`, detail: s.detail };
+    }
+    function genContainer() {
+      const c = pick(CONTAINERS), m = pick(CONTENTS);
+      return {
+        key: `${c.name}-${m.of}`, emoji: c.emoji, badgeEmoji: m.emoji, kg: c.L * m.d,
+        name: `${c.name} ${m.of}`,
+        detail: `Contenance : ${nf(c.L)} litres, rempli${c.fem ? 'e' : ''} à ras bord. Seul le contenu compte, pas le récipient.`
+      };
+    }
+    function genPhoto() {
+      const p = pick(PHOTOS);
+      return { ...p, key: p.name, kg: p.kg * rnd(.85, 1.15) };
+    }
+    const GENERATORS = [[genAnimal, 30], [genHuman, 8], [genFamous, 26], [genStack, 16], [genContainer, 12], [genPhoto, 8]];
+
+    // Un objet n'est proposé que si la boîte peut l'approcher : il faut un objet connu entre 1/12 et 1 fois son poids.
+    const playable = (m) => m.kg >= 1 && TRAY.some((i) => i.emoji !== m.emoji && i.kg <= m.kg && i.kg >= m.kg / 12);
+
+    function makeMystery(recent) {
+      const total = GENERATORS.reduce((s, [, w]) => s + w, 0);
+      for (let attempt = 0; attempt < 80; attempt++) {
+        let r = Math.random() * total, gen = GENERATORS[0][0];
+        for (const [g, w] of GENERATORS) { if ((r -= w) < 0) { gen = g; break; } }
+        const m = gen();
+        if (!playable(m)) continue;
+        if (attempt < 60 && recent.includes(m.key)) continue;
+        return m;
+      }
+      return genPhoto();
+    }
+
+    // Boîte d'objets adaptée à l'échelle de l'objet mystère
+    function pickItems(m) {
+      const t = m.kg;
+      const pool = TRAY.filter((i) => i.emoji !== m.emoji && i.name !== m.name);
+      const below = pool.filter((i) => i.kg <= t).sort((a, b) => b.kg - a.kg);
+      const chosen = [];
+      const add = (i) => { if (i && !chosen.includes(i)) chosen.push(i); };
+      add(below[0]);
+      for (const f of [3, 9, 27]) {
+        const goal = t / f;
+        const near = below.filter((i) => !chosen.includes(i))
+          .sort((a, b) => Math.abs(Math.log(a.kg / goal)) - Math.abs(Math.log(b.kg / goal)))[0];
+        if (near && Math.abs(Math.log(near.kg / goal)) < Math.log(3)) add(near);
+      }
+      add(pool.filter((i) => i.kg > t && i.kg <= t * 30).sort((a, b) => a.kg - b.kg)[0]);
+      const absurd = shuffle(pool.filter((i) => i.kg > t * 1000 || i.kg < t / 1000));
+      absurd.slice(0, 2).forEach(add);
+      const filler = shuffle(pool.filter((i) => i.kg >= t / 100 && i.kg <= t * 3));
+      for (const i of filler) { if (chosen.length >= 8) break; add(i); }
+      for (const i of shuffle([...pool])) { if (chosen.length >= 8) break; add(i); }
+      return shuffle(chosen);
+    }
+
+    // ============================================================ état
+    const game = { mode: 'objects', order: [], round: 0, results: [], total: 0, started: false };
+    const round = { m: null, kg: 0, pan: [], guess: 0, lo: 1, hi: 2, items: [], locked: true, busy: false, done: false };
+    const beam = { angle: 0, speed: 0, target: 0 };
+    const average = () => Math.round(game.total / Math.max(1, game.results.length));
+    const panTotal = () => round.pan.reduce((s, i) => s + i.kg, 0);
+    const currentGuess = () => (game.mode === 'objects' ? panTotal() : round.guess);
+
+    // ============================================================ son
+    let audio = null, muted = false;
+    function tone(freq, dur, when = 0, type = 'triangle', vol = .07) {
+      if (muted) return;
+      try {
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        const t = audio.currentTime + when, osc = audio.createOscillator(), gain = audio.createGain();
+        osc.type = type; osc.frequency.value = freq;
+        gain.gain.setValueAtTime(vol, t);
+        gain.gain.exponentialRampToValueAtTime(.0001, t + dur);
+        osc.connect(gain).connect(audio.destination);
+        osc.start(t); osc.stop(t + dur);
+      } catch (e) {}
+    }
+    const sfx = {
+      add: () => tone(700 + Math.random() * 300, .14),
+      remove: () => tone(420, .1),
+      release: () => { tone(170, .25, 0, 'sine', .1); tone(120, .3, .05, 'sine', .08); },
+      win: () => [660, 880, 1100, 1320].forEach((f, i) => tone(f, .28, i * .09)),
+      lose: () => { tone(330, .3, 0, 'sine'); tone(247, .45, .18, 'sine'); }
+    };
+
+    // ============================================================ balance
+    function drawBeam() {
+      const a = beam.angle, cos = Math.cos(a), sin = Math.sin(a);
+      $('beam').setAttribute('transform', `rotate(${-a * 180 / Math.PI} ${PIVOT.x} ${PIVOT.y})`);
+      $('pan-left').setAttribute('transform', `translate(${PIVOT.x - ARM * cos} ${PIVOT.y + ARM * sin})`);
+      $('pan-right').setAttribute('transform', `translate(${PIVOT.x + ARM * cos} ${PIVOT.y - ARM * sin})`);
+    }
+    let lastTime = 0;
+    function animate(now) {
+      const dt = Math.min(.04, (now - lastTime) / 1000 || 0);
+      lastTime = now;
+      if (reduceMotion) { beam.angle = beam.target; beam.speed = 0; }
+      else {
+        const stiffness = round.locked ? 60 : 16, damping = round.locked ? 13 : 2.6;
+        beam.speed += (-(beam.angle - beam.target) * stiffness - beam.speed * damping) * dt;
+        beam.angle += beam.speed * dt;
+      }
+      drawBeam();
+      requestAnimationFrame(animate);
+    }
+
+    function drawPan() {
+      const group = $('pan-weights');
+      group.replaceChildren();
+      if (game.mode !== 'objects') {
+        if (round.guess > 0) {
+          const label = fmt(round.guess), w = Math.max(80, Math.min(176, label.length * 8.2 + 26)), h = 42;
+          const g = document.createElementNS(SVG, 'g');
+          g.innerHTML =
+            `<rect x="${-w * .2}" y="${150 - h - 9}" width="${w * .4}" height="11" rx="3" fill="url(#brassH)"/>` +
+            `<rect x="${-w / 2}" y="${150 - h}" width="${w}" height="${h}" rx="5" fill="url(#brassH)" stroke="#7d5c1a" stroke-width="1"/>` +
+            `<text x="0" y="${150 - h / 2 + 5}" text-anchor="middle" font-size="14" font-weight="800" fill="#3f2f0c" font-family="DM Sans, sans-serif">${esc(label)}</text>`;
+          group.appendChild(g);
+        }
+        updateTotal();
+        return;
+      }
+      const groups = [];
+      for (const item of round.pan) {
+        let g = groups.find((x) => x.item === item);
+        if (!g) groups.push(g = { item, count: 0 });
+        g.count += 1;
+      }
+      groups.sort((a, b) => b.item.kg - a.item.kg);
+      const sized = groups.map((g) => {
+        const s = Math.max(22, Math.min(58, 26 + 9 * Math.log10(g.item.kg * 30 / round.kg)));
+        return { ...g, s, w: s + (g.count > 1 ? 16 : 0) };
+      });
+      const rows = [[]];
+      let used = 0;
+      for (const it of sized) {
+        if (used + it.w > 172 && rows[rows.length - 1].length) { rows.push([]); used = 0; }
+        rows[rows.length - 1].push(it);
+        used += it.w + 4;
+      }
+      let floor = 150;
+      for (const row of rows) {
+        if (!row.length) continue;
+        let x = -row.reduce((s, it) => s + it.w + 4, -4) / 2;
+        for (const it of row) {
+          const g = document.createElementNS(SVG, 'g');
+          g.setAttribute('class', 'pan-weight');
+          g.setAttribute('transform', `translate(${x} ${floor - it.s})`);
+          g.dataset.name = it.item.name;
+          g.innerHTML =
+            `<title>Retirer : ${esc(it.item.name)}</title>` +
+            `<rect width="${it.w}" height="${it.s}" fill="transparent"/>` +
+            `<text class="w-body" x="${it.s / 2}" y="${it.s * .86}" text-anchor="middle" font-size="${it.s * .92}">${it.item.emoji}</text>` +
+            (it.count > 1 ? `<text x="${it.w}" y="${it.s - 2}" text-anchor="end" font-size="13" font-weight="800" fill="#3f2f0c" stroke="#fffefa" stroke-width="4" paint-order="stroke" font-family="DM Sans, sans-serif">×${it.count}</text>` : '');
+          group.appendChild(g);
+          x += it.w + 4;
+        }
+        floor -= Math.max(...row.map((it) => it.s)) * .9;
+      }
+      updateTotal();
+    }
+
+    function updateTotal() {
+      if (game.mode === 'objects') {
+        $('pan-label').textContent = 'Sur le plateau';
+        const n = round.pan.length;
+        $('pan-total').textContent = round.done ? fmt(panTotal()) : `${n} objet${n > 1 ? 's' : ''}`;
+      } else {
+        $('pan-label').textContent = game.mode === 'adjust' ? 'Masse réglée' : 'Ton estimation';
+        $('pan-total').textContent = round.guess > 0 ? fmt(round.guess) : '—';
+      }
+    }
+
+    // ============================================================ interface
+    function setFeedback(text, kind = '') {
+      const box = $('feedback');
+      box.textContent = text;
+      box.className = 'feedback' + (kind ? ' ' + kind : '');
+    }
+
+    function buildTray() {
+      const tray = $('tray');
+      tray.replaceChildren();
+      for (const item of round.items) {
+        const button = document.createElement('button');
+        button.className = 'weight-button';
+        button.setAttribute('aria-label', `Ajouter : ${item.name}`);
+        button.innerHTML = `<span class="item-emoji" aria-hidden="true">${item.emoji}</span><span class="item-name">${esc(item.name)}</span>`;
+        button.addEventListener('click', () => addItem(item));
+        tray.appendChild(button);
+      }
+    }
+
+    function refresh() {
+      const blocked = round.busy || round.done;
+      document.querySelectorAll('.weight-button').forEach((b) => { b.disabled = blocked || round.pan.length >= MAX_ON_PAN; });
+      $('undo-button').disabled = blocked || !round.pan.length;
+      $('clear-button').disabled = blocked || !round.pan.length;
+      for (const id of ['adjust-range', 'minus-button', 'plus-button', 'type-value', 'type-unit']) $(id).disabled = blocked;
+      const ready = game.mode === 'objects' ? round.pan.length > 0 : game.mode === 'adjust' ? true : $('type-value').value.trim() !== '';
+      $('weigh-button').disabled = blocked || !ready;
+      $('lock-badge').classList.toggle('free', !round.locked);
+      $('lock-text').textContent = round.locked ? 'Balance calée' : 'Balance libre';
+      $('score-label').textContent = game.results.length ? `Moyenne ${average()} / 100` : 'Moyenne en attente';
+      const best = bestOf(game.mode);
+      $('best-label').textContent = best ? `${best} / 100` : '—';
+    }
+
+    function renderModeList() {
+      const list = $('mode-list');
+      list.replaceChildren();
+      for (const [key, mode] of Object.entries(MODES)) {
+        const best = bestOf(key);
+        const button = document.createElement('button');
+        button.className = 'mode-option' + (game.started && key === game.mode ? ' current' : '');
+        button.innerHTML =
+          `<span class="mode-icon" aria-hidden="true">${mode.icon}</span>` +
+          `<span><span class="mode-name">${esc(mode.name)}<small>${best ? `Record ${best} / 100` : 'Pas encore joué'}</small></span>` +
+          `<span class="mode-desc">${esc(mode.desc)}</span></span>`;
+        button.addEventListener('click', () => { $('mode-overlay').classList.remove('visible'); newGame(key); });
+        list.appendChild(button);
+      }
+      $('resume-button').hidden = !game.started;
+    }
+    function openModes() {
+      renderModeList();
+      $('end-overlay').classList.remove('visible');
+      $('mode-overlay').classList.add('visible');
+    }
+
+    // ============================================================ actions
+    function addItem(item) {
+      if (round.busy || round.done || round.pan.length >= MAX_ON_PAN) return;
+      round.pan.push(item);
+      sfx.add(); drawPan(); refresh();
+    }
+    function removeByName(name) {
+      if (round.busy || round.done) return;
+      const index = round.pan.map((i) => i.name).lastIndexOf(name);
+      if (index < 0) return;
+      round.pan.splice(index, 1);
+      sfx.remove(); drawPan(); refresh();
+    }
+
+    function setAdjust(value) {
+      const range = $('adjust-range');
+      range.value = Math.max(0, Math.min(1000, value));
+      round.guess = roundSig(round.lo * (round.hi / round.lo) ** (Number(range.value) / 1000));
+      $('adjust-value').textContent = fmt(round.guess);
+      drawPan(); refresh();
+    }
+
+    function readTyped() {
+      const raw = $('type-value').value.replace(/\s/g, '').replace(',', '.');
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value <= 0) return null;
+      return value * Number($('type-unit').value);
+    }
+
+    function weigh() {
+      if (round.busy || round.done) return;
+      if (game.mode === 'type') {
+        const typed = readTyped();
+        if (!typed) {
+          setFeedback('Écris un nombre plus grand que zéro, par exemple 4,5.', 'bad');
+          $('type-value').focus();
+          return;
+        }
+        round.guess = typed;
+        drawPan();
+      }
+      const guess = currentGuess();
+      if (!(guess > 0)) return;
+      const ratio = guess / round.kg;
+      const score = scoreOf(guess, round.kg);
+      const balanced = score >= 96;
+      round.locked = false;
+      round.busy = true;
+      if (balanced) {
+        beam.target = 0;
+        beam.speed += .25 * (Math.random() < .5 ? -1 : 1);
+      } else {
+        const amount = Math.max(.17, Math.min(1, Math.abs(Math.log(ratio)) / Math.log(4)) ** .7);
+        beam.target = (ratio < 1 ? 1 : -1) * MAX_ANGLE * amount;
+      }
+      sfx.release();
+      setFeedback('La balance oscille…');
+      refresh();
+      setTimeout(() => { round.busy = false; finishRound(guess, ratio, score, balanced); }, reduceMotion ? 250 : 1500);
+    }
+
+    function finishRound(guess, ratio, score, balanced) {
+      round.done = true;
+      const m = round.m, level = tier(score);
+      game.total += score;
+      game.results.push({ name: m.name, kg: round.kg, score, gap: gapText(guess / round.kg) });
+
+      $('mystery-weight').textContent = fmt(round.kg);
+      $('result-box').className = `result ${level}`;
+      const phrase = gapPhrase(ratio);
+      $('result-title').textContent = balanced ? `Équilibre, à ${gapText(ratio)} près !` : phrase[0].toUpperCase() + phrase.slice(1);
+      $('result-score').className = `score-badge ${level}`;
+      $('result-score').textContent = `${score} / 100`;
+      $('result-stars').innerHTML = stars(starCount(score));
+
+      let how;
+      if (game.mode === 'objects') {
+        const counts = new Map();
+        round.pan.forEach((i) => counts.set(i, (counts.get(i) || 0) + 1));
+        const placed = [...counts].sort((a, b) => b[0].kg - a[0].kg)
+          .map(([i, n]) => `${n > 1 ? n + ' × ' : ''}${i.name} (${fmt(i.kg)})`).join(', ');
+        how = `Tu avais posé ${fmt(guess)} : ${placed}.`;
+      } else {
+        how = game.mode === 'adjust' ? `Tu avais réglé la masse sur ${fmt(guess)}.` : `Tu avais écrit ${fmt(guess)}.`;
+      }
+      $('result-detail').textContent = `${m.name} : ${fmt(round.kg)}. ${how} Écart : ${gapText(ratio)}.`;
+
+      const crusher = game.mode === 'objects' && ratio > 100 ? round.pan.reduce((a, b) => (b.kg > a.kg ? b : a)) : null;
+      setFeedback(crusher
+        ? `💥 ${crusher.emoji} ${crusher.name} : la balance n'a rien pu faire. Il fallait ${fmt(round.kg)}.`
+        : balanced
+          ? `Équilibre ! ${m.name} pèse ${fmt(round.kg)}, écart de ${gapText(ratio)}. Note : ${score} / 100.`
+          : `Il fallait ${fmt(round.kg)} : tu étais ${phrase}. Note : ${score} / 100.`, level);
+      (score >= 80 ? sfx.win : sfx.lose)();
+
+      $('next-button').textContent = game.round === ROUNDS - 1 ? 'Voir mon résultat' : 'Objet suivant';
+      $('side-title').textContent = 'Résultat';
+      $('play-zone').hidden = true;
+      $('result-zone').hidden = false;
+      $('progress-fill').style.width = `${(game.round + 1) / ROUNDS * 100}%`;
+      drawPan(); refresh();
+      $('next-button').focus();
+    }
+
+    function startRound() {
+      const m = game.order[game.round];
+      Object.assign(round, { m, kg: m.kg, pan: [], guess: 0, items: [], locked: true, busy: false, done: false });
+      beam.target = 0;
+
+      const image = $('object-image');
+      if (m.image) {
+        const height = m.width * m.h / m.w;
+        image.setAttribute('href', m.image);
+        image.setAttribute('width', m.width);
+        image.setAttribute('height', height);
+        image.setAttribute('x', -m.width / 2);
+        image.setAttribute('y', 160 - height * m.base);
+        image.style.clipPath = `inset(0 0 ${Math.max(0, (1 - m.base) * 100 - 1)}% 0)`;
+        image.style.display = '';
+      } else {
+        image.style.display = 'none';
+      }
+      $('object-emoji').textContent = m.image ? '' : m.emoji;
+      const badge = $('object-badge');
+      badge.textContent = m.badge || m.badgeEmoji || '';
+      badge.setAttribute('font-size', m.badgeEmoji ? 40 : 22);
+      badge.setAttribute('stroke-width', m.badgeEmoji ? 0 : 5);
+
+      $('object-title').textContent = m.name;
+      $('object-detail').textContent = m.detail;
+      $('mystery-weight').textContent = '? kg';
+      $('round-label').textContent = `Objet ${game.round + 1} / ${ROUNDS}`;
+      $('panel-round-label').textContent = `Défi ${game.round + 1} / ${ROUNDS}`;
+      $('side-title').textContent = MODES[game.mode].side;
+      $('progress-fill').style.width = `${game.round / ROUNDS * 100}%`;
+      $('play-zone').hidden = false;
+      $('result-zone').hidden = true;
+
+      if (game.mode === 'objects') {
+        round.items = pickItems(m);
+        buildTray();
+      } else if (game.mode === 'adjust') {
+        const center = m.kg * 10 ** rnd(-.6, .6);
+        round.lo = center / 25;
+        round.hi = center * 25;
+        $('adjust-min').textContent = fmt(round.lo);
+        $('adjust-max').textContent = fmt(round.hi);
+        setAdjust(Math.round(rnd(150, 850)));
+      } else {
+        $('type-value').value = '';
+      }
+      setFeedback(MODES[game.mode].hello);
+      drawPan(); refresh();
+    }
+
+    function nextRound() {
+      if (game.round < ROUNDS - 1) {
+        game.round += 1;
+        startRound();
+        return;
+      }
+      const final = average(), previous = bestOf(game.mode);
+      if (final > previous) store(`bonne-mesure-record-${game.mode}`, final);
+      $('end-mode').textContent = `Partie terminée · ${MODES[game.mode].name}`;
+      $('final-score').textContent = final;
+      $('final-score').className = `t-${tier(final)}`;
+      $('final-rank').textContent =
+        (final >= 85 ? 'Maître peseur' : final >= 65 ? 'Fin connaisseur' : final >= 40 ? 'Apprenti épicier' : 'Pifomètre à régler')
+        + (final > previous && previous > 0 ? ' · nouveau record !' : '');
+      const recap = $('recap');
+      recap.replaceChildren();
+      for (const r of game.results) {
+        const li = document.createElement('li');
+        li.innerHTML = `<span>${esc(r.name)}<br><small class="r-w">${esc(fmt(r.kg))}</small></span><span class="r-w">écart ${esc(r.gap)}</span><span class="r-s t-${tier(r.score)}">${r.score}</span>`;
+        recap.appendChild(li);
+      }
+      refresh();
+      $('end-overlay').classList.add('visible');
+      $('restart-button').focus();
+    }
+
+    function newGame(mode = game.mode) {
+      game.mode = mode;
+      game.round = 0; game.results = []; game.total = 0;
+      const recent = load('bonne-mesure-vus-v2', []);
+      game.order = [];
+      for (let i = 0; i < ROUNDS; i++) {
+        const m = makeMystery([...recent, ...game.order.map((o) => o.key)]);
+        game.order.push(m);
+      }
+      store('bonne-mesure-vus-v2', [...recent, ...game.order.map((o) => o.key)].slice(-60));
+      const info = MODES[mode];
+      $('mode-eyebrow').textContent = info.eyebrow;
+      $('mode-title').textContent = info.title;
+      $('weigh-button').textContent = info.button;
+      $('block-objects').hidden = mode !== 'objects';
+      $('block-adjust').hidden = mode !== 'adjust';
+      $('block-type').hidden = mode !== 'type';
+      $('end-overlay').classList.remove('visible');
+      startRound();
+    }
+
+    // ============================================================ branchements
+    $('weigh-button').addEventListener('click', weigh);
+    $('next-button').addEventListener('click', nextRound);
+    $('restart-button').addEventListener('click', () => newGame());
+    $('change-mode-button').addEventListener('click', openModes);
+    $('mode-button').addEventListener('click', openModes);
+    $('resume-button').addEventListener('click', () => $('mode-overlay').classList.remove('visible'));
+    $('undo-button').addEventListener('click', () => { if (round.pan.length) removeByName(round.pan[round.pan.length - 1].name); });
+    $('clear-button').addEventListener('click', () => {
+      if (round.busy || round.done) return;
+      round.pan = []; sfx.remove(); drawPan(); refresh();
+    });
+    $('pan-weights').addEventListener('click', (event) => {
+      const target = event.target.closest('.pan-weight');
+      if (target) removeByName(target.dataset.name);
+    });
+    $('adjust-range').addEventListener('input', () => setAdjust(Number($('adjust-range').value)));
+    $('minus-button').addEventListener('click', () => setAdjust(Number($('adjust-range').value) - 3));
+    $('plus-button').addEventListener('click', () => setAdjust(Number($('adjust-range').value) + 3));
+    $('type-value').addEventListener('input', refresh);
+    $('type-value').addEventListener('keydown', (event) => { if (event.key === 'Enter') weigh(); });
+    $('sound-button').addEventListener('click', () => {
+      muted = !muted;
+      $('sound-button').setAttribute('aria-pressed', muted);
+      $('sound-button').setAttribute('aria-label', muted ? 'Remettre le son' : 'Couper le son');
+      $('sound-waves').setAttribute('d', muted ? 'M16 9l5 6m0-6l-5 6' : 'M16.5 8.5a5 5 0 0 1 0 7');
+    });
+    addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && game.started) $('mode-overlay').classList.remove('visible');
+    });
+    // le premier choix de mode démarre vraiment la partie
+    $('mode-list').addEventListener('click', () => { game.started = true; }, true);
+
+    PHOTOS.forEach((p) => { new Image().src = p.image; });
+    newGame('objects');
+    renderModeList();
+    drawBeam();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
