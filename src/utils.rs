@@ -430,3 +430,47 @@ pub fn lire_corps(request: &mut tiny_http::Request, max: u64) -> Option<String> 
     }
     Some(String::from_utf8_lossy(&buf).into_owned())
 }
+
+// ══════════════════════════════════════════════════════════════════
+// Colonne `login.vip` = id du plan de l'utilisateur ("vip", "ultra_vip",
+// ... tel que dans config.json -> plans.available_plans[].id), "0" = gratuit.
+// C'est ce qu'ecrit paiement-pi (maj_plan_utilisateur) et, depuis ce fix,
+// Admin > Utilisateurs. Les anciennes valeurs numeriques ("1", ecrites par
+// l'ancien admin qui ne savait stocker que 0/1) valent "vip".
+// ══════════════════════════════════════════════════════════════════
+pub fn plan_depuis_vip(brut: &str) -> String {
+    let s = brut.trim();
+    if s.is_empty() || s == "0" || s.eq_ignore_ascii_case("free") {
+        return "free".to_string();
+    }
+    if s.chars().all(|c| c.is_ascii_digit()) {
+        return "vip".to_string();
+    }
+    s.to_string()
+}
+
+/// Semantique historique de `vip` lu en entier : 0 = gratuit, 1 = autre plan.
+pub fn vip_actif(brut: &str) -> i64 {
+    if plan_depuis_vip(brut) == "free" { 0 } else { 1 }
+}
+
+/// Valeur brute de `vip` depuis une ligne `selectionner` (VARCHAR -> chaine,
+/// mais on accepte aussi un nombre).
+pub fn vip_brut_json(v: Option<&serde_json::Value>) -> String {
+    match v {
+        Some(serde_json::Value::String(s)) => s.clone(),
+        Some(serde_json::Value::Number(n)) => n.to_string(),
+        _ => String::new(),
+    }
+}
+
+/// Valeur brute de `vip` depuis une ligne mysql, SANS paniquer : `Row::get::<i64>`
+/// panique (et ferait tomber VEX) des que la colonne contient un id de plan.
+pub fn vip_brut_row(row: &mysql::Row) -> String {
+    match row.get_opt::<mysql::Value, _>("vip") {
+        Some(Ok(mysql::Value::Bytes(b))) => String::from_utf8_lossy(&b).into_owned(),
+        Some(Ok(mysql::Value::Int(i))) => i.to_string(),
+        Some(Ok(mysql::Value::UInt(u))) => u.to_string(),
+        _ => String::new(),
+    }
+}

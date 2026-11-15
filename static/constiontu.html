@@ -26,7 +26,7 @@ li{margin-bottom:4px}
 <body>
 <main class="policy">
   <h1>Politique de Confidentialité</h1>
-  <p class="updated">Dernière mise à jour : 25 septembre 2026 (ajout de l'empreinte d'appareil)</p>
+  <p class="updated">Dernière mise à jour : 26 septembre 2026 (fonctionnement des serveurs, pouvoirs de l'administrateur, disponibilité et responsabilité)</p>
 
   <p>Cette page explique quelles données VEX collecte, pourquoi, combien de temps elles sont gardées et quels sont tes droits. En créant un compte, tu acceptes cette politique.</p>
 
@@ -55,23 +55,60 @@ li{margin-bottom:4px}
   <h2>4. Tes fichiers</h2>
   <p>Tes fichiers t'appartiennent. VEX ne les consulte pas, sauf si c'est nécessaire pour résoudre un problème technique que tu as signalé, ou si la loi l'exige.</p>
 
-  <h2>5. Cookies</h2>
+  <h2>5. Ce qui se passe sur les serveurs VEX</h2>
+  <p>VEX est un service <strong>auto-hébergé</strong> : il fonctionne sur des machines personnelles gérées par le propriétaire de chaque serveur (par exemple vex.hopto.org), et non dans un centre de données professionnel. Concrètement :</p>
+  <ul>
+    <li><strong>Mot de passe :</strong> la connexion utilise le protocole SRP-6a. Ton mot de passe ne quitte jamais ton appareil : le serveur ne le reçoit pas et ne le connaît pas.</li>
+    <li><strong>Contenu de tes fichiers :</strong> il est chiffré dans ton navigateur (AES-GCM) avant l'envoi. Le serveur ne stocke que la version chiffrée. En revanche, il voit les <strong>noms</strong>, tailles, dates et l'organisation en dossiers de tes fichiers.</li>
+    <li><strong>Exceptions :</strong> un fichier ou une page que tu rends <strong>publics</strong>, ou que tu partages par lien, peut être lu par toute personne qui a le lien. Quand tu ouvres un document dans l'<strong>éditeur en ligne</strong> (OnlyOffice), il est déchiffré et placé temporairement en clair sur le serveur pendant l'édition, puis supprimé.</li>
+    <li><strong>Messagerie :</strong> les messages sont chiffrés de bout en bout (ECDH P-256 + AES-GCM). Le serveur sait qui écrit à qui et quand, mais pas ce qui est écrit.</li>
+    <li><strong>Assistant VexIA :</strong> ce que tu écris à VexIA est envoyé au fournisseur d'intelligence artificielle configuré (Anthropic/Claude, OpenAI ou xAI), qui le traite selon ses propres conditions. N'y mets pas d'informations sensibles.</li>
+    <li><strong>Journaux :</strong> chaque requête est enregistrée dans des journaux quotidiens (adresse IP, page demandée, date, navigateur), ainsi que les connexions et les empreintes d'appareil.</li>
+    <li><strong>Sauvegardes :</strong> des copies complètes de la base de données (comptes, informations sur les fichiers, réglages) sont faites manuellement ou automatiquement et gardées sur le serveur.</li>
+    <li><strong>Réseau VEX :</strong> un serveur peut être relié à d'autres serveurs VEX (réseau P2P) : il partage avec eux un annuaire des serveurs, et un fichier ne leur est transmis que si tu choisis de l'envoyer. Si tu utilises « Se connecter avec VEX » sur un autre service, celui-ci reçoit ton identifiant après ton accord.</li>
+    <li><strong>Maintenance :</strong> le serveur peut être mis à jour, redémarré ou arrêté à tout moment, ce qui coupe temporairement le service.</li>
+  </ul>
+
+  <h2>6. Ce que le propriétaire du serveur peut faire</h2>
+  <p>La personne qui gère le serveur VEX (l'administrateur) dispose d'un panneau d'administration. Elle peut :</p>
+  <ul>
+    <li>voir la liste des comptes (nom, e-mail, rôle, offre), modifier un rôle ou une offre, bloquer, bannir ou supprimer un compte ;</li>
+    <li>consulter et modifier directement la base de données ;</li>
+    <li>consulter les journaux (adresses IP, pages visitées, connexions) et les empreintes d'appareil ;</li>
+    <li>créer, télécharger et supprimer des sauvegardes complètes de la base de données ;</li>
+    <li>voir les abonnements et les revenus ;</li>
+    <li>activer, désactiver ou configurer les applications et extensions (VexIA, éditeur en ligne…) ;</li>
+    <li>mettre à jour, redémarrer ou arrêter VEX et la machine qui l'héberge, et gérer son stockage.</li>
+  </ul>
+  <p>Elle <strong>ne peut pas</strong> lire le contenu de tes fichiers chiffrés ni de tes messages, ni connaître ton mot de passe : les clés restent dans ton navigateur. Sauf pour les exceptions indiquées à la section 5 (fichiers publics ou partagés, documents ouverts dans l'éditeur en ligne, messages envoyés à VexIA). Comme pour tout site web, une personne qui contrôle le serveur pourrait techniquement modifier le code du site : n'utilise VEX que sur un serveur dont tu fais confiance au propriétaire.</p>
+
+  <h2>7. Cookies</h2>
   <p>VEX utilise uniquement les cookies nécessaires au fonctionnement du site, comme le cookie de session qui te garde connecté et la mémorisation de ton thème (clair ou sombre). Aucun cookie publicitaire ni de suivi n'est utilisé.</p>
 
-  <h2>6. Durée de conservation</h2>
+  <h2>8. Durée de conservation</h2>
   <ul>
     <li>Tes données de compte et tes fichiers sont gardés tant que ton compte existe.</li>
     <li>Quand tu supprimes ton compte, tes données et tes fichiers sont effacés dans un délai de 30 jours.</li>
     <li>Les données de paiement peuvent être gardées plus longtemps si la loi l'exige (obligations comptables).</li>
   </ul>
 
-  <h2>7. Sécurité</h2>
+  <h2>9. Sécurité</h2>
   <p>Les échanges avec VEX sont chiffrés (HTTPS) et les mots de passe sont stockés chiffrés. Aucun système n'est parfait : utilise un mot de passe unique et ne le partage avec personne.</p>
 
-  <h2>8. Partage des données</h2>
-  <p>Tes données ne sont partagées qu'avec les prestataires indispensables au service (paiement, hébergement), et uniquement pour ce besoin, ou avec les autorités si la loi l'exige.</p>
+  <h2>10. Partage des données</h2>
+  <p>Tes données ne sont partagées qu'avec les prestataires indispensables au service (paiement, hébergement, fournisseur d'IA pour ce que tu envoies à VexIA), avec les autres serveurs VEX ou services tiers uniquement quand tu le demandes (voir section 5), ou avec les autorités si la loi l'exige.</p>
 
-  <h2>9. Tes droits</h2>
+  <h2>11. Disponibilité du service et responsabilité</h2>
+  <ul>
+    <li>VEX est fourni <strong>« tel quel »</strong>, sans aucune garantie de disponibilité, de continuité, de performance ou d'absence d'erreur.</li>
+    <li>Le service peut être interrompu, ralenti ou arrêté <strong>à tout moment et sans préavis</strong> : panne matérielle, coupure de courant ou d'internet, maintenance, mise à jour, attaque, ou fin du service.</li>
+    <li><strong>Des données peuvent être perdues.</strong> Tu es seul responsable de garder tes propres copies de sauvegarde de tes fichiers importants, en dehors de VEX. Si tu oublies ton mot de passe de chiffrement, tes fichiers chiffrés ne peuvent pas être récupérés, même par l'administrateur.</li>
+    <li>Dans toute la mesure permise par la loi, le propriétaire et l'administrateur de VEX <strong>ne peuvent pas être tenus responsables</strong> des dommages directs ou indirects liés à l'utilisation de VEX ou à l'impossibilité de l'utiliser : coupure, indisponibilité, lenteur, perte ou corruption de données, perte de revenus ou d'opportunités.</li>
+    <li>Une interruption du service, quelle qu'en soit la durée, ne donne droit à aucune indemnisation ni aucun remboursement, dans les limites prévues par la loi.</li>
+    <li>Tu utilises VEX sous ta propre responsabilité et tu restes responsable de ce que tu y stockes, partages et publies.</li>
+  </ul>
+
+  <h2>12. Tes droits</h2>
   <p>Conformément au RGPD, tu peux à tout moment :</p>
   <ul>
     <li>accéder à tes données et en obtenir une copie ;</li>
@@ -81,10 +118,10 @@ li{margin-bottom:4px}
   </ul>
   <p>Pour exercer ces droits, contacte le support VEX depuis ton compte. Tu peux aussi déposer une réclamation auprès de la CNIL (<a href="https://www.cnil.fr" target="_blank" rel="noopener" style="color:var(--accent)">cnil.fr</a>).</p>
 
-  <h2>10. Mineurs</h2>
+  <h2>13. Mineurs</h2>
   <p>Si tu as moins de 15 ans, tu dois avoir l'accord d'un parent ou d'un responsable légal pour utiliser VEX.</p>
 
-  <h2>11. Modifications</h2>
+  <h2>14. Modifications</h2>
   <p>Cette politique peut évoluer. En cas de changement important, tu seras prévenu sur le site ou par e-mail.</p>
 
   <a class="back" href="/">← Retour à VEX</a>

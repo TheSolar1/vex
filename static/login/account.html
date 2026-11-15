@@ -148,6 +148,15 @@
       display:flex;align-items:center;justify-content:center;color:#fff;font-size:48px;font-weight:700;
       box-shadow:0 8px 24px rgba(76,175,80,0.3);flex-shrink:0;
     }
+    .avatar-zone{display:flex;flex-direction:column;align-items:center;gap:8px;flex-shrink:0;}
+    #avatar-img{width:120px;height:120px;border-radius:50%;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.2);}
+    .avatar-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;}
+    .avatar-btn{background:none;border:1px solid var(--panel-border);color:var(--text);border-radius:14px;padding:4px 10px;font-size:12px;cursor:pointer;}
+    .avatar-btn:hover{border-color:var(--accent);color:var(--accent);}
+    .cles-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px;}
+    .cles-table th,.cles-table td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--panel-border);}
+    .cle-nouvelle{border:2px solid var(--accent);border-radius:10px;padding:12px;margin:10px 0;}
+    .cle-nouvelle code,.cles-intro code{background:var(--panel-border);padding:2px 6px;border-radius:4px;font-size:13px;}
     #user-name{font-size:28px;margin-bottom:8px;color:var(--text);}
     #user-email{color:var(--text-dim);}
     .profile-top-row{display:flex;align-items:start;gap:30px;margin-bottom:30px;padding-bottom:30px;border-bottom:2px solid var(--panel-border);}
@@ -187,7 +196,15 @@ __NAV_HTML__
           <h2><svg class="ico" viewBox="0 0 512 512"><path fill="currentColor" d="M399 384.2C376.9 345.8 335.4 320 288 320l-64 0c-47.4 0-88.9 25.8-111 64.2 35.2 39.2 86.2 63.8 143 63.8s107.8-24.7 143-63.8zM0 256a256 256 0 1 1 512 0 256 256 0 1 1 -512 0zm256 16a72 72 0 1 0 0-144 72 72 0 1 0 0 144z"/></svg> {{T_MON_PROFIL}}</h2>
 
           <div class="profile-top-row">
-            <div id="avatar-letter">V</div>
+            <div class="avatar-zone">
+              <div id="avatar-letter">V</div>
+              <img id="avatar-img" alt="Photo de profil" hidden>
+              <div class="avatar-actions">
+                <button type="button" class="avatar-btn" onclick="document.getElementById('avatar-file').click()">Changer la photo</button>
+                <button type="button" class="avatar-btn" id="avatar-retirer" onclick="retirerPhoto()" hidden>Retirer</button>
+              </div>
+              <input type="file" id="avatar-file" accept="image/png,image/jpeg,image/webp" hidden onchange="choisirPhoto(this)">
+            </div>
             <div style="flex:1;">
               <h3 id="user-name">{{T_SIDEBAR_PROFIL}}</h3>
               <p style="margin-bottom:12px;">
@@ -373,6 +390,23 @@ __NAV_HTML__
           </form>
           <div id="pwd-msg" class="message" style="display:none"></div>
         </div>
+        <div class="card" id="cles-card">
+          <h2><img src="/static/img/solid/key.svg" class="ico" alt="" style="filter:var(--icon-filter)"> Clés API</h2>
+          <p class="cles-intro">Une clé API permet à un script ou à une autre application d'utiliser votre compte VEX sans mot de passe, avec l'en-tête <code>Authorization: Bearer vex_…</code>. Elle peut faire <b>tout ce que vous pouvez faire</b> sur les routes <code>/api/…</code> (fichiers, compte, Sitec, administration et extensions selon vos droits), sauf créer ou révoquer des clés. Les fichiers restent chiffrés comme dans le navigateur. Ne la partagez jamais : quelqu'un qui l'a agit en votre nom.</p>
+          <div id="cles-refus" class="message" style="display:none">Votre plan ne comprend pas l'accès API (réglable par un administrateur dans Admin › Plans).</div>
+          <div id="cles-zone" style="display:none">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0">
+              <input type="text" id="cle-nom" maxlength="60" placeholder="Nom de la clé (ex. script de sauvegarde)" style="flex:1;min-width:200px;padding:10px 14px;border:2px solid var(--panel-border);border-radius:8px;background:transparent;color:var(--text)">
+              <button type="button" class="btn btn-primary" onclick="creerCle()">Créer une clé</button>
+            </div>
+            <div id="cle-nouvelle" class="cle-nouvelle" style="display:none">
+              <strong>Copiez cette clé maintenant : elle ne sera plus jamais affichée.</strong>
+              <div style="display:flex;gap:8px;margin:8px 0;align-items:center"><code id="cle-valeur" style="flex:1;word-break:break-all"></code><button type="button" class="btn btn-primary" onclick="copierCle()">Copier</button></div>
+              <small>Pour tester : <code>curl -H "Authorization: Bearer VOTRE_CLE" https://vex.hopto.org/api/moi</code></small>
+            </div>
+            <div id="cles-liste"></div>
+          </div>
+        </div>
       </div>
 
       <div id="autologin-section" class="section-content">
@@ -551,6 +585,62 @@ const SRP = (() => {
   // (id="toast", une seule bulle réécrite à chaque appel) au lieu du
   // style standard "fchier" (id="toast-area", une carte empilable par
   // message, dédupliquée, échappée) utilisé partout ailleurs sur VEX.
+  // ── Photo de profil ──
+  function afficherPhoto(url){
+    const img=$('#avatar-img'), l=$('#avatar-letter'), r=$('#avatar-retirer');
+    if(url){ img.src=url; img.hidden=false; l.style.display='none'; r.hidden=false; }
+    else { img.hidden=true; img.removeAttribute('src'); l.style.display=''; r.hidden=true; }
+  }
+  async function envoyerPhoto(params){
+    try{
+      const r=await (await fetch('/api/account/photo',{method:'POST',credentials:'include',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(params)})).json();
+      if(r.success){ afficherPhoto(r.photo); toast(r.photo?'Photo mise à jour':'Photo retirée'); }
+      else toast(r.error||'Erreur',true);
+    }catch(e){ toast('Erreur réseau',true); }
+  }
+  // Recadrage carre au centre + 256 px, encode en JPEG dans le navigateur.
+  window.choisirPhoto=function(input){
+    const f=input.files&&input.files[0]; input.value=''; if(!f) return;
+    const img=new Image();
+    img.onload=()=>{
+      const c=document.createElement('canvas'); c.width=c.height=256;
+      const s=Math.min(img.width,img.height);
+      const g=c.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,256,256);
+      g.drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,256,256);
+      URL.revokeObjectURL(img.src);
+      envoyerPhoto({image:c.toDataURL('image/jpeg',0.88)});
+    };
+    img.onerror=()=>toast('Image illisible',true);
+    img.src=URL.createObjectURL(f);
+  };
+  window.retirerPhoto=function(){ envoyerPhoto({supprimer:'1'}); };
+
+  // ── Cles API ──
+  function escH(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  async function chargerCles(){
+    try{
+      const r=await (await fetch('/api/account/cles',{credentials:'include'})).json();
+      if(!r.success) return;
+      $('#cles-refus').style.display=r.autorise?'none':'block';
+      $('#cles-zone').style.display=r.autorise||r.cles.length?'block':'none';
+      $('#cles-liste').innerHTML=r.cles.length
+        ? `<table class="cles-table"><thead><tr><th>Nom</th><th>Clé</th><th>Créée</th><th>Dernière utilisation</th><th></th></tr></thead><tbody>${r.cles.map(c=>`<tr><td>${escH(c.nom)}</td><td><code>${escH(c.prefixe)}…</code></td><td>${escH(String(c.cree||'').slice(0,16))}</td><td>${c.derniere_utilisation?escH(String(c.derniere_utilisation).slice(0,16)):'jamais'}</td><td><button type="button" class="avatar-btn" onclick="revoquerCle(${Number(c.id)})">Révoquer</button></td></tr>`).join('')}</tbody></table>`
+        : '<p style="opacity:.7;margin-top:8px">Aucune clé pour le moment.</p>';
+    }catch(e){}
+  }
+  window.creerCle=async function(){
+    const r=await (await fetch('/api/account/cles/creer',{method:'POST',credentials:'include',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({nom:$('#cle-nom').value})})).json();
+    if(!r.success){ toast(r.error||'Erreur',true); return; }
+    $('#cle-valeur').textContent=r.cle; $('#cle-nouvelle').style.display='block'; $('#cle-nom').value='';
+    chargerCles();
+  };
+  window.copierCle=function(){ navigator.clipboard.writeText($('#cle-valeur').textContent).then(()=>toast('Clé copiée'),()=>toast('Copie impossible : sélectionnez-la à la main',true)); };
+  window.revoquerCle=async function(id){
+    if(!confirm('Révoquer cette clé ? Les scripts qui l\'utilisent cesseront de fonctionner.')) return;
+    const r=await (await fetch('/api/account/cles/revoquer',{method:'POST',credentials:'include',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id})})).json();
+    if(r.success){ toast('Clé révoquée'); chargerCles(); } else toast(r.error||'Erreur',true);
+  };
+
   function toast(msg, err=false){
     const area=$('#toast-area'); if(!area) return;
     const type = err ? 'error' : 'ok';
@@ -642,6 +732,8 @@ const SRP = (() => {
     const pseudoInput=$('#pseudo-input');
     if(pseudoInput) pseudoInput.value=d.user.pseudo||'';
     $('#avatar-letter').textContent=(d.user.nom||'V').substring(0,1).toUpperCase();
+    afficherPhoto(d.user.photo);
+    chargerCles();
     const pv=d.user.privilege_details;
     const privLabel=pv?.nom_privilege || (I18N.PRIVILEGE_LABEL.replace('{n}',d.user.privilege??'?'));
     const privColor=pv?.couleur_privilege || 'var(--accent)';

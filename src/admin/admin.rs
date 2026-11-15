@@ -21,7 +21,7 @@ use std::process::Command;
 use std::sync::{Arc, RwLock};
 use tiny_http::{Request, Response};
 
-use crate::admin::actions::{PRIVILEGE_MAX, PRIVILEGE_MIN_SET, PRIVILEGE_SUPER};
+use crate::admin::actions::{PRIVILEGE_MIN_SET, PRIVILEGE_SUPER};
 
 const HTML_PATH: &str = "static/admin/admin.html";
 
@@ -514,8 +514,11 @@ pub fn handle_request(
 
     let user_id = user.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
     let privilege = user.get("privilege").and_then(|v| v.as_i64()).unwrap_or(99);
+    // Permissions du panel par privilege (reglables par le fondateur, voir
+    // admin/permissions.rs) -- remplace l'ancien seuil fixe PRIVILEGE_MAX.
+    let perms = crate::admin::permissions::permissions_compte(&read_config(config_path), privilege, user_id);
 
-    if privilege > PRIVILEGE_MAX {
+    if !crate::admin::permissions::acces_panel_vex(&perms) {
         let _ = crate::utils::envoyer(request, Response::from_string(
             r#"<!DOCTYPE html><html><body style="font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a0a;color:#4caf50">
 <div style="text-align:center"><div style="font-size:6rem;font-weight:900">403</div>
@@ -542,6 +545,7 @@ pub fn handle_request(
             &method,
             user_id,
             privilege,
+            &perms,
             &cookie_val,
             &remote_ip,
             &user_agent,
@@ -672,6 +676,7 @@ fn handle_api(
     method: &str,
     user_id: i64,
     privilege: i64,
+    perms: &std::collections::HashSet<String>,
     cookie_val: &str,
     remote_ip: &str,
     user_agent: &str,
@@ -687,57 +692,18 @@ fn handle_api(
         HashMap::new()
     };
 
-    let superadmin_routes = [
-        "/db/cell/edit",
-        "/db/row/delete",
-        "/db/row/add",
-        "/db/sql",
-        "/p2p",
-        "/p2p/peers",
-        "/p2p/kick",
-        "/p2p/users",
-        "/p2p/transfers",
-        "/p2p/annuaire",
-        "/p2p/sync_now",
-        "/onlyoffice/start",
-        "/onlyoffice/stop",
-        // Uploader un .rs revient a executer du code sur le serveur
-        // apres recompilation : reserve aux superadmins.
-        "/extensions/upload",
-        "/extensions/delete",
-        "/extensions/rebuild",
-        "/extensions/update",
-        "/editor/start",
-        "/editor/stop",
-        // Installer depuis GitHub = executer du code distant.
-        "/marketplace/install",
-        "/marketplace/source",
-        // Visualiser les actions admin declenchees par VexIA (toutes,
-        // pas seulement les siennes) est aussi sensible que les executer.
-        "/vexia/audit",
-        // Empreintes d'appareil : IP + comptes + appareils = donnees
-        // sensibles, reservees aux superadmins.
-        "/empreintes",
-    ];
-    let needs_super = sub.starts_with("/p2p")
-        || sub.starts_with("/backup")
-        || superadmin_routes.iter().any(|r| sub.starts_with(r));
-    if needs_super && privilege > PRIVILEGE_SUPER {
-        return respond_json(
-            request,
-            json!({"success":false,"error":i18n::t(langue, Cle::AdmP2pErrReserveSuperadmins)}),
-        );
-    }
-    // Machine (mise a jour VEX = git pull + recompilation + redemarrage du
-    // processus, execution de code arbitraire sur le serveur) : reserve au
-    // SEUL fondateur (privilege=1), pas aux simples superadmins (2) --
-    // demande explicitement par le fondateur, en plus de la regle deja en
-    // place empechant d'attribuer privilege=1 autrement que par la console.
-    if sub.starts_with("/machine") && privilege != 1 {
-        return respond_json(
-            request,
-            json!({"success":false,"error":"Réservé au fondateur."}),
-        );
+    // Autorisation par route : table de permissions du role (fondateur =
+    // tout). Remplace l'ancienne liste fixe superadmin_routes (privilege <= 2)
+    // et la regle "Machine = fondateur", qui restent les valeurs par defaut
+    // tant que le fondateur n'a rien change (admin/permissions.rs).
+    match crate::admin::permissions::permission_requise(sub, method) {
+        Some("fondateur") if privilege != 1 => {
+            return respond_json(request, json!({"success":false,"error":"Réservé au fondateur."}));
+        }
+        Some(p) if p != "fondateur" && !perms.contains(p) => {
+            return respond_json(request, json!({"success":false,"error":"Permission refusée pour votre rôle."}));
+        }
+        _ => {}
     }
 
     let resp: Value = match sub {
@@ -776,10 +742,18 @@ fn handle_api(
                 Some("id DESC"),
                 Some(20),
             );
-            let last: Vec<_> = last_raw.into_iter()
-                .filter(|u| u.get("privilege").and_then(|v| v.as_i64()).unwrap_or(99) != 1)
-                .take(5)
-                .collect();
+            // FIX (fuite) : la liste des derniers inscrits (nom + email) n'est
+            // envoyee qu'aux comptes ayant la permission users_voir -- avant,
+            // tout acces au panel suffisait a voir les comptes ici.
+            let peut_voir_users = perms.contains("users_voir");
+            let last: Vec<_> = if peut_voir_users {
+                last_raw.into_iter()
+                    .filter(|u| u.get("privilege").and_then(|v| v.as_i64()).unwrap_or(99) != 1)
+                    .take(5)
+                    .collect()
+            } else {
+                Vec::new()
+            };
             json!({ "success": true, "data": {
                 "nb_users":    compter_lignes(pool, "login",    &[]),
                 "nb_fichiers": compter_lignes(pool, "fichiers", &[]),
@@ -791,12 +765,14 @@ fn handle_api(
                 "editor":      { "online": ed_ok, "ms": ed_ms, "id": ed_id, "name": ed_nom },
                 "is_super":    privilege <= PRIVILEGE_SUPER,
                 "is_founder":  privilege == 1,
+                "can_users":   peut_voir_users,
+                "permissions": crate::admin::permissions::triees(perms),
                 "last_users":  last.iter().map(|u| json!({
                     "id":        u.get("id").and_then(|v| v.as_i64()).unwrap_or(0),
                     "nom":       u.get("nom").and_then(|v| v.as_str()).unwrap_or(""),
                     "email":     u.get("email").and_then(|v| v.as_str()).unwrap_or(""),
                     "privilege": u.get("privilege").and_then(|v| v.as_i64()).unwrap_or(0),
-                    "vip":       u.get("vip").and_then(|v| v.as_str()).filter(|s| !s.is_empty() && *s != "0").unwrap_or(""),
+                    "vip":       plan_affiche(u.get("vip")),
                 })).collect::<Vec<_>>(),
             }})
         }
@@ -831,7 +807,7 @@ fn handle_api(
                 // plan different de "vip", et Revenus regroupait tous les
                 // payants sous une seule ligne au lieu de les repartir par
                 // plan reel. On renvoie desormais l'id de plan tel quel.
-                "vip":       u.get("vip").and_then(|v| v.as_str()).filter(|s| !s.is_empty() && *s != "0").unwrap_or(""),
+                "vip":       plan_affiche(u.get("vip")),
                 // Plan obtenu via un vrai paiement (point 5, pas encore branche) --
                 // voir garde dans /users/vip. Toujours 0 tant qu'aucun paiement reel
                 // n'ecrit cette colonne.
@@ -854,8 +830,9 @@ fn handle_api(
             for u in &payants_rows {
                 let paye = u.get("vip_paye").and_then(|v| v.as_i64()).unwrap_or(0) != 0;
                 if !paye { continue; }
-                let plan_id = u.get("vip").and_then(|v| v.as_str()).unwrap_or("");
-                if plan_id.is_empty() || plan_id == "0" { continue; }
+                let plan_id = crate::utils::plan_depuis_vip(&crate::utils::vip_brut_json(u.get("vip")));
+                if plan_id == "free" { continue; }
+                let plan_id = plan_id.as_str();
                 nb_payants += 1;
                 if let Some(prix) = plans.iter()
                     .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(plan_id))
@@ -927,20 +904,32 @@ fn handle_api(
                     "error": "Ce plan a été payé par l'utilisateur — seul le fondateur peut le modifier.",
                 }));
             }
-            // La colonne `vip` (VARCHAR) n'est lue qu'en booleen partout
-            // ailleurs (i64 : 0=free, non-zero=vip) -- voir access_control::
-            // plan_autorise. Le formulaire admin envoie l'identifiant du plan
-            // choisi (ex: "vip"), pas un entier : on normalise ici pour rester
-            // compatible avec tout le code qui lit `vip` comme un i64.
-            let vip_brut = body.get("vip").map(|v| v.as_str()).unwrap_or("0");
-            let vip = if vip_brut.is_empty() || vip_brut == "0" { "0" } else { "1" };
+            // FIX (demande utilisateur : "la colonne VIP ne peut pas etre
+            // changee") -- on stockait "1" quel que soit le plan choisi : le
+            // <select> (qui compare a l'id du plan) retombait toujours sur
+            // "Free" et les quotas du plan (fchier::quota_du_plan) ne
+            // trouvaient aucun plan "1" -> plan gratuit pour tout le monde.
+            // On stocke desormais l'id du plan, comme paiement-pi ; tous les
+            // lecteurs passent par utils::plan_depuis_vip / vip_actif.
+            let choix = body.get("vip").map(|v| v.trim().to_string()).unwrap_or_default();
+            let vip: String = if choix.is_empty() || choix == "0" || choix.eq_ignore_ascii_case("free") {
+                "0".to_string()
+            } else {
+                let cfg = load_config(config_path);
+                let existe = cfg.plans.available_plans.iter()
+                    .any(|p| p.get("id").and_then(|v| v.as_str()) == Some(choix.as_str()));
+                if !existe || choix.len() > 64 {
+                    return respond_json(request, json!({"success":false,"error":"Plan inconnu."}));
+                }
+                choix
+            };
             inserer_ou_modifier(
                 pool,
                 "login",
                 // Un changement fait depuis cet endpoint admin n'est jamais un
                 // paiement reel : `vip_paye` retombe a 0 (le futur webhook de
                 // paiement, point 5, est le seul a devoir le remettre a 1).
-                &[("vip", mysql::Value::from(vip)), ("vip_paye", mysql::Value::from(0i64))],
+                &[("vip", mysql::Value::from(vip.as_str())), ("vip_paye", mysql::Value::from(0i64))],
                 &[("id", mysql::Value::from(tid))],
             );
             if etait_paye {
@@ -1060,7 +1049,7 @@ fn handle_api(
                     "page": page,
                     "total_pages": if total == 0 { 1u64 } else { ((total as f64) / (per_page as f64)).ceil() as u64 },
                     "cols": data["cols"], "rows": data["rows"],
-                    "is_super": privilege <= PRIVILEGE_SUPER,
+                    "is_super": perms.contains("db_modifier"),
                 }}),
                 None => json!({"success":false,"error":i18n::t(langue, Cle::AdmDbErrTableIntrouvable)}),
             }
@@ -1223,15 +1212,15 @@ fn handle_api(
                 // equivalent superadmin. Idem pour les identifiants DB, l'URL
                 // de bootstrap P2P, ou privilege_min/plans_autorises des
                 // extensions, egalement reecrits sans restriction ici.
-                if privilege > PRIVILEGE_SUPER {
+                if !crate::admin::permissions::peut_ecrire_config(perms) {
                     return respond_json(request, json!({
                         "success": false,
-                        "error": "Reserve aux super-administrateurs.",
+                        "error": "Permission refusée pour votre rôle.",
                     }));
                 }
                 let new_cfg_str = body.get("config").cloned().unwrap_or_default();
                 match serde_json::from_str::<Value>(&new_cfg_str) {
-                    Ok(v) => {
+                    Ok(mut v) => {
                         // FIX (demande utilisateur : "je veux qu'on puisse
                         // pas changer l'url") -- c'est l'endroit vers lequel
                         // l'argent va circuler : meme le fondateur ne peut
@@ -1262,6 +1251,12 @@ fn handle_api(
                                 "error": "Seul le fondateur peut activer/désactiver les plans payants.",
                             }));
                         }
+                        // Chaque cle modifiee exige sa permission (roles_noms,
+                        // plans_modifier, config_generale) ; la table des
+                        // permissions n'est modifiable que via /permissions.
+                        if let Err(e) = crate::admin::permissions::verifier_ecriture_config(perms, &actuel, &mut v) {
+                            return respond_json(request, json!({"success": false, "error": e}));
+                        }
                         let _ = std::fs::write(
                             config_path,
                             serde_json::to_string_pretty(&v).unwrap_or_default(),
@@ -1271,7 +1266,35 @@ fn handle_api(
                     Err(e) => json!({"success":false,"error":i18n::t(langue, Cle::AdmConfigJsonInvalide).replace("{e}", &e.to_string())}),
                 }
             } else {
-                json!({"success":true,"data": read_config(config_path)})
+                let mut cfg = read_config(config_path);
+                if !perms.contains("config_generale") {
+                    crate::admin::permissions::masquer_secrets(&mut cfg);
+                }
+                json!({"success":true,"data": cfg})
+            }
+        }
+
+        "/permissions" => {
+            if method == "POST" {
+                let brut = body.get("permissions").cloned().unwrap_or_default();
+                let comptes = body.get("comptes").map(|s| s.as_str());
+                match crate::admin::permissions::enregistrer(config_path, &brut, comptes) {
+                    Ok(()) => json!({"success":true,"message":"Permissions enregistrées."}),
+                    Err(e) => json!({"success":false,"error":e}),
+                }
+            } else {
+                // Comptes proposables (les fondateurs ont deja tout).
+                let comptes: Vec<Value> = selectionner(pool, "login", &[], &["id", "nom", "email", "privilege"], Some("privilege ASC, nom ASC"), None)
+                    .into_iter()
+                    .filter(|u| u.get("privilege").and_then(|v| v.as_i64()).unwrap_or(99) != 1)
+                    .map(|u| json!({
+                        "id": u.get("id").and_then(|v| v.as_i64()).unwrap_or(0),
+                        "nom": u.get("nom").and_then(|v| v.as_str()).unwrap_or(""),
+                        "email": u.get("email").and_then(|v| v.as_str()).unwrap_or(""),
+                        "privilege": u.get("privilege").and_then(|v| v.as_i64()).unwrap_or(10),
+                    }))
+                    .collect();
+                crate::admin::permissions::lister(&read_config(config_path), comptes)
             }
         }
 
@@ -1596,7 +1619,7 @@ fn handle_api(
                 "src_root":     EXT_SRC_ROOT,
                 "static_root":  EXT_STATIC_ROOT,
                 "max_bytes":    EXT_MAX_BYTES,
-                "is_super":     privilege <= PRIVILEGE_SUPER,
+                "is_super":     perms.contains("extensions_code"),
                 "plans":        cfg["plans"]["available_plans"].clone(),
             }})
         }
@@ -1984,7 +2007,7 @@ fn handle_api(
                 "presets":   editor_presets(),
                 "status":    {"online": online, "ms": ms, "detail": detail},
                 "online_editing_enabled": cfg["editor"]["online_editing_enabled"].as_bool().unwrap_or(true),
-                "is_super":  privilege <= PRIVILEGE_SUPER,
+                "is_super":  perms.contains("editeur_controle"),
             }})
         }
 
@@ -2291,7 +2314,7 @@ fn handle_api(
                         "notes":    rel["body"].as_str().unwrap_or(""),
                         "items":    items,
                         "source":   cfg["extensions"]["marketplace_url"].as_str().unwrap_or(""),
-                        "is_super": privilege <= PRIVILEGE_SUPER,
+                        "is_super": perms.contains("extensions_code"),
                     }})
                 }
                 Err(e) => json!({"success": false, "error": e}),
@@ -2508,6 +2531,12 @@ pub(crate) fn read_config(path: &str) -> Value {
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())
         .unwrap_or(json!({}))
+}
+
+/// Id du plan d'un compte pour l'admin ("" = gratuit), depuis la colonne `vip`.
+fn plan_affiche(vip: Option<&Value>) -> String {
+    let p = crate::utils::plan_depuis_vip(&crate::utils::vip_brut_json(vip));
+    if p == "free" { String::new() } else { p }
 }
 
 fn read_body(request: &mut Request) -> HashMap<String, String> {

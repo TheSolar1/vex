@@ -18,12 +18,9 @@ use crate::c::SessionInfo;
 use std::io::Cursor;
 use tiny_http::{Request, Response};
 
-pub mod qseal;
-pub mod vexia;
-
 /// Extensions reellement compilees dans ce binaire.
 pub fn compiled_ids() -> &'static [&'static str] {
-    &["qseal", "vexia"]
+    &[]
 }
 
 /// Route /ext/<id> vers l'extension. None si l'id n'est pas compile.
@@ -34,8 +31,6 @@ pub fn dispatch(
     req: &mut Request,
 ) -> Option<Response<Cursor<Vec<u8>>>> {
     match id {
-        "qseal" => Some(qseal::handle(pool, session, req)),
-        "vexia" => Some(vexia::handle(pool, session, req)),
         _ => None,
     }
 }

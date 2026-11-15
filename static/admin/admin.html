@@ -152,6 +152,11 @@ body{padding-top:60px}
 .cell-editable{cursor:pointer;border-bottom:1px dashed var(--aglow)!important}
 .cell-editable:hover{background:var(--alt)!important;color:var(--accent)!important}
 .modal-bg{position:fixed;inset:0;background:color-mix(in srgb, var(--text) 55%, transparent);z-index:9999;display:flex;align-items:center;justify-content:center}
+.perms-grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
+.perms-g{border:1px solid var(--border);border-radius:8px;padding:6px 10px 8px}
+.perms-gt{display:flex;align-items:center;gap:6px;font-weight:700;font-size:.78rem;padding:2px 0 5px;border-bottom:1px solid var(--border);margin-bottom:4px;cursor:pointer}
+.perms-l{display:flex;align-items:center;gap:6px;font-size:.76rem;padding:2px 0;cursor:pointer;line-height:1.3}
+.perms-h{opacity:.55;cursor:default}
 .modal-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:min(480px,95vw);max-height:80vh;overflow-y:auto}
 .fpick{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .fpick input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0)}
@@ -396,6 +401,19 @@ __NAV_HTML__
     <!-- Roles & Plans -->
     <div class="sec" id="sec-roles">
         <div class="pt"><img src="/static/img/solid/id-badge.svg" class="ico-accent" alt=""> {{T_SB_ROLES_PLANS}}</div>
+        <div class="card" id="perms-card" style="margin-bottom:16px;display:none">
+            <div class="ch" style="flex-wrap:wrap;gap:10px">
+                <span><img src="/static/img/solid/user-shield.svg" class="ico ico-accent" alt=""> Permissions du panel admin <small style="font-weight:400;opacity:.7">(fondateur uniquement)</small></span>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <select class="isel" id="perms-cible" onchange="afficherPerms()" style="min-width:240px"></select>
+                    <button class="btn ba" onclick="savePerms()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> Enregistrer</button>
+                </div>
+            </div>
+            <div class="cb" style="padding-top:10px">
+                <div id="perms-info" style="font-size:.76rem;opacity:.8;margin-bottom:8px"></div>
+                <div id="perms-zone" style="max-height:340px;overflow:auto"></div>
+            </div>
+        </div>
         <div class="card" style="margin-bottom:16px">
             <div class="ch"><span><img src="/static/img/solid/tags.svg" class="ico ico-accent" alt=""> {{T_ROLES_NOMS_ROLES}}</span></div>
             <div class="cb">
@@ -516,14 +534,6 @@ __NAV_HTML__
                 </div>
             </div>
             <div style="padding:14px"><div id="log-content"><div class="loading"><span class="spin"></span></div></div></div>
-        </div>
-
-        <div class="card" style="margin-top:16px">
-            <div class="ch">
-                <span><img src="/static/img/solid/robot.svg" class="ico ico-accent" alt=""> {{T_LOGS_ACTIONS_VEXIA}} <small>{{T_LOGS_OUTILS_EXECUTES}}</small></span>
-                <button class="btn bg2" onclick="loadVexiaAudit()"><img src="/static/img/solid/arrows-rotate.svg" class="ico ico-accent" alt=""> {{T_RAFRAICHIR}}</button>
-            </div>
-            <div style="padding:14px" id="vexia-audit-content"><div class="loading"><span class="spin"></span></div></div>
         </div>
 
         <div class="card" style="margin-top:16px">
@@ -676,19 +686,97 @@ function confirmerDialogue(message,opts={}){
     });
 }
 
+/* ── Permissions du panel par role (voir src/admin/permissions.rs) ── */
+const SEC_PERM={users:'users_voir',blocks:'blocks_voir',db:'db_voir',config:'config_voir',roles:'config_voir',apps:'extensions_voir',extensions:'extensions_voir',revenus:'revenus_voir',logs:'logs_voir',onlyoffice:'editeur_voir',p2p:'p2p_voir',backup:'backup_voir','machine-update':'machine_voir','machine-storage':'machine_voir','machine-os':'machine_voir'};
+const PERM_ROLES=[2,3,4,5,6,7,8,9,10,11,12];
+function appliquerPermsSidebar(perms){
+    const P=new Set(perms||[]);
+    document.querySelectorAll('.sb-a[data-sec]').forEach(el=>{const need=SEC_PERM[el.dataset.sec];if(need)el.style.display=P.has(need)?'':'none';});
+    const sep=document.getElementById('sb-sep-machine');if(sep)sep.style.display=P.has('machine_voir')?'':'none';
+}
+const ICO_DANGER='<img src="/static/img/solid/triangle-exclamation.svg" alt="" title="Permission sensible" style="width:12px;height:12px;flex-shrink:0;filter:invert(55%) sepia(90%) saturate(1500%) hue-rotate(5deg)">';
+// Copies modifiables : PM.roles = { "2": [...] }, PM.comptes = { "<id>": [...] } (en plus du role).
+const PM={data:null,roles:{},comptes:{},cible:'r2'};
+function permsCatalogue(){return (PM.data?.groupes||[]).flatMap(g=>g.permissions);}
+function loadPerms(){const c=document.getElementById('perms-card');if(!IS_FOUNDER){c.style.display='none';return;}c.style.display='';chargerPerms();}
+async function chargerPerms(){
+    const r=await api('/permissions');if(!r.success){flash(r.error,true);return;}
+    PM.data=r.data;PM.roles=JSON.parse(JSON.stringify(r.data.roles||{}));PM.comptes=JSON.parse(JSON.stringify(r.data.comptes||{}));
+    remplirCiblePerms();afficherPerms();
+}
+function remplirCiblePerms(){
+    const sel=document.getElementById('perms-cible');
+    const comptes=PM.data.comptes_liste||[];
+    sel.innerHTML=`<optgroup label="Vue d'ensemble"><option value="tous">Tous les rôles</option></optgroup>`
+        +`<optgroup label="Rôles">${PERM_ROLES.map(p=>`<option value="r${p}">${p} — ${esc(pNom(p))}</option>`).join('')}</optgroup>`
+        +(comptes.length?`<optgroup label="Comptes (permissions en plus)">${comptes.map(u=>{const n=(PM.comptes[String(u.id)]||[]).length;return `<option value="c${u.id}">${esc(u.nom)} — ${esc(pNom(u.privilege))}${n?' (+'+n+')':''}</option>`;}).join('')}</optgroup>`:'');
+    if(![...sel.options].some(o=>o.value===PM.cible))PM.cible='r2';
+    sel.value=PM.cible;
+}
+function permCase(attrs,checked,disabled){return `<input type="checkbox" style="width:auto;cursor:pointer;margin:0;flex-shrink:0" ${attrs} ${checked?'checked':''} ${disabled?'disabled':''}>`;}
+function afficherPerms(){
+    PM.cible=document.getElementById('perms-cible').value||'r2';
+    const zone=document.getElementById('perms-zone'),info=document.getElementById('perms-info');
+    const G=PM.data.groupes;
+    if(PM.cible==='tous'){
+        info.innerHTML="Vue d'ensemble : une colonne par rôle. Tu peux cocher directement ici.";
+        const TH='position:sticky;top:0;z-index:1;background:var(--surface);';
+        const head=`<tr><th style="${TH}min-width:240px">Permission</th>`+PERM_ROLES.map(p=>`<th style="${TH}text-align:center;white-space:nowrap;color:${pCol(p)};font-size:.72rem">${p}<br><small style="font-weight:500">${esc(pNom(p))}</small></th>`).join('')+'</tr>';
+        const body=G.map(g=>`<tr><td colspan="${PERM_ROLES.length+1}" style="font-weight:700;font-size:.78rem;padding-top:8px"><img src="/static/img/solid/${esc(g.icon)}.svg" alt="" class="ico ico-accent" style="margin-right:6px">${esc(g.label)}${g.externe?' <small style="opacity:.6;font-weight:500">(application)</small>':''}</td></tr>`
+            +g.permissions.map(c=>`<tr><td style="white-space:nowrap;padding-left:26px;font-size:.78rem">${c.danger?ICO_DANGER+' ':''}${esc(c.label)}</td>`
+            +PERM_ROLES.map(p=>`<td style="text-align:center">${permCase(`onchange="permBasculer('r${p}','${esc(c.id)}',this.checked)"`,(PM.roles[String(p)]||[]).includes(c.id),false)}</td>`).join('')+'</tr>').join('')).join('');
+        zone.innerHTML=`<table class="t" style="font-size:.8rem"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+        return;
+    }
+    let actives,heritees=new Set();
+    if(PM.cible[0]==='r'){
+        const p=PM.cible.slice(1);actives=new Set(PM.roles[p]||[]);
+        info.innerHTML=`Rôle <strong style="color:${pCol(Number(p))}">${p} — ${esc(pNom(Number(p)))}</strong> : coche ce que ce rôle peut faire. Aucune case = pas d'accès au panel.`;
+    }else{
+        const uid=PM.cible.slice(1),u=(PM.data.comptes_liste||[]).find(x=>String(x.id)===uid)||{};
+        heritees=new Set(PM.roles[String(u.privilege)]||[]);actives=new Set(PM.comptes[uid]||[]);
+        info.innerHTML=`Compte <strong>${esc(u.nom||'')}</strong> (${esc(u.email||'')}), rôle ${u.privilege} — ${esc(pNom(u.privilege))}. Les cases grisées viennent de son rôle ; coche ce que tu veux lui donner <strong>en plus</strong>.`;
+    }
+    zone.innerHTML=`<div class="perms-grille">${G.map((g,gi)=>{
+        const libres=g.permissions.filter(c=>!heritees.has(c.id));
+        return `<div class="perms-g"><label class="perms-gt">${permCase(`data-g="${gi}" onchange="permGroupe(${gi},this.checked)"`,false,!libres.length)}<img src="/static/img/solid/${esc(g.icon)}.svg" alt="" class="ico ico-accent">${esc(g.label)}${g.externe?' <small style="opacity:.6;font-weight:500">(application)</small>':''}</label>`
+            +g.permissions.map(c=>{const hr=heritees.has(c.id);return `<label class="perms-l${hr?' perms-h':''}"${hr?' title="Donné par le rôle"':''}>${permCase(`data-perm="${esc(c.id)}" data-g="${gi}" onchange="permBasculer(PM.cible,'${esc(c.id)}',this.checked)"`,hr||actives.has(c.id),hr)}${c.danger?ICO_DANGER:''}<span>${esc(c.label)}</span></label>`;}).join('')+'</div>';
+    }).join('')}</div>`;
+    permMajGroupes();
+}
+function permListe(cle){if(cle[0]==='r'){const p=cle.slice(1);return PM.roles[p]=PM.roles[p]||[];}const u=cle.slice(1);return PM.comptes[u]=PM.comptes[u]||[];}
+function permBasculer(cle,id,on){const l=permListe(cle);const i=l.indexOf(id);if(on&&i<0)l.push(id);if(!on&&i>=0)l.splice(i,1);if(cle===PM.cible)permMajGroupes();}
+function permGroupe(gi,on){document.querySelectorAll(`#perms-zone input[data-perm][data-g="${gi}"]:not(:disabled)`).forEach(el=>{el.checked=on;permBasculer(PM.cible,el.dataset.perm,on);});permMajGroupes();}
+function permMajGroupes(){
+    document.querySelectorAll('#perms-zone input[data-g]:not([data-perm])').forEach(el=>{
+        const cases=[...document.querySelectorAll(`#perms-zone input[data-perm][data-g="${el.dataset.g}"]:not(:disabled)`)];
+        const n=cases.filter(c=>c.checked).length;
+        el.checked=cases.length>0&&n===cases.length;el.indeterminate=n>0&&n<cases.length;
+    });
+}
+async function savePerms(){
+    // Avertir si une permission sensible est nouvellement donnee (role ou compte).
+    const cat=permsCatalogue(),nouv=[];
+    const sensible=id=>{const c=cat.find(x=>x.id===id);return c&&c.danger?c.label:null;};
+    PERM_ROLES.forEach(p=>(PM.roles[String(p)]||[]).forEach(id=>{const l=sensible(id);if(l&&!(PM.data.roles[String(p)]||[]).includes(id))nouv.push(`Rôle ${p} — ${pNom(p)} : ${l}`);}));
+    Object.entries(PM.comptes).forEach(([uid,ids])=>ids.forEach(id=>{const l=sensible(id);if(l&&!((PM.data.comptes||{})[uid]||[]).includes(id)){const u=(PM.data.comptes_liste||[]).find(x=>String(x.id)===uid);nouv.push(`Compte ${u?u.nom:uid} : ${l}`);}}));
+    if(nouv.length&&!await confirmerDialogue('Tu donnes des permissions sensibles :\n• '+nouv.join('\n• ')+'\n\nConfirmer ?',{danger:true,titre:'Permissions sensibles'}))return;
+    const r=await post('/permissions',{permissions:PM.roles,comptes:PM.comptes});
+    flash(r.success?r.message:r.error,!r.success);if(r.success)chargerPerms();
+}
+
 /* ── Dashboard ── */
 async function loadDash(){
     const r=await api('/dashboard');if(!r.success){flash(r.error,true);return;}
     const d=r.data;
-    if(d.is_super){document.getElementById('sb-p2p').style.display='';document.getElementById('sb-backup').style.display='';}
-    if(d.is_founder){document.querySelectorAll('.sb-machine-item').forEach(el=>el.style.display='');document.getElementById('sb-sep-machine').style.display='';}
+    appliquerPermsSidebar(d.permissions);
     IS_SUPER=d.is_super||false;
     IS_FOUNDER=d.is_founder||false;
-    document.getElementById('sql-zone').style.display=IS_SUPER?'':'none';
+    document.getElementById('sql-zone').style.display=(d.permissions||[]).includes('db_sql')?'':'none';
     const cfgR=await api('/config');
     if(cfgR.success){
         S.configData=cfgR.data;
-        if(cfgR.data?.plans?.available_plans)S.vipTypes=cfgR.data.plans.available_plans.map(p=>({id:p.id??p.name??p,label:p.label??p.name??p.id??String(p)}));
+        if(cfgR.data?.plans?.available_plans)S.vipTypes=cfgR.data.plans.available_plans.filter(p=>(p.id??p)!=='free').map(p=>({id:p.id??p.name??p,label:p.label??p.name??p.id??String(p)}));
     }
     if(!S.vipTypes.length)S.vipTypes=[{id:'vip',label:'VIP'}];
     const stats=[
@@ -707,7 +795,7 @@ async function loadDash(){
         if(ms.success)stats.push({ico:'circle-check',val:I18N.EN_LIGNE,label:'PID '+ms.data.pid+' · v'+ms.data.vex_version,sec:'machine-update',color:'var(--accent)'});
     }
     document.getElementById('dash-stats').innerHTML=stats.map(s=>`<div class="sc" style="--si:${s.color}" onclick="nav('${s.sec}')"><div class="sc-i"><img src="/static/img/solid/${s.ico}.svg" style="filter:invert(1);opacity:.85" alt=""></div><div class="sc-v" style="${String(s.val).length>6?'font-size:1.1rem':''}">${esc(String(s.val))}</div><div class="sc-l">${esc(s.label)}</div></div>`).join('');
-    document.getElementById('dash-last-users').innerHTML=`<table class="t"><thead><tr><th>#</th><th>${I18N.NOM}</th><th>${I18N.EMAIL}</th><th>${I18N.DASH_COL_ROLE}</th><th>${I18N.DASH_COL_VIP}</th></tr></thead><tbody>${d.last_users.map(u=>{
+    if(!d.can_users){document.getElementById('dash-last-users').innerHTML='<p style="opacity:.7;padding:8px 2px">Tu n\'as pas la permission de voir les comptes.</p>';}else document.getElementById('dash-last-users').innerHTML=`<table class="t"><thead><tr><th>#</th><th>${I18N.NOM}</th><th>${I18N.EMAIL}</th><th>${I18N.DASH_COL_ROLE}</th><th>${I18N.DASH_COL_VIP}</th></tr></thead><tbody>${d.last_users.map(u=>{
         const rH=`<span class="b bx" style="color:${pCol(u.privilege)}">${esc(pNom(u.privilege))}</span>`;
         return`<tr><td><span class="b bx">#${u.id}</span></td><td><strong>${esc(u.nom)}</strong></td><td class="m">${esc(u.email)}</td><td>${rH}</td><td>${u.vip?`<span class="b bgd"><img src="/static/img/solid/star.svg" class="ico-sm" style="filter:invert(60%) sepia(1) saturate(3) hue-rotate(10deg)" alt=""> ${esc(String(u.vip))}</span>`:`<span class="b bx">${I18N.FREE}</span>`}</td></tr>`;
     }).join('')}</tbody></table>`;
@@ -751,7 +839,7 @@ function renderUsers(users){
     }).join('')}</tbody></table>`;
 }
 function filterUsers(q){document.querySelectorAll('#utbl tbody tr').forEach(r=>{r.style.display=r.dataset.s.includes(q.toLowerCase())?'':'none';});}
-async function setPriv(uid,priv){const r=await post('/users/privilege',{uid,privilege:priv});flash(r.success?r.message:r.error,!r.success);}
+async function setPriv(uid,priv){const r=await post('/users/privilege',{uid,privilege:priv});flash(r.success?r.message:r.error,!r.success);loadUsers();}
 async function setVip(uid,vip,etaitPaye,nom){
     // FIX (protection des roles payes, point 3) : le fondateur peut toujours
     // changer un plan deja paye, mais doit voir un avertissement explicite
@@ -761,7 +849,7 @@ async function setVip(uid,vip,etaitPaye,nom){
     if(etaitPaye&&!await confirmerDialogue(`${nom} a payé pour son plan actuel. Le changer maintenant ne le rembourse pas automatiquement — êtes-vous sûr de vouloir continuer ?`,{danger:true,titre:'Plan payé — confirmation'})){
         loadUsers();return;
     }
-    const r=await post('/users/vip',{uid,vip});flash(r.success?r.message:r.error,!r.success);
+    const r=await post('/users/vip',{uid,vip});flash(r.success?r.message:r.error,!r.success);loadUsers();
 }
 async function delUser(uid,nom){if(!await confirmerDialogue(I18N.CONFIRMER_SUPPRIMER_UTILISATEUR.replace('{nom}',nom),{danger:true,titre:I18N.TITRE_SUPPRIMER_UTILISATEUR}))return;const r=await post('/users/delete',{uid});if(r.success){flash(r.message);loadUsers();}else flash(r.error,true);}
 
@@ -917,7 +1005,7 @@ async function loadCfg(){
     document.getElementById('config-content').innerHTML='<div class="loading"><span class="spin"></span></div>';
     const r=await api('/config');if(!r.success){flash(r.error,true);return;}
     S.configData=r.data;
-    if(r.data?.plans?.available_plans)S.vipTypes=r.data.plans.available_plans.map(p=>({id:p.id??p.name??p,label:p.label??p.name??p.id??String(p)}));
+    if(r.data?.plans?.available_plans)S.vipTypes=r.data.plans.available_plans.filter(p=>(p.id??p)!=='free').map(p=>({id:p.id??p.name??p,label:p.label??p.name??p.id??String(p)}));
     if(!S.configData.p2p)S.configData.p2p={};
     Object.entries(P2P_DEFAULTS).forEach(([k,v])=>{if(S.configData.p2p[k]===undefined||S.configData.p2p[k]==='')S.configData.p2p[k]=v;});
     if(Array.isArray(S.configData?.editor?.supported_formats)){S.configData.editor._supported_formats_arr=S.configData.editor.supported_formats;S.configData.editor.supported_formats=S.configData.editor.supported_formats.join(', ');}
@@ -1446,6 +1534,7 @@ async function supprimerBackup(nom){
 
 /* ── Roles & Plans ── */
 async function loadRoles(){
+    loadPerms();
     const r=await api('/config');if(!r.success){flash(r.error,true);return;}
     S.configData=r.data;
     if(!S.configData.privilege_labels)S.configData.privilege_labels={};
@@ -1745,6 +1834,7 @@ function renderPlans(){
                 <div><label class="cl">Prix (€/an)</label><input type="number" min="0" step="0.01" class="ci" data-plan-i="${i}" data-plan-k="price_eur_year" value="${p.price_eur_year??''}" placeholder="optionnel"></div>
                 <div><label class="cl">${I18N.ROLES_STOCKAGE}</label><input type="text" class="ci" data-plan-i="${i}" data-plan-k="features.storage" value="${esc(p.features?.storage||'')}"></div>
                 <div><label class="cl">Fichiers max <small>(-1 = illimité)</small></label><input type="number" step="1" class="ci" data-plan-i="${i}" data-plan-k="features.max_files" value="${p.features?.max_files??50}"></div>
+                <div style="grid-column:1/-1;display:flex;gap:16px;flex-wrap:wrap;margin-top:4px">${[['api_access','Accès API (clés API)'],['file_sharing','Partage de fichiers'],['online_editing','Édition en ligne'],['email_sending',"Envoi d'e-mails"]].map(([k,l])=>`<label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer"><input type="checkbox" style="width:auto" data-plan-bi="${i}" data-plan-bk="${k}" ${p.features?.[k]?'checked':''}> ${l}</label>`).join('')}</div>
             </div>
         </div>`;
     }).join('')+`</div><button class="btn ba" style="margin-top:14px" onclick="savePlans()"><img src="/static/img/solid/floppy-disk.svg" class="ico" style="filter:invert(1)" alt=""> ${I18N.ROLES_SAUVEGARDER_PLANS}</button>`;
@@ -1768,6 +1858,8 @@ async function savePlans(){
         else if(k==='features.max_files'){nc.plans.available_plans[i].features=nc.plans.available_plans[i].features||{};nc.plans.available_plans[i].features.max_files=Math.trunc(Number(v));}
         else nc.plans.available_plans[i][k]=v;
     });
+    // Options du plan (cases a cocher) : features.api_access, etc.
+    document.querySelectorAll('[data-plan-bi]').forEach(el=>{const i=Number(el.dataset.planBi);const f=nc.plans.available_plans[i].features=nc.plans.available_plans[i].features||{};f[el.dataset.planBk]=el.checked;});
     const r=await post('/config',{config:JSON.stringify(nc)});
     if(r.success){S.configData=nc;flash(I18N.ROLES_PLANS_SAUVEGARDES);}else flash(r.error,true);
 }
@@ -2442,7 +2534,6 @@ async function kickPeer(id){if(!await confirmerDialogue(I18N.P2P_CONFIRM_SUPPRIM
     sqlInput();
 })();
 </script>
-<script src="/static/extensions/vexia/vexia-widget.js"></script>
   <script src="/static/pwa-register.js" defer></script>
 </body>
 </html>

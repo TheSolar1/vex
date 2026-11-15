@@ -75,6 +75,8 @@ fn verifier_session(pool: &DbPool, req: &Request) -> Option<HashMap<String, Valu
         .find(|h| h.field.as_str().as_str().eq_ignore_ascii_case("Authorization"))
         .and_then(|h| h.value.as_str().strip_prefix("Bearer ").map(|s| s.trim().to_string()));
     match jeton {
+        // Cle API personnelle (compte > Securite > Cles API).
+        Some(j) if j.starts_with("vex_") => crate::profil_api::verifier(pool, &j),
         Some(j) if !j.is_empty() => crate::appeldb::verifier_jeton_appareil(pool, &j),
         _ => None,
     }
@@ -597,9 +599,9 @@ fn plan_id_utilisateur(pool: &DbPool, uid: i64) -> String {
     let vip = selectionner(pool, "login", &[("id", mysql::Value::from(uid))], &["vip"], None, Some(1))
         .into_iter()
         .next()
-        .and_then(|u| u.get("vip").and_then(|v| v.as_str()).map(|s| s.to_string()))
+        .map(|u| crate::utils::vip_brut_json(u.get("vip")))
         .unwrap_or_default();
-    if vip.trim().is_empty() || vip == "0" { "free".to_string() } else { vip }
+    crate::utils::plan_depuis_vip(&vip)
 }
 
 /// Parse une taille lisible ("500MB", "20 GB", "1TB") en octets. Une valeur
@@ -640,7 +642,12 @@ fn quota_du_plan(cfg: &crate::config_loader::VexConfig, plan_id: &str) -> (i64, 
     // au lieu de vraiment bloquer a 0. Accepte desormais aussi une valeur
     // texte.
     let max_fichiers = features.and_then(|f| f.get("max_files")).and_then(|v| {
-        v.as_i64().or_else(|| v.as_str().and_then(|s| s.trim().parse::<i64>().ok()))
+        v.as_i64()
+            .or_else(|| v.as_str().and_then(|s| s.trim().parse::<i64>().ok()))
+            // FIX : un nombre decimal/geant ("max_files": 5e+38 pour
+            // ultra_vip) n'est pas un i64 -- retombait sur 50 fichiers max.
+            // Au-dela de i64 = illimite (-1).
+            .or_else(|| v.as_f64().map(|f| if f >= i64::MAX as f64 { -1 } else { f as i64 }))
     }).unwrap_or(50);
     (max_octets, max_fichiers)
 }

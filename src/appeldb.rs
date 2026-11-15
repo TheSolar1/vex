@@ -40,6 +40,9 @@ pub fn verifier_connexion(
     remote_ip: &str,
     user_agent: &str,
 ) -> Option<HashMap<String, Value>> {
+    if let Some(u) = crate::profil_api::identite_api() {
+        return Some(u);
+    }
     if cookie_val.is_empty() {
         return None;
     }
@@ -79,7 +82,8 @@ pub fn verifier_connexion(
 
     let id: i64 = user_row.get("id")?;
     let privilege: i64 = user_row.get("privilege").unwrap_or(10);
-    let vip: i64 = user_row.get("vip").unwrap_or(0);
+    let vip_brut = crate::utils::vip_brut_row(&user_row);
+    let vip: i64 = crate::utils::vip_actif(&vip_brut);
     let nom_login: String = user_row.get("nom").unwrap_or(nom);
 
     let mut info = HashMap::new();
@@ -89,6 +93,7 @@ pub fn verifier_connexion(
     info.insert("email".into(), json!(email));
     info.insert("privilege".into(), json!(privilege));
     info.insert("vip".into(), json!(vip));
+    info.insert("plan".into(), json!(crate::utils::plan_depuis_vip(&vip_brut)));
     Some(info)
 }
 
@@ -137,7 +142,9 @@ pub fn verifier_jeton_appareil(pool: &DbPool, jeton_brut: &str) -> Option<HashMa
     info.insert("nom".into(), json!(user_row.get::<String, _>("nom").unwrap_or_default()));
     info.insert("email".into(), json!(user_row.get::<String, _>("email")?));
     info.insert("privilege".into(), json!(user_row.get::<i64, _>("privilege").unwrap_or(10)));
-    info.insert("vip".into(), json!(user_row.get::<i64, _>("vip").unwrap_or(0)));
+    let vip_brut = crate::utils::vip_brut_row(&user_row);
+    info.insert("vip".into(), json!(crate::utils::vip_actif(&vip_brut)));
+    info.insert("plan".into(), json!(crate::utils::plan_depuis_vip(&vip_brut)));
     Some(info)
 }
 
@@ -154,6 +161,9 @@ pub fn verifier_connexion_avec_expiration(
     user_agent: &str,
     session_minutes: u32,
 ) -> Option<HashMap<String, Value>> {
+    if let Some(u) = crate::profil_api::identite_api() {
+        return Some(u);
+    }
     if cookie_val.is_empty() {
         return None;
     }
@@ -216,7 +226,8 @@ pub fn verifier_connexion_avec_expiration(
 
     let id: i64 = user_row.get("id")?;
     let privilege: i64 = user_row.get("privilege").unwrap_or(10);
-    let vip: i64 = user_row.get("vip").unwrap_or(0);
+    let vip_brut = crate::utils::vip_brut_row(&user_row);
+    let vip: i64 = crate::utils::vip_actif(&vip_brut);
     let nom_login: String = user_row.get("nom").unwrap_or(nom);
 
     let mut info = HashMap::new();
@@ -226,6 +237,7 @@ pub fn verifier_connexion_avec_expiration(
     info.insert("email".into(), json!(email));
     info.insert("privilege".into(), json!(privilege));
     info.insert("vip".into(), json!(vip));
+    info.insert("plan".into(), json!(crate::utils::plan_depuis_vip(&vip_brut)));
     Some(info)
 }
 

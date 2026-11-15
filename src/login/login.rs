@@ -213,6 +213,25 @@ fn handle_srp_step1(request: Request, pool: &DbPool, body: &HashMap<String, Stri
     } else {
         rows
     };
+    // Connexion avec l'adresse VEX « pseudo@vexs.me » : on retrouve le
+    // compte par son pseudo. La suite (SRP) reste ancrée sur l'email réel,
+    // renvoyé au client dans la réponse comme pour la connexion par pseudo.
+    let rows = if rows.is_empty() {
+        let bas = identifiant.trim().to_lowercase();
+        match bas.strip_suffix("@vexs.me") {
+            Some(local) if !local.is_empty() => selectionner(
+                pool,
+                "login",
+                &[("pseudo", mysql::Value::from(local))],
+                &["email", "srp_salt", "srp_verifier"],
+                None,
+                Some(1),
+            ),
+            _ => rows,
+        }
+    } else {
+        rows
+    };
 
     // ── Anti-énumération de comptes ───────────────────────────────
     // Si le compte n'existe pas, on NE DOIT PAS répondre différemment
@@ -536,6 +555,34 @@ fn handle_signup(request: Request, pool: &DbPool, config: &VexConfig, body: &Has
     if !pseudo.is_empty() && (pseudo.len() > 64 || pseudo.contains('@') || pseudo.chars().any(|c| c.is_whitespace())) {
         respond_json(request, json!({"success":false,"error":"Pseudo invalide."}), 200);
         return;
+    }
+
+    // Adresse mail VEX utilisée comme email du compte (case « Utiliser mon
+    // adresse VEX ») : pseudo@vexs.me sur le nœud central, pseudo@m.vexs.me
+    // ailleurs (validée ensuite par le central). Personne ne peut prendre
+    // une adresse VEX qui ne correspond pas à son pseudo.
+    {
+        let email_min = email.to_lowercase();
+        if let Some((local, dom)) = email_min.rsplit_once('@') {
+            if dom == "vexs.me" || dom.ends_with(".vexs.me") {
+                let central = crate::mail::reseau::est_central();
+                let attendu = crate::mail::mail::adresse_locale(&pseudo);
+                let dom_ok = if central { dom == "vexs.me" } else { dom == crate::mail::reseau::DOMAINE_NOEUDS };
+                if !dom_ok || pseudo.is_empty() || local != attendu {
+                    respond_json(request, json!({"success":false,"error":"Adresse VEX invalide : elle doit correspondre à ton pseudo."}), 200);
+                    return;
+                }
+                let libre = if central {
+                    crate::mail::mail::adresse_vexs_libre(pool, local)
+                } else {
+                    crate::mail::reseau::nom_valide(local).is_ok()
+                };
+                if !libre {
+                    respond_json(request, json!({"success":false,"error":"Cette adresse VEX est déjà prise ou réservée : choisis un autre pseudo."}), 200);
+                    return;
+                }
+            }
+        }
     }
 
     // Validation de forme : salt = 16 octets hex (32 car.), verifier = 256 octets hex (512 car.)

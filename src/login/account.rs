@@ -191,6 +191,31 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
         }
 
         // ── Changer le thème ──────────────────────────────────────
+        // ── Photo de profil (voir profil_api.rs) ───────────────────
+        ("POST", "/api/account/photo") => {
+            let body = read_body(&mut request);
+            let r = crate::profil_api::photo(pool, user_id, &body);
+            respond_json(request, r, 200);
+        }
+
+        // ── Cles API personnelles ─────────────────────────────────
+        ("GET", "/api/account/cles") => {
+            let r = crate::profil_api::lister(pool, user_id, session.user_privilege);
+            respond_json(request, r, 200);
+        }
+        ("POST", "/api/account/cles/creer") => {
+            let body = read_body(&mut request);
+            let nom = body.get("nom").cloned().unwrap_or_default();
+            let r = crate::profil_api::creer(pool, user_id, session.user_privilege, &nom);
+            respond_json(request, r, 200);
+        }
+        ("POST", "/api/account/cles/revoquer") => {
+            let body = read_body(&mut request);
+            let id = body.get("id").and_then(|v| v.parse::<i64>().ok()).unwrap_or(0);
+            let r = crate::profil_api::revoquer(pool, user_id, id);
+            respond_json(request, r, 200);
+        }
+
         ("POST", "/api/account/theme") => {
             let body = read_body(&mut request);
             let theme = body
@@ -531,7 +556,7 @@ pub fn handle_request(mut request: Request, pool: &DbPool, config: &VexConfig, r
             let privilege_min = autologin_cfg.privilege_min as i64;
             let plans_ok = &autologin_cfg.plans_autorises;
 
-            let user_plan = if session.user_vip == 1 { "vip" } else { "free" };
+            let user_plan = session.user_plan.as_str();
             let plan_ok = plans_ok.iter().any(|p| p == "*" || p == user_plan);
             let allowed = enabled && plan_ok && session.user_privilege <= privilege_min;
 
@@ -689,7 +714,9 @@ fn build_account_data(pool: &DbPool, config: &VexConfig, user_id: i64, user_emai
         .unwrap_or("")
         .to_string();
     let privilege = row.get("privilege").and_then(|v| v.as_i64()).unwrap_or(10);
-    let vip = row.get("vip").and_then(|v| v.as_i64()).unwrap_or(0);
+    let vip_brut = crate::utils::vip_brut_json(row.get("vip"));
+    let vip = crate::utils::vip_actif(&vip_brut);
+    let plan_id = crate::utils::plan_depuis_vip(&vip_brut);
     let pd = get_privilege_details_json(privilege);
 
     let prefs = get_user_preferences(pool, user_id);
@@ -702,7 +729,7 @@ fn build_account_data(pool: &DbPool, config: &VexConfig, user_id: i64, user_emai
     let privilege_min = autologin_cfg.privilege_min as i64;
     let plans_ok = &autologin_cfg.plans_autorises;
 
-    let user_plan = if vip == 1 { "vip" } else { "free" };
+    let user_plan = plan_id.as_str();
     let plan_ok = plans_ok.iter().any(|p| p == "*" || p == user_plan);
     let autologin_allowed = enabled && plan_ok && privilege <= privilege_min;
 
@@ -731,6 +758,8 @@ fn build_account_data(pool: &DbPool, config: &VexConfig, user_id: i64, user_emai
                 "pseudo":    pseudo,
                 "privilege": privilege,
                 "vip":       vip,
+                "plan":      plan_id,
+                "photo":     crate::profil_api::photo_url(pool, user_id),
                 "privilege_details": pd,
             },
             "theme": theme,

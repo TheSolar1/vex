@@ -177,18 +177,18 @@ pub fn extension_id_depuis_path(path: &str) -> String {
         .to_string()
 }
 
-/// Le plan de l'utilisateur est-il dans la liste autorisée ?
-/// La colonne `vip` est tantôt numérique (0 = free), tantôt un id de plan
-/// ("free", "vip") selon l'endroit du code : les deux formes sont acceptées.
-/// Liste vide ou contenant "*" = tous les plans.
-pub fn plan_autorise(plans_autorises: &[String], user_vip: i64) -> bool {
+/// Le plan de l'utilisateur (id : "free", "vip", "ultra_vip"..., voir
+/// utils::plan_depuis_vip) est-il dans la liste autorisée ? Les anciennes
+/// listes numériques ("0" = gratuit, "1" = tout plan non gratuit) restent
+/// acceptées. Liste vide ou contenant "*" = tous les plans.
+pub fn plan_autorise(plans_autorises: &[String], plan_id: &str) -> bool {
     if plans_autorises.is_empty() || plans_autorises.iter().any(|p| p == "*") {
         return true;
     }
-    let plan_effectif = if user_vip == 0 { "free" } else { "vip" };
+    let gratuit = plan_id == "free";
     plans_autorises.iter().any(|p| {
         let p = p.trim();
-        p.eq_ignore_ascii_case(plan_effectif) || p == user_vip.to_string()
+        p.eq_ignore_ascii_case(plan_id) || (gratuit && p == "0") || (!gratuit && p == "1")
     })
 }
 
@@ -350,7 +350,7 @@ pub fn servir_extension(
                 .collect()
         })
         .unwrap_or_default();
-    if config.plans.enforce_plan_restrictions && !plan_autorise(&plans, session.user_vip) {
+    if config.plans.enforce_plan_restrictions && !plan_autorise(&plans, &session.user_plan) {
         let _ = crate::utils::envoyer(request, ext_refus(
             path,
             403,
@@ -539,5 +539,5 @@ pub fn ext_permission_ok(
                 .collect()
         })
         .unwrap_or_default();
-    plan_autorise(&plans, session.user_vip)
+    plan_autorise(&plans, &session.user_plan)
 }

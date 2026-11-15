@@ -42,3 +42,5 @@ Thumbs.db
 /vex.old.*
 /vex.out
 /build.out
+mail_secret.txt
+resend_key.txt

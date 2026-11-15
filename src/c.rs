@@ -16,6 +16,8 @@ pub struct SessionInfo {
     pub user_email: String,
     pub user_nom: String,
     pub user_idcokier: String,
+    /// Id du plan ("free", "vip", "ultra_vip"...), voir utils::plan_depuis_vip.
+    pub user_plan: String,
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -27,6 +29,20 @@ pub fn verifier_session(
     remote_ip: &str,
     user_agent: &str,
 ) -> SessionInfo {
+    // Requete authentifiee par cle API (voir profil_api::identite_pour).
+    if let Some(u) = crate::profil_api::identite_api() {
+        return SessionInfo {
+            connecte: true,
+            user_id: u.get("id").and_then(|v| v.as_i64()).unwrap_or(0),
+            user_privilege: u.get("privilege").and_then(|v| v.as_i64()).unwrap_or(10),
+            user_vip: u.get("vip").and_then(|v| v.as_i64()).unwrap_or(0),
+            user_email: u.get("email").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            user_nom: u.get("nom").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            user_idcokier: "cle-api".to_string(),
+            user_plan: u.get("plan").and_then(|v| v.as_str()).unwrap_or("free").to_string(),
+        };
+    }
+
     let mut info = SessionInfo {
         user_privilege: 10,
         user_id: 3,
@@ -100,7 +116,9 @@ pub fn verifier_session(
 
     let lr = &login_rows[0];
     info.user_id = lr.get("id").and_then(|v| v.as_i64()).unwrap_or(3);
-    info.user_vip = lr.get("vip").and_then(|v| v.as_i64()).unwrap_or(0);
+    let vip_brut = crate::utils::vip_brut_json(lr.get("vip"));
+    info.user_vip = crate::utils::vip_actif(&vip_brut);
+    info.user_plan = crate::utils::plan_depuis_vip(&vip_brut);
     info.user_privilege = lr.get("privilege").and_then(|v| v.as_i64()).unwrap_or(10);
 
     info.connecte = true;

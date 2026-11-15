@@ -12,6 +12,7 @@ mod utils;
 mod srp;
 mod sso;
 mod empreinte;
+mod profil_api;
 
 // Extensions uploadees depuis le panel admin (src/extensions/<id>/mod.rs).
 // Le registre extensions/mod.rs est regenere automatiquement a chaque upload.
@@ -23,6 +24,7 @@ mod p2p {
 mod admin {
     pub mod actions;
     pub mod admin;
+    pub mod permissions;
 }
 mod login {
     pub mod account;
@@ -42,6 +44,10 @@ mod fchier {
 }
 mod mess {
     pub mod mess;
+}
+mod mail {
+    pub mod mail;
+    pub mod reseau;
 }
 mod viso {
     pub mod viso;
@@ -773,6 +779,13 @@ fn traiter_requete(
 
     let path = url.split('?').next().unwrap_or(&url).to_string();
 
+    // Cle API : vaut session du compte pour cette requete (profil_api.rs).
+    let identite_api = profil_api::identite_pour(&pool, &request, &path);
+    if let Some(u) = &identite_api {
+        logger.info(&format!("[CLE API] compte #{} — {} {}", u.get("id").and_then(|v| v.as_i64()).unwrap_or(0), method, utils::masquer_secrets_chemin(&path)));
+    }
+    profil_api::definir_identite_api(identite_api);
+
 
     if config.app.debug_mode {
         logger.info(&format!("[REQ #{}] {} {} {}", req_count, ip_log, method, utils::masquer_secrets_chemin(&path)));
@@ -911,6 +924,11 @@ fn traiter_requete(
             handle_request(request, &pool, &node_state, &config);
         }
 
+        p if p == "/mail" || p.starts_with("/mail/") || p.starts_with("/api/mail/") => {
+            let resp = mail::mail::handle(&pool, &mut request, &node_state);
+            statut_req = Some(repondre(request, resp));
+        }
+
         p if p.starts_with("/viso") || p.starts_with("/api/viso") => {
             let resp = viso::viso::handle(&pool, &mut request);
             statut_req = Some(repondre(request, resp));
@@ -940,6 +958,16 @@ fn traiter_requete(
         // Empreinte d'appareil envoyee par /static/fp.js (voir
         // recevoir_empreinte) -- sert a reperer quel appareil se
         // connecte meme quand l'IP change (4G).
+        // Test d'une cle API personnelle (Authorization: Bearer vex_...).
+        "/api/moi" => {
+            let (code, corps) = profil_api::moi(&pool, &request);
+            let _ = request.respond(
+                Response::from_string(corps.to_string())
+                    .with_status_code(code)
+                    .with_header(tiny_http::Header::from_bytes("Content-Type", "application/json; charset=utf-8").unwrap()),
+            );
+        }
+
         "/api/empreinte" => {
             recevoir_empreinte(request, &pool, &config, &remote, &ip_log, &logger);
         }
@@ -975,6 +1003,8 @@ fn traiter_requete(
             }
         }
     }
+
+    profil_api::definir_identite_api(None);
 
     // ── Journal d'acces ────────────────────────────────────────
     let duree_ms = debut_req.elapsed().as_millis();

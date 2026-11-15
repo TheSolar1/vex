@@ -476,7 +476,11 @@ fn fa_to_img(fa_class: &str) -> String {
 pub fn build_nav_html(ctx: &NavContext) -> String {
     let user_data = resolve_nav_user(ctx);
     let resolved_uid = user_data.as_ref().and_then(|u| u.get("id").and_then(|v| v.as_i64()));
-    let is_admin = user_data.as_ref().and_then(|u| u.get("privilege").and_then(|v| v.as_i64())).map(|p| p <= 6).unwrap_or(false);
+    let is_admin = user_data.as_ref().and_then(|u| {
+        let p = u.get("privilege").and_then(|v| v.as_i64())?;
+        let id = u.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+        Some(crate::admin::permissions::a_acces_panel(p, id))
+    }).unwrap_or(false);
     let prefs = resolved_uid.map(|uid| get_user_preferences(ctx.pool, uid));
     let show_sidebar_btn = prefs.as_ref().map(|p| p.nav_button_style.get(ctx.page_key).and_then(|v| v.as_i64()).unwrap_or(0) != 0).unwrap_or(false);
     let show_logo = prefs.as_ref().map(|p| p.logo_pages.get(ctx.page_key).and_then(|v| v.as_i64()).unwrap_or(0) != 0).unwrap_or(true);
@@ -636,6 +640,13 @@ pub fn build_nav_html(ctx: &NavContext) -> String {
         let nom = u.get("nom").and_then(|v| v.as_str()).unwrap_or("").to_string();
         let privilege = u.get("privilege").and_then(|v| v.as_i64()).unwrap_or(10);
         let pd = get_privilege_details(privilege);
+        // Photo de profil si le compte en a une (sinon l'icone habituelle).
+        let icone = u
+            .get("id")
+            .and_then(|v| v.as_i64())
+            .and_then(|id| crate::profil_api::photo_url(ctx.pool, id))
+            .map(|url| format!("<img src=\"{}\" class=\"user-icon-top-7844\" alt=\"profil\" style=\"border-radius:50%;object-fit:cover;filter:none\">", html_escape(&url)))
+            .unwrap_or_else(|| "<img src=\"/static/img/solid/user.svg\" class=\"user-icon-top-7844\" alt=\"profil\">".to_string());
         let name_span = if privilege == 1 {
             format!("<span class=\"user-name-top-7844 fona\" title=\"{}\">{}</span>", pd.nom, html_escape(&nom))
         } else if privilege <= 9 {
@@ -647,7 +658,7 @@ pub fn build_nav_html(ctx: &NavContext) -> String {
             "<div class=\"user-info-top-7844\" id=\"user-info-top\" \
             tabindex=\"0\" role=\"button\" aria-haspopup=\"true\" aria-expanded=\"false\">\
             {name_span}\
-            <img src=\"/static/img/solid/user.svg\" class=\"user-icon-top-7844\" alt=\"profil\">\
+            {icone}\
             </div>"
         )
     } else {
@@ -838,9 +849,11 @@ fn build_user_value(row: HashMap<String, Value>) -> Option<Value> {
     let nom = row.get("nom")?.as_str()?.to_string();
     let email = row.get("email")?.as_str()?.to_string();
     let privilege = row.get("privilege")?.as_i64()?;
-    let vip = row.get("vip").and_then(|v| v.as_i64()).unwrap_or(0);
+    let vip_brut = crate::utils::vip_brut_json(row.get("vip"));
+    let vip = crate::utils::vip_actif(&vip_brut);
+    let plan = crate::utils::plan_depuis_vip(&vip_brut);
     let pd = get_privilege_details_json(privilege);
-    Some(json!({"id":id,"nom":nom,"email":email,"privilege":privilege,"vip":vip,"privilege_details":pd}))
+    Some(json!({"id":id,"nom":nom,"email":email,"privilege":privilege,"vip":vip,"plan":plan,"privilege_details":pd}))
 }
 
 // ══════════════════════════════════════════════════════════════════

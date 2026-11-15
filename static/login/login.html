@@ -97,6 +97,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
                 <div class="form-group">
                     <label class="form-label" for="s-email">{{T_LABEL_EMAIL}}</label>
                     <input type="email" id="s-email" name="email" class="form-input" placeholder="exemple@email.com" required>
+                    <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;cursor:pointer;">
+                        <input type="checkbox" id="s-email-vex"> <span>Utiliser mon adresse VEX <b id="s-email-vex-adr"></b> <span style="color:var(--text-dim)">(sinon, mets l'adresse de ton choix)</span></span>
+                    </label>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="s-pseudo">Pseudo <span style="font-weight:400;color:var(--text-dim);font-size:12px;">(optionnel — pour te connecter sans ton email)</span></label>
@@ -831,5 +834,29 @@ if (new URLSearchParams(location.search).get('reauth') === '1') {
 </script>
   <script src="/static/pwa-register.js" defer></script>
   <script src="/static/fp.js" defer></script>
+<script>
+(function () {
+  var c = document.getElementById('s-email-vex'), e = document.getElementById('s-email'),
+      p = document.getElementById('s-pseudo'), lib = document.getElementById('s-email-vex-adr');
+  if (!c || !e || !p) return;
+  var domaine = 'vexs.me';
+  fetch('/api/mail/domaine').then(function (r) { return r.json(); }).then(function (d) { if (d.domaine) { domaine = d.domaine; maj(); } }).catch(function () {});
+  // même règle que adresse_locale() côté serveur
+  function local(ps) {
+    return ps.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/ /g, '.').replace(/[^a-z0-9._-]/g, '').replace(/^\.+|\.+$/g, '');
+  }
+  function maj() {
+    var l = local(p.value);
+    lib.textContent = l ? '(' + l + '@' + domaine + ')' : '(choisis d\'abord un pseudo)';
+    if (c.checked) { e.value = l ? l + '@' + domaine : ''; }
+    e.readOnly = c.checked;
+    e.style.opacity = c.checked ? '.7' : '';
+  }
+  c.addEventListener('change', function () { if (!c.checked) e.value = ''; maj(); });
+  p.addEventListener('input', maj);
+  maj();
+})();
+</script>
 </body>
 </html>

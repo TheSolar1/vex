@@ -202,6 +202,9 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
     // ── FIX (connexion par pseudo) ──────────────────────────────────
     // Identifiant de connexion alternatif à l'email (facultatif, unique).
     let _ = conn.query_drop("ALTER TABLE `login` ADD COLUMN `pseudo` VARCHAR(64) DEFAULT NULL");
+    // `vip` contient l'id du plan (voir utils::plan_depuis_vip) : VARCHAR(9)
+    // tronquait/refusait tout id plus long que "ultra_vip".
+    let _ = conn.query_drop("ALTER TABLE `login` MODIFY `vip` VARCHAR(64) NOT NULL DEFAULT '0'");
     let _ = conn.query_drop("ALTER TABLE `login` ADD UNIQUE INDEX `idx_pseudo` (`pseudo`)");
 
     // ── FIX (récupération de compte sans email) ──────────────────────
@@ -407,6 +410,23 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
             `popular` VARCHAR(800) NOT NULL DEFAULT '0',
             `idpage`  INT          NOT NULL AUTO_INCREMENT,
             PRIMARY KEY (`idpage`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    )?;
+
+    // ── api_cles : cles API personnelles (seul le hash est garde) ────
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS `api_cles` (
+            `id`                   INT          NOT NULL AUTO_INCREMENT,
+            `user_id`              INT          NOT NULL,
+            `nom`                  VARCHAR(100) NOT NULL,
+            `prefixe`              VARCHAR(16)  NOT NULL,
+            `cle_hash`             CHAR(64)     NOT NULL,
+            `cree`                 DATETIME     NOT NULL,
+            `derniere_utilisation` DATETIME     DEFAULT NULL,
+            `revoque`              TINYINT(1)   NOT NULL DEFAULT 0,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `idx_cle_hash` (`cle_hash`),
+            KEY `idx_user` (`user_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     )?;
 

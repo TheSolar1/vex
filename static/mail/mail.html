@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="fr" data-theme="{{THEME}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mail - VEX</title>
+<link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
+<link rel="stylesheet" href="/static/css/theme.css?v=10">
+<style>
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.mail-app{max-width:1200px;margin:0 auto;padding:20px 16px}
+.mail-tete{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.mail-tete h1{font-size:22px;margin:0}
+.mail-adresse{font-size:14px;color:var(--text-dim)}
+.mail-adresse b{color:var(--accent);user-select:all}
+.mail-barre{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.onglet{background:none;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;cursor:pointer;font:inherit;font-size:14px}
+.onglet.actif{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-ecrire{margin-left:auto;background:var(--accent);color:#fff;border:0;border-radius:8px;padding:8px 16px;cursor:pointer;font:inherit;font-weight:600}
+.btn-ecrire:hover{filter:brightness(1.08)}
+.mail-cols{display:grid;grid-template-columns:minmax(260px,360px) 1fr;gap:14px;min-height:70vh}
+.mail-liste,.mail-lecture{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.mail-liste{overflow-y:auto;max-height:78vh}
+.mail-item{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--border);padding:12px 14px;cursor:pointer;color:inherit;font:inherit}
+.mail-item:hover{background:var(--alt)}
+.mail-item.actif{background:var(--alt);box-shadow:inset 3px 0 0 var(--accent)}
+.mail-item .de{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mail-item.nonlu .de::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:middle}
+.mail-item .sujet{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mail-item .date{font-size:12px;color:var(--text-dim)}
+.mail-vide{padding:28px 16px;color:var(--text-dim);text-align:center}
+.mail-lecture{display:flex;flex-direction:column}
+.lec-tete{padding:16px 18px;border-bottom:1px solid var(--border)}
+.lec-tete h2{font-size:19px;margin:0 0 6px;word-break:break-word}
+.lec-meta{font-size:13px;color:var(--text-dim);word-break:break-all}
+.lec-actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+.btn-m{background:var(--alt);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit;font-size:13px}
+.btn-m:hover{border-color:var(--accent)}
+.btn-m.danger:hover{border-color:var(--danger);color:var(--danger)}
+.lec-corps{flex:1;min-height:300px}
+.lec-corps iframe{width:100%;height:100%;min-height:60vh;border:0;background:#fff}
+.lec-corps pre{white-space:pre-wrap;word-break:break-word;margin:0;padding:18px;font:inherit}
+.lec-pieces{padding:10px 18px;border-top:1px solid var(--border);font-size:13px;color:var(--text-dim)}
+.compo{padding:16px 18px;display:flex;flex-direction:column;gap:10px;flex:1}
+.compo h2{font-size:19px;margin:0}
+.compo label{font-size:13px;color:var(--text-dim);display:block;margin-bottom:3px}
+.compo input,.compo textarea{width:100%;box-sizing:border-box;background:var(--input);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font:inherit}
+.compo input:focus,.compo textarea:focus{outline:none;border-color:var(--accent)}
+.compo textarea{min-height:280px;resize:vertical;flex:1}
+.compo .de-fixe{font-size:14px}
+.compo .pied{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.compo .info{font-size:13px;color:var(--text-dim)}
+.compo .erreur{color:var(--danger);font-size:14px}
+.compo .ok{color:var(--accent);font-size:14px}
+.adr{padding:18px;display:flex;flex-direction:column;gap:18px}
+.adr h2{font-size:18px;margin:0 0 6px}
+.adr p{margin:0;color:var(--text-dim);font-size:14px}
+.adr .ligne{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--border)}
+.adr .ligne:last-child{border-bottom:0}
+.adr .ligne b{word-break:break-all}
+.adr .etiq{font-size:12px;padding:2px 8px;border-radius:20px;background:var(--alt);color:var(--text-dim)}
+.adr .etiq.ok{color:var(--accent)}
+.adr .etiq.att{color:var(--orange)}
+.adr .etiq.non{color:var(--danger)}
+.adr form{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.adr input{background:var(--input);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font:inherit;min-width:160px}
+.adr .msg{font-size:13px}
+.adr .msg.erreur{color:var(--danger)}
+.retour{display:none}
+@media (max-width:760px){
+  .mail-cols{grid-template-columns:1fr}
+  .mail-cols.lit .mail-liste{display:none}
+  .mail-cols:not(.lit) .mail-lecture{display:none}
+  .retour{display:inline-block}
+}
+</style>
+</head>
+<body>
+{{NAV_HTML}}
+<div class="mail-app">
+  <div class="mail-tete">
+    <h1>Mail</h1>
+    <div class="mail-adresse">Ton adresse : <b id="mon-adresse">{{ADRESSE}}</b></div>
+  </div>
+  <div class="mail-barre">
+    <button class="onglet actif" data-dossier="recus">Reçus</button>
+    <button class="onglet" data-dossier="envoyes">Envoyés</button>
+    <button class="onglet" data-dossier="adresses">Adresses</button>
+    <button class="btn-ecrire" id="btn-ecrire">Écrire</button>
+  </div>
+  <div class="mail-cols" id="cols">
+    <div class="mail-liste" id="liste"><div class="mail-vide">Chargement…</div></div>
+    <div class="mail-lecture" id="lecture"><div class="mail-vide">Choisis un mail à gauche.</div></div>
+  </div>
+</div>
+<script>
+(function () {
+  var liste = document.getElementById("liste");
+  var lecture = document.getElementById("lecture");
+  var cols = document.getElementById("cols");
+  var monAdresse = document.getElementById("mon-adresse").textContent;
+  var dossier = "recus";
+  var actif = null;
+  var restants = null;
+
+  function el(tag, cls, txt) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (txt != null) e.textContent = txt;
+    return e;
+  }
+  function vide(msg) { lecture.innerHTML = ""; lecture.appendChild(el("div", "mail-vide", msg)); }
+
+  document.querySelectorAll(".onglet").forEach(function (b) {
+    b.onclick = function () {
+      dossier = b.dataset.dossier;
+      document.querySelectorAll(".onglet").forEach(function (x) { x.classList.toggle("actif", x === b); });
+      actif = null;
+      cols.classList.remove("lit");
+      vide("Choisis un mail à gauche.");
+      charger();
+    };
+  });
+  document.getElementById("btn-ecrire").onclick = function () { ecrire("", "", ""); };
+
+  // ── Onglet Adresses ─────────────────────────────────────────────
+  function post(url, donnees) {
+    return fetch(url, { method: "POST", credentials: "same-origin", body: new URLSearchParams(donnees) })
+      .then(function (r) { return r.json(); });
+  }
+  function etiquette(statut) {
+    var t = { actif: ["Active", "ok"], attente: ["En attente de validation", "att"], refuse: ["Refusée", "non"], bloque: ["Bloquée", "non"] }[statut];
+    return t ? el("span", "etiq " + t[1], t[0]) : el("span", "etiq", statut);
+  }
+  function formulaire(placeholder, suffixe, bouton, valeur, action) {
+    var f = el("form");
+    var i = document.createElement("input");
+    i.placeholder = placeholder; i.value = valeur || ""; i.maxLength = 32;
+    var msg = el("span", "msg");
+    var b = el("button", "btn-m", bouton); b.type = "submit";
+    f.appendChild(i); f.appendChild(el("span", null, suffixe)); f.appendChild(b); f.appendChild(msg);
+    f.onsubmit = function (e) {
+      e.preventDefault(); b.disabled = true; msg.className = "msg"; msg.textContent = "…";
+      action(i.value.trim().toLowerCase()).then(function (d) {
+        b.disabled = false;
+        if (d.ok) afficherAdresses(); else { msg.className = "msg erreur"; msg.textContent = d.erreur || "Refusé."; }
+      }).catch(function () { b.disabled = false; msg.className = "msg erreur"; msg.textContent = "Erreur réseau."; });
+    };
+    return f;
+  }
+  function afficherAdresses() {
+    liste.innerHTML = "";
+    liste.appendChild(el("div", "mail-vide", "Tes adresses mail sont à droite."));
+    cols.classList.add("lit");
+    fetch("/api/mail/adresses", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) {
+      lecture.innerHTML = "";
+      var box = el("div", "adr");
+      // Adresse principale
+      var s1 = el("div");
+      s1.appendChild(el("h2", null, "Adresse principale"));
+      if (d.central || d.statut === "actif") {
+        var l = el("div", "ligne"); l.appendChild(el("b", null, d.principale)); l.appendChild(etiquette("actif"));
+        s1.appendChild(l);
+      } else if (d.statut === "attente" || d.statut === "refuse" || d.statut === "bloque") {
+        var l2 = el("div", "ligne"); l2.appendChild(el("b", null, d.principale)); l2.appendChild(etiquette(d.statut));
+        s1.appendChild(l2);
+        if (d.statut === "attente") s1.appendChild(el("p", null, "Le serveur central de VEX doit valider ta demande. Reviens plus tard."));
+      } else {
+        s1.appendChild(el("p", null, "Tu n'as pas encore d'adresse. Choisis-la (une seule par compte) : elle sera validée par le serveur central."));
+        s1.appendChild(formulaire("ton-nom", "@" + d.domaine_noeuds, "Demander", d.suggestion, function (nom) {
+          return post("/api/mail/reseau/demander", { nom: nom });
+        }));
+      }
+      box.appendChild(s1);
+      // Alias (central seulement)
+      if (d.central) {
+        var s2 = el("div");
+        s2.appendChild(el("h2", null, "Alias (" + d.alias.length + "/" + d.max_alias + ")"));
+        s2.appendChild(el("p", null, "Des adresses en plus qui arrivent dans cette même boîte."));
+        d.alias.forEach(function (a) {
+          var l = el("div", "ligne"); l.appendChild(el("b", null, a));
+          var sup = el("button", "btn-m danger", "Supprimer");
+          sup.onclick = function () { if (confirm("Supprimer " + a + " ?")) post("/api/mail/alias/supprimer", { adresse: a }).then(afficherAdresses); };
+          l.appendChild(sup); s2.appendChild(l);
+        });
+        if (d.alias.length < d.max_alias) {
+          s2.appendChild(formulaire("nom-alias", "@a.vexs.me", "Ajouter", "", function (nom) {
+            return post("/api/mail/alias/ajouter", { nom: nom });
+          }));
+        }
+        box.appendChild(s2);
+      }
+      lecture.appendChild(box);
+      // Demandes des autres nœuds (fondateur)
+      if (d.fondateur) {
+        fetch("/api/mail/admin/attente", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (a) {
+          var s3 = el("div");
+          s3.appendChild(el("h2", null, "Demandes des autres nœuds (" + (a.demandes || []).length + ")"));
+          if (!a.demandes || !a.demandes.length) s3.appendChild(el("p", null, "Aucune demande en attente."));
+          (a.demandes || []).forEach(function (q) {
+            var l = el("div", "ligne");
+            l.appendChild(el("b", null, q.adresse));
+            l.appendChild(el("span", "etiq", "compte « " + q.compte + " » · " + q.noeud + " · " + q.date));
+            [["accepter", "Accepter", "btn-m"], ["refuser", "Refuser", "btn-m danger"], ["bloquer", "Bloquer le nœud", "btn-m danger"]].forEach(function (x) {
+              var b = el("button", x[2], x[1]);
+              b.onclick = function () {
+                if (x[0] === "bloquer" && !confirm("Bloquer ce nœud ? Il ne pourra plus demander d'adresse.")) return;
+                post("/api/mail/admin/decider", { adresse: q.adresse, decision: x[0] }).then(afficherAdresses);
+              };
+              l.appendChild(b);
+            });
+            s3.appendChild(l);
+          });
+          box.appendChild(s3);
+        });
+      }
+      // En-tête
+      document.getElementById("mon-adresse").textContent = (d.central || d.statut === "actif") ? d.principale : "pas encore d'adresse";
+    });
+  }
+
+  function charger() {
+    if (dossier === "adresses") { afficherAdresses(); return; }
+    var url = dossier === "recus" ? "/api/mail/liste" : "/api/mail/envoyes";
+    fetch(url, { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        liste.innerHTML = "";
+        if (!d.ok) { liste.appendChild(el("div", "mail-vide", "Impossible de charger les mails.")); return; }
+        if (d.restants != null) restants = d.restants;
+        if (!d.mails.length) { liste.appendChild(el("div", "mail-vide", dossier === "recus" ? "Aucun mail reçu pour l'instant." : "Aucun mail envoyé.")); return; }
+        d.mails.forEach(function (m) {
+          var nonlu = dossier === "recus" && !m.lu;
+          var b = el("button", "mail-item" + (nonlu ? " nonlu" : "") + (m.id === actif ? " actif" : ""));
+          b.appendChild(el("div", "de", dossier === "recus" ? (m.de || "(inconnu)") : "À : " + m.a));
+          b.appendChild(el("div", "sujet", m.sujet || "(sans objet)"));
+          b.appendChild(el("div", "date", m.date));
+          b.onclick = function () { ouvrir(m.id, b); };
+          liste.appendChild(b);
+        });
+      })
+      .catch(function () { liste.innerHTML = ""; liste.appendChild(el("div", "mail-vide", "Erreur réseau.")); });
+  }
+
+  function ouvrir(id, bouton) {
+    actif = id;
+    liste.querySelectorAll(".mail-item").forEach(function (x) { x.classList.remove("actif"); });
+    if (bouton) { bouton.classList.add("actif"); bouton.classList.remove("nonlu"); }
+    cols.classList.add("lit");
+    var url = (dossier === "recus" ? "/api/mail/lire?id=" : "/api/mail/envoye?id=") + encodeURIComponent(id);
+    fetch(url, { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (m) {
+        lecture.innerHTML = "";
+        if (!m.ok) { vide("Mail introuvable."); return; }
+        var tete = el("div", "lec-tete");
+        tete.appendChild(el("h2", null, m.sujet || "(sans objet)"));
+        tete.appendChild(el("div", "lec-meta", "De : " + m.de));
+        tete.appendChild(el("div", "lec-meta", "À : " + m.a + " · " + m.date));
+        var act = el("div", "lec-actions");
+        var ret = el("button", "btn-m retour", "← Retour");
+        ret.onclick = function () { cols.classList.remove("lit"); };
+        act.appendChild(ret);
+        if (dossier === "recus") {
+          var rep = el("button", "btn-m", "Répondre");
+          rep.onclick = function () {
+            var sujet = /^re\s*:/i.test(m.sujet || "") ? m.sujet : "Re: " + (m.sujet || "");
+            var cite = (m.texte || "").split("\n").map(function (l) { return "> " + l; }).join("\n");
+            ecrire(adresseDe(m.de), sujet, "\n\nLe " + m.date + ", " + m.de + " a écrit :\n" + cite);
+          };
+          act.appendChild(rep);
+          var sup = el("button", "btn-m danger", "Supprimer");
+          sup.onclick = function () { supprimer(id); };
+          act.appendChild(sup);
+        }
+        tete.appendChild(act);
+        lecture.appendChild(tete);
+
+        var corps = el("div", "lec-corps");
+        if (m.html) {
+          // Mail HTML isolé : pas de scripts, pas d'accès à VEX.
+          var f = document.createElement("iframe");
+          f.setAttribute("sandbox", "allow-popups allow-popups-to-escape-sandbox");
+          f.setAttribute("referrerpolicy", "no-referrer");
+          f.srcdoc = '<base target="_blank"><meta http-equiv="Content-Security-Policy" content="script-src \'none\'">' + m.html;
+          corps.appendChild(f);
+        } else {
+          corps.appendChild(el("pre", null, m.texte || "(mail vide)"));
+        }
+        lecture.appendChild(corps);
+        if (m.pieces && m.pieces.length) {
+          lecture.appendChild(el("div", "lec-pieces", "Pièces jointes (pas encore téléchargeables) : " + m.pieces.join(", ")));
+        }
+      });
+  }
+
+  // « Nom <adresse> » → adresse
+  function adresseDe(s) {
+    var m = /<([^>]+)>/.exec(s || "");
+    return (m ? m[1] : (s || "")).trim();
+  }
+
+  function ecrire(a, sujet, texte) {
+    actif = null;
+    liste.querySelectorAll(".mail-item").forEach(function (x) { x.classList.remove("actif"); });
+    cols.classList.add("lit");
+    lecture.innerHTML = "";
+    var f = el("form", "compo");
+    f.appendChild(el("h2", null, "Nouveau mail"));
+    var de = el("div", "de-fixe"); de.appendChild(el("label", null, "De")); de.appendChild(document.createTextNode(monAdresse));
+    f.appendChild(de);
+    function champ(lib, tag, val, attrs) {
+      var d = el("div");
+      d.appendChild(el("label", null, lib));
+      var i = document.createElement(tag);
+      for (var k in attrs) i.setAttribute(k, attrs[k]);
+      i.value = val;
+      d.appendChild(i);
+      f.appendChild(d);
+      return i;
+    }
+    var iA = champ("À", "input", a, { type: "email", required: "", placeholder: "adresse@exemple.com", maxlength: "254" });
+    var iS = champ("Objet", "input", sujet, { type: "text", required: "", maxlength: "300" });
+    var iT = champ("Message", "textarea", texte, { required: "" });
+    var pied = el("div", "pied");
+    var bEnv = el("button", "btn-ecrire", "Envoyer"); bEnv.type = "submit"; bEnv.style.marginLeft = "0";
+    var bAnn = el("button", "btn-m retour", "Annuler"); bAnn.type = "button"; bAnn.style.display = "inline-block";
+    bAnn.onclick = function () { cols.classList.remove("lit"); vide("Choisis un mail à gauche."); };
+    var etat = el("span", "info", restants != null ? "Encore " + restants + " envoi(s) possible(s) sur 24 h." : "");
+    pied.appendChild(bEnv); pied.appendChild(bAnn); pied.appendChild(etat);
+    f.appendChild(pied);
+    f.onsubmit = function (e) {
+      e.preventDefault();
+      bEnv.disabled = true; bEnv.textContent = "Envoi…";
+      etat.className = "info"; etat.textContent = "";
+      fetch("/api/mail/envoyer", {
+        method: "POST", credentials: "same-origin",
+        body: new URLSearchParams({ a: iA.value, sujet: iS.value, texte: iT.value })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d.ok) {
+            lecture.innerHTML = "";
+            vide("Mail envoyé à " + iA.value + ".");
+            if (restants != null) restants = Math.max(0, restants - 1);
+            if (dossier === "envoyes") charger();
+          } else {
+            bEnv.disabled = false; bEnv.textContent = "Envoyer";
+            etat.className = "erreur"; etat.textContent = d.erreur || "Envoi impossible.";
+          }
+        })
+        .catch(function () {
+          bEnv.disabled = false; bEnv.textContent = "Envoyer";
+          etat.className = "erreur"; etat.textContent = "Erreur réseau.";
+        });
+    };
+    lecture.appendChild(f);
+    (a ? (sujet ? iT : iS) : iA).focus();
+    if (a && sujet) { iT.setSelectionRange(0, 0); }
+  }
+
+  function supprimer(id) {
+    if (!confirm("Supprimer ce mail ?")) return;
+    fetch("/api/mail/supprimer", { method: "POST", credentials: "same-origin", body: new URLSearchParams({ id: id }) })
+      .then(function () {
+        actif = null;
+        cols.classList.remove("lit");
+        vide("Mail supprimé.");
+        charger();
+      });
+  }
+
+  // Sur un nœud sans adresse validée : le dire dans l'en-tête
+  fetch("/api/mail/adresses", { credentials: "same-origin" }).then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.ok && !d.central && d.statut !== "actif") {
+        document.getElementById("mon-adresse").textContent = d.statut === "attente" ? "en attente de validation" : "pas encore d'adresse (onglet Adresses)";
+      }
+    }).catch(function () {});
+  // Nombre d'envois restants (affiché dans le formulaire)
+  fetch("/api/mail/envoyes", { credentials: "same-origin" }).then(function (r) { return r.json(); })
+    .then(function (d) { if (d.ok) restants = d.restants; }).catch(function () {});
+  charger();
+  setInterval(function () { if (dossier === "recus") charger(); }, 60000);
+})();
+</script>
+</body>
+</html>

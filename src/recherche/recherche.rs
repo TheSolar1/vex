@@ -333,7 +333,9 @@ const APPS_VEX: &[(&str, &str, &str)] = &[
     ("Compte", "/login/account", "Paramètres du compte et abonnement"),
     // Jeu servi par Apache sous /worldfront/ (processus a part) : trouvable
     // seulement par la Recherche, pas dans le menu de VEX.
-    ("WorldFront", "/worldfront/", "Jeu de stratégie et de guerre multijoueur"),
+    ("WFront", "/wfront/", "Jeu de stratégie et de guerre multijoueur"),
+    // Jeu statique sur son sous-domaine (Apache, /var/www/justepoids)
+    ("La bonne mesure", "https://justepoids.vexs.me/", "Jeu · devine le poids des objets avec la balance (juste poids)"),
     // Experience (jeu a part, Apache /spotimaster/) : trouvable aussi en
     // cherchant « expérience ».
     ("soundex", "/spotimaster/", "Expérience · jeu façon Pokémon où l'on collectionne des musiques (ex Spoti Master)"),
