@@ -445,7 +445,7 @@ fn render_page(
 }
 
 // ── Lecture cookie / header ─────────────────────────────────────────
-fn lire_cookie(request: &Request, name: &str) -> String {
+pub(crate) fn lire_cookie(request: &Request, name: &str) -> String {
     for h in request.headers() {
         if h.field.as_str().as_str().eq_ignore_ascii_case("Cookie") {
             let raw = h.value.as_str();
@@ -498,7 +498,7 @@ fn auth(
 // directement via les tables `loginc`/`login`, sans comparer
 // IP/user-agent. Toujours 0 SQL brut ici : on passe par `selectionner`
 // (appeldb::).
-fn auth_viso(pool: &DbPool, cookie_val: &str) -> Option<(i64, String, i64)> {
+pub(crate) fn auth_viso(pool: &DbPool, cookie_val: &str) -> Option<(i64, String, i64)> {
     if cookie_val.is_empty() {
         return None;
     }

@@ -52,6 +52,10 @@ mod mail {
 mod viso {
     pub mod viso;
 }
+// Plume (static/plume/, en test) : point de rendez-vous de la coedition.
+mod plume {
+    pub mod collab;
+}
 mod sitec {
     pub mod sitec;
 }
@@ -926,6 +930,11 @@ fn traiter_requete(
 
         p if p == "/mail" || p.starts_with("/mail/") || p.starts_with("/api/mail/") => {
             let resp = mail::mail::handle(&pool, &mut request, &node_state);
+            statut_req = Some(repondre(request, resp));
+        }
+
+        "/api/plume/collab" => {
+            let resp = plume::collab::handle(&pool, &mut request);
             statut_req = Some(repondre(request, resp));
         }
 
