@@ -422,6 +422,21 @@ fn render_page(
         ("VOUS_AVEZ_ETE_RETIRE", Cle::VisoNVousAvezEteRetire),
         ("VUE_GALERIE", Cle::VisoNVueGalerie),
         ("VUE_ORATEUR", Cle::VisoNVueOrateur),
+        ("QR", Cle::VisoNQr),
+        ("POSER_QUESTION", Cle::VisoNPoserQuestion),
+        ("AUCUNE_QUESTION", Cle::VisoNAucuneQuestion),
+        ("REPONDRE", Cle::VisoNRepondre),
+        ("VOTER", Cle::VisoNVoter),
+        ("MARQUER_TRAITEE", Cle::VisoNMarquerTraitee),
+        ("ROUVRIR", Cle::VisoNRouvrir),
+        ("TRAITEE", Cle::VisoNTraitee),
+        ("NOUVELLE_QUESTION_DE", Cle::VisoNNouvelleQuestionDe),
+        ("VOTRE_REPONSE", Cle::VisoNVotreReponse),
+        ("COORGANISATEUR", Cle::VisoNCoorganisateur),
+        ("NOMMER_COORGANISATEUR", Cle::VisoNNommerCoorganisateur),
+        ("RETIRER_COORGANISATEUR", Cle::VisoNRetirerCoorganisateur),
+        ("VOUS_ETES_COORGANISATEUR", Cle::VisoNVousEtesCoorganisateur),
+        ("VOUS_N_ETES_PLUS_COORGANISATEUR", Cle::VisoNVousNEtesPlusCoorganisateur),
     ]);
     let page = page.replacen("{{I18N_JS}}", &i18n_js, 1);
 

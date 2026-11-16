@@ -123,7 +123,7 @@ button { font-family: inherit; }
 .side-panel { width: 340px; flex: none; display: none; flex-direction: column; background: var(--panel); border: 1px solid var(--panel-border); border-radius: 12px; box-shadow: var(--shadow); height: calc(100vh - 210px); min-height: 360px; position: sticky; top: 84px; }
 .side-panel.open { display: flex; }
 .side-tabs { display: flex; border-bottom: 1px solid var(--panel-border); }
-.side-tab { flex: 1; border: none; background: none; padding: 10px 2px; font-size: 12px; font-weight: 600; color: var(--text-dim); cursor: pointer; border-bottom: 2px solid transparent; position: relative; }
+.side-tab { flex: 1; border: none; background: none; padding: 10px 1px; font-size: 11.5px; font-weight: 600; color: var(--text-dim); cursor: pointer; border-bottom: 2px solid transparent; position: relative; }
 .side-tab.active { color: var(--text); border-bottom-color: var(--accent); }
 .side-close { border: none; background: none; color: var(--text-dim); cursor: pointer; padding: 0 10px; }
 .side-pane { flex: 1; overflow: auto; padding: 10px 12px; display: none; flex-direction: column; min-height: 0; }
@@ -161,6 +161,13 @@ button { font-family: inherit; }
 .poll-opt.mine { border-color: var(--accent); font-weight: 700; }
 .poll small { color: var(--text-dim); }
 .notes-area { flex: 1; resize: none; min-height: 200px; }
+.qa { border: 1px solid var(--panel-border); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; display: flex; gap: 8px; }
+.qa.done { opacity: .6; }
+.qa .vote { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1px solid var(--panel-border); background: var(--bg); color: var(--text); border-radius: 8px; padding: 4px 6px; cursor: pointer; font-size: 12px; font-weight: 700; height: fit-content; }
+.qa .vote.mine { border-color: var(--accent); color: var(--accent); }
+.qa .q { font-size: 13px; font-weight: 600; white-space: pre-wrap; word-break: break-word; }
+.qa small { color: var(--text-dim); }
+.qa .ans { font-size: 12.5px; margin-top: 4px; padding-left: 8px; border-left: 2px solid var(--accent); white-space: pre-wrap; }
 
 /* ── Tableau blanc ───────────────────────────────────────────── */
 .wb-box { position: relative; background: #fff; border-radius: 12px; overflow: hidden; border: 2px solid var(--border); box-shadow: var(--shadow); }
@@ -326,6 +333,7 @@ table.simple td, table.simple th { border-bottom: 1px solid var(--panel-border);
         <button class="side-tab active" data-pane="people" data-i18n="PARTICIPANTS"></button>
         <button class="side-tab" data-pane="chat"><span data-i18n="CONVERSATION"></span><span class="dot" id="chatDot" style="display:none;"></span></button>
         <button class="side-tab" data-pane="polls"><span data-i18n="SONDAGES"></span><span class="dot" id="pollDot" style="display:none;"></span></button>
+        <button class="side-tab" data-pane="qa"><span data-i18n="QR"></span><span class="dot" id="qaDot" style="display:none;"></span></button>
         <button class="side-tab" data-pane="notes" data-i18n="NOTES"></button>
         <button class="side-close" id="sideClose"><i class="ic sm" style="--i:url(/static/img/solid/xmark.svg)"></i></button>
       </div>
@@ -341,6 +349,13 @@ table.simple td, table.simple th { border-bottom: 1px solid var(--panel-border);
         </div>
       </div>
       <div class="side-pane" id="pane-polls"></div>
+      <div class="side-pane" id="pane-qa">
+        <div class="chat-form" style="margin:0 0 10px;">
+          <textarea class="inp" id="qaInput" maxlength="500"></textarea>
+          <button class="btn accent" id="qaSend" data-i18n-title="ENVOYER"><i class="ic" style="--i:url(/static/img/solid/paper-plane.svg)"></i></button>
+        </div>
+        <div id="qaList" style="flex:1;overflow:auto;min-height:0;"></div>
+      </div>
       <div class="side-pane" id="pane-notes">
         <div class="sect" data-i18n="NOTES_PARTAGEES"></div>
         <textarea class="inp notes-area" id="notesArea"></textarea>
@@ -425,6 +440,9 @@ const peers = {};                  // sid -> { pc, dc, nom, userId, micOn, camOn
 const chat = [];                   // { id, from, nom, text, ts, to, file }
 const polls = new Map();           // id -> { id, q, opts, multi, by, byNom, closed, votes: Map(sid -> [i]) }
 const notes = { text: "", ts: 0 };
+const qas = new Map();             // id -> { id, by, byNom, text, ts, votes: Set(sid), answers: [], done }
+const cohosts = new Set();         // session_id des coorganisateurs désignés par l'organisateur
+let unreadQa = 0;
 const wb = { strokes: [], open: false, color: WB_COLORS[0], width: 3 };
 const attendance = new Map();      // nom -> { nom, first, last, present }
 const transcript = [];             // { nom, text, ts }
@@ -611,9 +629,13 @@ function broadcast(msg) { for (const sid in peers) sendApp(sid, msg); }
 function myState() { return { micOn, camOn, hand: handUp, handAt, screen: screenShare ? screenShare.stream.id : null, rec: !!recorder, cap: captionsOn }; }
 function broadcastState() { broadcast({ t: "state", ...myState() }); }
 function syncPayload() {
-  return { t: "sync", chat: chat.filter((m) => !m.to && !m.sys && !m.file).slice(-80), polls: [...polls.values()].map((p) => ({ ...p, votes: [...p.votes] })), notes, wb: { open: wb.open, strokes: wb.strokes.slice(-600) }, spotlight, hardMute: isHost ? hardMuteAll : undefined };
+  return { t: "sync", qas: [...qas.values()].map((q) => ({ ...q, votes: [...q.votes] })), cohosts: isHost ? [...cohosts] : undefined, chat: chat.filter((m) => !m.to && !m.sys && !m.file).slice(-80), polls: [...polls.values()].map((p) => ({ ...p, votes: [...p.votes] })), notes, wb: { open: wb.open, strokes: wb.strokes.slice(-600) }, spotlight, hardMute: isHost ? hardMuteAll : undefined };
 }
 const fromHost = (sid) => peers[sid] && hostUserId != null && peers[sid].userId === hostUserId;
+// Les coorganisateurs peuvent modérer (micros, caméras, mains, mise en avant) ;
+// verrouiller, admettre, exclure et terminer restent réservés à l'organisateur (contrôlés par le serveur).
+const fromModerator = (sid) => fromHost(sid) || cohosts.has(sid);
+const canModerate = () => isHost || cohosts.has(mySessionId);
 
 function handleApp(sid, m) {
   const p = peers[sid];
@@ -634,8 +656,9 @@ function handleApp(sid, m) {
       for (const pl of m.polls || []) if (!polls.has(pl.id)) polls.set(pl.id, { ...pl, votes: new Map(pl.votes || []) });
       if (m.notes && m.notes.ts > notes.ts) { notes.text = String(m.notes.text || ""); notes.ts = m.notes.ts; $("notesArea").value = notes.text; }
       if (m.wb) { for (const s of m.wb.strokes || []) if (!wb.strokes.some((x) => x.id === s.id)) wb.strokes.push(s); if (m.wb.open && !wb.open) openWhiteboard(false); drawWb(); }
-      if (fromHost(sid)) { if (m.spotlight !== undefined) { spotlight = m.spotlight; applyLayout(); } if (m.hardMute !== undefined) setHardMute(!!m.hardMute); }
-      renderPolls();
+      for (const q of m.qas || []) if (!qas.has(q.id)) qas.set(q.id, { ...q, votes: new Set(q.votes || []), answers: q.answers || [] });
+      if (fromHost(sid)) { if (m.spotlight !== undefined) { spotlight = m.spotlight; applyLayout(); } if (m.hardMute !== undefined) setHardMute(!!m.hardMute); if (Array.isArray(m.cohosts)) { cohosts.clear(); m.cohosts.forEach((x) => cohosts.add(x)); renderPeople(); } }
+      renderPolls(); renderQa();
       break;
     case "chat": addChat({ id: m.id, from: sid, nom: p.nom, text: String(m.text || "").slice(0, 4000), ts: m.ts || Date.now(), to: m.to || null }); break;
     case "file": receiveFile(sid, m); break;
@@ -650,13 +673,20 @@ function handleApp(sid, m) {
       else if (m.op === "clear") { wb.strokes = []; drawWb(); }
       else if (m.op === "open") { if (m.on && !wb.open) { openWhiteboard(false); toast(fmt(T.TABLEAU_OUVERT_PAR, { nom: p.nom })); } else if (!m.on && wb.open) closeWhiteboard(false); }
       break;
+    case "qa": if (!qas.has(m.id)) { qas.set(m.id, { id: m.id, by: sid, byNom: p.nom, text: String(m.text || "").slice(0, 500), ts: m.ts || Date.now(), votes: new Set(), answers: [], done: false }); toast(fmt(T.NOUVELLE_QUESTION_DE, { nom: p.nom })); if (!sideShows("qa")) { unreadQa++; updateDots(); } renderQa(); } break;
+    case "qaVote": { const q = qas.get(m.id); if (q) { if (m.on) q.votes.add(sid); else q.votes.delete(sid); renderQa(); } break; }
+    case "qaAnswer": { const q = qas.get(m.id); if (q && q.answers.length < 50) { q.answers.push({ nom: p.nom, text: String(m.text || "").slice(0, 1000), ts: Date.now() }); if (!sideShows("qa")) { unreadQa++; updateDots(); } renderQa(); } break; }
+    case "qaDone": { const q = qas.get(m.id); if (q && (q.by === sid || fromModerator(sid))) { q.done = !!m.on; renderQa(); } break; }
     case "cap": pushCaption(p.nom, String(m.text || "").slice(0, 400), !!m.final, sid); break;
-    case "mod": if (fromHost(sid)) handleMod(sid, m); break;
+    case "mod": if (fromModerator(sid)) handleMod(sid, m); break;
   }
 }
 
 function handleMod(sid, m) {
+  // seul l'organisateur (identifié par le serveur) peut nommer un coorganisateur, exclure, répartir ou terminer
+  if (["cohost", "kick", "end", "breakout", "breakoutEnd"].includes(m.a) && !fromHost(sid)) return;
   switch (m.a) {
+    case "cohost": { const cible = m.sid; if (m.on) cohosts.add(cible); else cohosts.delete(cible); if (cible === mySessionId) toast(m.on ? T.VOUS_ETES_COORGANISATEUR : T.VOUS_N_ETES_PLUS_COORGANISATEUR); renderPeople(); for (const el of document.querySelectorAll(".tile")) updateTile(el.dataset.key); break; }
     case "mute": if (micOn) { setMic(false); toast(T.MICRO_COUPE_PAR_ORGANISATEUR); } break;
     case "camOff": if (camOn) { setCam(false); toast(T.CAMERA_COUPEE_PAR_ORGANISATEUR); } break;
     case "lowerHand": if (handUp) setHand(false); break;
@@ -669,7 +699,7 @@ function handleMod(sid, m) {
   }
 }
 function setHardMute(on) {
-  hardMuted = on && !isHost;
+  hardMuted = on && !canModerate();
   if (hardMuted && micOn) setMic(false);
   $("btnMic").disabled = hardMuted || !hasTrack("audio");
   renderBanners();
@@ -717,7 +747,7 @@ function removePeer(sessionId) {
   try { entry.pc.close(); } catch (e) {}
   delete peers[sessionId];
   removeTile(sessionId); removeTile("screen-" + sessionId);
-  recRemote.delete(sessionId); updateRecPill();
+  recRemote.delete(sessionId); updateRecPill(); cohosts.delete(sessionId);
   if (pinned === sessionId) pinned = null;
   if (spotlight === sessionId) spotlight = null;
   noteAttendance(entry.nom, false);
@@ -772,6 +802,7 @@ function updateTile(key) {
   label.innerHTML = (info.screen ? ic("display", "sm") : info.micOn ? ic("microphone", "sm") : ic("microphone-slash", "sm off")) + `<span class="name">${esc(info.nom)}${key === "local" ? esc(T.VOUS_SUFFIX) : ""}</span>`;
   const b = [];
   if (info.hand) b.push(`<span class="tile-badge hand">${ic("hand", "sm")}</span>`);
+  if (cohosts.has(key === "local" ? mySessionId : key)) b.push(`<span class="tile-badge" title="${esc(T.COORGANISATEUR)}">${ic("user-shield", "sm")}</span>`);
   if (info.host || (key === "local" && isHost)) b.push(`<span class="tile-badge" title="${esc(T.ORGANISATEUR)}">${ic("star", "sm")}</span>`);
   if (spotlight === key) b.push(`<span class="tile-badge">${ic("bullhorn", "sm")}</span>`);
   if (pinned === key) b.push(`<span class="tile-badge">${ic("thumbtack", "sm")}</span>`);
@@ -835,13 +866,15 @@ function tileMenu(key, anchor) {
   ];
   if (p && !key.startsWith("screen-")) {
     items.push({ icon: "comment", label: T.MESSAGE_PRIVE, run: () => { openSide("chat"); $("chatTo").value = sid; $("chatInput").focus(); } });
-    if (isHost) items.push("-", { head: T.ORGANISATEUR },
+    if (canModerate()) items.push("-", { head: T.ORGANISATEUR },
       { icon: "microphone-slash", label: T.COUPER_SON_MICRO, run: () => sendApp(sid, { t: "mod", a: "mute" }) },
       { icon: "video-slash", label: T.COUPER_SA_CAMERA, run: () => sendApp(sid, { t: "mod", a: "camOff" }) },
-      { icon: "bullhorn", label: spotlight === sid ? T.ARRETER_MISE_EN_AVANT : T.METTRE_EN_AVANT, run: () => setSpotlight(spotlight === sid ? null : sid) },
+      { icon: "bullhorn", label: spotlight === sid ? T.ARRETER_MISE_EN_AVANT : T.METTRE_EN_AVANT, run: () => setSpotlight(spotlight === sid ? null : sid) });
+    if (isHost) items.push(
+      { icon: "user-shield", label: cohosts.has(sid) ? T.RETIRER_COORGANISATEUR : T.NOMMER_COORGANISATEUR, run: () => { const on = !cohosts.has(sid); if (on) cohosts.add(sid); else cohosts.delete(sid); broadcast({ t: "mod", a: "cohost", sid, on }); renderPeople(); updateTile(sid); } },
       { icon: "user-xmark", label: T.RETIRER_DE_LA_REUNION, danger: true, run: () => kick(sid) });
   }
-  if (key === "local" && isHost) items.push({ icon: "bullhorn", label: spotlight === "local" ? T.ARRETER_MISE_EN_AVANT : T.METTRE_EN_AVANT, run: () => setSpotlight(spotlight === "local" ? null : "local") });
+  if (key === "local" && canModerate()) items.push({ icon: "bullhorn", label: spotlight === "local" ? T.ARRETER_MISE_EN_AVANT : T.METTRE_EN_AVANT, run: () => setSpotlight(spotlight === "local" ? null : "local") });
   popMenu(anchor, items);
 }
 function setSpotlight(key) {
@@ -1076,6 +1109,7 @@ function openSide(pane) {
   document.querySelectorAll(".side-pane").forEach((p) => p.classList.toggle("active", p.id === "pane-" + pane));
   if (pane === "chat") { unreadChat = 0; updateDots(); const l = $("chatList"); l.scrollTop = l.scrollHeight; }
   if (pane === "polls") { unreadPolls = 0; updateDots(); renderPolls(); }
+  if (pane === "qa") { unreadQa = 0; updateDots(); renderQa(); }
   if (pane === "people") renderPeople();
 }
 function toggleSide(pane) { const open = $("sidePanel").classList.contains("open") && $("pane-" + pane).classList.contains("active"); if (open) $("sidePanel").classList.remove("open"); else openSide(pane); }
@@ -1083,6 +1117,7 @@ function sideShows(pane) { return $("sidePanel").classList.contains("open") && $
 function updateDots() {
   for (const id of ["chatDot", "chatDot2"]) { $(id).style.display = unreadChat ? "inline-block" : "none"; $(id).textContent = unreadChat; }
   $("pollDot").style.display = unreadPolls ? "inline-block" : "none"; $("pollDot").textContent = unreadPolls;
+  $("qaDot").style.display = unreadQa ? "inline-block" : "none"; $("qaDot").textContent = unreadQa;
 }
 document.querySelectorAll(".side-tab").forEach((t) => t.addEventListener("click", () => openSide(t.dataset.pane)));
 $("sideClose").addEventListener("click", () => $("sidePanel").classList.remove("open"));
@@ -1092,14 +1127,14 @@ function renderPeople() {
   const pane = $("pane-people");
   if (!inCall) return;
   const rows = [];
-  rows.push(`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;"><button class="btn small" data-act="invite">${ic("link", "sm")}${esc(T.COPIER_LIEN_INVITATION)}</button>${isHost ? `<button class="btn small" data-act="muteAll">${ic("microphone-slash", "sm")}${esc(T.COUPER_TOUS_LES_MICROS)}</button><button class="btn small" data-act="lowerAll">${ic("hand", "sm")}${esc(T.BAISSER_TOUTES_LES_MAINS)}</button>` : ""}</div>`);
+  rows.push(`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;"><button class="btn small" data-act="invite">${ic("link", "sm")}${esc(T.COPIER_LIEN_INVITATION)}</button>${canModerate() ? `<button class="btn small" data-act="muteAll">${ic("microphone-slash", "sm")}${esc(T.COUPER_TOUS_LES_MICROS)}</button><button class="btn small" data-act="lowerAll">${ic("hand", "sm")}${esc(T.BAISSER_TOUTES_LES_MAINS)}</button>` : ""}</div>`);
   if (isHost && waiting.length) {
     rows.push(`<div class="sect">${esc(T.SALLE_ATTENTE)} (${waiting.length}) <button class="btn small" data-act="admitAll" style="float:right;">${esc(T.ADMETTRE_TOUT)}</button></div>`);
     for (const w of waiting) rows.push(`<div class="person"><div class="av">${esc(initials(w.nom))}</div><div class="nm">${esc(w.nom)}</div><button class="btn small accent" data-admit="${esc(w.session_id)}">${esc(T.ADMETTRE)}</button><button class="btn small" data-deny="${esc(w.session_id)}">${esc(T.REFUSER)}</button></div>`);
   }
-  const list = [{ key: "local", nom: myNom, micOn, camOn, hand: handUp, handAt, host: isHost, me: true, screen: !!screenShare }, ...Object.entries(peers).map(([sid, p]) => ({ key: sid, nom: p.nom, micOn: p.micOn, camOn: p.camOn, hand: p.hand, handAt: p.handAt, host: p.userId === hostUserId, screen: !!p.screenStreamId }))];
+  const list = [{ key: "local", nom: myNom, micOn, camOn, hand: handUp, handAt, host: isHost, cohost: cohosts.has(mySessionId), me: true, screen: !!screenShare }, ...Object.entries(peers).map(([sid, p]) => ({ key: sid, nom: p.nom, micOn: p.micOn, camOn: p.camOn, hand: p.hand, handAt: p.handAt, host: p.userId === hostUserId, cohost: cohosts.has(sid), screen: !!p.screenStreamId }))];
   const hands = list.filter((x) => x.hand).sort((a, b) => a.handAt - b.handAt);
-  const person = (x, rank) => `<div class="person"><div class="av">${esc(initials(x.nom))}</div><div class="nm">${esc(x.nom)}${x.me ? esc(T.VOUS_SUFFIX) : ""}${x.host ? `<small>${esc(T.ORGANISATEUR)}</small>` : ""}</div><div class="st">${rank ? `<b class="hand">${rank}</b>` : ""}${x.hand ? ic("hand", "sm hand") : ""}${x.screen ? ic("display", "sm") : ""}${ic(x.micOn ? "microphone" : "microphone-slash", "sm" + (x.micOn ? "" : " off"))}${ic(x.camOn ? "video" : "video-slash", "sm" + (x.camOn ? "" : " off"))}</div><button class="icon-btn" data-menu="${esc(x.key)}">${ic("ellipsis-vertical", "sm")}</button></div>`;
+  const person = (x, rank) => `<div class="person"><div class="av">${esc(initials(x.nom))}</div><div class="nm">${esc(x.nom)}${x.me ? esc(T.VOUS_SUFFIX) : ""}${x.host ? `<small>${esc(T.ORGANISATEUR)}</small>` : x.cohost ? `<small>${esc(T.COORGANISATEUR)}</small>` : ""}</div><div class="st">${rank ? `<b class="hand">${rank}</b>` : ""}${x.hand ? ic("hand", "sm hand") : ""}${x.screen ? ic("display", "sm") : ""}${ic(x.micOn ? "microphone" : "microphone-slash", "sm" + (x.micOn ? "" : " off"))}${ic(x.camOn ? "video" : "video-slash", "sm" + (x.camOn ? "" : " off"))}</div><button class="icon-btn" data-menu="${esc(x.key)}">${ic("ellipsis-vertical", "sm")}</button></div>`;
   if (hands.length) { rows.push(`<div class="sect">${esc(T.MAINS_LEVEES)} (${hands.length})</div>`); hands.forEach((x, i) => rows.push(person(x, i + 1))); }
   rows.push(`<div class="sect">${esc(T.DANS_LA_REUNION)} (${list.length})</div>`);
   for (const x of list) rows.push(person(x));
@@ -1237,6 +1272,35 @@ function newPollDialog() {
     broadcast({ t: "poll", ...p }); openSide("polls");
   } }]);
 }
+
+// ── Questions-réponses : chacun pose des questions, vote pour les plus utiles, y répond ──
+function renderQa() {
+  const list = $("qaList");
+  const items = [...qas.values()].sort((a, b) => (a.done - b.done) || (b.votes.size - a.votes.size) || (a.ts - b.ts));
+  list.innerHTML = items.length ? items.map((q) => `<div class="qa${q.done ? " done" : ""}" data-id="${esc(q.id)}"><button class="vote${q.votes.has(mySessionId) ? " mine" : ""}" data-a="vote" title="${esc(T.VOTER)}">${ic("circle-up", "sm")}${q.votes.size}</button><div style="flex:1;min-width:0;"><div class="q">${linkify(q.text)}</div><small>${esc(q.byNom)} · ${hhmm(q.ts)}${q.done ? " · " + esc(T.TRAITEE) : ""}</small>${q.answers.map((a) => `<div class="ans"><b>${esc(a.nom)} :</b> ${linkify(a.text)}</div>`).join("")}<div style="margin-top:6px;display:flex;gap:6px;"><button class="btn small" data-a="answer">${esc(T.REPONDRE)}</button>${q.by === mySessionId || canModerate() ? `<button class="btn small" data-a="done">${esc(q.done ? T.ROUVRIR : T.MARQUER_TRAITEE)}</button>` : ""}</div></div></div>`).join("") : `<div class="empty-hint">${esc(T.AUCUNE_QUESTION)}</div>`;
+}
+function askQuestion() {
+  const inp = $("qaInput"), text = inp.value.trim();
+  if (!text) return;
+  const q = { id: uid(), text, ts: Date.now() };
+  qas.set(q.id, { ...q, by: mySessionId, byNom: myNom, votes: new Set(), answers: [], done: false });
+  broadcast({ t: "qa", ...q });
+  inp.value = ""; renderQa();
+}
+$("qaInput").placeholder = T.POSER_QUESTION;
+$("qaSend").addEventListener("click", askQuestion);
+$("qaInput").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); askQuestion(); } });
+$("qaList").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  const q = qas.get(b.closest(".qa").dataset.id); if (!q) return;
+  if (b.dataset.a === "vote") { const on = !q.votes.has(mySessionId); if (on) q.votes.add(mySessionId); else q.votes.delete(mySessionId); broadcast({ t: "qaVote", id: q.id, on }); renderQa(); }
+  else if (b.dataset.a === "done") { q.done = !q.done; broadcast({ t: "qaDone", id: q.id, on: q.done }); renderQa(); }
+  else if (b.dataset.a === "answer") {
+    const box = document.createElement("div");
+    box.innerHTML = `<p style="white-space:pre-wrap;"><b>${esc(q.byNom)} :</b> ${esc(q.text)}</p><textarea class="inp" rows="4" maxlength="1000" placeholder="${esc(T.VOTRE_REPONSE)}"></textarea>`;
+    modal(T.REPONDRE, box, [{ label: T.ANNULER }, { label: T.ENVOYER, primary: true, run: () => { const text = box.querySelector("textarea").value.trim(); if (!text) return false; q.answers.push({ nom: myNom, text, ts: Date.now() }); broadcast({ t: "qaAnswer", id: q.id, text }); renderQa(); } }]);
+  }
+});
 
 // ── Notes partagées ──
 let notesTimer = null;
@@ -1472,6 +1536,7 @@ $("btnMore").addEventListener("click", () => {
     "-", { head: T.COLLABORER },
     { icon: "chalkboard", label: wb.open ? T.FERMER_TABLEAU_BLANC : T.TABLEAU_BLANC, on: wb.open, run: () => (wb.open ? closeWhiteboard(true) : openWhiteboard(true)) },
     { icon: "square-poll-vertical", label: T.SONDAGES, run: () => openSide("polls") },
+    { icon: "circle-question", label: T.QR, run: () => openSide("qa") },
     { icon: "note-sticky", label: T.NOTES, run: () => openSide("notes") },
     { icon: "closed-captioning", label: captionsOn ? T.ARRETER_SOUS_TITRES : T.SOUS_TITRES, on: captionsOn, run: toggleCaptions },
     { icon: "eye", label: showCaptions ? T.MASQUER_SOUS_TITRES : T.AFFICHER_SOUS_TITRES, run: () => { showCaptions = !showCaptions; if (!showCaptions) { $("captions").innerHTML = ""; $("captions").style.display = "none"; } } },
@@ -1482,6 +1547,8 @@ $("btnMore").addEventListener("click", () => {
     { icon: "gear", label: T.PARAMETRES, run: settingsDialog },
     { icon: "keyboard", label: T.RACCOURCIS_CLAVIER, run: shortcutsDialog },
   ];
+  if (!isHost && canModerate()) items.push("-", { head: T.COORGANISATEUR },
+    { icon: "microphone-slash", label: hardMuteAll ? T.AUTORISER_MICROS : T.INTERDIRE_MICROS, on: hardMuteAll, run: () => { hardMuteAll = !hardMuteAll; broadcast({ t: "mod", a: "hardMute", on: hardMuteAll }); toast(hardMuteAll ? T.MICROS_INTERDITS : T.MICROS_AUTORISES); } });
   if (isHost) items.push("-", { head: T.ORGANISATEUR },
     { icon: roomLocked ? "lock-open" : "lock", label: roomLocked ? T.DEVERROUILLER_REUNION : T.VERROUILLER_REUNION, on: roomLocked, run: () => setRoomOption("locked", !roomLocked) },
     { icon: "user-clock", label: roomLobby ? T.DESACTIVER_SALLE_ATTENTE : T.ACTIVER_SALLE_ATTENTE, on: roomLobby, run: () => setRoomOption("lobby", !roomLobby) },
@@ -1700,7 +1767,7 @@ async function leaveCall(keepMedia) {
   try { await apiCall("quitter_salle", { session_id: mySessionId }); } catch (e) {}
   for (const k of [...meters.keys()]) if (k !== "local") detachMeter(k);
   $("videoGrid").innerHTML = ""; $("mainStage").innerHTML = ""; $("chatList").innerHTML = ""; $("captions").innerHTML = ""; $("captions").style.display = "none";
-  chat.length = 0; polls.clear(); wb.strokes = []; wb.open = false; notes.text = ""; notes.ts = 0; $("notesArea").value = "";
+  chat.length = 0; polls.clear(); qas.clear(); cohosts.clear(); unreadQa = 0; $("qaList").innerHTML = ""; wb.strokes = []; wb.open = false; notes.text = ""; notes.ts = 0; $("notesArea").value = "";
   recRemote.clear(); updateRecPill(); waiting = []; pinned = null; spotlight = null; handUp = false; hardMuted = false; unreadChat = 0; unreadPolls = 0; updateDots();
   $("btnHand").classList.remove("active-toggle"); $("sidePanel").classList.remove("open");
   if (!keepMedia) stopLocalStream();
