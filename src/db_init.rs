@@ -655,6 +655,13 @@ pub fn init_db(cfg: &DbConfig) -> Result<()> {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     )?;
 
+    // Fonctions de reunion de Viso (salle d'attente, verrouillage,
+    // planification) : colonnes ajoutees apres coup. `let _ =` : sur une
+    // base deja migree, MySQL repond "Duplicate column name" -- sans gravite.
+    let _ = conn.query_drop("ALTER TABLE `meet_rooms` ADD COLUMN `lobby` TINYINT NOT NULL DEFAULT 0");
+    let _ = conn.query_drop("ALTER TABLE `meet_rooms` ADD COLUMN `locked` TINYINT NOT NULL DEFAULT 0");
+    let _ = conn.query_drop("ALTER TABLE `meet_rooms` ADD COLUMN `scheduled_at` DATETIME DEFAULT NULL");
+
     eprintln!("[db_init] Base '{}' initialisée avec succès.", cfg.dbname);
     Ok(())
 }

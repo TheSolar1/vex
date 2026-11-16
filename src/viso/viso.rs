@@ -70,10 +70,22 @@ use tiny_http::{Header, Method, Request, Response};
 //   INDEX (`to_session`),
 //   INDEX (`room_id`)
 // ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+//
+// Colonnes ajoutees pour les fonctions de reunion (salle d'attente,
+// verrouillage, planification) -- creees par db_init.rs (ALTER TABLE) :
+//   meet_rooms.lobby        TINYINT  NOT NULL DEFAULT 0
+//   meet_rooms.locked       TINYINT  NOT NULL DEFAULT 0
+//   meet_rooms.scheduled_at DATETIME DEFAULT NULL
+// meet_participants.status vaut "connected" ou "waiting" (salle d'attente).
+// Le code ci-dessous tolere leur absence (base pas encore migree) : les
+// options sont alors simplement ignorees.
 
 const PAGE_HTML: &str = include_str!("../../static/viso/viso.html");
 
-const PAYLOAD_TYPES: &[&str] = &["offer", "answer", "ice", "bye", "renegotiate"];
+// "state" : etat micro/camera (etait envoye par le client mais refuse ici,
+// donc jamais relaye). "app" : message applicatif chiffre (repli quand le
+// canal de donnees pair-a-pair n'est pas encore ouvert).
+const PAYLOAD_TYPES: &[&str] = &["offer", "answer", "ice", "bye", "renegotiate", "state", "app"];
 const MAX_CIPHERTEXT_LEN: usize = 20_000;
 const SESSION_TIMEOUT_MINUTES: i64 = 2;
 const SIGNAL_RETENTION_MINUTES: i64 = 10;
@@ -234,6 +246,182 @@ fn render_page(
         ("REJOINT_SANS_CAMERA_MICRO", Cle::VisoRejointSansCameraMicro),
         ("EN_COMMUNICATION", Cle::VisoEnCommunication),
         ("ACCES_CAMERA_MICRO_REFUSE", Cle::VisoAccesCameraMicroRefuse),
+        // Fonctions de réunion (conversation, sondages, salle d'attente…)
+        ("ACTIVER", Cle::VisoNActiver),
+        ("ACTIVER_SALLE_ATTENTE", Cle::VisoNActiverSalleAttente),
+        ("ADMETTRE", Cle::VisoNAdmettre),
+        ("ADMETTRE_TOUT", Cle::VisoNAdmettreTout),
+        ("AFFICHAGE", Cle::VisoNAffichage),
+        ("AFFICHER_SOUS_TITRES", Cle::VisoNAfficherSousTitres),
+        ("ANNULER", Cle::VisoNAnnuler),
+        ("ANNULER_TRAIT", Cle::VisoNAnnulerTrait),
+        ("ARRETER_ENREGISTREMENT", Cle::VisoNArreterEnregistrement),
+        ("ARRETER_MISE_EN_AVANT", Cle::VisoNArreterMiseEnAvant),
+        ("ARRETER_SOUS_TITRES", Cle::VisoNArreterSousTitres),
+        ("ARRIVEE", Cle::VisoNArrivee),
+        ("ATTEND_DANS_SALLE_ATTENTE", Cle::VisoNAttendDansSalleAttente),
+        ("ATTENTE_TEXTE", Cle::VisoNAttenteTexte),
+        ("ATTENTE_TITRE", Cle::VisoNAttenteTitre),
+        ("AUCUNE_REUNION", Cle::VisoNAucuneReunion),
+        ("AUCUN_SONDAGE", Cle::VisoNAucunSondage),
+        ("AUTORISER_MICROS", Cle::VisoNAutoriserMicros),
+        ("A_LEVE_LA_MAIN", Cle::VisoNALeveLaMain),
+        ("A_QUITTE", Cle::VisoNAQuitte),
+        ("A_REJOINT", Cle::VisoNARejoint),
+        ("A_TOUT_LE_MONDE", Cle::VisoNAToutLeMonde),
+        ("BAISSER_LA_MAIN", Cle::VisoNBaisserLaMain),
+        ("BAISSER_TOUTES_LES_MAINS", Cle::VisoNBaisserToutesLesMains),
+        ("BANNIERE_ATTENTE", Cle::VisoNBanniereAttente),
+        ("BANNIERE_GROUPE", Cle::VisoNBanniereGroupe),
+        ("BANNIERE_GROUPES_OUVERTS", Cle::VisoNBanniereGroupesOuverts),
+        ("CAMERA_COUPEE", Cle::VisoNCameraCoupee),
+        ("CAMERA_COUPEE_PAR_ORGANISATEUR", Cle::VisoNCameraCoupeeParOrganisateur),
+        ("CAMERA_T", Cle::VisoNCameraT),
+        ("CHARGEMENT", Cle::VisoNChargement),
+        ("CHOISIR_DATE", Cle::VisoNChoisirDate),
+        ("CHOIX_MULTIPLES", Cle::VisoNChoixMultiples),
+        ("CLORE", Cle::VisoNClore),
+        ("COLLABORER", Cle::VisoNCollaborer),
+        ("CONFIRMER", Cle::VisoNConfirmer),
+        ("CONFIRMER_RETIRER", Cle::VisoNConfirmerRetirer),
+        ("CONFIRMER_SUPPRIMER_REUNION", Cle::VisoNConfirmerSupprimerReunion),
+        ("CONFIRMER_TERMINER", Cle::VisoNConfirmerTerminer),
+        ("CONNEXION_FAIBLE", Cle::VisoNConnexionFaible),
+        ("CONVERSATION", Cle::VisoNConversation),
+        ("COPIER_LE_LIEN", Cle::VisoNCopierLeLien),
+        ("COPIER_LIEN_INVITATION", Cle::VisoNCopierLienInvitation),
+        ("COUPER_SA_CAMERA", Cle::VisoNCouperSaCamera),
+        ("COUPER_SON_MICRO", Cle::VisoNCouperSonMicro),
+        ("COUPER_TOUS_LES_MICROS", Cle::VisoNCouperTousLesMicros),
+        ("DANS_LA_REUNION", Cle::VisoNDansLaReunion),
+        ("DATE_ET_HEURE", Cle::VisoNDateEtHeure),
+        ("DEMARRER", Cle::VisoNDemarrer),
+        ("DEPART", Cle::VisoNDepart),
+        ("DESACTIVER_SALLE_ATTENTE", Cle::VisoNDesactiverSalleAttente),
+        ("DESEPINGLER", Cle::VisoNDesepingler),
+        ("DEVERROUILLER_REUNION", Cle::VisoNDeverrouillerReunion),
+        ("DUREE_MINUTES", Cle::VisoNDureeMinutes),
+        ("ECRAN_DE", Cle::VisoNEcranDe),
+        ("ENREGISTREMENT_DEMARRE", Cle::VisoNEnregistrementDemarre),
+        ("ENREGISTREMENT_PAR", Cle::VisoNEnregistrementPar),
+        ("ENREGISTREMENT_TERMINE", Cle::VisoNEnregistrementTermine),
+        ("ENREGISTRER", Cle::VisoNEnregistrer),
+        ("ENREGISTRER_CONVERSATION", Cle::VisoNEnregistrerConversation),
+        ("ENTREE_REFUSEE", Cle::VisoNEntreeRefusee),
+        ("ENVOI_EN_GROUPE", Cle::VisoNEnvoiEnGroupe),
+        ("ENVOYER", Cle::VisoNEnvoyer),
+        ("EN_PRIVE_A", Cle::VisoNEnPriveA),
+        ("EPINGLER", Cle::VisoNEpingler),
+        ("ESPACE_MAINTENU", Cle::VisoNEspaceMaintenu),
+        ("FERMER", Cle::VisoNFermer),
+        ("FERMER_LES_GROUPES", Cle::VisoNFermerLesGroupes),
+        ("FERMER_TABLEAU_BLANC", Cle::VisoNFermerTableauBlanc),
+        ("FICHIER_TROP_GROS", Cle::VisoNFichierTropGros),
+        ("FLOU_ARRIERE_PLAN", Cle::VisoNFlouArrierePlan),
+        ("GERER", Cle::VisoNGerer),
+        ("GOMME", Cle::VisoNGomme),
+        ("GROUPES_EN_COURS", Cle::VisoNGroupesEnCours),
+        ("GROUPES_EXPLICATION", Cle::VisoNGroupesExplication),
+        ("GROUPES_FERMES", Cle::VisoNGroupesFermes),
+        ("GROUPES_OUVERTS", Cle::VisoNGroupesOuverts),
+        ("GROUPES_PERSONNE", Cle::VisoNGroupesPersonne),
+        ("HAUT_PARLEUR", Cle::VisoNHautParleur),
+        ("INCRUSTATION", Cle::VisoNIncrustation),
+        ("INTERDIRE_MICROS", Cle::VisoNInterdireMicros),
+        ("JOINDRE_FICHIER", Cle::VisoNJoindreFichier),
+        ("LANCER", Cle::VisoNLancer),
+        ("LEVER_LA_MAIN", Cle::VisoNLeverLaMain),
+        ("LIEN_COPIE", Cle::VisoNLienCopie),
+        ("MAINS_LEVEES", Cle::VisoNMainsLevees),
+        ("MASQUER_MA_VIGNETTE", Cle::VisoNMasquerMaVignette),
+        ("MASQUER_SOUS_TITRES", Cle::VisoNMasquerSousTitres),
+        ("MESSAGE_PRIVE", Cle::VisoNMessagePrive),
+        ("MES_REUNIONS", Cle::VisoNMesReunions),
+        ("METTRE_EN_AVANT", Cle::VisoNMettreEnAvant),
+        ("MICROPHONE", Cle::VisoNMicrophone),
+        ("MICROS_AUTORISES", Cle::VisoNMicrosAutorises),
+        ("MICROS_COUPES", Cle::VisoNMicrosCoupes),
+        ("MICROS_DESACTIVES_PAR_ORGANISATEUR", Cle::VisoNMicrosDesactivesParOrganisateur),
+        ("MICROS_INTERDITS", Cle::VisoNMicrosInterdits),
+        ("MICRO_COUPE_PAR_ORGANISATEUR", Cle::VisoNMicroCoupeParOrganisateur),
+        ("MICRO_T", Cle::VisoNMicroT),
+        ("MIROIR", Cle::VisoNMiroir),
+        ("NOM", Cle::VisoNNom),
+        ("NOMBRE_DE_SALLES", Cle::VisoNNombreDeSalles),
+        ("NON", Cle::VisoNNon),
+        ("NON_DISPONIBLE", Cle::VisoNNonDisponible),
+        ("NON_DISPONIBLE_APPAREIL", Cle::VisoNNonDisponibleAppareil),
+        ("NOTES", Cle::VisoNNotes),
+        ("NOTES_PARTAGEES", Cle::VisoNNotesPartagees),
+        ("NOUVEAU_SONDAGE", Cle::VisoNNouveauSondage),
+        ("NOUVEAU_SONDAGE_DE", Cle::VisoNNouveauSondageDe),
+        ("N_PARTICIPANTS", Cle::VisoNNParticipants),
+        ("OPTIONS_UNE_PAR_LIGNE", Cle::VisoNOptionsUneParLigne),
+        ("OPTION_SALLE_ATTENTE", Cle::VisoNOptionSalleAttente),
+        ("ORGANISATEUR", Cle::VisoNOrganisateur),
+        ("OUI", Cle::VisoNOui),
+        ("OUVRIR_LES_SALLES", Cle::VisoNOuvrirLesSalles),
+        ("PARAMETRES", Cle::VisoNParametres),
+        ("PARLER_TEMPORAIREMENT", Cle::VisoNParlerTemporairement),
+        ("PARTAGER_ECRAN_T", Cle::VisoNPartagerEcranT),
+        ("PARTAGE_SON_ECRAN", Cle::VisoNPartageSonEcran),
+        ("PARTICIPANTS", Cle::VisoNParticipants),
+        ("PAR_DEFAUT", Cle::VisoNParDefaut),
+        ("PERIPHERIQUE_INDISPONIBLE", Cle::VisoNPeripheriqueIndisponible),
+        ("PLANIFIER", Cle::VisoNPlanifier),
+        ("PLANIFIER_PLUS_TARD", Cle::VisoNPlanifierPlusTard),
+        ("PLEIN_ECRAN", Cle::VisoNPleinEcran),
+        ("PLUS", Cle::VisoNPlus),
+        ("PRIVE", Cle::VisoNPrive),
+        ("QUESTION", Cle::VisoNQuestion),
+        ("QUITTER_T", Cle::VisoNQuitterT),
+        ("RACCOURCIS_CLAVIER", Cle::VisoNRaccourcisClavier),
+        ("RAPPORT_DE_PRESENCE", Cle::VisoNRapportDePresence),
+        ("REACTIONS", Cle::VisoNReactions),
+        ("REFUSER", Cle::VisoNRefuser),
+        ("REJOINDRE", Cle::VisoNRejoindre),
+        ("REJOINDRE_CODE", Cle::VisoNRejoindreCode),
+        ("REJOINDRE_MAINTENANT", Cle::VisoNRejoindreMaintenant),
+        ("RETIRER_DE_LA_REUNION", Cle::VisoNRetirerDeLaReunion),
+        ("RETOUR_ACCUEIL", Cle::VisoNRetourAccueil),
+        ("REUNION", Cle::VisoNReunion),
+        ("REUNION_DEVERROUILLEE", Cle::VisoNReunionDeverrouillee),
+        ("REUNION_PLANIFIEE", Cle::VisoNReunionPlanifiee),
+        ("REUNION_TERMINEE", Cle::VisoNReunionTerminee),
+        ("REUNION_TERMINEE_OU_RETIRE", Cle::VisoNReunionTermineeOuRetire),
+        ("REUNION_VERROUILLEE", Cle::VisoNReunionVerrouillee),
+        ("REVENIR_REUNION_PRINCIPALE", Cle::VisoNRevenirReunionPrincipale),
+        ("SALLES_PETITS_GROUPES", Cle::VisoNSallesPetitsGroupes),
+        ("SALLE_ATTENTE", Cle::VisoNSalleAttente),
+        ("SALLE_ATTENTE_ACTIVEE", Cle::VisoNSalleAttenteActivee),
+        ("SALLE_ATTENTE_DESACTIVEE", Cle::VisoNSalleAttenteDesactivee),
+        ("SALLE_N", Cle::VisoNSalleN),
+        ("SONDAGES", Cle::VisoNSondages),
+        ("SONDAGE_CLOS", Cle::VisoNSondageClos),
+        ("SONDAGE_INCOMPLET", Cle::VisoNSondageIncomplet),
+        ("SONDAGE_INFO", Cle::VisoNSondageInfo),
+        ("SOUS_TITRES", Cle::VisoNSousTitres),
+        ("SOUS_TITRES_ACTIFS", Cle::VisoNSousTitresActifs),
+        ("SOUS_TITRES_ARRETES", Cle::VisoNSousTitresArretes),
+        ("SOUS_TITRES_AVIS", Cle::VisoNSousTitresAvis),
+        ("SOUS_TITRES_NON_DISPONIBLES", Cle::VisoNSousTitresNonDisponibles),
+        ("SUPPRESSION_BRUIT", Cle::VisoNSuppressionBruit),
+        ("SUPPRIMER", Cle::VisoNSupprimer),
+        ("TABLEAU_BLANC", Cle::VisoNTableauBlanc),
+        ("TABLEAU_OUVERT_PAR", Cle::VisoNTableauOuvertPar),
+        ("TELECHARGER", Cle::VisoNTelecharger),
+        ("TELECHARGER_TRANSCRIPTION", Cle::VisoNTelechargerTranscription),
+        ("TERMINER_POUR_TOUS", Cle::VisoNTerminerPourTous),
+        ("TOUT_EFFACER", Cle::VisoNToutEffacer),
+        ("TRAIT_EPAIS", Cle::VisoNTraitEpais),
+        ("TRAIT_FIN", Cle::VisoNTraitFin),
+        ("TRANSCRIPTION_VIDE", Cle::VisoNTranscriptionVide),
+        ("VERROUILLEE", Cle::VisoNVerrouillee),
+        ("VERROUILLER_REUNION", Cle::VisoNVerrouillerReunion),
+        ("VOIR", Cle::VisoNVoir),
+        ("VOUS_AVEZ_ETE_RETIRE", Cle::VisoNVousAvezEteRetire),
+        ("VUE_GALERIE", Cle::VisoNVueGalerie),
+        ("VUE_ORATEUR", Cle::VisoNVueOrateur),
     ]);
     let page = page.replacen("{{I18N_JS}}", &i18n_js, 1);
 
@@ -418,6 +606,8 @@ pub fn creer_salle(
     is_public: bool,
     password: Option<&str>,
     max_participants: i64,
+    lobby: bool,
+    scheduled_at: Option<&str>,
 ) -> Value {
     let _ = (remote_ip, user_agent);
     let Some((user_id, _nom, _priv)) = auth_viso(pool, cookie_val) else {
@@ -478,13 +668,25 @@ pub fn creer_salle(
         return erreur(i18n::t(langue, Cle::VisoErreurCreationSalle));
     }
 
+    // Options de reunion : mises a jour separement pour que la creation
+    // reussisse meme si la base n'a pas encore les nouvelles colonnes.
+    let planifie = scheduled_at.and_then(normaliser_date);
+    if lobby {
+        inserer_ou_modifier(pool, "meet_rooms", &[("lobby", mysql::Value::from(1i64))], &[("id", mysql::Value::from(id))]);
+    }
+    if let Some(d) = planifie.as_deref() {
+        inserer_ou_modifier(pool, "meet_rooms", &[("scheduled_at", mysql::Value::from(d))], &[("id", mysql::Value::from(id))]);
+    }
+
     json!({
         "success": true,
         "data": {
             "room_id": id,
             "room_code": room_code,
             "title": title,
-            "max_participants": max_participants
+            "max_participants": max_participants,
+            "lobby": lobby,
+            "scheduled_at": planifie
         }
     })
 }
@@ -539,6 +741,15 @@ pub fn rejoindre_salle(
         }
     }
 
+    let creator_id = room.get("creator_id").and_then(|v| v.as_i64()).unwrap_or(-1);
+    let est_hote = creator_id == user_id;
+    let verrouillee = room.get("locked").and_then(|v| v.as_i64()) == Some(1);
+    let salle_attente = room.get("lobby").and_then(|v| v.as_i64()) == Some(1);
+    if verrouillee && !est_hote {
+        return erreur(i18n::t(langue, Cle::VisoErreurReunionVerrouillee));
+    }
+
+    purger_inactifs(pool, room_id);
     let max_p = room
         .get("max_participants")
         .and_then(|v| v.as_i64())
@@ -548,6 +759,9 @@ pub fn rejoindre_salle(
         return erreur(i18n::t(langue, Cle::VisoErreurSallePleine));
     }
 
+    // Salle d'attente : tout le monde sauf l'organisateur patiente jusqu'a
+    // ce que celui-ci l'admette (action "admettre").
+    let en_attente = salle_attente && !est_hote;
     let inserted = inserer_ou_modifier(
         pool,
         "meet_participants",
@@ -557,7 +771,8 @@ pub fn rejoindre_salle(
             ("session_id", mysql::Value::from(session_id)),
             ("nom", mysql::Value::from(nom.as_str())),
             ("x25519_pub", mysql::Value::from(x25519_pub_b64)),
-            ("status", mysql::Value::from("connected")),
+            ("status", mysql::Value::from(if en_attente { "waiting" } else { "connected" })),
+            ("last_seen", mysql::Value::from(maintenant_local())),
         ],
         &[],
     );
@@ -565,7 +780,7 @@ pub fn rejoindre_salle(
         return erreur(i18n::t(langue, Cle::VisoErreurImpossibleRejoindreDb));
     }
 
-    let autres = lister_participants(pool, room_id, Some(session_id));
+    let autres = if en_attente { vec![] } else { lister_participants(pool, room_id, Some(session_id)) };
 
     // FIX (point 4) : on renvoie le pseudo réel de l'utilisateur courant
     // (`your_nom`) au client, pour que la vignette locale affiche son nom
@@ -576,9 +791,75 @@ pub fn rejoindre_salle(
             "room_id": room_id,
             "title": room.get("title").cloned().unwrap_or(json!("")),
             "your_nom": nom,
+            "your_user_id": user_id,
+            "host_user_id": creator_id,
+            "is_host": est_hote,
+            "lobby": salle_attente,
+            "locked": verrouillee,
+            "waiting": en_attente,
             "participants": autres
         }
     })
+}
+
+fn maintenant_local() -> String {
+    chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+}
+
+/// Accepte "AAAA-MM-JJTHH:MM" (champ datetime-local) ou "AAAA-MM-JJ HH:MM[:SS]"
+/// et renvoie "AAAA-MM-JJ HH:MM:SS" ; None si la date est invalide.
+fn normaliser_date(s: &str) -> Option<String> {
+    let t = s.trim().replace('T', " ");
+    if t.is_empty() {
+        return None;
+    }
+    for f in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"] {
+        if let Ok(d) = chrono::NaiveDateTime::parse_from_str(&t, f) {
+            return Some(d.format("%Y-%m-%d %H:%M:%S").to_string());
+        }
+    }
+    None
+}
+
+/// Age en secondes d'une date "AAAA-MM-JJ HH:MM:SS" (heure locale du
+/// serveur) ; None si elle est illisible -- dans le doute on ne purge pas.
+fn age_secondes(date: &str) -> Option<i64> {
+    let d = chrono::NaiveDateTime::parse_from_str(date.trim(), "%Y-%m-%d %H:%M:%S").ok()?;
+    Some(chrono::Local::now().naive_local().signed_duration_since(d).num_seconds())
+}
+
+/// Retire les participants dont le navigateur ne donne plus signe de vie
+/// (onglet ferme sans "quitter", coupure reseau) : sans cela ils restaient
+/// "connected" indefiniment, comptaient dans max_participants et laissaient
+/// des vignettes fantomes. Le client envoie un heartbeat toutes les 25 s.
+fn purger_inactifs(pool: &DbPool, room_id: i64) {
+    let lignes = selectionner(
+        pool,
+        "meet_participants",
+        &[("room_id", mysql::Value::from(room_id))],
+        &["session_id", "last_seen"],
+        None,
+        None,
+    );
+    for l in lignes {
+        let vu = l.get("last_seen").and_then(|v| v.as_str()).unwrap_or("");
+        if age_secondes(vu).map(|a| a > SESSION_TIMEOUT_MINUTES * 60).unwrap_or(false) {
+            if let Some(sid) = l.get("session_id").and_then(|v| v.as_str()) {
+                supprimer_ligne(pool, "meet_participants", "session_id", mysql::Value::from(sid));
+            }
+        }
+    }
+    // Signaux jamais recuperes (destinataire parti) : menage par la meme occasion.
+    if let Ok(mut conn) = pool.get_conn() {
+        use mysql::prelude::Queryable;
+        let limite = (chrono::Local::now() - chrono::Duration::minutes(SIGNAL_RETENTION_MINUTES))
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string();
+        let _ = conn.exec_drop(
+            "DELETE FROM `meet_signaling` WHERE room_id = ? AND created_at < ?",
+            (room_id, limite),
+        );
+    }
 }
 
 fn compter_participants_actifs(pool: &DbPool, room_id: i64) -> i64 {
@@ -717,12 +998,182 @@ pub fn heartbeat(pool: &DbPool, session_id: &str) -> bool {
     inserer_ou_modifier(
         pool,
         "meet_participants",
-        &[(
-            "last_seen",
-            mysql::Value::from(chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()),
-        )],
+        &[("last_seen", mysql::Value::from(maintenant_local()))],
         &[("session_id", mysql::Value::from(session_id))],
     ) >= 0
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 5 bis. FONCTIONS DE RÉUNION : salle d'attente, verrouillage,
+// exclusion, réunions planifiées. Les actions d'organisateur exigent le
+// cookie du créateur de la salle (ou un administrateur).
+// ══════════════════════════════════════════════════════════════════
+
+/// Renvoie la salle si le cookie est celui de son créateur (ou d'un admin).
+fn salle_si_organisateur(pool: &DbPool, cookie_val: &str, room_id: i64) -> Option<HashMap<String, Value>> {
+    let (user_id, _nom, privilege) = auth_viso(pool, cookie_val)?;
+    let room = selectionner(pool, "meet_rooms", &[("id", mysql::Value::from(room_id))], &[], None, Some(1))
+        .into_iter()
+        .next()?;
+    let creator_id = room.get("creator_id").and_then(|v| v.as_i64()).unwrap_or(-1);
+    if creator_id == user_id || privilege <= 2 {
+        Some(room)
+    } else {
+        None
+    }
+}
+
+/// État d'une session en salle d'attente (appelé en boucle par le client
+/// qui patiente) : "waiting", "admitted" (avec la liste des participants)
+/// ou "refused" (ligne supprimée par l'organisateur, ou salle fermée).
+pub fn etat_attente(pool: &DbPool, session_id: &str) -> Value {
+    let ligne = selectionner(
+        pool,
+        "meet_participants",
+        &[("session_id", mysql::Value::from(session_id))],
+        &["room_id", "status"],
+        None,
+        Some(1),
+    )
+    .into_iter()
+    .next();
+    let Some(l) = ligne else {
+        return json!({"success": true, "data": {"etat": "refused"}});
+    };
+    heartbeat(pool, session_id);
+    let room_id = l.get("room_id").and_then(|v| v.as_i64()).unwrap_or(0);
+    if l.get("status").and_then(|v| v.as_str()) == Some("connected") {
+        json!({"success": true, "data": {"etat": "admitted", "participants": lister_participants(pool, room_id, Some(session_id))}})
+    } else {
+        json!({"success": true, "data": {"etat": "waiting"}})
+    }
+}
+
+pub fn lister_attente(pool: &DbPool, cookie_val: &str, room_id: i64) -> Value {
+    if salle_si_organisateur(pool, cookie_val, room_id).is_none() {
+        return erreur("Réservé à l'organisateur.");
+    }
+    purger_inactifs(pool, room_id);
+    let attente = selectionner(
+        pool,
+        "meet_participants",
+        &[("room_id", mysql::Value::from(room_id)), ("status", mysql::Value::from("waiting"))],
+        &["session_id", "nom", "joined_at"],
+        Some("joined_at ASC"),
+        None,
+    );
+    json!({"success": true, "data": {"attente": attente}})
+}
+
+/// Admet (`admettre` = true) ou refuse une session en attente ; `cible`
+/// vaut un session_id ou "*" pour toutes les sessions en attente.
+pub fn decider_attente(pool: &DbPool, cookie_val: &str, room_id: i64, cible: &str, admettre: bool) -> Value {
+    if salle_si_organisateur(pool, cookie_val, room_id).is_none() {
+        return erreur("Réservé à l'organisateur.");
+    }
+    let attente = selectionner(
+        pool,
+        "meet_participants",
+        &[("room_id", mysql::Value::from(room_id)), ("status", mysql::Value::from("waiting"))],
+        &["session_id"],
+        None,
+        None,
+    );
+    let mut n = 0;
+    for l in attente {
+        let Some(sid) = l.get("session_id").and_then(|v| v.as_str()) else { continue };
+        if cible != "*" && cible != sid {
+            continue;
+        }
+        if admettre {
+            inserer_ou_modifier(
+                pool,
+                "meet_participants",
+                &[("status", mysql::Value::from("connected")), ("last_seen", mysql::Value::from(maintenant_local()))],
+                &[("session_id", mysql::Value::from(sid))],
+            );
+        } else {
+            supprimer_ligne(pool, "meet_participants", "session_id", mysql::Value::from(sid));
+        }
+        n += 1;
+    }
+    json!({"success": true, "data": {"nombre": n}})
+}
+
+/// Retire un participant de la réunion (son session_id devient invalide :
+/// il ne peut plus ni émettre ni recevoir de signalisation).
+pub fn exclure(pool: &DbPool, cookie_val: &str, room_id: i64, cible: &str) -> Value {
+    if salle_si_organisateur(pool, cookie_val, room_id).is_none() {
+        return erreur("Réservé à l'organisateur.");
+    }
+    let dans_la_salle = compter_lignes(
+        pool,
+        "meet_participants",
+        &[("room_id", mysql::Value::from(room_id)), ("session_id", mysql::Value::from(cible))],
+    ) > 0;
+    if !dans_la_salle {
+        return erreur("Participant inconnu dans cette salle.");
+    }
+    supprimer_ligne(pool, "meet_participants", "session_id", mysql::Value::from(cible));
+    if let Ok(mut conn) = pool.get_conn() {
+        use mysql::prelude::Queryable;
+        let _ = conn.exec_drop(
+            "DELETE FROM `meet_signaling` WHERE from_session = ? OR to_session = ?",
+            (cible, cible),
+        );
+    }
+    json!({"success": true})
+}
+
+/// Active/désactive la salle d'attente et le verrouillage de la réunion.
+pub fn definir_options(pool: &DbPool, cookie_val: &str, room_id: i64, lobby: Option<bool>, locked: Option<bool>) -> Value {
+    if salle_si_organisateur(pool, cookie_val, room_id).is_none() {
+        return erreur("Réservé à l'organisateur.");
+    }
+    let mut ok = true;
+    if let Some(v) = lobby {
+        ok &= inserer_ou_modifier(pool, "meet_rooms", &[("lobby", mysql::Value::from(v as i64))], &[("id", mysql::Value::from(room_id))]) >= 0;
+    }
+    if let Some(v) = locked {
+        ok &= inserer_ou_modifier(pool, "meet_rooms", &[("locked", mysql::Value::from(v as i64))], &[("id", mysql::Value::from(room_id))]) >= 0;
+    }
+    if ok {
+        json!({"success": true})
+    } else {
+        erreur("Option indisponible : la base de données doit être mise à jour (redémarrer VEX).")
+    }
+}
+
+/// Réunions actives créées par l'utilisateur (onglet « Mes réunions »).
+pub fn mes_salles(pool: &DbPool, cookie_val: &str, langue: &str) -> Value {
+    let Some((user_id, _nom, _priv)) = auth_viso(pool, cookie_val) else {
+        return erreur(i18n::t(langue, Cle::VisoErreurSessionExpiree));
+    };
+    let salles: Vec<Value> = selectionner(
+        pool,
+        "meet_rooms",
+        &[("creator_id", mysql::Value::from(user_id)), ("is_active", mysql::Value::from(1i64))],
+        &[],
+        Some("id DESC"),
+        Some(50),
+    )
+    .into_iter()
+    .map(|r| {
+        let id = r.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+        json!({
+            "room_id": id,
+            "room_code": r.get("room_code").cloned().unwrap_or(json!("")),
+            "title": r.get("title").cloned().unwrap_or(json!("")),
+            "created_at": r.get("created_at").cloned().unwrap_or(Value::Null),
+            "scheduled_at": r.get("scheduled_at").cloned().unwrap_or(Value::Null),
+            "require_password": r.get("require_password").and_then(|v| v.as_i64()) == Some(1),
+            "lobby": r.get("lobby").and_then(|v| v.as_i64()) == Some(1),
+            "locked": r.get("locked").and_then(|v| v.as_i64()) == Some(1),
+            "participants": compter_participants_actifs(pool, id)
+        })
+    })
+    .collect();
+    json!({"success": true, "data": {"salles": salles}})
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -840,6 +1291,8 @@ pub fn handle_viso_action(
                 .get("max_participants")
                 .and_then(|v| v.parse::<i64>().ok())
                 .unwrap_or(8),
+            params.get("lobby").map(|v| v == "1").unwrap_or(false),
+            params.get("scheduled_at").map(|s| s.as_str()).filter(|s| !s.is_empty()),
         ),
 
         "rejoindre_salle" => {
@@ -964,8 +1417,43 @@ pub fn handle_viso_action(
             if !participant_de_cette_salle {
                 return erreur(i18n::t(langue, Cle::VisoErreurSessionExpiree));
             }
-            json!({"success": true, "data": {"participants": lister_participants(pool, room_id, None)}})
+            heartbeat(pool, sid);
+            purger_inactifs(pool, room_id);
+            // Etat de la salle : permet a chaque client d'afficher le
+            // verrouillage / la salle d'attente sans appel supplementaire.
+            let salle = selectionner(pool, "meet_rooms", &[("id", mysql::Value::from(room_id))], &[], None, Some(1)).into_iter().next();
+            let drapeau = |nom: &str| salle.as_ref().and_then(|r| r.get(nom)).and_then(|v| v.as_i64()) == Some(1);
+            json!({"success": true, "data": {
+                "participants": lister_participants(pool, room_id, None),
+                "lobby": drapeau("lobby"),
+                "locked": drapeau("locked")
+            }})
         }
+
+        "etat_attente" => {
+            let Some(sid) = params.get("session_id") else {
+                return erreur("session_id manquant.");
+            };
+            etat_attente(pool, sid)
+        }
+
+        "lister_attente" | "admettre" | "refuser" | "exclure" | "definir_options" => {
+            let Some(room_id) = params.get("room_id").and_then(|v| v.parse::<i64>().ok()) else {
+                return erreur("room_id manquant.");
+            };
+            let cible = params.get("cible").map(|s| s.as_str()).unwrap_or("");
+            let bascule = |nom: &str| params.get(nom).map(|v| v == "1");
+            match action {
+                "lister_attente" => lister_attente(pool, cookie_val, room_id),
+                "definir_options" => definir_options(pool, cookie_val, room_id, bascule("lobby"), bascule("locked")),
+                _ if cible.is_empty() => erreur("Paramètres manquants."),
+                "admettre" => decider_attente(pool, cookie_val, room_id, cible, true),
+                "refuser" => decider_attente(pool, cookie_val, room_id, cible, false),
+                _ => exclure(pool, cookie_val, room_id, cible),
+            }
+        }
+
+        "mes_salles" => mes_salles(pool, cookie_val, langue),
 
         _ => erreur("Action inconnue."),
     }
@@ -1045,6 +1533,36 @@ pub fn ice_servers(visio: Option<&Value>, uid: i64) -> Value {
         }
     }
     Value::Array(serveurs)
+}
+
+#[cfg(test)]
+mod tests_reunion {
+    use super::*;
+
+    #[test]
+    fn dates_planifiees() {
+        assert_eq!(normaliser_date("2026-11-20T14:30").as_deref(), Some("2026-11-20 14:30:00"));
+        assert_eq!(normaliser_date("2026-11-20 14:30:05").as_deref(), Some("2026-11-20 14:30:05"));
+        assert_eq!(normaliser_date("demain"), None);
+        assert_eq!(normaliser_date(""), None);
+    }
+
+    #[test]
+    fn age_des_sessions() {
+        let il_y_a_5_min = (chrono::Local::now() - chrono::Duration::minutes(5)).format("%Y-%m-%d %H:%M:%S").to_string();
+        let a = age_secondes(&il_y_a_5_min).unwrap();
+        assert!((295..=305).contains(&a));
+        // date illisible : pas d'age, donc jamais de purge par erreur
+        assert_eq!(age_secondes("n'importe quoi"), None);
+    }
+
+    #[test]
+    fn types_de_signal() {
+        for t in ["offer", "answer", "ice", "bye", "state", "app"] {
+            assert!(PAYLOAD_TYPES.contains(&t));
+        }
+        assert!(!PAYLOAD_TYPES.contains(&"autre"));
+    }
 }
 
 #[cfg(test)]
