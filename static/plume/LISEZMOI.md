@@ -16,4 +16,4 @@ Aucun lien n'y mène depuis l'interface de VEX : c'est une mise en test.
   `texte.html`, `presentation.html`, `tableur.html`, `dist/*.js`,
   `dist/*.css`).
 
-Source : dépôt `plume`, commit 0dfaa75.
+Source : dépôt `plume`, commit 755caa3.
